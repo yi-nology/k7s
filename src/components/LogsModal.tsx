@@ -1,51 +1,91 @@
-import { useEffect, useState } from "react";
-import { api } from "../lib/tauri";
+/**
+ * LogsModal — live pod log viewer.
+ *
+ * Opens a streaming connection via `provider.startLogStream` and
+ * renders lines as they arrive. Closes on Esc or click-outside.
+ *
+ * Keeps a bounded buffer (last N lines) so a chatty container doesn't
+ * OOM the renderer.
+ */
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+import { provider } from "../providers";
+import type { LogHandle, LogLine, Row } from "../providers/types";
 
 interface LogsModalProps {
-  name: string;
-  namespace: string;
-  /** Comma-separated container names from PodRow.containers. */
-  containers: string;
+  row: Row;
+  /** Container to stream from (or null for "any" — k8s returns the first). */
+  container: string | null;
   onClose: () => void;
 }
 
-export function LogsModal({ name, namespace, containers, onClose }: LogsModalProps) {
-  const containerList = containers
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const [container, setContainer] = useState<string>(containerList[0] ?? "");
-  const [tail, setTail] = useState(200);
-  const [previous, setPrevious] = useState(false);
-  const [timestamps, setTimestamps] = useState(false);
-  const [logs, setLogs] = useState<string>("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const MAX_LINES = 5000;
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const text = await api.getPodLogs(name, namespace, {
-        container: container || null,
-        tail_lines: tail,
-        previous,
-        timestamps,
-      });
-      setLogs(text);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
+export function LogsModal({ row, container, onClose }: LogsModalProps) {
+  const [lines, setLines] = useState<LogLine[]>([]);
+  const [status, setStatus] = useState<string>("starting…");
+  const [paused, setPaused] = useState(false);
+  const [closed, setClosed] = useState(false);
+  const handleRef = useRef<LogHandle | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const stickToBottomRef = useRef(true);
 
+  // Start the stream on mount, stop on unmount.
   useEffect(() => {
-    fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, namespace, container, tail, previous, timestamps]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const h = await provider.startLogStream(
+          { kind: "Pod", namespace: row.namespace, name: row.name },
+          container,
+          { tail: 200 },
+          (line) => {
+            if (cancelled) return;
+            setLines((prev) => {
+              const next = prev.length >= MAX_LINES ? prev.slice(-MAX_LINES + 1) : prev;
+              return [...next, line];
+            });
+          },
+          (reason) => {
+            if (cancelled) return;
+            setClosed(true);
+            setStatus(`closed: ${reason}`);
+          },
+        );
+        if (cancelled) {
+          h.stop();
+          return;
+        }
+        handleRef.current = h;
+        setStatus(`streaming (${container ?? "any container"})`);
+      } catch (e) {
+        if (cancelled) return;
+        setStatus(`error: ${e}`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      handleRef.current?.stop();
+    };
+  }, [row.name, row.namespace, container]);
 
-  // Esc closes
+  // Auto-scroll unless the user scrolled up.
+  useEffect(() => {
+    if (paused) return;
+    if (!stickToBottomRef.current) return;
+    const el = scrollerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [lines, paused]);
+
+  const onScroll = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    stickToBottomRef.current = atBottom;
+  }, []);
+
+  // Esc closes.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -56,89 +96,87 @@ export function LogsModal({ name, namespace, containers, onClose }: LogsModalPro
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
+      <div className="modal modal-logs" onClick={(e) => e.stopPropagation()}>
+        <header className="modal-header">
           <div className="modal-title">
-            <span className="modal-kind">Logs</span>
-            <span className="modal-name">{name}</span>
-            <span className="modal-ns">· {namespace}</span>
+            <span className="modal-kind">Pod logs</span>
+            <span className="modal-name">{row.name}</span>
+            {container && <span className="modal-sub">/{container}</span>}
           </div>
-          <button className="iconbtn" onClick={onClose} title="Close (Esc)">
-            ✕
-          </button>
-        </div>
-        <div className="modal-toolbar">
-          {containerList.length > 0 && (
-            <label className="toolbar-field">
-              <span>container</span>
-              <select
-                className="select"
-                value={container}
-                onChange={(e) => setContainer(e.target.value)}
-              >
-                {containerList.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label className="toolbar-field">
-            <span>tail</span>
-            <input
-              className="input input-narrow"
-              type="number"
-              min={1}
-              max={10000}
-              value={tail}
-              onChange={(e) => setTail(Number(e.target.value) || 1)}
-            />
-          </label>
-          <label className="toolbar-check">
-            <input
-              type="checkbox"
-              checked={previous}
-              onChange={(e) => setPrevious(e.target.checked)}
-            />
-            previous
-          </label>
-          <label className="toolbar-check">
-            <input
-              type="checkbox"
-              checked={timestamps}
-              onChange={(e) => setTimestamps(e.target.checked)}
-            />
-            timestamps
-          </label>
-          <button
-            className="btn"
-            onClick={fetchLogs}
-            disabled={loading}
-            title="Re-fetch (r)"
-          >
-            {loading ? "Loading…" : "Refresh"}
-          </button>
-        </div>
-        <div className="modal-body">
-          {error ? (
-            <div className="error-block">
-              <div className="error-title">⚠ Failed to load logs</div>
-              <pre className="error-body">{error}</pre>
+          <div className="modal-actions">
+            <button
+              className="iconbtn"
+              onClick={() => setPaused((p) => !p)}
+              title={paused ? "Resume auto-scroll" : "Pause auto-scroll"}
+            >
+              {paused ? "▶" : "⏸"}
+            </button>
+            <button
+              className="iconbtn"
+              onClick={() => {
+                const text = lines
+                  .map((l) => (l.ts ? `${l.ts}  ${l.msg}` : l.msg))
+                  .join("\n");
+                const blob = new Blob([text], { type: "text/plain" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${row.name}.log`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              title="Download"
+            >
+              ⤓
+            </button>
+            <button className="iconbtn" onClick={onClose} title="Close (Esc)">
+              ✕
+            </button>
+          </div>
+        </header>
+        <div className="modal-statusbar">{status}{closed ? "" : ""}</div>
+        <div className="logs-viewport" ref={scrollerRef} onScroll={onScroll}>
+          {lines.map((l, i) => (
+            <div key={i} className="log-line">
+              {l.ts && <span className="log-ts tone-muted">{l.ts}</span>}
+              {l.level && (
+                <span
+                  className={`log-level tone-${levelTone(l.level)}`}
+                >
+                  {padLevel(l.level)}
+                </span>
+              )}
+              <span className="log-msg">{l.msg}</span>
             </div>
-          ) : (
-            <pre className="yaml logs-view">{logs || (loading ? "" : "(no log lines returned)")}</pre>
+          ))}
+          {lines.length === 0 && (
+            <div className="log-empty tone-muted">
+              {status.startsWith("error") ? status : "Waiting for first line…"}
+            </div>
           )}
-        </div>
-        <div className="modal-footer">
-          <span className="footer-hint">
-            {loading ? "loading…" : `${logs.split("\n").length - 1} lines`}
-          </span>
-          <button className="btn" onClick={onClose}>
-            Close
-          </button>
         </div>
       </div>
     </div>
   );
+}
+
+function padLevel(s: string): string {
+  return s.length >= 5 ? s : s + " ".repeat(5 - s.length);
+}
+
+function levelTone(s: string): string {
+  switch (s) {
+    case "ERROR":
+    case "FATAL":
+      return "err";
+    case "WARN":
+    case "WARNING":
+      return "warn";
+    case "INFO":
+    case "DEBUG":
+    case "TRACE":
+      return "secondary";
+    default:
+      return "muted";
+  }
 }

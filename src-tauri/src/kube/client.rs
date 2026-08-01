@@ -1,48 +1,61 @@
-//! Kubernetes client + kubeconfig helpers.
+//! `kube::Client` construction from a kubeconfig context.
+//!
+//! This is the only place that touches `Kubeconfig::read` /
+//! `Config::from_custom_kubeconfig`. Everything else goes through
+//! `ClientManager`.
+//!
+//! Kept thin on purpose: it answers one question — "give me a client for
+//! context X". It does not manage the lifetime (that's `manager.rs`).
+
+use std::path::Path;
 
 use anyhow::{Context, Result};
 use kube::config::Kubeconfig;
 use serde::Serialize;
 
-/// Lightweight description of a kubeconfig context for the UI.
+use super::dto;
+
+/// What we tell the UI about each context in `~/.kube/config`.
 #[derive(Debug, Clone, Serialize)]
 pub struct ContextInfo {
     pub name: String,
     pub cluster: String,
     pub user: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub namespace: Option<String>,
     pub is_current: bool,
 }
 
-/// Load and parse the default kubeconfig (`~/.kube/config` or `KUBECONFIG`).
+/// Read and parse the default kubeconfig (`~/.kube/config` or `KUBECONFIG`).
 pub fn load_kubeconfig() -> Result<Kubeconfig> {
     Kubeconfig::read().context("failed to read kubeconfig")
 }
 
+/// Variant that also accepts an explicit path, for "import kubeconfig".
+pub fn load_kubeconfig_from(path: &Path) -> Result<Kubeconfig> {
+    Kubeconfig::from_yaml(
+        &std::fs::read_to_string(path)
+            .with_context(|| format!("failed to read {}", path.display()))?,
+    )
+    .with_context(|| format!("failed to parse {}", path.display()))
+}
+
 /// Convert a parsed kubeconfig into UI-friendly `ContextInfo`s.
-pub fn summarize_contexts(kc: &Kubeconfig) -> Vec<ContextInfo> {
+pub fn summarize_contexts(kc: &Kubeconfig) -> Vec<dto::ContextInfo> {
     let current = kc.current_context.clone();
-    let mut out: Vec<ContextInfo> = kc
+    let mut out: Vec<dto::ContextInfo> = kc
         .contexts
         .iter()
         .map(|ctx| {
-            // NamedContext shape varies between kube versions; this destructuring
-            // accommodates both `String` and `Option<String>` for the optional fields.
             let (cluster, user, namespace) = match ctx.context.as_ref() {
-                Some(c) => {
-                    let cluster = c.cluster.clone();
-                    let user = c.user.clone();
-                    let namespace = c.namespace.clone();
-                    // If user is Option<String>, unwrap or use empty; if it's String, keep it.
-                    let user = match user {
-                        Some(u) => u,
-                        None => String::new(),
-                    };
-                    (cluster, user, namespace)
-                }
+                Some(c) => (
+                    c.cluster.clone(),
+                    c.user.clone().unwrap_or_default(),
+                    c.namespace.clone(),
+                ),
                 None => (String::new(), String::new(), None),
             };
-            ContextInfo {
+            dto::ContextInfo {
                 name: ctx.name.clone(),
                 cluster,
                 user,
@@ -55,7 +68,7 @@ pub fn summarize_contexts(kc: &Kubeconfig) -> Vec<ContextInfo> {
     out
 }
 
-/// Build a `kube::Client` for a given context name. If `context` is `None`,
+/// Build a `kube::Client` for a given context. If `context` is `None`,
 /// falls back to the default kubeconfig selection (or in-cluster config).
 pub async fn client_for_context(context: Option<&str>) -> Result<kube::Client> {
     let mut kc = load_kubeconfig()?;
