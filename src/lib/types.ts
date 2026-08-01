@@ -147,6 +147,23 @@ export interface ResourceDetail {
   yaml: string;
 }
 
+export interface ExecResult {
+  stdout: string;
+  stderr: string;
+  exit_code: number;
+  duration_ms: number;
+}
+
+export interface PortForwardInfo {
+  id: string;
+  kind: string;
+  name: string;
+  namespace: string;
+  local_port: number;
+  remote_port: number;
+  started_at: string;
+}
+
 export type ResourceKind =
   | "pods"
   | "deployments"

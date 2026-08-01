@@ -6,7 +6,26 @@
 mod commands;
 mod kube;
 
+use std::collections::HashMap;
 use std::sync::Mutex;
+
+use chrono::{DateTime, Utc};
+use tokio::sync::oneshot;
+
+/// One live port-forward (kept in `AppState::port_forwards`).
+///
+/// `cancel` is taken on `stop_port_forward` to signal the background task
+/// to drop the TCP listener and exit. It is `None` once consumed.
+pub struct PortForward {
+    pub id: String,
+    pub kind: String,
+    pub name: String,
+    pub namespace: String,
+    pub local_port: u16,
+    pub remote_port: u16,
+    pub started_at: DateTime<Utc>,
+    pub cancel: Option<oneshot::Sender<()>>,
+}
 
 /// Application-wide state held by the Tauri runtime.
 ///
@@ -15,12 +34,14 @@ use std::sync::Mutex;
 /// `kube::Client::try_default` resolves to.
 pub struct AppState {
     pub current_context: Mutex<Option<String>>,
+    pub port_forwards: Mutex<HashMap<String, PortForward>>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
             current_context: Mutex::new(None),
+            port_forwards: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -51,6 +72,11 @@ pub fn run() {
             commands::list_events,
             commands::get_yaml,
             commands::delete_resource,
+            commands::get_pod_logs,
+            commands::exec_pod,
+            commands::start_port_forward,
+            commands::stop_port_forward,
+            commands::list_port_forwards,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s");

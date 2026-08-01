@@ -22,8 +22,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
 tokio = { version = "1", features = ["full"] }
-kube = { version = "1", features = ["default", "runtime"] }
-kube-client = "1"
+kube = { version = "1", features = ["default", "runtime", "ws"] }
+kube-client = { version = "1", features = ["ws"] }
 k8s-openapi = { version = "0.25", features = ["latest"] }
 anyhow = "1"
 thiserror = "1"

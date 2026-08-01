@@ -6,11 +6,13 @@ import type {
   DaemonSetRow,
   DeploymentRow,
   EventRow,
+  ExecResult,
   HpaRow,
   JobRow,
   NamespaceRow,
   NodeRow,
   PodRow,
+  PortForwardInfo,
   PvcRow,
   ReplicaSetRow,
   ResourceDetail,
@@ -76,6 +78,55 @@ export const api = {
     }),
   deleteResource: (kind: string, namespace: string | null, name: string) =>
     invoke<void>("delete_resource", { kind, namespace, name }),
+
+  // Logs / exec / port-forward (k9s-style :l / :e / :pf)
+  getPodLogs: (
+    name: string,
+    namespace: string,
+    options: {
+      container?: string | null;
+      tail_lines?: number | null;
+      previous?: boolean;
+      timestamps?: boolean;
+    } = {},
+  ) =>
+    invoke<string>("get_pod_logs", {
+      name,
+      namespace,
+      container: options.container ?? null,
+      tailLines: options.tail_lines ?? 200,
+      previous: options.previous ?? false,
+      timestamps: options.timestamps ?? false,
+    }),
+  execPod: (
+    name: string,
+    namespace: string,
+    container: string | null,
+    command: string[],
+  ) =>
+    invoke<ExecResult>("exec_pod", {
+      name,
+      namespace,
+      container,
+      command,
+    }),
+  startPortForward: (
+    kind: string,
+    name: string,
+    namespace: string,
+    localPort: number,
+    remotePort: number,
+  ) =>
+    invoke<PortForwardInfo>("start_port_forward", {
+      kind,
+      name,
+      namespace,
+      localPort,
+      remotePort,
+    }),
+  stopPortForward: (id: string) =>
+    invoke<void>("stop_port_forward", { id }),
+  listPortForwards: () => invoke<PortForwardInfo[]>("list_port_forwards"),
 };
 
 // Canonical capitalization used by the Rust backend for each resource kind.

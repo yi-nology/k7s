@@ -1,7 +1,7 @@
 //! Tauri command handlers exposed to the React frontend.
 
 use crate::kube;
-use crate::AppState;
+use crate::{AppState, PortForward};
 use chrono::{DateTime, Utc};
 use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
 use k8s_openapi::api::batch::v1::{CronJob, Job};
@@ -1024,6 +1024,354 @@ fn node_to_row(n: &Node) -> NodeRow {
         version,
         internal_ip,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Logs (:logs in k9s)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn get_pod_logs(
+    name: String,
+    namespace: String,
+    container: Option<String>,
+    tail_lines: Option<i64>,
+    previous: Option<bool>,
+    timestamps: Option<bool>,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    let client = make_client(&state).await?;
+    let api: Api<Pod> = Api::namespaced(client, &namespace);
+    let lp = kube_client::api::LogParams {
+        follow: false,
+        container,
+        tail_lines,
+        previous: previous.unwrap_or(false),
+        timestamps: timestamps.unwrap_or(false),
+        ..kube_client::api::LogParams::default()
+    };
+    api.logs(&name, &lp)
+        .await
+        .map_err(|e| format!("get_pod_logs: {}", e))
+}
+
+// ---------------------------------------------------------------------------
+// Exec (:exec in k9s)
+//
+// kube-rs has no high-level exec API (it would need SPDY/WebSocket + TTY
+// framing on top of the apiserver exec subresource). For now we shell out
+// to the `kubectl` binary the user almost certainly has on PATH. This is
+// what k9s and most other lightweight clients do as well.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ExecResult {
+    pub stdout: String,
+    pub stderr: String,
+    pub exit_code: i32,
+    pub duration_ms: u128,
+}
+
+#[tauri::command]
+pub async fn exec_pod(
+    name: String,
+    namespace: String,
+    container: Option<String>,
+    command: Vec<String>,
+    state: State<'_, AppState>,
+) -> Result<ExecResult, String> {
+    if command.is_empty() {
+        return Err("exec_pod: command must not be empty".to_string());
+    }
+    let client = make_client(&state).await?;
+
+    // Resolve the active context so kubectl talks to the same cluster.
+    let current_ctx = {
+        let kc = kube::load_kubeconfig().map_err(|e| e.to_string())?;
+        kc.current_context.unwrap_or_default()
+    };
+
+    // Sanity check: the pod (and container) must exist. We catch the
+    // not-found / not-running case here so the kubectl error we surface
+    // to the UI is more meaningful.
+    let api: Api<Pod> = Api::namespaced(client, &namespace);
+    let pod = api.get(&name).await.map_err(|e| format!("pod not found: {}", e))?;
+    let _ = pod; // we just use this to confirm reachability; kubectl handles the rest
+
+    let mut args: Vec<String> = vec![
+        "exec".into(),
+        name.clone(),
+        "-n".into(),
+        namespace.clone(),
+    ];
+    if !current_ctx.is_empty() {
+        args.push("--context".into());
+        args.push(current_ctx);
+    }
+    if let Some(c) = container {
+        args.push("-c".into());
+        args.push(c);
+    }
+    args.push("--".into());
+    args.extend(command);
+
+    let start = std::time::Instant::now();
+    let output = tokio::process::Command::new("kubectl")
+        .args(&args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .output()
+        .await
+        .map_err(|e| {
+            format!(
+                "failed to spawn kubectl (is it on PATH?): {}",
+                e
+            )
+        })?;
+    let duration_ms = start.elapsed().as_millis();
+
+    Ok(ExecResult {
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        exit_code: output.status.code().unwrap_or(-1),
+        duration_ms,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Port-forward (:pf in k9s)
+//
+// We bind a local TCP listener; for every accepted connection we run a
+// fresh kube portforward subresource handshake and shuttle bytes
+// bidirectionally. Each Portforwarder holds the upstream WebSocket
+// connection, so we keep it alive for the lifetime of the local client.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PortForwardInfo {
+    pub id: String,
+    pub kind: String,
+    pub name: String,
+    pub namespace: String,
+    pub local_port: u16,
+    pub remote_port: u16,
+    pub started_at: String,
+}
+
+impl From<&PortForward> for PortForwardInfo {
+    fn from(p: &PortForward) -> Self {
+        Self {
+            id: p.id.clone(),
+            kind: p.kind.clone(),
+            name: p.name.clone(),
+            namespace: p.namespace.clone(),
+            local_port: p.local_port,
+            remote_port: p.remote_port,
+            started_at: format_chrono_dt(p.started_at),
+        }
+    }
+}
+
+#[tauri::command]
+pub async fn start_port_forward(
+    kind: String,
+    name: String,
+    namespace: String,
+    local_port: u16,
+    remote_port: u16,
+    state: State<'_, AppState>,
+) -> Result<PortForwardInfo, String> {
+    // Refuse if the local port is already in use by *us* (avoids two
+    // forwards stomping on each other; the OS itself will reject the bind
+    // if it's used by another process).
+    {
+        let map = state.port_forwards.lock().map_err(|e| e.to_string())?;
+        if map
+            .values()
+            .any(|p| p.local_port == local_port && p.remote_port == remote_port)
+        {
+            return Err(format!(
+                "port-forward already active: 127.0.0.1:{} -> {}:{}/{}",
+                local_port, kind, namespace, remote_port
+            ));
+        }
+    }
+
+    // Verify the target resource exists before we spawn anything.
+    let client = make_client(&state).await?;
+    match kind.as_str() {
+        "Pod" | "pods" => {
+            let api: Api<Pod> = Api::namespaced(client.clone(), &namespace);
+            api.get(&name).await.map_err(|e| format!("pod not found: {}", e))?;
+        }
+        "Service" | "services" => {
+            // For now only Pod. Service port-forward would need to resolve
+            // the service to a backing pod first; that's a follow-up.
+            return Err("port-forward on Service is not implemented yet (use Pod)".into());
+        }
+        other => return Err(format!("port-forward not supported for kind: {}", other)),
+    }
+
+    let id = format!(
+        "pf-{}-{}-{}-{}",
+        kind,
+        namespace,
+        name,
+        // Cheap unique suffix; not security-sensitive.
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    );
+    let (cancel_tx, cancel_rx) = tokio::sync::oneshot::channel();
+
+    tokio::spawn(run_port_forward(
+        client,
+        kind.clone(),
+        name.clone(),
+        namespace.clone(),
+        local_port,
+        remote_port,
+        cancel_rx,
+    ));
+
+    let pf = PortForward {
+        id: id.clone(),
+        kind,
+        name,
+        namespace,
+        local_port,
+        remote_port,
+        started_at: chrono::Utc::now(),
+        cancel: Some(cancel_tx),
+    };
+    let info = PortForwardInfo::from(&pf);
+    state
+        .port_forwards
+        .lock()
+        .map_err(|e| e.to_string())?
+        .insert(pf.id.clone(), pf);
+    Ok(info)
+}
+
+#[tauri::command]
+pub async fn stop_port_forward(
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut map = state.port_forwards.lock().map_err(|e| e.to_string())?;
+    let pf = map
+        .remove(&id)
+        .ok_or_else(|| format!("no such port-forward: {}", id))?;
+    if let Some(tx) = pf.cancel {
+        let _ = tx.send(());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn list_port_forwards(
+    state: State<'_, AppState>,
+) -> Result<Vec<PortForwardInfo>, String> {
+    let map = state.port_forwards.lock().map_err(|e| e.to_string())?;
+    Ok(map.values().map(PortForwardInfo::from).collect())
+}
+
+async fn run_port_forward(
+    client: kube_client::Client,
+    kind: String,
+    name: String,
+    namespace: String,
+    local_port: u16,
+    remote_port: u16,
+    cancel_rx: tokio::sync::oneshot::Receiver<()>,
+) {
+    use tokio::io::AsyncWriteExt;
+    let mut cancel_rx = cancel_rx;
+
+    let listener = match tokio::net::TcpListener::bind(("127.0.0.1", local_port)).await {
+        Ok(l) => l,
+        Err(e) => {
+            eprintln!("port-forward: bind 127.0.0.1:{}: {}", local_port, e);
+            return;
+        }
+    };
+    eprintln!(
+        "port-forward: 127.0.0.1:{} -> {}/{}/{}:{} (id pending)",
+        local_port, kind, namespace, name, remote_port
+    );
+
+    loop {
+        tokio::select! {
+            biased;
+            _ = &mut cancel_rx => {
+                eprintln!("port-forward: cancelled; dropping listener");
+                // closing the listener is enough — any in-flight serve tasks
+                // will exit when their TcpStream drops.
+                drop(listener);
+                return;
+            }
+            accepted = listener.accept() => {
+                let (mut local, peer) = match accepted {
+                    Ok(p) => p,
+                    Err(e) => {
+                        eprintln!("port-forward: accept: {}", e);
+                        continue;
+                    }
+                };
+                eprintln!("port-forward: new local client {}", peer);
+                let client = client.clone();
+                let kind = kind.clone();
+                let name = name.clone();
+                let namespace = namespace.clone();
+                tokio::spawn(async move {
+                    if let Err(e) = serve_one_connection(
+                        client, &kind, &name, &namespace, remote_port, &mut local,
+                    ).await {
+                        eprintln!("port-forward: serve: {}", e);
+                    }
+                    let _ = local.shutdown().await;
+                });
+            }
+        }
+    }
+}
+
+async fn serve_one_connection(
+    client: kube_client::Client,
+    kind: &str,
+    name: &str,
+    namespace: &str,
+    remote_port: u16,
+    local: &mut tokio::net::TcpStream,
+) -> Result<(), String> {
+    let api: Api<Pod> = match kind {
+        "Pod" | "pods" => Api::namespaced(client, namespace),
+        _ => return Err(format!("kind not supported: {}", kind)),
+    };
+
+    // Each new local client gets a fresh Portforwarder (and thus a fresh
+    // upstream WebSocket connection to the apiserver). This is the same
+    // trade-off kubectl port-forward makes — a bit chatty, but trivially
+    // correct.
+    let mut portforwarder = api
+        .portforward(name, &[remote_port])
+        .await
+        .map_err(|e| format!("portforward: {}", e))?;
+    let mut remote = portforwarder
+        .take_stream(remote_port)
+        .ok_or_else(|| format!("port {} not in portforwarder", remote_port))?;
+
+    // Keep the Portforwarder (and its background WebSocket task) alive
+    // for the duration of the bidirectional copy.
+    let _keep_alive = portforwarder;
+
+    tokio::io::copy_bidirectional(local, &mut remote)
+        .await
+        .map_err(|e| format!("forward: {}", e))?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
