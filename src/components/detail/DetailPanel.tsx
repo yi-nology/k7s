@@ -23,12 +23,14 @@ interface DetailPanelProps {
   onClose: () => void;
   /** Called after a successful apply, so the table can refresh. */
   onApplied?: () => void;
+  /** Tab to open on mount. Defaults to "yaml". */
+  initialTab?: Tab;
 }
 
 type Tab = "yaml" | "events" | "properties";
 
-export function DetailPanel({ row, kindLabel, onClose, onApplied }: DetailPanelProps) {
-  const [tab, setTab] = useState<Tab>("yaml");
+export function DetailPanel({ row, kindLabel, onClose, onApplied, initialTab }: DetailPanelProps) {
+  const [tab, setTab] = useState<Tab>(initialTab ?? "yaml");
   const [yaml, setYaml] = useState<string>("");
   const [original, setOriginal] = useState<string>("");
   const [loading, setLoading] = useState(false);

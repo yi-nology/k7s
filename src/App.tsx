@@ -1,745 +1,379 @@
+/**
+ * App — the single root component.
+ *
+ * Owns:
+ *   - The active kind + namespace
+ *   - The `Map<kind, Row[]>` populated by `resource-update` events
+ *   - Cluster status (from `cluster-status` events)
+ *   - Watch count (from `watch-status` events)
+ *
+ * On mount: list contexts, connect to the current one, start listening.
+ * On unmount: unsub everything.
+ *
+ * The Rust backend owns the watcher lifecycle. We never call `list_*`
+ * here — we just listen to `resource-update`. For kinds that aren't
+ * watched yet (e.g. ingresses — not in the default set), the table
+ * renders an empty state and a future P1.5 can start on-demand watchers.
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, kindLabel } from "./lib/tauri";
-import type { ResourceKind } from "./lib/types";
-import { Sidebar, type NavItem } from "./components/Sidebar";
-import { TopBar } from "./components/TopBar";
-import { ResourceTable, type ColumnDef } from "./components/ResourceTable";
-import { DetailPanel } from "./components/DetailPanel";
+
+import { provider } from "./providers";
+import type {
+  ClusterInfo,
+  ClusterStatus,
+  ContextInfo,
+  ResourceSnapshot,
+  Row,
+  Unsub,
+} from "./providers/types";
+import { columnsFor, DEFAULT_KIND, NAV, apiKindFor } from "./providers/columns";
+
+import { Sidebar } from "./components/sidebar/Sidebar";
+import { TopBar } from "./components/topbar/TopBar";
+import { StatusBar } from "./components/statusbar/StatusBar";
+import { ResourceTable } from "./components/table/ResourceTable";
+import { DetailPanel } from "./components/detail/DetailPanel";
 import { LogsModal } from "./components/LogsModal";
 import { ExecModal } from "./components/ExecModal";
 import { PortForwardModal } from "./components/PortForwardModal";
-import { ScaleModal } from "./components/ScaleModal";
-import { EditModal } from "./components/EditModal";
-import { DescribeModal } from "./components/DescribeModal";
-import type {
-  ConfigMapRow,
-  ContextInfo,
-  CronJobRow,
-  DaemonSetRow,
-  DeploymentRow,
-  EventRow,
-  HpaRow,
-  JobRow,
-  NamespaceRow,
-  NodeRow,
-  PodRow,
-  PvcRow,
-  ReplicaSetRow,
-  SecretRow,
-  ServiceRow,
-  StatefulSetRow,
-} from "./lib/types";
-
-const NAV: NavItem[] = [
-  {
-    group: "Workloads",
-    items: [
-      { kind: "pods", label: "Pods", icon: "◎" },
-      { kind: "deployments", label: "Deployments", icon: "◧" },
-      { kind: "statefulsets", label: "StatefulSets", icon: "▥" },
-      { kind: "daemonsets", label: "DaemonSets", icon: "▣" },
-      { kind: "replicasets", label: "ReplicaSets", icon: "▤" },
-      { kind: "jobs", label: "Jobs", icon: "▶" },
-      { kind: "cronjobs", label: "CronJobs", icon: "⏱" },
-    ],
-  },
-  {
-    group: "Discovery & LB",
-    items: [{ kind: "services", label: "Services", icon: "⇄" }],
-  },
-  {
-    group: "Config & Storage",
-    items: [
-      { kind: "configmaps", label: "ConfigMaps", icon: "▢" },
-      { kind: "secrets", label: "Secrets", icon: "🔒" },
-      { kind: "pvc", label: "PVCs", icon: "▦" },
-    ],
-  },
-  {
-    group: "Cluster",
-    items: [
-      { kind: "nodes", label: "Nodes", icon: "▣" },
-      { kind: "namespaces", label: "Namespaces", icon: "▦" },
-    ],
-  },
-  {
-    group: "Metadata",
-    items: [
-      { kind: "hpa", label: "HPAs", icon: "↕" },
-      { kind: "events", label: "Events", icon: "!" },
-    ],
-  },
-];
-
-const REFRESH_INTERVAL = 10; // seconds
+import { ActionBar } from "./components/actions/ActionBar";
 
 export default function App() {
-  const [active, setActive] = useState<ResourceKind>("pods");
+  // ---- connection state ----
   const [contexts, setContexts] = useState<ContextInfo[]>([]);
   const [currentContext, setCurrentContext] = useState<string | null>(null);
+  const [clusterInfo, setClusterInfo] = useState<ClusterInfo | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
+
+  // ---- UI state ----
+  const [activeKind, setActiveKind] = useState<string>(DEFAULT_KIND);
   const [namespace, setNamespace] = useState<string>("");
-  const [namespaces, setNamespaces] = useState<NamespaceRow[]>([]);
-
-  const [pods, setPods] = useState<PodRow[]>([]);
-  const [deployments, setDeployments] = useState<DeploymentRow[]>([]);
-  const [statefulsets, setStatefulsets] = useState<StatefulSetRow[]>([]);
-  const [daemonsets, setDaemonsets] = useState<DaemonSetRow[]>([]);
-  const [replicasets, setReplicasets] = useState<ReplicaSetRow[]>([]);
-  const [jobs, setJobs] = useState<JobRow[]>([]);
-  const [cronjobs, setCronjobs] = useState<CronJobRow[]>([]);
-  const [services, setServices] = useState<ServiceRow[]>([]);
-  const [configmaps, setConfigmaps] = useState<ConfigMapRow[]>([]);
-  const [secrets, setSecrets] = useState<SecretRow[]>([]);
-  const [pvc, setPvc] = useState<PvcRow[]>([]);
-  const [nodes, setNodes] = useState<NodeRow[]>([]);
-  const [hpa, setHpa] = useState<HpaRow[]>([]);
-  const [events, setEvents] = useState<EventRow[]>([]);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [refreshIn, setRefreshIn] = useState(REFRESH_INTERVAL);
-  const [detailTarget, setDetailTarget] = useState<{
-    kind: string;
-    namespace: string | null;
-    name: string;
-  } | null>(null);
-  const [logsTarget, setLogsTarget] = useState<{
-    name: string;
-    namespace: string;
-    containers: string;
-  } | null>(null);
-  const [execTarget, setExecTarget] = useState<{
-    name: string;
-    namespace: string;
-    containers: string;
-  } | null>(null);
-  const [pfTarget, setPfTarget] = useState<{
-    kind: string;
-    name: string;
-    namespace: string;
-    servicePorts?: number[];
-  } | null>(null);
-  const [scaleTarget, setScaleTarget] = useState<{
-    kind: string;
-    name: string;
-    namespace: string;
-    currentReplicas: number;
-  } | null>(null);
-  const [editTarget, setEditTarget] = useState<{
-    kind: string;
-    name: string;
-    namespace: string;
-    yaml: string;
-  } | null>(null);
-  const [describeTarget, setDescribeTarget] = useState<{
-    kind: string;
-    name: string;
-    namespace: string;
-  } | null>(null);
+  const [detailRow, setDetailRow] = useState<Row | null>(null);
+  const [detailTab, setDetailTab] = useState<"yaml" | "events" | "properties">("yaml");
+  const [logsRow, setLogsRow] = useState<Row | null>(null);
+  const [execRow, setExecRow] = useState<Row | null>(null);
+  const [pfRow, setPfRow] = useState<Row | null>(null);
 
-  const [reloadToken, setReloadToken] = useState(0);
-  const reload = useCallback(() => setReloadToken((n) => n + 1), []);
+  // ---- live data ----
+  const [rowsByKind, setRowsByKind] = useState<Map<string, Row[]>>(new Map());
+  const [status, setStatus] = useState<ClusterStatus>({
+    connected: false,
+    version: "",
+    apiLatencyMs: 0,
+    nodesReady: 0,
+    nodesTotal: 0,
+    cpuPercent: null,
+    memPercent: null,
+  });
+  const [activeWatchers, setActiveWatchers] = useState(0);
 
-  // Initial: load contexts and current selection.
+  // ---- connect on mount, subscribe to events ----
   useEffect(() => {
-    (async () => {
-      try {
-        const [ctxs, current] = await Promise.all([
-          api.contexts(),
-          api.currentContext(),
-        ]);
-        setContexts(ctxs);
-        setCurrentContext(current ?? ctxs.find((c) => c.is_current)?.name ?? null);
-      } catch (e) {
-        setError(String(e));
-      }
-    })();
-  }, []);
-
-  // Whenever the active context changes, refresh the namespace list.
-  useEffect(() => {
-    if (!currentContext) return;
-    (async () => {
-      try {
-        setNamespaces(await api.namespaces());
-      } catch (e) {
-        setError(String(e));
-      }
-    })();
-  }, [currentContext]);
-
-  // Reload the active resource whenever selection / context / namespace / token changes.
-  useEffect(() => {
-    if (!currentContext) return;
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    setSelectedIndex(0);
+    let unsubResource: Unsub | null = null;
+    let unsubStatus: Unsub | null = null;
+    let unsubWatch: Unsub | null = null;
+
     (async () => {
-      const ns = namespace || undefined;
       try {
-        switch (active) {
-          case "pods":
-            setPods(await api.pods(ns));
-            break;
-          case "deployments":
-            setDeployments(await api.deployments(ns));
-            break;
-          case "statefulsets":
-            setStatefulsets(await api.statefulsets(ns));
-            break;
-          case "daemonsets":
-            setDaemonsets(await api.daemonsets(ns));
-            break;
-          case "replicasets":
-            setReplicasets(await api.replicasets(ns));
-            break;
-          case "jobs":
-            setJobs(await api.jobs(ns));
-            break;
-          case "cronjobs":
-            setCronjobs(await api.cronjobs(ns));
-            break;
-          case "services":
-            setServices(await api.services(ns));
-            break;
-          case "configmaps":
-            setConfigmaps(await api.configmaps(ns));
-            break;
-          case "secrets":
-            setSecrets(await api.secrets(ns));
-            break;
-          case "pvc":
-            setPvc(await api.pvc(ns));
-            break;
-          case "nodes":
-            setNodes(await api.nodes());
-            break;
-          case "namespaces":
-            setNamespaces(await api.namespaces());
-            break;
-          case "hpa":
-            setHpa(await api.hpa(ns));
-            break;
-          case "events":
-            setEvents(await api.events(ns));
-            break;
-        }
+        const ctxs = await provider.listContexts();
+        if (cancelled) return;
+        setContexts(ctxs);
+        const initial =
+          ctxs.find((c) => c.isCurrent)?.name ?? ctxs[0]?.name ?? null;
+        if (!initial) return;
+        setCurrentContext(initial);
+
+        const info = await provider.connect(initial);
+        if (cancelled) return;
+        setClusterInfo(info);
+        setConnected(true);
+
+        unsubResource = provider.onResourceUpdate((snap: ResourceSnapshot) => {
+          if (cancelled) return;
+          setRowsByKind((prev) => {
+            const next = new Map(prev);
+            next.set(snap.kind, snap.rows);
+            return next;
+          });
+        });
+        unsubStatus = provider.onClusterStatus((s) => {
+          if (cancelled) return;
+          setStatus(s);
+        });
+        unsubWatch = provider.onWatchStatus((n) => {
+          if (cancelled) return;
+          setActiveWatchers(n);
+        });
       } catch (e) {
-        if (!cancelled) setError(String(e));
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
+        setConnectError(String(e));
       }
     })();
+
     return () => {
       cancelled = true;
+      unsubResource?.();
+      unsubStatus?.();
+      unsubWatch?.();
+      provider.disconnect().catch(() => {});
     };
-  }, [active, currentContext, namespace, reloadToken]);
+  }, []);
 
-  // Auto-refresh tick + countdown
+  // Reset selection when kind or filter changes
   useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(() => {
-      setRefreshIn((n) => {
-        if (n <= 1) {
-          reload();
-          return REFRESH_INTERVAL;
-        }
-        return n - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [autoRefresh, reload]);
+    setSelectedIndex(0);
+  }, [activeKind, filter]);
 
-  // Hotkeys
+  // ---- derived ----
+  const rows = useMemo(() => rowsByKind.get(activeKind) ?? [], [rowsByKind, activeKind]);
+  const namespaces = useMemo(() => rowsByKind.get("namespaces") ?? [], [rowsByKind]);
+  const clusterScoped = useMemo(
+    () => activeKind === "nodes" || activeKind === "namespaces",
+    [activeKind],
+  );
+
+  // Namespace filter applies client-side to all kinds.
+  const filteredRows = useMemo(() => {
+    if (clusterScoped || !namespace) return rows;
+    return rows.filter((r) => r.namespace === namespace);
+  }, [rows, namespace, clusterScoped]);
+
+  const columns = useMemo(() => columnsFor(activeKind), [activeKind]);
+  const selectedRow = filteredRows[selectedIndex];
+
+  // ---- handlers ----
+  const onPickContext = useCallback(async (name: string) => {
+    if (name === currentContext) return;
+    setCurrentContext(name);
+    setRowsByKind(new Map());
+    setSelectedIndex(0);
+    setConnected(false);
+    try {
+      const info = await provider.connect(name);
+      setClusterInfo(info);
+      setConnected(true);
+    } catch (e) {
+      setConnectError(String(e));
+    }
+  }, [currentContext]);
+
+  const onPickNamespace = useCallback((ns: string) => {
+    setNamespace(ns);
+    setSelectedIndex(0);
+  }, []);
+
+  const onPickKind = useCallback((kind: string) => {
+    setActiveKind(kind);
+    setSelectedIndex(0);
+  }, []);
+
+  const onActivate = useCallback((row: Row) => {
+    setDetailRow(row);
+    setDetailTab("yaml");
+  }, []);
+
+  const onCloseDetail = useCallback(() => setDetailRow(null), []);
+
+  const onOpenLogs = useCallback((row: Row) => setLogsRow(row), []);
+  const onCloseLogs = useCallback(() => setLogsRow(null), []);
+
+  const onOpenExec = useCallback((row: Row) => setExecRow(row), []);
+  const onCloseExec = useCallback(() => setExecRow(null), []);
+
+  const onOpenPortForward = useCallback((row: Row) => setPfRow(row), []);
+  const onClosePortForward = useCallback(() => setPfRow(null), []);
+
+  // k9s-style shortcut handlers — used by the keyboard listener.
+  const openLogs = useCallback(() => {
+    if (selectedRow && (activeKind === "pods" || selectedRow.pod)) {
+      onOpenLogs(selectedRow);
+    }
+  }, [selectedRow, activeKind, onOpenLogs]);
+
+  const openExec = useCallback(() => {
+    if (selectedRow && activeKind === "pods") {
+      onOpenExec(selectedRow);
+    }
+  }, [selectedRow, activeKind, onOpenExec]);
+
+  const openPortForward = useCallback(() => {
+    if (pfRow === null && selectedRow && (activeKind === "pods" || activeKind === "services")) {
+      onOpenPortForward(selectedRow);
+    }
+  }, [pfRow, selectedRow, activeKind, onOpenPortForward, onOpenPortForward]);
+
+  // ---- hotkeys ----
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Don't capture when user is typing
       const tag = (document.activeElement?.tagName ?? "").toUpperCase();
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
-      if (e.key === "j" || e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.min(i + 1, currentRowsLength() - 1));
-      } else if (e.key === "k" || e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedIndex((i) => Math.max(0, i - 1));
-      } else if (e.key === "g" && !e.shiftKey) {
-        e.preventDefault();
-        setSelectedIndex(0);
-      } else if (e.key === "G" || (e.key === "g" && e.shiftKey)) {
-        e.preventDefault();
-        setSelectedIndex(Math.max(0, currentRowsLength() - 1));
-      } else if (e.key === "Enter") {
-        const row = currentRows()[selectedIndex];
-        if (row) {
-          openDetail(row);
-        }
-      } else if (e.key === "d") {
-        const row = currentRows()[selectedIndex];
-        if (row) {
-          openDetail(row);
-        }
-      } else if (e.key === "r") {
-        e.preventDefault();
-        reload();
-        setRefreshIn(REFRESH_INTERVAL);
-      } else if (e.key === "l") {
-        if (active === "pods") {
-          const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
-          if (row) {
-            setLogsTarget({
-              name: String(row.name ?? ""),
-              namespace: String(row.namespace ?? ""),
-              containers: String(row.containers ?? ""),
-            });
+      const total = filteredRows.length;
+      switch (e.key) {
+        case "j":
+        case "ArrowDown":
+          e.preventDefault();
+          setSelectedIndex((i) => Math.min(i + 1, Math.max(0, total - 1)));
+          break;
+        case "k":
+        case "ArrowUp":
+          e.preventDefault();
+          setSelectedIndex((i) => Math.max(0, i - 1));
+          break;
+        case "g":
+          if (!e.shiftKey) {
+            e.preventDefault();
+            setSelectedIndex(0);
+          } else {
+            e.preventDefault();
+            setSelectedIndex(Math.max(0, total - 1));
           }
-        }
-      } else if (e.key === "e") {
-        if (active === "pods") {
-          const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
-          if (row) {
-            setExecTarget({
-              name: String(row.name ?? ""),
-              namespace: String(row.namespace ?? ""),
-              containers: String(row.containers ?? ""),
-            });
+          break;
+        case "G":
+          e.preventDefault();
+          setSelectedIndex(Math.max(0, total - 1));
+          break;
+        case "Enter":
+        case "d":
+          if (selectedRow) {
+            e.preventDefault();
+            onActivate(selectedRow);
           }
-        } else {
-          // For any other view, `e` opens the YAML editor.
-          openEditForSelected();
-        }
-      } else if (e.key === "y") {
-        openEditForSelected();
-      } else if (e.key === "d") {
-        e.preventDefault();
-        openDescribeForSelected();
-      } else if (e.key === "s") {
-        if (
-          active === "deployments" ||
-          active === "statefulsets" ||
-          active === "replicasets"
-        ) {
-          const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
-          if (row) {
-            const ready = String(row.ready ?? "0/0");
-            const current = Number(ready.split("/")[1]) || 0;
-            const kind = kindLabel[active].capital;
-            const ns = String(row.namespace ?? "");
-            setScaleTarget({
-              kind,
-              name: String(row.name ?? ""),
-              namespace: ns,
-              currentReplicas: current,
-            });
+          break;
+        case "y":
+          if (selectedRow) {
+            e.preventDefault();
+            setDetailRow(selectedRow);
+            setDetailTab("yaml");
           }
-        }
-      } else if (e.key === "f" || e.key === "F") {
-        if (active === "pods" || active === "services") {
-          const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
-          if (row) {
-            const kind = kindLabel[active].capital;
-            const ns = (row.namespace as string | undefined) || "";
-            // For services, parse the port list (e.g. "53/53/TCP,9153/9153/TCP")
-            // into numeric service ports so the user can pick a target.
-            let servicePorts: number[] | undefined;
-            if (active === "services") {
-              const portsStr = String(row.ports ?? "");
-              servicePorts = portsStr
-                .split(",")
-                .map((s) => Number(s.split("/")[0]))
-                .filter((n) => Number.isFinite(n) && n > 0);
-            }
-            setPfTarget({
-              kind,
-              name: String(row.name ?? ""),
-              namespace: ns,
-              servicePorts,
-            });
+          break;
+        case "e":
+          if (activeKind === "pods" && selectedRow) {
+            e.preventDefault();
+            openLogs();
           }
-        }
-      } else if (e.key === "Escape") {
-        setDetailTarget(null);
-        setLogsTarget(null);
-        setExecTarget(null);
-        setPfTarget(null);
-        setScaleTarget(null);
-        setEditTarget(null);
-        setDescribeTarget(null);
+          break;
+        case "x":
+        case "X":
+          if (activeKind === "pods" && selectedRow) {
+            e.preventDefault();
+            openExec();
+          }
+          break;
+        case "f":
+        case "F":
+          if (activeKind === "pods" || activeKind === "services") {
+            e.preventDefault();
+            openPortForward();
+          }
+          break;
+        case "Escape":
+          setDetailRow(null);
+          setLogsRow(null);
+          setExecRow(null);
+          setPfRow(null);
+          break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
-
-  const currentRowsLength = () => {
-    switch (active) {
-      case "pods": return pods.length;
-      case "deployments": return deployments.length;
-      case "statefulsets": return statefulsets.length;
-      case "daemonsets": return daemonsets.length;
-      case "replicasets": return replicasets.length;
-      case "jobs": return jobs.length;
-      case "cronjobs": return cronjobs.length;
-      case "services": return services.length;
-      case "configmaps": return configmaps.length;
-      case "secrets": return secrets.length;
-      case "pvc": return pvc.length;
-      case "nodes": return nodes.length;
-      case "namespaces": return namespaces.length;
-      case "hpa": return hpa.length;
-      case "events": return events.length;
-    }
-  };
-
-  const currentRows = (): Record<string, unknown>[] => {
-    const list: Record<string, unknown>[] = active === "namespaces"
-      ? (namespaces as unknown as Record<string, unknown>[])
-      : (() => {
-          switch (active) {
-            case "pods": return pods as unknown as Record<string, unknown>[];
-            case "deployments": return deployments as unknown as Record<string, unknown>[];
-            case "statefulsets": return statefulsets as unknown as Record<string, unknown>[];
-            case "daemonsets": return daemonsets as unknown as Record<string, unknown>[];
-            case "replicasets": return replicasets as unknown as Record<string, unknown>[];
-            case "jobs": return jobs as unknown as Record<string, unknown>[];
-            case "cronjobs": return cronjobs as unknown as Record<string, unknown>[];
-            case "services": return services as unknown as Record<string, unknown>[];
-            case "configmaps": return configmaps as unknown as Record<string, unknown>[];
-            case "secrets": return secrets as unknown as Record<string, unknown>[];
-            case "pvc": return pvc as unknown as Record<string, unknown>[];
-            case "nodes": return nodes as unknown as Record<string, unknown>[];
-            case "hpa": return hpa as unknown as Record<string, unknown>[];
-            case "events": return events as unknown as Record<string, unknown>[];
-            default: return [];
-          }
-        })();
-    if (!filter) return list;
-    return list.filter((r) =>
-      Object.values(r).some((v) =>
-        String(v ?? "").toLowerCase().includes(filter.toLowerCase()),
-      ),
-    );
-  };
-
-  const openDetail = (row: Record<string, unknown>) => {
-    const name = String(row.name ?? "");
-    const ns = (row.namespace as string | undefined) || null;
-    setDetailTarget({
-      kind: kindLabel[active].capital,
-      namespace: active === "nodes" || active === "namespaces" ? null : ns,
-      name,
-    });
-  };
-
-  // k9s :describe: friendlier than raw YAML.
-  const openDescribeForSelected = () => {
-    const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
-    if (!row) return;
-    const kind = kindLabel[active].capital;
-    const ns =
-      active === "nodes" || active === "namespaces"
-        ? ""
-        : String(row.namespace ?? "");
-    setDescribeTarget({
-      kind,
-      name: String(row.name ?? ""),
-      namespace: ns,
-    });
-  };
-
-  // k9s :edit: load YAML, let the user edit, server-side apply.
-  const openEditForSelected = async () => {
-    const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
-    if (!row) return;
-    const kind = kindLabel[active].capital;
-    const ns =
-      active === "nodes" || active === "namespaces"
-        ? ""
-        : String(row.namespace ?? "");
-    const name = String(row.name ?? "");
-    try {
-      const detail = await api.getYaml(
-        kind,
-        active === "nodes" || active === "namespaces" ? null : ns,
-        name,
-      );
-      setEditTarget({
-        kind,
-        name,
-        namespace: ns,
-        yaml: detail.yaml,
-      });
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-
-  const onPickContext = async (name: string) => {
-    try {
-      await api.setContext(name);
-      setCurrentContext(name);
-    } catch (e) {
-      setError(String(e));
-    }
-  };
-
-  const columns: ColumnDef[] = useMemo(() => {
-    switch (active) {
-      case "pods":
-        return [
-          { key: "name", label: "Name", width: "32%" },
-          { key: "namespace", label: "Namespace", width: "14%" },
-          { key: "ready", label: "Ready", width: "8%" },
-          { key: "status", label: "Status", width: "10%" },
-          { key: "restarts", label: "Restarts", width: "8%", align: "right" },
-          { key: "age", label: "Age", width: "6%", align: "right" },
-          { key: "node", label: "Node", width: "14%" },
-          { key: "ip", label: "IP", width: "8%" },
-        ];
-      case "deployments":
-        return [
-          { key: "name", label: "Name", width: "36%" },
-          { key: "namespace", label: "Namespace", width: "16%" },
-          { key: "ready", label: "Ready", width: "10%" },
-          { key: "up_to_date", label: "Up-to-date", width: "12%", align: "right" },
-          { key: "available", label: "Available", width: "12%", align: "right" },
-          { key: "age", label: "Age", width: "8%", align: "right" },
-        ];
-      case "statefulsets":
-        return [
-          { key: "name", label: "Name", width: "44%" },
-          { key: "namespace", label: "Namespace", width: "20%" },
-          { key: "ready", label: "Ready", width: "16%" },
-          { key: "age", label: "Age", width: "10%", align: "right" },
-        ];
-      case "daemonsets":
-        return [
-          { key: "name", label: "Name", width: "40%" },
-          { key: "namespace", label: "Namespace", width: "18%" },
-          { key: "desired", label: "Desired", width: "10%", align: "right" },
-          { key: "ready", label: "Ready", width: "10%", align: "right" },
-          { key: "age", label: "Age", width: "10%", align: "right" },
-        ];
-      case "replicasets":
-        return [
-          { key: "name", label: "Name", width: "44%" },
-          { key: "namespace", label: "Namespace", width: "20%" },
-          { key: "desired", label: "Desired", width: "10%", align: "right" },
-          { key: "ready", label: "Ready", width: "10%" },
-          { key: "age", label: "Age", width: "10%", align: "right" },
-        ];
-      case "jobs":
-        return [
-          { key: "name", label: "Name", width: "34%" },
-          { key: "namespace", label: "Namespace", width: "16%" },
-          { key: "status", label: "Status", width: "12%" },
-          { key: "completions", label: "Completions", width: "14%" },
-          { key: "duration", label: "Duration", width: "10%" },
-          { key: "age", label: "Age", width: "8%", align: "right" },
-        ];
-      case "cronjobs":
-        return [
-          { key: "name", label: "Name", width: "26%" },
-          { key: "namespace", label: "Namespace", width: "16%" },
-          { key: "schedule", label: "Schedule", width: "22%" },
-          { key: "suspend", label: "Suspend", width: "10%" },
-          { key: "last_schedule", label: "Last", width: "12%" },
-          { key: "age", label: "Age", width: "8%", align: "right" },
-        ];
-      case "services":
-        return [
-          { key: "name", label: "Name", width: "28%" },
-          { key: "namespace", label: "Namespace", width: "14%" },
-          { key: "kind", label: "Type", width: "10%" },
-          { key: "cluster_ip", label: "Cluster IP", width: "14%" },
-          { key: "ports", label: "Ports", width: "22%" },
-          { key: "age", label: "Age", width: "8%", align: "right" },
-        ];
-      case "configmaps":
-        return [
-          { key: "name", label: "Name", width: "44%" },
-          { key: "namespace", label: "Namespace", width: "22%" },
-          { key: "data_keys", label: "Data Keys", width: "14%", align: "right" },
-          { key: "age", label: "Age", width: "10%", align: "right" },
-        ];
-      case "secrets":
-        return [
-          { key: "name", label: "Name", width: "40%" },
-          { key: "namespace", label: "Namespace", width: "20%" },
-          { key: "kind", label: "Type", width: "14%" },
-          { key: "data_keys", label: "Data Keys", width: "10%", align: "right" },
-          { key: "age", label: "Age", width: "10%", align: "right" },
-        ];
-      case "pvc":
-        return [
-          { key: "name", label: "Name", width: "32%" },
-          { key: "namespace", label: "Namespace", width: "16%" },
-          { key: "status", label: "Status", width: "10%" },
-          { key: "volume", label: "Volume", width: "18%" },
-          { key: "capacity", label: "Capacity", width: "12%" },
-          { key: "age", label: "Age", width: "8%", align: "right" },
-        ];
-      case "nodes":
-        return [
-          { key: "name", label: "Name", width: "30%" },
-          { key: "status", label: "Status", width: "10%" },
-          { key: "roles", label: "Roles", width: "16%" },
-          { key: "version", label: "Version", width: "14%" },
-          { key: "internal_ip", label: "Internal IP", width: "16%" },
-          { key: "age", label: "Age", width: "8%", align: "right" },
-        ];
-      case "namespaces":
-        return [
-          { key: "name", label: "Name", width: "60%" },
-          { key: "status", label: "Status", width: "20%" },
-          { key: "age", label: "Age", width: "20%", align: "right" },
-        ];
-      case "hpa":
-        return [
-          { key: "name", label: "Name", width: "26%" },
-          { key: "namespace", label: "Namespace", width: "14%" },
-          { key: "reference", label: "Reference", width: "20%" },
-          { key: "targets", label: "Targets", width: "10%" },
-          { key: "min_replicas", label: "Min", width: "8%", align: "right" },
-          { key: "max_replicas", label: "Max", width: "8%", align: "right" },
-          { key: "age", label: "Age", width: "8%", align: "right" },
-        ];
-      case "events":
-        return [
-          { key: "type_", label: "Type", width: "8%" },
-          { key: "namespace", label: "Namespace", width: "14%" },
-          { key: "kind", label: "Kind", width: "10%" },
-          { key: "object", label: "Object", width: "22%" },
-          { key: "reason", label: "Reason", width: "14%" },
-          { key: "message", label: "Message", width: "20%" },
-          { key: "last_seen", label: "Last Seen", width: "8%" },
-          { key: "count", label: "Cnt", width: "4%", align: "right" },
-        ];
-    }
-  }, [active]);
-
-  const rows = useMemo(() => currentRows(), [
-    active, pods, deployments, statefulsets, daemonsets, replicasets,
-    jobs, cronjobs, services, configmaps, secrets, pvc, nodes, namespaces,
-    hpa, events, filter,
+  }, [
+    filteredRows.length,
+    selectedRow,
+    onActivate,
+    openLogs,
+    openExec,
+    openPortForward,
+    activeKind,
   ]);
 
+  // ---- view ----
   return (
     <div className="app">
-      <TopBar
-        contexts={contexts}
-        currentContext={currentContext}
-        namespaces={namespaces}
-        namespace={namespace}
-        onPickContext={onPickContext}
-        onPickNamespace={setNamespace}
-        onRefreshNow={reload}
-        loading={loading}
-        refreshIn={refreshIn}
-        filter={filter}
-        onFilterChange={setFilter}
-        onToggleAutoRefresh={() => setAutoRefresh((v) => !v)}
-        autoRefresh={autoRefresh}
+      <Sidebar
+        nav={NAV}
+        active={activeKind}
+        onPick={onPickKind}
+        contextName={currentContext}
       />
-      <div className="body">
-        <Sidebar
-          nav={NAV}
-          active={active}
-          onPick={setActive}
-          contextName={currentContext}
+      <main className="main">
+        <TopBar
+          contexts={contexts}
+          currentContext={currentContext}
+          namespaces={namespaces}
+          namespace={namespace}
+          onPickContext={onPickContext}
+          onPickNamespace={onPickNamespace}
+          filter={filter}
+          onFilterChange={setFilter}
+          clusterName={clusterInfo?.clusterName}
         />
-        <main className="main">
-          {error ? (
-            <div className="error">
-              <div className="error-title">⚠ Failed to load</div>
-              <pre className="error-body">{error}</pre>
-              <div className="error-hint">
-                Check that your kubeconfig is valid and the cluster is reachable.
-              </div>
+        <div className="content">
+          {connectError ? (
+            <div className="error-banner">
+              <strong>Connection error:</strong> {connectError}
             </div>
-          ) : (
-            <ResourceTable
-              columns={columns}
-              rows={rows}
-              loading={loading}
-              emptyHint={
-                currentContext
-                  ? rows.length === 0 && filter
-                    ? `No rows match "${filter}".`
-                    : "No resources in this view."
-                  : "Select a context from the top bar to start."
-              }
-              selectedIndex={selectedIndex}
-              onSelectIndex={setSelectedIndex}
-              filter=""
+          ) : null}
+          {selectedRow && (
+            <ActionBar
+              row={selectedRow}
+              kind={activeKind}
+              onOpenLogs={onOpenLogs}
+              onOpenExec={onOpenExec}
+              onOpenPortForward={onOpenPortForward}
             />
           )}
-        </main>
-      </div>
-      {detailTarget && (
+          <ResourceTable
+            columns={columns}
+            rows={filteredRows}
+            loading={connected && rows.length === 0}
+            emptyHint={
+              !connected
+                ? "Not connected to a cluster."
+                : rows.length === 0
+                  ? "No resources found."
+                  : filteredRows.length === 0
+                    ? "No matches in this namespace."
+                    : "—"
+            }
+            selectedIndex={selectedIndex}
+            filter={filter}
+            onSelectIndex={setSelectedIndex}
+            onActivate={onActivate}
+          />
+        </div>
+        <StatusBar status={status} activeWatchers={activeWatchers} />
+      </main>
+      {detailRow && (
         <DetailPanel
-          kind={detailTarget.kind}
-          namespace={detailTarget.namespace}
-          name={detailTarget.name}
-          onClose={() => setDetailTarget(null)}
-          onDeleted={reload}
+          row={detailRow}
+          kindLabel={apiKindFor(activeKind)}
+          onClose={onCloseDetail}
+          initialTab={detailTab}
         />
       )}
-      {logsTarget && (
+      {logsRow && (
         <LogsModal
-          name={logsTarget.name}
-          namespace={logsTarget.namespace}
-          containers={logsTarget.containers}
-          onClose={() => setLogsTarget(null)}
+          row={logsRow}
+          container={logsRow.pod?.containers[0] ?? null}
+          onClose={onCloseLogs}
         />
       )}
-      {execTarget && (
+      {execRow && (
         <ExecModal
-          name={execTarget.name}
-          namespace={execTarget.namespace}
-          containers={execTarget.containers}
-          onClose={() => setExecTarget(null)}
+          row={execRow}
+          container={execRow.pod?.containers[0] ?? null}
+          onClose={onCloseExec}
         />
       )}
-      {pfTarget && (
+      {pfRow && (
         <PortForwardModal
-          kind={pfTarget.kind}
-          name={pfTarget.name}
-          namespace={pfTarget.namespace}
-          servicePorts={pfTarget.servicePorts}
-          onClose={() => setPfTarget(null)}
-        />
-      )}
-      {scaleTarget && (
-        <ScaleModal
-          kind={scaleTarget.kind}
-          name={scaleTarget.name}
-          namespace={scaleTarget.namespace}
-          currentReplicas={scaleTarget.currentReplicas}
-          onClose={() => setScaleTarget(null)}
-          onScaled={reload}
-        />
-      )}
-      {editTarget && (
-        <EditModal
-          kind={editTarget.kind}
-          name={editTarget.name}
-          namespace={editTarget.namespace}
-          initialYaml={editTarget.yaml}
-          onClose={() => setEditTarget(null)}
-          onApplied={reload}
-        />
-      )}
-      {describeTarget && (
-        <DescribeModal
-          kind={describeTarget.kind}
-          name={describeTarget.name}
-          namespace={describeTarget.namespace}
-          onClose={() => setDescribeTarget(null)}
+          row={pfRow}
+          onClose={onClosePortForward}
         />
       )}
     </div>

@@ -22,17 +22,20 @@ import type {
   ResourceRef,
   ResourceSnapshot,
   Row,
+  ShellHandle,
   Unsub,
 } from "../types";
 
 /** Tauri event names — must match the names emitted from
- *  `src-tauri/src/kube/{watchers,manager,logs}.rs`. */
+ *  `src-tauri/src/kube/{watchers,manager,logs,exec}.rs`. */
 const EV = {
   RESOURCE_UPDATE: "resource-update",
   CLUSTER_STATUS: "cluster-status",
   WATCH_STATUS: "watch-status",
   logLine: (id: string) => `log-line:${id}`,
   logClosed: (id: string) => `log-closed:${id}`,
+  shellChunk: (id: string) => `shell-chunk:${id}`,
+  shellClosed: (id: string) => `shell-closed:${id}`,
 } as const;
 
 /** Backend field naming: snake_case in Rust → camelCase in TS. */
@@ -192,6 +195,47 @@ export class TauriProvider implements DataProvider {
           try { u(); } catch { /* noop */ }
         }
         invoke("stop_log_stream", { streamId: id }).catch(() => {});
+      },
+    };
+  }
+
+  // ---- interactive shell (P4) ----
+
+  async startShell(
+    namespace: string,
+    pod: string,
+    container: string | null,
+    onChunk: (b64: string) => void,
+    onClosed: (reason: string, status: string) => void,
+  ): Promise<ShellHandle> {
+    const id = await invoke<string>("start_shell", {
+      namespace,
+      pod,
+      container: container ?? null,
+    });
+
+    const u1 = await listen<{ data: string }>(EV.shellChunk(id), (e) => {
+      onChunk(e.payload.data);
+    });
+    const u2 = await listen<{ reason: string; status: string }>(
+      EV.shellClosed(id),
+      (e) => onClosed(e.payload.reason, e.payload.status),
+    );
+    const unsubs = [u1, u2];
+
+    return {
+      id,
+      stop: () => {
+        for (const u of unsubs) {
+          try { u(); } catch { /* noop */ }
+        }
+        invoke("stop_shell", { streamId: id }).catch(() => {});
+      },
+      input: async (b64: string) => {
+        await invoke("shell_input", { streamId: id, dataB64: b64 });
+      },
+      resize: async (cols: number, rows: number) => {
+        await invoke("shell_resize", { streamId: id, cols, rows });
       },
     };
   }
