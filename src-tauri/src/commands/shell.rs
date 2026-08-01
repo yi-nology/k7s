@@ -1,14 +1,17 @@
-//! Container exec commands (kubectl subproc).
+//! Container exec commands.
 //!
-//! P4 stub for the xterm-based interactive shell; the one-shot
-//! `exec_pod` (used by the existing LogsModal) lives in
-//! `kube::exec` and is wired through this module.
+//! - `exec_pod`  — one-shot, returns stdout/stderr/exit_code (kubectl subproc)
+//! - `start_shell` — interactive TTY shell; returns a stream id; the
+//!   frontend listens to `shell-chunk:{id}` and `shell-closed:{id}`.
+//! - `shell_input` / `shell_resize` / `stop_shell` — control the
+//!   live stream by id.
 
 use std::sync::Arc;
 
-use tauri::State;
+use base64::Engine;
+use tauri::{AppHandle, State};
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::kube::exec::{self, ExecResult};
 use crate::kube::manager::ClientManager;
 
@@ -26,39 +29,58 @@ pub async fn exec_pod(
 
 #[tauri::command]
 pub async fn start_shell(
-    _namespace: String,
-    _pod: String,
-    _container: Option<String>,
-    _mgr: State<'_, Arc<ClientManager>>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    app: AppHandle,
+    mgr: State<'_, Arc<ClientManager>>,
 ) -> AppResult<String> {
-    Err(crate::error::AppError::msg(
-        "start_shell: lands in P4 (interactive xterm shell)",
-    ))
+    let id = uuid_v4_short();
+    let mgr_arc: Arc<ClientManager> = (*mgr).clone();
+    exec::start_shell(app, mgr_arc, id.clone(), pod, namespace, container).await?;
+    Ok(id)
 }
 
 #[tauri::command]
 pub async fn stop_shell(
-    _stream_id: String,
-    _mgr: State<'_, Arc<ClientManager>>,
+    stream_id: String,
+    mgr: State<'_, Arc<ClientManager>>,
 ) -> AppResult<()> {
-    Ok(())
+    let mgr_arc: Arc<ClientManager> = (*mgr).clone();
+    exec::stop_shell(mgr_arc, &stream_id).await
 }
 
+/// Base64-encoded raw bytes (so binary keys / arrow keys survive
+/// the JSON round-trip).
 #[tauri::command]
 pub async fn shell_input(
-    _stream_id: String,
-    _data: String,
-    _mgr: State<'_, Arc<ClientManager>>,
+    stream_id: String,
+    data_b64: String,
+    mgr: State<'_, Arc<ClientManager>>,
 ) -> AppResult<()> {
-    Ok(())
+    let data = base64::engine::general_purpose::STANDARD
+        .decode(data_b64)
+        .map_err(|e| AppError::msg(format!("shell_input: bad base64: {e}")))?;
+    let mgr_arc: Arc<ClientManager> = (*mgr).clone();
+    exec::shell_input(mgr_arc, &stream_id, data).await
 }
 
 #[tauri::command]
 pub async fn shell_resize(
-    _stream_id: String,
-    _cols: u16,
-    _rows: u16,
-    _mgr: State<'_, Arc<ClientManager>>,
+    stream_id: String,
+    cols: u16,
+    rows: u16,
+    mgr: State<'_, Arc<ClientManager>>,
 ) -> AppResult<()> {
-    Ok(())
+    let mgr_arc: Arc<ClientManager> = (*mgr).clone();
+    exec::shell_resize(mgr_arc, &stream_id, cols, rows).await
+}
+
+fn uuid_v4_short() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    format!("{:x}", nanos)
 }

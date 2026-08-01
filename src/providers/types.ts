@@ -207,6 +207,16 @@ export interface LogHandle {
   stop(): void;
 }
 
+/** Handle for a running interactive shell (P4). */
+export interface ShellHandle {
+  id: string;
+  stop(): void;
+  /** Send raw bytes (base64-encoded) to the shell's stdin. */
+  input(b64: string): Promise<void>;
+  /** Resize the remote PTY. */
+  resize(cols: number, rows: number): Promise<void>;
+}
+
 // ---------------------------------------------------------------------------
 // Port-forward
 // ---------------------------------------------------------------------------
@@ -265,6 +275,14 @@ export interface DataProvider {
     container: string | null,
     command: string[],
   ): Promise<{ stdout: string; stderr: string; exitCode: number; durationMs: number }>;
+  /** Start an interactive TTY shell on a pod/container. */
+  startShell(
+    namespace: string,
+    pod: string,
+    container: string | null,
+    onChunk: (b64: string) => void,
+    onClosed: (reason: string, status: string) => void,
+  ): Promise<ShellHandle>;
   startLogStream(
     ref: ResourceRef,
     container: string | null,

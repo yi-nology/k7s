@@ -25,11 +25,20 @@ interface ActionBarProps {
   onActioned?: () => void;
   /** Open the log modal for a pod. */
   onOpenLogs?: (row: Row) => void;
+  /** Open the exec (interactive shell) modal for a pod. */
+  onOpenExec?: (row: Row) => void;
   /** Open the port-forward modal. */
   onOpenPortForward?: (row: Row) => void;
 }
 
-export function ActionBar({ row, kind, onActioned, onOpenLogs, onOpenPortForward }: ActionBarProps) {
+export function ActionBar({
+  row,
+  kind,
+  onActioned,
+  onOpenLogs,
+  onOpenExec,
+  onOpenPortForward,
+}: ActionBarProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -124,6 +133,11 @@ export function ActionBar({ row, kind, onActioned, onOpenLogs, onOpenPortForward
           {onOpenLogs && (
             <button className="actionbtn" onClick={() => onOpenLogs(row)}>
               Logs <kbd>L</kbd>
+            </button>
+          )}
+          {onOpenExec && (
+            <button className="actionbtn" onClick={() => onOpenExec(row)}>
+              Exec <kbd>X</kbd>
             </button>
           )}
           <button className="actionbtn" onClick={onRestartPod}>

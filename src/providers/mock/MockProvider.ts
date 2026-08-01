@@ -18,6 +18,7 @@ import type {
   ResourceRef,
   ResourceSnapshot,
   Row,
+  ShellHandle,
   Unsub,
 } from "../types";
 
@@ -125,6 +126,23 @@ export class MockProvider implements DataProvider {
 
   stopPortForward(_id: string): Promise<void> {
     return Promise.resolve();
+  }
+
+  // ---- interactive shell (P4) — noop in mock mode ----
+
+  startShell(
+    _namespace: string,
+    _pod: string,
+    _container: string | null,
+    _onChunk: (b64: string) => void,
+    _onClosed: (reason: string, status: string) => void,
+  ): Promise<ShellHandle> {
+    return Promise.resolve({
+      id: "mock-shell",
+      stop: () => {},
+      input: async () => {},
+      resize: async () => {},
+    });
   }
 
   listPortForwards(): Promise<ForwardInfo[]> {

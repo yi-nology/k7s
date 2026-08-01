@@ -671,6 +671,37 @@ input, select {
   align-self: flex-start;
 }
 
+/* ---------------- interactive exec (xterm) ---------------- */
+.modal-exec {
+  width: min(1100px, 100%);
+  height: min(70vh, 720px);
+  display: flex;
+  flex-direction: column;
+}
+
+.exec-body {
+  flex: 1;
+  min-height: 0;
+  background: #0f1115;
+  padding: 8px;
+}
+
+.exec-terminal {
+  width: 100%;
+  height: 100%;
+}
+
+.exec-terminal .xterm,
+.exec-terminal .xterm-viewport,
+.exec-terminal .xterm-screen {
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.exec-terminal .xterm-viewport {
+  background: #0f1115 !important;
+}
+
 /* ---------------- port-forward table ---------------- */
 .pf-table {
   width: 100%;

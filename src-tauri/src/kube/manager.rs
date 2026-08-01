@@ -21,8 +21,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use kube_client::api::TerminalSize;
 use tauri::{AppHandle, Emitter};
-use tokio::sync::{oneshot, RwLock};
+use tokio::sync::{mpsc, oneshot, Notify, RwLock};
 
 use super::client::client_for_context;
 use super::dto::{ClusterInfo, ContextInfo};
@@ -57,13 +58,21 @@ pub struct LogStreamHandle {
 }
 
 /// One active shell session.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ShellHandle {
     pub id: String,
     pub pod: String,
     pub namespace: String,
     pub container: String,
-    pub cancel: Option<CancelTx>,
+    /// Broadcast-style stop signal. A single `notify_one()` wakes every
+    /// task (stdout reader, status watcher) that holds a clone. We
+    /// prefer this over `oneshot::Sender` because multiple tasks need
+    /// to observe the same cancel.
+    pub cancel: Option<Arc<Notify>>,
+    /// Forward raw bytes from the UI to the exec stdin.
+    pub stdin_tx: mpsc::Sender<Vec<u8>>,
+    /// Forward terminal resize from the UI to the exec resize channel.
+    pub resize_tx: mpsc::Sender<TerminalSize>,
 }
 
 /// The state the Tauri runtime holds.
@@ -176,8 +185,8 @@ impl ClientManager {
         }
         let mut shells = self.shells.lock().await;
         for (_, mut h) in shells.drain() {
-            if let Some(tx) = h.cancel.take() {
-                let _ = tx.send(());
+            if let Some(notify) = h.cancel.take() {
+                notify.notify_one();
             }
         }
         let mut pfs = self.port_forwards.lock().await;
@@ -206,6 +215,19 @@ impl ClientManager {
 
     pub async fn take_shell(&self, id: &str) -> Option<ShellHandle> {
         self.shells.lock().await.remove(id)
+    }
+
+    /// Get a read-only handle on a live shell by id (for input/resize).
+    /// Returns the id + a clone of the channel senders. Cheap.
+    pub async fn get_shell_io(
+        &self,
+        id: &str,
+    ) -> Option<(
+        tokio::sync::mpsc::Sender<Vec<u8>>,
+        tokio::sync::mpsc::Sender<kube_client::api::TerminalSize>,
+    )> {
+        let shells = self.shells.lock().await;
+        shells.get(id).map(|h| (h.stdin_tx.clone(), h.resize_tx.clone()))
     }
 
     // ---- port-forward registry ----
