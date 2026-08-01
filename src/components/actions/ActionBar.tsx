@@ -29,6 +29,9 @@ interface ActionBarProps {
   onOpenExec?: (row: Row) => void;
   /** Open the port-forward modal. */
   onOpenPortForward?: (row: Row) => void;
+  /** Rows the user has Space-marked for bulk action. Delete will
+   *  operate on the selected row + all marked rows. */
+  markedRows?: Row[];
 }
 
 export function ActionBar({
@@ -38,6 +41,7 @@ export function ActionBar({
   onOpenLogs,
   onOpenExec,
   onOpenPortForward,
+  markedRows,
 }: ActionBarProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,12 +70,38 @@ export function ActionBar({
   };
 
   const onDelete = useCallback(() => {
+    // Bulk path: if the user has marked additional rows, delete all
+    // of them. Order doesn't matter — the API is per-object.
+    const extra = (markedRows ?? []).filter(
+      (m) => m.uid !== row.uid && m.name !== row.name,
+    );
+    if (extra.length > 0) {
+      const names = [row, ...extra]
+        .map((r) => (r.namespace ? `${r.namespace}/${r.name}` : r.name))
+        .join("\n  - ");
+      const ok = window.confirm(
+        `Delete ${ref.kind} ${row.name} + ${extra.length} marked?\n  - ${names}`,
+      );
+      if (!ok) return;
+      run(async () => {
+        await provider.deleteResource(ref);
+        for (const m of extra) {
+          await provider.deleteResource({
+            kind: ref.kind,
+            namespace: m.namespace,
+            name: m.name,
+          });
+        }
+      }, "delete");
+      return;
+    }
+
     const ok = window.confirm(
       `Delete ${ref.kind} ${row.namespace ? row.namespace + "/" : ""}${row.name}?`,
     );
     if (!ok) return;
     run(() => provider.deleteResource(ref), "delete");
-  }, [ref, row, run]);
+  }, [ref, row, run, markedRows]);
 
   const onScale = useCallback(() => {
     const cur =
@@ -185,7 +215,12 @@ export function ActionBar({
 
       {kind !== "namespaces" && kind !== "events" && kind !== "pvc" && (
         <button className="actionbtn danger" onClick={onDelete}>
-          Delete
+          {(() => {
+            const extra = (markedRows ?? []).filter(
+              (m) => m.uid !== row.uid && m.name !== row.name,
+            ).length;
+            return extra > 0 ? `Delete (${extra + 1})` : "Delete";
+          })()}
         </button>
       )}
 
