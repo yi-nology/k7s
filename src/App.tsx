@@ -38,6 +38,7 @@ import { LogsModal } from "./components/LogsModal";
 import { ExecModal } from "./components/ExecModal";
 import { PortForwardModal } from "./components/PortForwardModal";
 import { ActionBar } from "./components/actions/ActionBar";
+import { CommandPalette, type Command } from "./components/CommandPalette";
 
 export default function App() {
   // ---- connection state ----
@@ -57,6 +58,7 @@ export default function App() {
   const [logsRow, setLogsRow] = useState<Row | null>(null);
   const [execRow, setExecRow] = useState<Row | null>(null);
   const [pfRow, setPfRow] = useState<Row | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // ---- live data ----
   const [rowsByKind, setRowsByKind] = useState<Map<string, Row[]>>(new Map());
@@ -188,6 +190,58 @@ export default function App() {
   const onOpenPortForward = useCallback((row: Row) => setPfRow(row), []);
   const onClosePortForward = useCallback(() => setPfRow(null), []);
 
+  // Dispatch a command from the palette against the current selection.
+  // Same paths as the hotkeys, so palette :y == y key, etc.
+  const runCommand = useCallback(
+    (cmd: Command) => {
+      if (!selectedRow) {
+        // For some commands we have a reasonable default, but most
+        // need a selection. Fall through silently.
+        return;
+      }
+      switch (cmd) {
+        case "yaml":
+          setDetailRow(selectedRow);
+          setDetailTab("yaml");
+          break;
+        case "describe":
+          setDetailRow(selectedRow);
+          setDetailTab("properties");
+          break;
+        case "exec":
+          if (activeKind === "pods") onOpenExec(selectedRow);
+          break;
+        case "logs":
+          if (activeKind === "pods" || selectedRow.pod) onOpenLogs(selectedRow);
+          break;
+        case "port-forward":
+          if (activeKind === "pods" || activeKind === "services") {
+            onOpenPortForward(selectedRow);
+          }
+          break;
+        case "scale":
+        case "restart":
+        case "delete":
+          // These flow through ActionBar buttons — the palette
+          // exists for navigation, not for triggering the same
+          // confirm flows twice. We can wire them later if desired.
+          break;
+      }
+    },
+    [selectedRow, activeKind, onOpenExec, onOpenLogs, onOpenPortForward],
+  );
+
+  const onJump = useCallback(
+    (kind: string, row: Row) => {
+      setActiveKind(kind);
+      // Find the row in the live snapshot to set the right index.
+      const list = rowsByKind.get(kind) ?? [];
+      const idx = list.findIndex((r) => r.uid === row.uid);
+      setSelectedIndex(idx >= 0 ? idx : 0);
+    },
+    [rowsByKind],
+  );
+
   // k9s-style shortcut handlers — used by the keyboard listener.
   const openLogs = useCallback(() => {
     if (selectedRow && (activeKind === "pods" || selectedRow.pod)) {
@@ -210,6 +264,13 @@ export default function App() {
   // ---- hotkeys ----
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // ⌘K / Ctrl-K is global — works even with focus in the filter
+      // input. This matches k9s and the standard palette UX.
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+        return;
+      }
       const tag = (document.activeElement?.tagName ?? "").toUpperCase();
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
       const total = filteredRows.length;
@@ -276,6 +337,7 @@ export default function App() {
           setLogsRow(null);
           setExecRow(null);
           setPfRow(null);
+          setPaletteOpen(false);
           break;
       }
     };
@@ -376,6 +438,15 @@ export default function App() {
           onClose={onClosePortForward}
         />
       )}
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        rowsByKind={rowsByKind}
+        activeKind={activeKind}
+        onCommand={runCommand}
+        onJump={onJump}
+        onPickKind={onPickKind}
+      />
     </div>
   );
 }
