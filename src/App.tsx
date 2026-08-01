@@ -152,6 +152,14 @@ export default function App() {
   const columns = useMemo(() => columnsFor(activeKind), [activeKind]);
   const selectedRow = filteredRows[selectedIndex];
 
+  // Resolve marked uids to actual rows from the current snapshot.
+  // When the user switches kind, the marks clear, so this is always
+  // relative to `activeKind`.
+  const markedRows = useMemo<Row[]>(() => {
+    if (markedUids.size === 0) return [];
+    return filteredRows.filter((r) => markedUids.has(r.uid));
+  }, [filteredRows, markedUids]);
+
   // ---- handlers ----
   const onPickContext = useCallback(async (name: string) => {
     if (name === currentContext) return;
@@ -414,6 +422,7 @@ export default function App() {
               onOpenLogs={onOpenLogs}
               onOpenExec={onOpenExec}
               onOpenPortForward={onOpenPortForward}
+              markedRows={markedRows}
             />
           )}
           <ResourceTable

@@ -107,69 +107,66 @@ export function ResourceTable({
           {filtered.map((row, i) => {
             const isSelected = i === selectedIndex;
             const isMarked = markedUids?.has(row.uid) ?? false;
+            const rowClass =
+              (isSelected ? "row-selected" : "") +
+              (isMarked ? " row-marked" : "");
             return (
-            <tr
-              key={row.uid || row.name}
-              className={`${isSelected ? "row-selected" : ""}${isMarked ? " row-marked" : ""}`}
-              onClick={() => onSelectIndex?.(i)}
-              onDoubleClick={() => onActivate?.(row)}
-            >
-              {isMarked && onToggleMark && (
-                <td
-                  className="row-mark-cell"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleMark(row);
-                  }}
-                  title="Unmark (Space)"
-                >
-                  ●
-                </td>
-              )}
-              {!isMarked && onToggleMark && (
-                <td
-                  className="row-mark-cell row-mark-empty"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleMark(row);
-                  }}
-                  title="Mark (Space)"
-                >
-                  {/* intentionally blank */}
-                </td>
-              )}
-              {columns.map((c, ci) => {
-                const cell = row.cells[ci];
-                if (!cell) {
+              <tr
+                key={row.uid || row.name}
+                className={rowClass}
+                onClick={() => onSelectIndex?.(i)}
+                onDoubleClick={() => onActivate?.(row)}
+              >
+                {onToggleMark ? (
+                  <td
+                    className={
+                      "row-mark-cell" + (isMarked ? "" : " row-mark-empty")
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleMark(row);
+                    }}
+                    title={isMarked ? "Unmark (Space)" : "Mark (Space)"}
+                  >
+                    {isMarked ? "●" : ""}
+                  </td>
+                ) : null}
+                {columns.map((c, ci) => {
+                  const cell = row.cells[ci];
+                  if (!cell) {
+                    return (
+                      <td
+                        key={ci}
+                        style={{ textAlign: c.align ?? "left" }}
+                        className="tone-muted"
+                      >
+                        —
+                      </td>
+                    );
+                  }
                   return (
-                    <td key={ci} style={{ textAlign: c.align ?? "left" }} className="tone-muted">
-                      —
+                    <td
+                      key={ci}
+                      className={`tone-${cell.tone}`}
+                      style={{ textAlign: c.align ?? "left" }}
+                      onClick={(e) => {
+                        if (cell.nav) {
+                          e.stopPropagation();
+                          onCellClick?.(row, cell);
+                        }
+                      }}
+                      title={cell.nav ? `→ ${cell.nav.kind}/${cell.nav.name}` : undefined}
+                    >
+                      {cell.dot && <span className="cell-dot" aria-hidden />}
+                      {cell.format === "age" ? (
+                        <AgeCell ts={cell.text} />
+                      ) : (
+                        cell.text || <span className="tone-muted">—</span>
+                      )}
                     </td>
                   );
-                }
-                return (
-                  <td
-                    key={ci}
-                    className={`tone-${cell.tone}`}
-                    style={{ textAlign: c.align ?? "left" }}
-                    onClick={(e) => {
-                      if (cell.nav) {
-                        e.stopPropagation();
-                        onCellClick?.(row, cell);
-                      }
-                    }}
-                    title={cell.nav ? `→ ${cell.nav.kind}/${cell.nav.name}` : undefined}
-                  >
-                    {cell.dot && <span className="cell-dot" aria-hidden />}
-                    {cell.format === "age" ? (
-                      <AgeCell ts={cell.text} />
-                    ) : (
-                      cell.text || <span className="tone-muted">—</span>
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
+                })}
+              </tr>
             );
           })}
         </tbody>
