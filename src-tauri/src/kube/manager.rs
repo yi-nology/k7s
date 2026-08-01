@@ -44,7 +44,8 @@ pub struct PortForwardHandle {
     pub local_port: u16,
     pub remote_port: u16,
     pub started_at: chrono::DateTime<chrono::Utc>,
-    pub cancel: Option<CancelTx>,
+    /// Broadcast-style stop signal (see ShellHandle.cancel).
+    pub cancel: Option<Arc<Notify>>,
 }
 
 /// One active log stream.
@@ -191,8 +192,8 @@ impl ClientManager {
         }
         let mut pfs = self.port_forwards.lock().await;
         for (_, mut h) in pfs.drain() {
-            if let Some(tx) = h.cancel.take() {
-                let _ = tx.send(());
+            if let Some(notify) = h.cancel.take() {
+                notify.notify_one();
             }
         }
     }
