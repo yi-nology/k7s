@@ -18,6 +18,8 @@ interface TopBarProps {
   onFilterChange: (s: string) => void;
   /** Optional connected cluster name (shown right-aligned). */
   clusterName?: string;
+  /** Optional click handler for the about button. */
+  onAbout?: () => void;
 }
 
 export function TopBar({
@@ -30,6 +32,7 @@ export function TopBar({
   filter,
   onFilterChange,
   clusterName,
+  onAbout,
 }: TopBarProps) {
   const filterRef = useRef<HTMLInputElement | null>(null);
 
@@ -98,6 +101,15 @@ export function TopBar({
       <div className="topbar-spacer" />
 
       {clusterName && <div className="topbar-cluster">{clusterName}</div>}
+      {onAbout && (
+        <button
+          className="iconbtn topbar-about"
+          onClick={onAbout}
+          title="About / settings (Shift+?)"
+        >
+          ?
+        </button>
+      )}
     </header>
   );
 }
