@@ -1199,20 +1199,22 @@ pub async fn start_port_forward(
         }
     }
 
-    // Verify the target resource exists before we spawn anything.
+    // Verify the target resource exists and (for Service) resolve it to
+    // a concrete Pod. The forward loop always runs against a Pod, so the
+    // Service case is just a pre-flight resolution.
     let client = make_client(&state).await?;
-    match kind.as_str() {
+    let resolved_pod_name = match kind.as_str() {
         "Pod" | "pods" => {
             let api: Api<Pod> = Api::namespaced(client.clone(), &namespace);
             api.get(&name).await.map_err(|e| format!("pod not found: {}", e))?;
+            name.clone()
         }
         "Service" | "services" => {
-            // For now only Pod. Service port-forward would need to resolve
-            // the service to a backing pod first; that's a follow-up.
-            return Err("port-forward on Service is not implemented yet (use Pod)".into());
+            resolve_service_to_pod(&client, &name, &namespace, remote_port)
+                .await?
         }
         other => return Err(format!("port-forward not supported for kind: {}", other)),
-    }
+    };
 
     let id = format!(
         "pf-{}-{}-{}-{}",
@@ -1229,8 +1231,7 @@ pub async fn start_port_forward(
 
     tokio::spawn(run_port_forward(
         client,
-        kind.clone(),
-        name.clone(),
+        resolved_pod_name,
         namespace.clone(),
         local_port,
         remote_port,
@@ -1281,8 +1282,7 @@ pub async fn list_port_forwards(
 
 async fn run_port_forward(
     client: kube_client::Client,
-    kind: String,
-    name: String,
+    pod_name: String,
     namespace: String,
     local_port: u16,
     remote_port: u16,
@@ -1299,8 +1299,8 @@ async fn run_port_forward(
         }
     };
     eprintln!(
-        "port-forward: 127.0.0.1:{} -> {}/{}/{}:{} (id pending)",
-        local_port, kind, namespace, name, remote_port
+        "port-forward: 127.0.0.1:{} -> pod/{}/{}:{} (id pending)",
+        local_port, namespace, pod_name, remote_port
     );
 
     loop {
@@ -1308,8 +1308,6 @@ async fn run_port_forward(
             biased;
             _ = &mut cancel_rx => {
                 eprintln!("port-forward: cancelled; dropping listener");
-                // closing the listener is enough — any in-flight serve tasks
-                // will exit when their TcpStream drops.
                 drop(listener);
                 return;
             }
@@ -1323,12 +1321,11 @@ async fn run_port_forward(
                 };
                 eprintln!("port-forward: new local client {}", peer);
                 let client = client.clone();
-                let kind = kind.clone();
-                let name = name.clone();
+                let pod_name = pod_name.clone();
                 let namespace = namespace.clone();
                 tokio::spawn(async move {
                     if let Err(e) = serve_one_connection(
-                        client, &kind, &name, &namespace, remote_port, &mut local,
+                        client, &pod_name, &namespace, remote_port, &mut local,
                     ).await {
                         eprintln!("port-forward: serve: {}", e);
                     }
@@ -1341,37 +1338,406 @@ async fn run_port_forward(
 
 async fn serve_one_connection(
     client: kube_client::Client,
-    kind: &str,
-    name: &str,
+    pod_name: &str,
     namespace: &str,
     remote_port: u16,
     local: &mut tokio::net::TcpStream,
 ) -> Result<(), String> {
-    let api: Api<Pod> = match kind {
-        "Pod" | "pods" => Api::namespaced(client, namespace),
-        _ => return Err(format!("kind not supported: {}", kind)),
-    };
+    let api: Api<Pod> = Api::namespaced(client, namespace);
 
-    // Each new local client gets a fresh Portforwarder (and thus a fresh
-    // upstream WebSocket connection to the apiserver). This is the same
-    // trade-off kubectl port-forward makes — a bit chatty, but trivially
-    // correct.
     let mut portforwarder = api
-        .portforward(name, &[remote_port])
+        .portforward(pod_name, &[remote_port])
         .await
         .map_err(|e| format!("portforward: {}", e))?;
     let mut remote = portforwarder
         .take_stream(remote_port)
         .ok_or_else(|| format!("port {} not in portforwarder", remote_port))?;
 
-    // Keep the Portforwarder (and its background WebSocket task) alive
-    // for the duration of the bidirectional copy.
     let _keep_alive = portforwarder;
 
     tokio::io::copy_bidirectional(local, &mut remote)
         .await
         .map_err(|e| format!("forward: {}", e))?;
     Ok(())
+}
+
+/// Resolve a Service to a concrete Pod for port-forwarding.
+///
+/// Steps:
+///   1. Load the Service; reject if it has no selector (headless or external).
+///   2. List Pods whose labels match the selector.
+///   3. Pick a Ready pod (or just the first one if none are ready).
+///   4. Translate the user-supplied service port to the matching target port
+///      on the chosen pod.
+async fn resolve_service_to_pod(
+    client: &Client,
+    service_name: &str,
+    namespace: &str,
+    service_port: u16,
+) -> Result<String, String> {
+    let svc_api: Api<Service> = Api::namespaced(client.clone(), namespace);
+    let svc = svc_api
+        .get(service_name)
+        .await
+        .map_err(|e| format!("service not found: {}", e))?;
+
+    let selector = svc
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.selector.clone())
+        .ok_or_else(|| "service has no selector (headless?)".to_string())?;
+    if selector.is_empty() {
+        return Err("service has an empty selector".into());
+    }
+
+    // Build a label-selector string. ListParams::labels_from takes a
+    // &BTreeMap<String, String> via a LabelSelector — we hand-roll the
+    // equality-based form here (the common case for Services).
+    let label_pairs: Vec<String> = selector
+        .iter()
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect();
+    let label_query = label_pairs.join(",");
+
+    let pod_api: Api<Pod> = Api::namespaced(client.clone(), namespace);
+    let mut lp = ListParams::default();
+    lp.label_selector = Some(label_query.clone());
+    let plist = pod_api
+        .list(&lp)
+        .await
+        .map_err(|e| format!("list pods by selector: {}", e))?;
+    if plist.items.is_empty() {
+        return Err(format!(
+            "no pods match service selector {} (service/{})",
+            label_query, service_name
+        ));
+    }
+
+    // Prefer Ready pods so we forward to something that can actually
+    // accept traffic.
+    let ready_pod = plist.items.iter().find(|p| {
+        p.status
+            .as_ref()
+            .and_then(|st| st.conditions.as_ref())
+            .and_then(|c| c.iter().find(|c| c.type_ == "Ready"))
+            .map(|c| c.status == "True")
+            .unwrap_or(false)
+    });
+    let chosen = ready_pod.unwrap_or(&plist.items[0]);
+
+    // Translate the user-supplied service port (svc.spec.ports[].port) to
+    // the actual target port the pod exposes.
+    let svc_port_match = svc
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.ports.as_ref())
+        .and_then(|ports| ports.iter().find(|p| p.port == service_port as i32))
+        .ok_or_else(|| {
+            format!(
+                "service {} has no port {}; try one of: {}",
+                service_name,
+                service_port,
+                svc.spec
+                    .as_ref()
+                    .and_then(|sp| sp.ports.as_ref())
+                    .map(|p| p.iter().map(|x| x.port.to_string()).collect::<Vec<_>>().join(","))
+                    .unwrap_or_else(|| "<no ports>".into())
+            )
+        })?;
+
+    // target_port may be int or named. We only support int here; named
+    // ports would require an extra Get on the pod to map them.
+    let target_port: u16 = match svc_port_match.target_port.as_ref() {
+        Some(IntOrString::Int(i)) if *i > 0 && *i <= u16::MAX as i32 => *i as u16,
+        Some(IntOrString::String(n)) => {
+            return Err(format!(
+                "service uses named target port {:?}; numeric only is supported",
+                n
+            ))
+        }
+        _ => service_port, // fall back to the service port (some services use the same number)
+    };
+
+    eprintln!(
+        "port-forward: service {}/{} port {} -> pod {} target_port {}",
+        namespace, service_name, service_port, chosen.name_any(), target_port
+    );
+
+    Ok(chosen.name_any().to_string())
+}
+
+// ---------------------------------------------------------------------------
+// Scale (:scale in k9s) — Deployment / StatefulSet / ReplicaSet
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn scale_resource(
+    kind: String,
+    name: String,
+    namespace: String,
+    replicas: i32,
+    state: State<'_, AppState>,
+) -> Result<i32, String> {
+    use kube_client::api::PostParams;
+    let client = make_client(&state).await?;
+    let ns = namespace.as_str();
+
+    // Load → mutate replicas → PUT the Scale subresource back.
+    let set_and_replace = |mut scale: k8s_openapi::api::autoscaling::v1::Scale, target: i32| {
+        if scale.spec.is_none() {
+            scale.spec = Some(k8s_openapi::api::autoscaling::v1::ScaleSpec::default());
+        }
+        if let Some(spec) = scale.spec.as_mut() {
+            spec.replicas = Some(target);
+        }
+        serde_json::to_vec(&scale).map_err(|e| format!("serialize Scale: {}", e))
+    };
+
+    match kind.as_str() {
+        "Deployment" | "deployments" => {
+            let api: Api<Deployment> = Api::namespaced(client, ns);
+            let scale = api
+                .get_scale(&name)
+                .await
+                .map_err(|e| format!("get_scale: {}", e))?;
+            let bytes = set_and_replace(scale, replicas)?;
+            let updated = api
+                .replace_scale(&name, &PostParams::default(), bytes)
+                .await
+                .map_err(|e| format!("replace_scale: {}", e))?;
+            Ok(updated.spec.as_ref().and_then(|s| s.replicas).unwrap_or(0))
+        }
+        "StatefulSet" | "statefulsets" => {
+            let api: Api<StatefulSet> = Api::namespaced(client, ns);
+            let scale = api
+                .get_scale(&name)
+                .await
+                .map_err(|e| format!("get_scale: {}", e))?;
+            let bytes = set_and_replace(scale, replicas)?;
+            let updated = api
+                .replace_scale(&name, &PostParams::default(), bytes)
+                .await
+                .map_err(|e| format!("replace_scale: {}", e))?;
+            Ok(updated.spec.as_ref().and_then(|s| s.replicas).unwrap_or(0))
+        }
+        "ReplicaSet" | "replicasets" => {
+            let api: Api<ReplicaSet> = Api::namespaced(client, ns);
+            let scale = api
+                .get_scale(&name)
+                .await
+                .map_err(|e| format!("get_scale: {}", e))?;
+            let bytes = set_and_replace(scale, replicas)?;
+            let updated = api
+                .replace_scale(&name, &PostParams::default(), bytes)
+                .await
+                .map_err(|e| format!("replace_scale: {}", e))?;
+            Ok(updated.spec.as_ref().and_then(|s| s.replicas).unwrap_or(0))
+        }
+        other => Err(format!("scale not supported for kind: {}", other)),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Apply YAML (:edit in k9s)
+//
+// Reads the current object's YAML, lets the user edit it, then sends a
+// server-side apply (application/apply-patch+yaml) back. SSApply is
+// idempotent and conflict-safe (last-applied field-tracked).
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn apply_yaml(
+    kind: String,
+    name: String,
+    namespace: String,
+    yaml: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    use kube_client::api::{Patch, PatchParams};
+
+    // Validate the user's YAML: must be non-empty, parseable, and the
+    // kind/name/namespace must match the row that was selected.
+    if yaml.trim().is_empty() {
+        return Err("apply_yaml: empty document".into());
+    }
+    let parsed: serde_yaml::Value = serde_yaml::from_str(&yaml)
+        .map_err(|e| format!("apply_yaml: invalid YAML: {}", e))?;
+
+    let mk = parsed.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+    let mn = parsed.get("metadata")
+        .and_then(|m| m.get("name"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let mns = parsed
+        .get("metadata")
+        .and_then(|m| m.get("namespace"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    if !mk.eq_ignore_ascii_case(&kind) {
+        return Err(format!(
+            "apply_yaml: kind mismatch (expected {}, got {})",
+            kind, mk
+        ));
+    }
+    if mn != name {
+        return Err(format!(
+            "apply_yaml: name mismatch (expected {}, got {})",
+            name, mn
+        ));
+    }
+    if !namespace.is_empty() && mns != namespace {
+        return Err(format!(
+            "apply_yaml: namespace mismatch (expected {}, got {})",
+            namespace, mns
+        ));
+    }
+
+    let client = make_client(&state).await?;
+
+    // Server-side apply with force: the apiserver will take over fields
+    // owned by other managers if force is set (else it rejects).
+    // Patch::Apply<T> serializes via serde_json::to_vec, so the body must
+    // be something Serialize into JSON, not a raw string (which would
+    // be JSON-encoded as `"...quotes..."` and rejected by the apiserver).
+    // Also strip metadata.managedFields — the apiserver rejects any
+    // submitted YAML that includes it (server-managed metadata).
+    if let Some(metadata) = parsed
+        .get_mut("metadata")
+        .and_then(|m| m.as_mapping_mut())
+    {
+        metadata.remove(serde_yaml::Value::String("managedFields".into()));
+    }
+    let pp = PatchParams::apply("k7s").force();
+    let patch = Patch::Apply(parsed);
+
+    let dispatch = async {
+        let r: Result<(), kube_client::Error> = match kind.as_str() {
+            "Pod" | "pods" => Api::<Pod>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "Deployment" | "deployments" => Api::<Deployment>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "StatefulSet" | "statefulsets" => Api::<StatefulSet>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "DaemonSet" | "daemonsets" => Api::<DaemonSet>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "ReplicaSet" | "replicasets" => Api::<ReplicaSet>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "Job" | "jobs" => Api::<Job>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "CronJob" | "cronjobs" => Api::<CronJob>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "Service" | "services" => Api::<Service>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "ConfigMap" | "configmaps" => Api::<ConfigMap>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "Secret" | "secrets" => Api::<Secret>::namespaced(client.clone(), &namespace)
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            "PersistentVolumeClaim" | "persistentvolumeclaims" | "pvc" => {
+                Api::<PersistentVolumeClaim>::namespaced(client.clone(), &namespace)
+                    .patch(&name, &pp, &patch)
+                    .await
+                    .map(|_| ())
+            }
+            "HorizontalPodAutoscaler" | "horizontalpodautoscalers" | "hpa" => {
+                Api::<HorizontalPodAutoscaler>::namespaced(client.clone(), &namespace)
+                    .patch(&name, &pp, &patch)
+                    .await
+                    .map(|_| ())
+            }
+            "Namespace" | "namespaces" => Api::<Namespace>::all(client.clone())
+                .patch(&name, &pp, &patch)
+                .await
+                .map(|_| ()),
+            other => Err(kube_client::Error::Api(kube_client::error::ErrorResponse {
+                status: "Failure".into(),
+                message: format!("apply not supported for kind: {}", other),
+                reason: "BadRequest".into(),
+                code: 400,
+            })),
+        };
+        r
+    }
+    .await
+    .map_err(|e| format!("apply: {}", e))?;
+
+    // Re-fetch the canonical YAML so the editor can show what landed.
+    let yaml_after = get_yaml_for_kind(&client, &kind, Some(&namespace), &name).await?;
+    let _ = dispatch; // keep the patch result alive for debugging if needed
+    Ok(yaml_after)
+}
+
+// ---------------------------------------------------------------------------
+// Describe (:describe in k9s) — friendlier than raw YAML.
+//
+// Pulls the current object, joins related events, and emits a fixed-width
+// text block. Cheaper to read than YAML and pulls out the things k9s
+// shows in its describe view (status, conditions, containers, events).
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DescribeResult {
+    pub kind: String,
+    pub name: String,
+    pub namespace: String,
+    pub text: String,
+}
+
+#[tauri::command]
+pub async fn describe(
+    kind: String,
+    name: String,
+    namespace: String,
+    state: State<'_, AppState>,
+) -> Result<DescribeResult, String> {
+    let client = make_client(&state).await?;
+    let ns = namespace.as_str();
+    let text = match kind.as_str() {
+        "Pod" | "pods" => describe_pod(&client, &name, ns).await?,
+        "Deployment" | "deployments" => describe_deployment(&client, &name, ns).await?,
+        "StatefulSet" | "statefulsets" => describe_statefulset(&client, &name, ns).await?,
+        "DaemonSet" | "daemonsets" => describe_daemonset(&client, &name, ns).await?,
+        "ReplicaSet" | "replicasets" => describe_replicaset(&client, &name, ns).await?,
+        "Job" | "jobs" => describe_job(&client, &name, ns).await?,
+        "CronJob" | "cronjobs" => describe_cronjob(&client, &name, ns).await?,
+        "Service" | "services" => describe_service(&client, &name, ns).await?,
+        "ConfigMap" | "configmaps" => describe_configmap(&client, &name, ns).await?,
+        "Secret" | "secrets" => describe_secret(&client, &name, ns).await?,
+        "PersistentVolumeClaim" | "persistentvolumeclaims" | "pvc" => {
+            describe_pvc(&client, &name, ns).await?
+        }
+        "HorizontalPodAutoscaler" | "horizontalpodautoscalers" | "hpa" => {
+            describe_hpa(&client, &name, ns).await?
+        }
+        "Node" | "nodes" => describe_node(&client, &name).await?,
+        "Namespace" | "namespaces" => describe_namespace(&client, &name).await?,
+        other => return Err(format!("describe not supported for kind: {}", other)),
+    };
+    Ok(DescribeResult {
+        kind,
+        name,
+        namespace: namespace.clone(),
+        text,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -1401,4 +1767,722 @@ fn age_of(ts: Option<&k8s_openapi::apimachinery::pkg::apis::meta::v1::Time>) -> 
     };
     let created: DateTime<Utc> = ts.0;
     format_chrono_dt(created)
+}
+
+// ---------------------------------------------------------------------------
+// Describe helpers
+//
+// Each describe_<kind> function takes &Client and emits a single multi-line
+// string with the layout k9s uses:
+//   Name:        ...
+//   Namespace:   ...
+//   <kind-specific section>
+//   Status / Conditions / Containers / Events
+// ---------------------------------------------------------------------------
+
+async fn describe_pod(client: &Client, name: &str, namespace: &str) -> Result<String, String> {
+    let api: Api<Pod> = Api::namespaced(client.clone(), namespace);
+    let p = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", p.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Node:         {}\n",
+        p.spec.as_ref().and_then(|sp| sp.node_name.clone()).unwrap_or_default()
+    ));
+    s.push_str(&format!(
+        "Start Time:   {} (≈{} ago)\n",
+        p.meta()
+            .creation_timestamp
+            .as_ref()
+            .map(|t| t.0.to_rfc3339())
+            .unwrap_or_else(|| "—".into()),
+        age_of(p.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!(
+        "Status:       {}\n",
+        p.status
+            .as_ref()
+            .and_then(|st| st.phase.clone())
+            .unwrap_or_else(|| "—".into())
+    ));
+    s.push_str(&format!(
+        "Pod IP:       {}\n",
+        p.status
+            .as_ref()
+            .and_then(|st| st.pod_ip.clone())
+            .unwrap_or_default()
+    ));
+    s.push_str(&format!(
+        "Labels:       {}\n",
+        labels_to_string(p.meta().labels.as_ref())
+    ));
+    s.push_str("\nContainers:\n");
+    if let Some(spec) = p.spec.as_ref() {
+        for c in &spec.containers {
+            let (ready, restarts) = p
+                .status
+                .as_ref()
+                .and_then(|st| st.container_statuses.as_ref())
+                .and_then(|cs| {
+                    cs.iter()
+                        .find(|cs| cs.name == c.name)
+                        .map(|cs| (cs.ready, cs.restart_count))
+                })
+                .unwrap_or((false, 0));
+            s.push_str(&format!("  {}\n", c.name));
+            s.push_str(&format!(
+                "    Image:     {}\n",
+                c.image.clone().unwrap_or_else(|| "<none>".into())
+            ));
+            let ports: Vec<String> = c
+                .ports
+                .as_ref()
+                .map(|pp| {
+                    pp.iter()
+                        .map(|p| {
+                            let proto = p.protocol.clone().unwrap_or_else(|| "TCP".into());
+                            let host = p
+                                .host_port
+                                .map(|h| format!(" host={}", h))
+                                .unwrap_or_default();
+                            format!("{}/{}{}", p.container_port, proto, host)
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            if !ports.is_empty() {
+                s.push_str(&format!("    Ports:     {}\n", ports.join(", ")));
+            }
+            s.push_str(&format!("    Ready:     {}\n", if ready { "true" } else { "false" }));
+            s.push_str(&format!("    Restarts:  {}\n", restarts));
+        }
+    }
+    s.push_str("\nConditions:\n");
+    if let Some(conds) = p
+        .status
+        .as_ref()
+        .and_then(|st| st.conditions.as_ref())
+    {
+        for c in conds {
+            let icon = if c.status == "True" { "✓" } else { "✗" };
+            s.push_str(&format!(
+                "  {} {:<14} {}\n",
+                icon,
+                c.type_,
+                c.status
+            ));
+        }
+    } else {
+        s.push_str("  (none)\n");
+    }
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "Pod", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_deployment(
+    client: &Client,
+    name: &str,
+    namespace: &str,
+) -> Result<String, String> {
+    let api: Api<Deployment> = Api::namespaced(client.clone(), namespace);
+    let d = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", d.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        d.meta()
+            .creation_timestamp
+            .as_ref()
+            .map(|t| t.0.to_rfc3339())
+            .unwrap_or_else(|| "—".into()),
+        age_of(d.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!(
+        "Labels:       {}\n",
+        labels_to_string(d.meta().labels.as_ref())
+    ));
+    let desired = d.spec.as_ref().and_then(|sp| sp.replicas).unwrap_or(0);
+    let ready = d
+        .status
+        .as_ref()
+        .and_then(|st| st.ready_replicas)
+        .unwrap_or(0);
+    let updated = d
+        .status
+        .as_ref()
+        .and_then(|st| st.updated_replicas)
+        .unwrap_or(0);
+    let available = d
+        .status
+        .as_ref()
+        .and_then(|st| st.available_replicas)
+        .unwrap_or(0);
+    let unavailable = d
+        .status
+        .as_ref()
+        .and_then(|st| st.unavailable_replicas)
+        .unwrap_or(0);
+    s.push_str("\nReplicas:\n");
+    s.push_str(&format!("  desired   {}\n", desired));
+    s.push_str(&format!("  updated   {}\n", updated));
+    s.push_str(&format!("  ready     {}\n", ready));
+    s.push_str(&format!("  available {}\n", available));
+    s.push_str(&format!("  unavailable {}\n", unavailable));
+    s.push_str("\nStrategy:\n");
+    s.push_str(&format!(
+        "  type: {}\n",
+        d.spec
+            .as_ref()
+            .and_then(|sp| sp.strategy.as_ref())
+            .map(|st| st.type_.clone().unwrap_or_else(|| "RollingUpdate".into()))
+            .unwrap_or_else(|| "RollingUpdate".into())
+    ));
+    s.push_str("\nSelector:     ");
+    s.push_str(&label_selector_to_string(
+        d.spec.as_ref().map(|sp| &sp.selector).unwrap(),
+    ));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "Deployment", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_statefulset(
+    client: &Client,
+    name: &str,
+    namespace: &str,
+) -> Result<String, String> {
+    let api: Api<StatefulSet> = Api::namespaced(client.clone(), namespace);
+    let s_obj = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", s_obj.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        s_obj.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(s_obj.meta().creation_timestamp.as_ref())
+    ));
+    let desired = s_obj.spec.as_ref().and_then(|sp| sp.replicas).unwrap_or(0);
+    let ready = s_obj.status.as_ref().and_then(|st| st.ready_replicas).unwrap_or(0);
+    s.push_str(&format!("Replicas:     {} desired / {} ready\n", desired, ready));
+    s.push_str(&format!("Service Name: {}\n",
+        s_obj.spec.as_ref().and_then(|sp| sp.service_name.clone()).unwrap_or_default()));
+    s.push_str("\nSelector:     ");
+    s.push_str(&label_selector_to_string(
+        s_obj.spec.as_ref().map(|sp| &sp.selector).unwrap(),
+    ));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "StatefulSet", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_daemonset(
+    client: &Client,
+    name: &str,
+    namespace: &str,
+) -> Result<String, String> {
+    let api: Api<DaemonSet> = Api::namespaced(client.clone(), namespace);
+    let d = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", d.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        d.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(d.meta().creation_timestamp.as_ref())
+    ));
+    let desired = d.status.as_ref().map(|st| st.desired_number_scheduled).unwrap_or(0);
+    let ready = d.status.as_ref().map(|st| st.number_ready).unwrap_or(0);
+    let sched = d.status.as_ref().map(|st| st.current_number_scheduled).unwrap_or(0);
+    s.push_str(&format!(
+        "Pods:         {} desired / {} ready / {} scheduled\n",
+        desired, ready, sched
+    ));
+    s.push_str("\nSelector:     ");
+    s.push_str(&label_selector_to_string(
+        d.spec.as_ref().map(|sp| &sp.selector).unwrap(),
+    ));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "DaemonSet", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_replicaset(
+    client: &Client,
+    name: &str,
+    namespace: &str,
+) -> Result<String, String> {
+    let api: Api<ReplicaSet> = Api::namespaced(client.clone(), namespace);
+    let r = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", r.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        r.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(r.meta().creation_timestamp.as_ref())
+    ));
+    let desired = r.spec.as_ref().and_then(|sp| sp.replicas).unwrap_or(0);
+    let ready = r.status.as_ref().and_then(|st| st.ready_replicas).unwrap_or(0);
+    s.push_str(&format!("Replicas:     {} desired / {} ready\n", desired, ready));
+    s.push_str(&format!("Owner:        {}\n",
+        r.meta().owner_references.as_ref()
+            .and_then(|o| o.first())
+            .map(|o| format!("{}/{}", o.kind, o.name))
+            .unwrap_or_else(|| "<none>".into())));
+    s.push_str("\nSelector:     ");
+    s.push_str(&label_selector_to_string(
+        r.spec.as_ref().map(|sp| &sp.selector).unwrap(),
+    ));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "ReplicaSet", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_job(client: &Client, name: &str, namespace: &str) -> Result<String, String> {
+    let api: Api<Job> = Api::namespaced(client.clone(), namespace);
+    let j = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", j.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        j.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(j.meta().creation_timestamp.as_ref())
+    ));
+    let completions = j.spec.as_ref().and_then(|sp| sp.completions).unwrap_or(0);
+    let parallelism = j.spec.as_ref().and_then(|sp| sp.parallelism).unwrap_or(1);
+    let active = j.status.as_ref().and_then(|st| st.active).unwrap_or(0);
+    let succeeded = j.status.as_ref().and_then(|st| st.succeeded).unwrap_or(0);
+    let failed = j.status.as_ref().and_then(|st| st.failed).unwrap_or(0);
+    s.push_str(&format!(
+        "Completions:  {}/{} (parallelism {})\n",
+        succeeded, completions, parallelism
+    ));
+    s.push_str(&format!("Status:       active={} succeeded={} failed={}\n", active, succeeded, failed));
+    if let Some(st) = j.status.as_ref() {
+        if let Some(start) = st.start_time.as_ref() {
+            let dur = st
+                .completion_time
+                .as_ref()
+                .map(|end| (end.0 - start.0).num_seconds())
+                .map(|s| format!("{}s", s))
+                .unwrap_or_else(|| "—".into());
+            s.push_str(&format!("Duration:     {}\n", dur));
+        }
+    }
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "Job", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_cronjob(
+    client: &Client,
+    name: &str,
+    namespace: &str,
+) -> Result<String, String> {
+    let api: Api<CronJob> = Api::namespaced(client.clone(), namespace);
+    let c = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", c.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        c.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(c.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!(
+        "Schedule:     {}\n",
+        c.spec.as_ref().map(|sp| sp.schedule.clone()).unwrap_or_default()
+    ));
+    s.push_str(&format!(
+        "Suspend:      {}\n",
+        c.spec.as_ref().and_then(|sp| sp.suspend).unwrap_or(false)
+    ));
+    s.push_str(&format!(
+        "Last Schedule: {}\n",
+        c.status
+            .as_ref()
+            .and_then(|st| st.last_schedule_time.as_ref().map(|t| t.0.to_rfc3339()))
+            .unwrap_or_else(|| "<none>".into())
+    ));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "CronJob", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_service(
+    client: &Client,
+    name: &str,
+    namespace: &str,
+) -> Result<String, String> {
+    let api: Api<Service> = Api::namespaced(client.clone(), namespace);
+    let sv = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", sv.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        sv.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(sv.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!("Type:         {}\n",
+        sv.spec.as_ref().and_then(|sp| sp.type_.clone()).unwrap_or_else(|| "ClusterIP".into())));
+    s.push_str(&format!("Cluster IP:   {}\n",
+        sv.spec.as_ref().and_then(|sp| sp.cluster_ip.clone()).unwrap_or_default()));
+    s.push_str(&format!("External IPs: {}\n",
+        sv.spec.as_ref().and_then(|sp| sp.external_ips.as_ref())
+            .map(|ips| ips.join(",")).unwrap_or_default()));
+    s.push_str("\nPorts:\n");
+    if let Some(ports) = sv.spec.as_ref().and_then(|sp| sp.ports.as_ref()) {
+        for p in ports {
+            let proto = p.protocol.clone().unwrap_or_else(|| "TCP".into());
+            let target = p.target_port.as_ref()
+                .map(|tp| match tp {
+                    IntOrString::Int(i) => i.to_string(),
+                    IntOrString::String(s) => s.clone(),
+                })
+                .unwrap_or_default();
+            s.push_str(&format!(
+                "  {:>5}/{:<4} → {}\n",
+                p.port, proto, target
+            ));
+        }
+    }
+    s.push_str("\nSelector:     ");
+    s.push_str(&service_selector_to_string(
+        sv.spec.as_ref().and_then(|sp| sp.selector.as_ref()).unwrap_or(&EMPTY_LABELS),
+    ));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "Service", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_configmap(
+    client: &Client,
+    name: &str,
+    namespace: &str,
+) -> Result<String, String> {
+    let api: Api<ConfigMap> = Api::namespaced(client.clone(), namespace);
+    let c = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", c.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        c.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(c.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!("Data Keys:    {}\n",
+        c.data.as_ref().map(|d| d.len()).unwrap_or(0)));
+    s.push_str(&format!("Binary Keys:  {}\n",
+        c.binary_data.as_ref().map(|d| d.len()).unwrap_or(0)));
+    s.push_str("\nData:\n");
+    if let Some(d) = c.data.as_ref() {
+        for (k, v) in d {
+            let preview: String = v.chars().take(80).collect();
+            s.push_str(&format!("  {}: {}{}\n", k, preview, if v.chars().count() > 80 { "…" } else { "" }));
+        }
+    } else {
+        s.push_str("  (none)\n");
+    }
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "ConfigMap", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_secret(client: &Client, name: &str, namespace: &str) -> Result<String, String> {
+    let api: Api<Secret> = Api::namespaced(client.clone(), namespace);
+    let s_obj = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", s_obj.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        s_obj.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(s_obj.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!("Type:         {}\n", s_obj.type_.clone().unwrap_or_else(|| "Opaque".into())));
+    s.push_str(&format!("Data Keys:    {}\n", s_obj.data.as_ref().map(|d| d.len()).unwrap_or(0)));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "Secret", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_pvc(
+    client: &Client,
+    name: &str,
+    namespace: &str,
+) -> Result<String, String> {
+    let api: Api<PersistentVolumeClaim> = Api::namespaced(client.clone(), namespace);
+    let p = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", p.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        p.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(p.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!("Status:       {}\n",
+        p.status.as_ref().and_then(|st| st.phase.clone()).unwrap_or_else(|| "—".into())));
+    s.push_str(&format!("Volume:       {}\n",
+        p.spec.as_ref().and_then(|sp| sp.volume_name.clone()).unwrap_or_default()));
+    s.push_str(&format!("StorageClass: {}\n",
+        p.spec.as_ref().and_then(|sp| sp.storage_class_name.clone()).unwrap_or_default()));
+    s.push_str(&format!(
+        "Capacity:     {}\n",
+        p.status
+            .as_ref()
+            .and_then(|st| st.capacity.as_ref())
+            .and_then(|m| m.get("storage"))
+            .map(|q| format!("{}", q.0))
+            .unwrap_or_default()
+    ));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "PersistentVolumeClaim", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_hpa(client: &Client, name: &str, namespace: &str) -> Result<String, String> {
+    let api: Api<HorizontalPodAutoscaler> = Api::namespaced(client.clone(), namespace);
+    let h = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", h.name_any()));
+    s.push_str(&format!("Namespace:    {}\n", namespace));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        h.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(h.meta().creation_timestamp.as_ref())
+    ));
+    if let Some(spec) = h.spec.as_ref() {
+        s.push_str(&format!("Reference:    {}/{}\n", spec.scale_target_ref.kind, spec.scale_target_ref.name));
+        s.push_str(&format!(
+            "Replicas:     min={} max={}\n",
+            spec.min_replicas.unwrap_or(0),
+            spec.max_replicas
+        ));
+    }
+    if let Some(st) = h.status.as_ref() {
+        s.push_str(&format!(
+            "Status:       current={} desired={}\n",
+            st.current_replicas, st.desired_replicas
+        ));
+    }
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "HorizontalPodAutoscaler", name, namespace, 10).await);
+    Ok(s)
+}
+
+async fn describe_node(client: &Client, name: &str) -> Result<String, String> {
+    let api: Api<Node> = Api::all(client.clone());
+    let n = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", n.name_any()));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        n.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(n.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!("Roles:        {}\n",
+        n.metadata.labels.as_ref()
+            .map(|m| m.iter()
+                .filter(|(k,_)| k.starts_with("node-role.kubernetes.io/"))
+                .map(|(k,_)| k.trim_start_matches("node-role.kubernetes.io/").to_string())
+                .collect::<Vec<_>>().join(","))
+            .unwrap_or_default()));
+    if let Some(info) = n.status.as_ref().and_then(|st| st.node_info.clone()) {
+        s.push_str(&format!("Version:      {}\n", info.kubelet_version));
+        s.push_str(&format!("OS:           {}\n", info.operating_system));
+        s.push_str(&format!("Arch:         {}\n", info.architecture));
+        s.push_str(&format!("Container:    {}\n", info.container_runtime_version));
+    }
+    if let Some(addrs) = n.status.as_ref().and_then(|st| st.addresses.as_ref()) {
+        for a in addrs {
+            s.push_str(&format!("  {:<13} {}\n", a.type_, a.address));
+        }
+    }
+    s.push_str("\nConditions:\n");
+    if let Some(conds) = n.status.as_ref().and_then(|st| st.conditions.as_ref()) {
+        for c in conds {
+            let icon = if c.status == "True" { "✓" } else { "✗" };
+            s.push_str(&format!(
+                "  {} {:<14} {}\n",
+                icon, c.type_, c.status
+            ));
+        }
+    }
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "Node", name, "", 10).await);
+    Ok(s)
+}
+
+async fn describe_namespace(client: &Client, name: &str) -> Result<String, String> {
+    let api: Api<Namespace> = Api::all(client.clone());
+    let ns = api.get(name).await.map_err(|e| format!("get: {}", e))?;
+    let mut s = String::new();
+    s.push_str(&format!("Name:         {}\n", ns.name_any()));
+    s.push_str(&format!(
+        "Created:      {} (≈{} ago)\n",
+        ns.meta().creation_timestamp.as_ref().map(|t| t.0.to_rfc3339()).unwrap_or_else(|| "—".into()),
+        age_of(ns.meta().creation_timestamp.as_ref())
+    ));
+    s.push_str(&format!("Status:       {}\n",
+        ns.status.as_ref().and_then(|st| st.phase.clone()).unwrap_or_else(|| "Active".into())));
+    s.push_str(&format!("Labels:       {}\n", labels_to_string(ns.meta().labels.as_ref())));
+    s.push_str("\nEvents (latest first, max 10):\n");
+    s.push_str(&format_events(client, "Namespace", name, "", 10).await);
+    Ok(s)
+}
+
+fn labels_to_string(labels: Option<&std::collections::BTreeMap<String, String>>) -> String {
+    labels
+        .map(|m| {
+            m.iter()
+                .map(|(k, v)| format!("{}={}", k, v))
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+        .unwrap_or_default()
+}
+
+const EMPTY_LABELS: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
+
+fn label_selector_to_string(
+    sel: &k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector,
+) -> String {
+    if let Some(m) = sel.match_labels.as_ref() {
+        if !m.is_empty() {
+            return labels_to_string(Some(m));
+        }
+    }
+    if let Some(exprs) = sel.match_expressions.as_ref() {
+        let parts: Vec<String> = exprs
+            .iter()
+            .map(|e| {
+                format!(
+                    "{} {} ({})",
+                    e.key,
+                    e.operator,
+                    e.values
+                        .as_ref()
+                        .map(|v| v.join("|"))
+                        .unwrap_or_default()
+                )
+            })
+            .collect();
+        return parts.join(", ");
+    }
+    "<none>".into()
+}
+
+fn service_selector_to_string(
+    sel: &std::collections::BTreeMap<String, String>,
+) -> String {
+    if sel.is_empty() {
+        "<none>".into()
+    } else {
+        labels_to_string(Some(sel))
+    }
+}
+
+async fn format_events(
+    client: &Client,
+    kind: &str,
+    name: &str,
+    namespace: &str,
+    limit: usize,
+) -> String {
+    use k8s_openapi::api::core::v1::Event as KubeEvent;
+    let api: Api<KubeEvent> = if namespace.is_empty() {
+        Api::all(client.clone())
+    } else {
+        Api::namespaced(client.clone(), namespace)
+    };
+    // Field selector is the proper way; but field-selector builder via
+    // kube ListParams is not always ergonomic. We just list and filter
+    // client-side — there are usually only a handful of events.
+    let list = match api.list(&ListParams::default()).await {
+        Ok(l) => l,
+        Err(_) => return "  (events unavailable)\n".to_string(),
+    };
+    let mut matched: Vec<&KubeEvent> = list
+        .iter()
+        .filter(|e| {
+            e.involved_object.kind.as_deref() == Some(kind)
+                && e.involved_object.name.as_deref() == Some(name)
+        })
+        .collect();
+    matched.sort_by(|a, b| {
+        use k8s_openapi::apimachinery::pkg::apis::meta::v1::{MicroTime, Time};
+        fn pick(e: &k8s_openapi::api::core::v1::Event) -> Option<chrono::DateTime<chrono::Utc>> {
+            if let Some(t) = e.last_timestamp.as_ref() {
+                let t: &Time = t;
+                return Some(t.0);
+            }
+            if let Some(t) = e.event_time.as_ref() {
+                let t: &MicroTime = t;
+                return Some(t.0);
+            }
+            None
+        }
+        let ta = pick(a);
+        let tb = pick(b);
+        tb.cmp(&ta) // newest first
+    });
+    matched.truncate(limit);
+    if matched.is_empty() {
+        return "  (none)\n".to_string();
+    }
+    let mut out = String::new();
+    out.push_str(&format!(
+        "  {:<8} {:<14} {:<8} {:<20} {}\n",
+        "TYPE", "REASON", "AGE", "FROM", "MESSAGE"
+    ));
+    for e in matched {
+        let ts = event_age(e);
+        let from = e.source.as_ref()
+            .and_then(|s| s.component.clone())
+            .or_else(|| e.source.as_ref().and_then(|s| s.host.clone()))
+            .unwrap_or_default();
+        let msg = e.message.clone().unwrap_or_default();
+        out.push_str(&format!(
+            "  {:<8} {:<14} {:<8} {:<20} {}\n",
+            e.type_.clone().unwrap_or_default(),
+            e.reason.clone().unwrap_or_default(),
+            ts,
+            truncate(&from, 20),
+            msg
+        ));
+    }
+    out
+}
+
+/// Compute a compact age string for an Event, preferring last_timestamp
+/// (Time), then event_time (MicroTime), then metadata.creation_timestamp.
+fn event_age(e: &k8s_openapi::api::core::v1::Event) -> String {
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{MicroTime, Time};
+    fn from_dt(dt: chrono::DateTime<chrono::Utc>) -> String {
+        format_chrono_dt(dt)
+    }
+    if let Some(t) = e.last_timestamp.as_ref() {
+        let t: &Time = t;
+        return from_dt(t.0);
+    }
+    if let Some(t) = e.event_time.as_ref() {
+        let t: &MicroTime = t;
+        return from_dt(t.0);
+    }
+    age_of(e.meta().creation_timestamp.as_ref())
+}
+
+fn truncate(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        let cut: String = s.chars().take(max.saturating_sub(1)).collect();
+        format!("{}…", cut)
+    }
 }

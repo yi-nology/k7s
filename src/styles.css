@@ -541,6 +541,10 @@ input, select {
   width: min(1000px, 100%);
 }
 
+.modal-narrow {
+  width: min(520px, 100%);
+}
+
 .modal-toolbar {
   display: flex;
   align-items: center;
@@ -701,4 +705,44 @@ input, select {
   padding: 1px 5px;
   border-radius: 3px;
   font-size: 11px;
+}
+
+/* ---------------- yaml editor (k9s :edit) ---------------- */
+.yaml-editor {
+  width: 100%;
+  height: 60vh;
+  min-height: 280px;
+  resize: none;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.55;
+  outline: none;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.yaml-editor:focus {
+  border-color: var(--accent);
+}
+
+.describe-view {
+  white-space: pre;
+  color: var(--fg);
+}
+
+.muted {
+  color: var(--fg-mute);
+  font-family: var(--sans);
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.toolbar-spacer {
+  flex: 1;
 }

@@ -77,6 +77,9 @@ pub fn run() {
             commands::start_port_forward,
             commands::stop_port_forward,
             commands::list_port_forwards,
+            commands::scale_resource,
+            commands::apply_yaml,
+            commands::describe,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s");

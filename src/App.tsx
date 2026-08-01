@@ -8,6 +8,9 @@ import { DetailPanel } from "./components/DetailPanel";
 import { LogsModal } from "./components/LogsModal";
 import { ExecModal } from "./components/ExecModal";
 import { PortForwardModal } from "./components/PortForwardModal";
+import { ScaleModal } from "./components/ScaleModal";
+import { EditModal } from "./components/EditModal";
+import { DescribeModal } from "./components/DescribeModal";
 import type {
   ConfigMapRow,
   ContextInfo,
@@ -114,6 +117,24 @@ export default function App() {
     containers: string;
   } | null>(null);
   const [pfTarget, setPfTarget] = useState<{
+    kind: string;
+    name: string;
+    namespace: string;
+    servicePorts?: number[];
+  } | null>(null);
+  const [scaleTarget, setScaleTarget] = useState<{
+    kind: string;
+    name: string;
+    namespace: string;
+    currentReplicas: number;
+  } | null>(null);
+  const [editTarget, setEditTarget] = useState<{
+    kind: string;
+    name: string;
+    namespace: string;
+    yaml: string;
+  } | null>(null);
+  const [describeTarget, setDescribeTarget] = useState<{
     kind: string;
     name: string;
     namespace: string;
@@ -287,18 +308,56 @@ export default function App() {
               containers: String(row.containers ?? ""),
             });
           }
+        } else {
+          // For any other view, `e` opens the YAML editor.
+          openEditForSelected();
+        }
+      } else if (e.key === "y") {
+        openEditForSelected();
+      } else if (e.key === "d") {
+        e.preventDefault();
+        openDescribeForSelected();
+      } else if (e.key === "s") {
+        if (
+          active === "deployments" ||
+          active === "statefulsets" ||
+          active === "replicasets"
+        ) {
+          const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
+          if (row) {
+            const ready = String(row.ready ?? "0/0");
+            const current = Number(ready.split("/")[1]) || 0;
+            const kind = kindLabel[active].capital;
+            const ns = String(row.namespace ?? "");
+            setScaleTarget({
+              kind,
+              name: String(row.name ?? ""),
+              namespace: ns,
+              currentReplicas: current,
+            });
+          }
         }
       } else if (e.key === "f" || e.key === "F") {
         if (active === "pods" || active === "services") {
           const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
           if (row) {
             const kind = kindLabel[active].capital;
-            const ns =
-              (row.namespace as string | undefined) || "";
+            const ns = (row.namespace as string | undefined) || "";
+            // For services, parse the port list (e.g. "53/53/TCP,9153/9153/TCP")
+            // into numeric service ports so the user can pick a target.
+            let servicePorts: number[] | undefined;
+            if (active === "services") {
+              const portsStr = String(row.ports ?? "");
+              servicePorts = portsStr
+                .split(",")
+                .map((s) => Number(s.split("/")[0]))
+                .filter((n) => Number.isFinite(n) && n > 0);
+            }
             setPfTarget({
               kind,
               name: String(row.name ?? ""),
               namespace: ns,
+              servicePorts,
             });
           }
         }
@@ -307,6 +366,9 @@ export default function App() {
         setLogsTarget(null);
         setExecTarget(null);
         setPfTarget(null);
+        setScaleTarget(null);
+        setEditTarget(null);
+        setDescribeTarget(null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -371,6 +433,49 @@ export default function App() {
       namespace: active === "nodes" || active === "namespaces" ? null : ns,
       name,
     });
+  };
+
+  // k9s :describe: friendlier than raw YAML.
+  const openDescribeForSelected = () => {
+    const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
+    if (!row) return;
+    const kind = kindLabel[active].capital;
+    const ns =
+      active === "nodes" || active === "namespaces"
+        ? ""
+        : String(row.namespace ?? "");
+    setDescribeTarget({
+      kind,
+      name: String(row.name ?? ""),
+      namespace: ns,
+    });
+  };
+
+  // k9s :edit: load YAML, let the user edit, server-side apply.
+  const openEditForSelected = async () => {
+    const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
+    if (!row) return;
+    const kind = kindLabel[active].capital;
+    const ns =
+      active === "nodes" || active === "namespaces"
+        ? ""
+        : String(row.namespace ?? "");
+    const name = String(row.name ?? "");
+    try {
+      const detail = await api.getYaml(
+        kind,
+        active === "nodes" || active === "namespaces" ? null : ns,
+        name,
+      );
+      setEditTarget({
+        kind,
+        name,
+        namespace: ns,
+        yaml: detail.yaml,
+      });
+    } catch (e) {
+      setError(String(e));
+    }
   };
 
   const onPickContext = async (name: string) => {
@@ -605,7 +710,36 @@ export default function App() {
           kind={pfTarget.kind}
           name={pfTarget.name}
           namespace={pfTarget.namespace}
+          servicePorts={pfTarget.servicePorts}
           onClose={() => setPfTarget(null)}
+        />
+      )}
+      {scaleTarget && (
+        <ScaleModal
+          kind={scaleTarget.kind}
+          name={scaleTarget.name}
+          namespace={scaleTarget.namespace}
+          currentReplicas={scaleTarget.currentReplicas}
+          onClose={() => setScaleTarget(null)}
+          onScaled={reload}
+        />
+      )}
+      {editTarget && (
+        <EditModal
+          kind={editTarget.kind}
+          name={editTarget.name}
+          namespace={editTarget.namespace}
+          initialYaml={editTarget.yaml}
+          onClose={() => setEditTarget(null)}
+          onApplied={reload}
+        />
+      )}
+      {describeTarget && (
+        <DescribeModal
+          kind={describeTarget.kind}
+          name={describeTarget.name}
+          namespace={describeTarget.namespace}
+          onClose={() => setDescribeTarget(null)}
         />
       )}
     </div>

@@ -164,6 +164,13 @@ export interface PortForwardInfo {
   started_at: string;
 }
 
+export interface DescribeResult {
+  kind: string;
+  name: string;
+  namespace: string;
+  text: string;
+}
+
 export type ResourceKind =
   | "pods"
   | "deployments"
