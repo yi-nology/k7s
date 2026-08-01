@@ -16,7 +16,8 @@ dist-ssr
 *.sw?
 
 # rust / tauri
-src-tauri/target
+target
+**/target
 src-tauri/Cargo.lock
 src-tauri/WixTools
 src-tauri/gen
