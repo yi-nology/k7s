@@ -271,6 +271,45 @@ async fn main() -> Result<()> {
         .collect();
     table(&["NAME", "PHASE", "READY", "NODE"], rows);
 
+    // --- get_yaml probe: this is the path k7s uses for the detail panel.
+    section("get_yaml (k7s detail-panel code path)");
+    let target_pod = plist.items.first();
+    if let Some(pod) = target_pod {
+        let api: Api<Pod> = Api::namespaced(client.clone(), "kube-system");
+        let fetched = api.get(pod.name_any().as_str()).await?;
+        let yaml = serde_yaml::to_string(&fetched)?;
+        println!(
+            "  ✓ fetched Pod {}/{} ({} bytes of YAML)",
+            "kube-system",
+            pod.name_any(),
+            yaml.len()
+        );
+        println!("  --- first 12 lines ---");
+        for line in yaml.lines().take(12) {
+            println!("    {}", line);
+        }
+        println!("  ---");
+    } else {
+        println!("  (no pods in kube-system to fetch)");
+    }
+
+    let metrics_dep = dlist
+        .items
+        .iter()
+        .find(|d| d.name_any() == "metrics-server")
+        .cloned();
+    if let Some(d) = metrics_dep {
+        let api: Api<Deployment> = Api::namespaced(client.clone(), "kube-system");
+        let fetched = api.get(d.name_any().as_str()).await?;
+        let yaml = serde_yaml::to_string(&fetched)?;
+        println!(
+            "\n  ✓ fetched Deployment {}/{} ({} bytes of YAML)",
+            "kube-system",
+            d.name_any(),
+            yaml.len()
+        );
+    }
+
     println!("\n✓ probe succeeded — same code path k7s uses on Tauri");
     Ok(())
 }

@@ -14,3 +14,4 @@ k8s-openapi = { version = "0.25", features = ["latest"] }
 tokio = { version = "1", features = ["full"] }
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
+serde_yaml = "0.9"

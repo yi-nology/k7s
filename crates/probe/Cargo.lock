@@ -743,6 +743,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "kube-client",
+ "serde_yaml",
  "tokio",
 ]
 
