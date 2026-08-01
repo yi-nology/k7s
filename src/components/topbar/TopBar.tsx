@@ -1,20 +1,23 @@
+/**
+ * TopBar — context switcher, namespace filter, search input.
+ *
+ * Pure presentation. The parent owns the data; this just lays it out.
+ */
+
 import { useEffect, useRef } from "react";
-import type { ContextInfo, NamespaceRow } from "../lib/types";
+import type { ContextInfo, Row } from "../../providers/types";
 
 interface TopBarProps {
   contexts: ContextInfo[];
   currentContext: string | null;
-  namespaces: NamespaceRow[];
+  namespaces: Row[];
   namespace: string;
   onPickContext: (name: string) => void;
   onPickNamespace: (name: string) => void;
-  onRefreshNow: () => void;
-  loading: boolean;
-  refreshIn: number;
   filter: string;
   onFilterChange: (s: string) => void;
-  onToggleAutoRefresh: () => void;
-  autoRefresh: boolean;
+  /** Optional connected cluster name (shown right-aligned). */
+  clusterName?: string;
 }
 
 export function TopBar({
@@ -24,27 +27,21 @@ export function TopBar({
   namespace,
   onPickContext,
   onPickNamespace,
-  onRefreshNow,
-  loading,
-  refreshIn,
   filter,
   onFilterChange,
-  onToggleAutoRefresh,
-  autoRefresh,
+  clusterName,
 }: TopBarProps) {
   const filterRef = useRef<HTMLInputElement | null>(null);
 
-  // Global "/" to focus filter
+  // Global "/" to focus filter.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (
-        e.key === "/" &&
-        document.activeElement?.tagName !== "INPUT" &&
-        document.activeElement?.tagName !== "TEXTAREA"
-      ) {
-        e.preventDefault();
-        filterRef.current?.focus();
-      }
+      if (e.key !== "/") return;
+      const tag = document.activeElement?.tagName?.toUpperCase();
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      filterRef.current?.focus();
+      filterRef.current?.select();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -53,17 +50,18 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="topbar-section">
-        <span className="dot" />
+        <span className="dot dot-ok pulse" />
         <select
           className="select"
           value={currentContext ?? ""}
           onChange={(e) => onPickContext(e.target.value)}
+          title="Switch context"
         >
           {contexts.length === 0 && <option value="">(no contexts)</option>}
           {contexts.map((c) => (
             <option key={c.name} value={c.name}>
               {c.name}
-              {c.is_current ? " (current)" : ""}
+              {c.isCurrent ? " (current)" : ""}
             </option>
           ))}
         </select>
@@ -75,10 +73,11 @@ export function TopBar({
           className="select"
           value={namespace}
           onChange={(e) => onPickNamespace(e.target.value)}
+          title="Namespace filter"
         >
           <option value="">all</option>
           {namespaces.map((ns) => (
-            <option key={ns.name} value={ns.name}>
+            <option key={ns.uid || ns.name} value={ns.name}>
               {ns.name}
             </option>
           ))}
@@ -98,25 +97,7 @@ export function TopBar({
 
       <div className="topbar-spacer" />
 
-      <button
-        className="iconbtn"
-        onClick={onToggleAutoRefresh}
-        title={
-          autoRefresh
-            ? `Auto-refresh ON (next in ${refreshIn}s)`
-            : "Auto-refresh OFF"
-        }
-      >
-        {autoRefresh ? `${refreshIn}s` : "off"}
-      </button>
-      <button
-        className="iconbtn"
-        onClick={onRefreshNow}
-        title="Refresh now (r)"
-        disabled={loading}
-      >
-        {loading ? "⟳" : "↻"}
-      </button>
+      {clusterName && <div className="topbar-cluster">{clusterName}</div>}
     </header>
   );
 }
