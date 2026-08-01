@@ -5,6 +5,9 @@ import { Sidebar, type NavItem } from "./components/Sidebar";
 import { TopBar } from "./components/TopBar";
 import { ResourceTable, type ColumnDef } from "./components/ResourceTable";
 import { DetailPanel } from "./components/DetailPanel";
+import { LogsModal } from "./components/LogsModal";
+import { ExecModal } from "./components/ExecModal";
+import { PortForwardModal } from "./components/PortForwardModal";
 import type {
   ConfigMapRow,
   ContextInfo,
@@ -99,6 +102,21 @@ export default function App() {
     kind: string;
     namespace: string | null;
     name: string;
+  } | null>(null);
+  const [logsTarget, setLogsTarget] = useState<{
+    name: string;
+    namespace: string;
+    containers: string;
+  } | null>(null);
+  const [execTarget, setExecTarget] = useState<{
+    name: string;
+    namespace: string;
+    containers: string;
+  } | null>(null);
+  const [pfTarget, setPfTarget] = useState<{
+    kind: string;
+    name: string;
+    namespace: string;
   } | null>(null);
 
   const [reloadToken, setReloadToken] = useState(0);
@@ -248,8 +266,47 @@ export default function App() {
         e.preventDefault();
         reload();
         setRefreshIn(REFRESH_INTERVAL);
+      } else if (e.key === "l") {
+        if (active === "pods") {
+          const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
+          if (row) {
+            setLogsTarget({
+              name: String(row.name ?? ""),
+              namespace: String(row.namespace ?? ""),
+              containers: String(row.containers ?? ""),
+            });
+          }
+        }
+      } else if (e.key === "e") {
+        if (active === "pods") {
+          const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
+          if (row) {
+            setExecTarget({
+              name: String(row.name ?? ""),
+              namespace: String(row.namespace ?? ""),
+              containers: String(row.containers ?? ""),
+            });
+          }
+        }
+      } else if (e.key === "f" || e.key === "F") {
+        if (active === "pods" || active === "services") {
+          const row = currentRows()[selectedIndex] as Record<string, unknown> | undefined;
+          if (row) {
+            const kind = kindLabel[active].capital;
+            const ns =
+              (row.namespace as string | undefined) || "";
+            setPfTarget({
+              kind,
+              name: String(row.name ?? ""),
+              namespace: ns,
+            });
+          }
+        }
       } else if (e.key === "Escape") {
         setDetailTarget(null);
+        setLogsTarget(null);
+        setExecTarget(null);
+        setPfTarget(null);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -525,6 +582,30 @@ export default function App() {
           name={detailTarget.name}
           onClose={() => setDetailTarget(null)}
           onDeleted={reload}
+        />
+      )}
+      {logsTarget && (
+        <LogsModal
+          name={logsTarget.name}
+          namespace={logsTarget.namespace}
+          containers={logsTarget.containers}
+          onClose={() => setLogsTarget(null)}
+        />
+      )}
+      {execTarget && (
+        <ExecModal
+          name={execTarget.name}
+          namespace={execTarget.namespace}
+          containers={execTarget.containers}
+          onClose={() => setExecTarget(null)}
+        />
+      )}
+      {pfTarget && (
+        <PortForwardModal
+          kind={pfTarget.kind}
+          name={pfTarget.name}
+          namespace={pfTarget.namespace}
+          onClose={() => setPfTarget(null)}
         />
       )}
     </div>

@@ -16,7 +16,7 @@ use k8s_openapi::api::core::v1::{
     ConfigMap, Namespace, Node, PersistentVolumeClaim, Pod, Secret, Service,
 };
 use k8s_openapi::api::autoscaling::v1::HorizontalPodAutoscaler;
-use kube::api::{Api, ListParams, ResourceExt as _};
+use kube::api::{Api, ListParams, LogParams, ResourceExt as _};
 use kube::config::Kubeconfig;
 use kube_client::Client;
 use serde::Serialize;
@@ -343,8 +343,178 @@ async fn main() -> Result<()> {
         println!("    ... ({} bytes total)", json.len());
     }
 
+    // --- get_pod_logs (the path k7s's LogsModal uses)
+    section("get_pod_logs (k7s :logs path)");
+    if let Some(pod) = plist.items.first() {
+        let api: Api<Pod> = Api::namespaced(client.clone(), "kube-system");
+        let mut lp = LogParams::default();
+        lp.follow = false;
+        lp.tail_lines = Some(8);
+        match api.logs(&pod.name_any(), &lp).await {
+            Ok(text) => {
+                let lines: Vec<&str> = text.lines().collect();
+                println!("  ✓ fetched logs for {}/{} ({} bytes, {} lines)",
+                    "kube-system", pod.name_any(), text.len(), lines.len());
+                for line in lines.iter().take(5) {
+                    println!("    | {}", line);
+                }
+                if lines.len() > 5 {
+                    println!("    ... ({} more)", lines.len() - 5);
+                }
+            }
+            Err(e) => println!("  ✗ logs failed: {}", e),
+        }
+    }
+
+    // --- exec_pod (k7s's :exec path; shells out to kubectl)
+    section("exec_pod (k7s :exec path; kubectl subprocess)");
+    if let Some(pod) = plist.items.first() {
+        let name = pod.name_any();
+        let kc = Kubeconfig::read()?;
+        let ctx = kc.current_context.unwrap_or_default();
+        let mut args: Vec<String> = vec![
+            "exec".into(),
+            name.clone(),
+            "-n".into(),
+            "kube-system".into(),
+        ];
+        if !ctx.is_empty() {
+            args.push("--context".into());
+            args.push(ctx);
+        }
+        args.push("--".into());
+        args.push("sh".into());
+        args.push("-c".into());
+        args.push("echo \"hello from probe on $(hostname)\"".into());
+
+        match std::process::Command::new("kubectl")
+            .args(&args)
+            .output()
+        {
+            Ok(o) if o.status.success() => {
+                let s = String::from_utf8_lossy(&o.stdout);
+                println!("  ✓ exec succeeded: {}", s.trim());
+            }
+            Ok(o) => {
+                let s = String::from_utf8_lossy(&o.stderr);
+                println!("  ✗ exec failed (exit {:?}): {}",
+                    o.status.code(), s.trim());
+            }
+            Err(e) => {
+                println!("  ⚠ kubectl not in PATH ({}); skipping exec test", e);
+            }
+        }
+    }
+
+    // --- port-forward (k7s's :pf path): bind 127.0.0.1:19053 -> a pod port
+    // and curl it. We try coredns's 9153 (metrics) if present, else skip.
+    section("port-forward (k7s :pf path)");
+    run_port_forward_probe(&client).await;
+
     println!("\n✓ probe succeeded — same code path k7s uses on Tauri");
     Ok(())
+}
+
+async fn run_port_forward_probe(client: &Client) {
+    use std::time::Duration;
+    use tokio::io::AsyncWriteExt;
+    use tokio::net::TcpStream;
+
+    // Pick a pod that exposes a TCP port we can talk to. Coredns has 9153/metrics.
+    let pods: Api<Pod> = Api::namespaced(client.clone(), "kube-system");
+    let lp = ListParams::default();
+    let plist = match pods.list(&lp).await {
+        Ok(p) => p,
+        Err(e) => {
+            println!("  ✗ pod list failed: {}", e);
+            return;
+        }
+    };
+    let target = plist.items.iter().find(|p| p.name_any().contains("coredns"));
+    let Some(pod) = target else {
+        println!("  ⚠ no coredns pod to forward to; skipping");
+        return;
+    };
+
+    let local_port: u16 = 19053;
+    let remote_port: u16 = 9153;
+
+    let listener = match tokio::net::TcpListener::bind(("127.0.0.1", local_port)).await {
+        Ok(l) => l,
+        Err(e) => {
+            println!("  ✗ bind 127.0.0.1:{}: {}", local_port, e);
+            return;
+        }
+    };
+    println!("  bound 127.0.0.1:{} (one-shot forward to coredns:{})", local_port, remote_port);
+
+    // Spawn the forwarder task: every accept gets a fresh portforward subresource.
+    let api: Api<Pod> = Api::namespaced(client.clone(), "kube-system");
+    let name = pod.name_any();
+    let fwd_task = tokio::spawn(async move {
+        loop {
+            let (mut local, _) = match listener.accept().await {
+                Ok(p) => p,
+                Err(_) => return,
+            };
+            let mut pf = match api.portforward(&name, &[remote_port]).await {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("    portforward setup: {}", e);
+                    return;
+                }
+            };
+            let mut remote = match pf.take_stream(remote_port) {
+                Some(s) => s,
+                None => {
+                    eprintln!("    port {} not in portforwarder", remote_port);
+                    return;
+                }
+            };
+            let _keep = pf;  // keep portforwarder alive
+            let _ = tokio::io::copy_bidirectional(&mut local, &mut remote).await;
+        }
+    });
+
+    // Give the listener a moment, then talk to it.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let mut stream = match TcpStream::connect(("127.0.0.1", local_port)).await {
+        Ok(s) => s,
+        Err(e) => {
+            println!("  ✗ connect: {}", e);
+            fwd_task.abort();
+            return;
+        }
+    };
+    // HTTP GET /metrics
+    let req = b"GET /metrics HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n";
+    if let Err(e) = stream.write_all(req).await {
+        println!("  ✗ write: {}", e);
+        fwd_task.abort();
+        return;
+    }
+    let mut buf = Vec::new();
+    let _ = tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut buf).await;
+    let resp = String::from_utf8_lossy(&buf);
+    let status_line = resp.lines().next().unwrap_or("(empty)");
+    let body_bytes = resp
+        .find("\r\n\r\n")
+        .map(|i| buf.len() - i - 4)
+        .unwrap_or(0);
+    println!("  HTTP response: {}", status_line);
+    println!("  body bytes:    {}", body_bytes);
+    if status_line.contains("200") && body_bytes > 0 {
+        println!("  ✓ port-forward roundtrip OK");
+    } else {
+        println!("  ⚠ unexpected response (first 200 bytes):");
+        let preview: String = resp.chars().take(200).collect();
+        for line in preview.lines() {
+            println!("    | {}", line);
+        }
+    }
+
+    fwd_task.abort();
+    let _ = fwd_task.await;
 }
 
 // --- end of main, helpers below ---

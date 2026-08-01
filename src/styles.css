@@ -535,3 +535,170 @@ input, select {
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* ---------------- modal toolbar (logs / exec / port-forward) ---------------- */
+.modal-wide {
+  width: min(1000px, 100%);
+}
+
+.modal-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elev-2);
+  flex-wrap: wrap;
+}
+
+.toolbar-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.toolbar-field-grow {
+  flex: 1;
+  min-width: 200px;
+}
+
+.toolbar-field .input,
+.toolbar-field .select {
+  font-size: 12px;
+  min-width: 60px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.input-narrow {
+  width: 100px;
+  min-width: 0;
+}
+
+.toolbar-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  user-select: none;
+  cursor: pointer;
+}
+
+.toolbar-check input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.arrow {
+  color: var(--fg-mute);
+  font-family: var(--mono);
+}
+
+.btn-primary {
+  background: rgba(88, 166, 255, 0.18);
+  border-color: rgba(88, 166, 255, 0.4);
+  color: var(--accent-2);
+  font-weight: 500;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: rgba(88, 166, 255, 0.28);
+  border-color: var(--accent);
+}
+
+.btn-sm {
+  padding: 3px 8px;
+  font-size: 11px;
+}
+
+.footer-hint {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-mute);
+}
+
+/* ---------------- logs / exec output ---------------- */
+.logs-view {
+  background: var(--bg);
+  border: 1px solid var(--border-2);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--fg);
+  white-space: pre;
+  overflow: auto;
+  max-height: 60vh;
+  font-family: var(--mono);
+  margin: 0;
+}
+
+.logs-stderr {
+  margin-top: 8px;
+  color: var(--err);
+  border-color: rgba(248, 81, 73, 0.3);
+  background: rgba(248, 81, 73, 0.04);
+}
+
+.exec-output {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exec-status {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg-mute);
+  padding: 4px 8px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-2);
+  border-radius: 4px;
+  display: inline-block;
+  align-self: flex-start;
+}
+
+/* ---------------- port-forward table ---------------- */
+.pf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.pf-table thead th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--fg-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pf-table tbody td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-2);
+  color: var(--fg);
+}
+
+.pf-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.pf-table code {
+  background: var(--bg-elev-2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
