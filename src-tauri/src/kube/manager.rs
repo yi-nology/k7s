@@ -321,14 +321,19 @@ impl ClientManager {
 
 /// Probe the cluster: server version, name, and address. Used to
 /// populate `ClusterInfo` on connect.
-///
-/// P0: we don't go through `Api<Version>` (which requires a
-/// `kube-client` feature we don't currently enable). Instead we
-/// do a quick list of any kind to confirm the cluster is reachable;
-/// the real version is fetched by the metrics / status poller in
-/// a later phase. The server address comes from the kubeconfig.
 async fn probe_cluster(client: &kube::Client, context: &str) -> anyhow::Result<ClusterInfo> {
-    // Cheap reachability check: list nodes with limit=1.
+    // Real `/version` call (kube `version` feature). Cheap and
+    // authoritative — no need to guess from a placeholder.
+    let version = client
+        .apiserver_version()
+        .await
+        .ok()
+        .map(|v| v.git_version)
+        .unwrap_or_else(|| "unknown".into());
+
+    // Cheap reachability check + node list (kept so we can show
+    // nodesReady/nodesTotal in the footer even before the first
+    // status tick).
     use k8s_openapi::api::core::v1::Node;
     use kube::api::{Api, ListParams};
     let _ = Api::<Node>::all(client.clone())
@@ -337,7 +342,6 @@ async fn probe_cluster(client: &kube::Client, context: &str) -> anyhow::Result<C
             ..Default::default()
         })
         .await?;
-    let version = "v1.x (probed)".to_string();
 
     // Server address: read from the kubeconfig we just used.
     let kc = super::client::load_kubeconfig().unwrap_or_default();

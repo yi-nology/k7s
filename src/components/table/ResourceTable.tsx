@@ -36,6 +36,11 @@ interface ResourceTableProps {
   onActivate?: (row: Row) => void;
   /** Optional cell-click handler. Triggered when a cell has `nav` set. */
   onCellClick?: (row: Row, cell: Cell) => void;
+  /** Uids of "marked" rows (multi-select). Marked rows render with a
+   *  leading marker that doesn't interfere with the active row. */
+  markedUids?: Set<string>;
+  /** Toggle a row's mark. */
+  onToggleMark?: (row: Row) => void;
 }
 
 export function ResourceTable({
@@ -48,6 +53,8 @@ export function ResourceTable({
   onSelectIndex,
   onActivate,
   onCellClick,
+  markedUids,
+  onToggleMark,
 }: ResourceTableProps) {
   const filtered = useMemo(() => {
     if (!filter.trim()) return rows;
@@ -97,13 +104,40 @@ export function ResourceTable({
           </tr>
         </thead>
         <tbody>
-          {filtered.map((row, i) => (
+          {filtered.map((row, i) => {
+            const isSelected = i === selectedIndex;
+            const isMarked = markedUids?.has(row.uid) ?? false;
+            return (
             <tr
               key={row.uid || row.name}
-              className={i === selectedIndex ? "row-selected" : ""}
+              className={`${isSelected ? "row-selected" : ""}${isMarked ? " row-marked" : ""}`}
               onClick={() => onSelectIndex?.(i)}
               onDoubleClick={() => onActivate?.(row)}
             >
+              {isMarked && onToggleMark && (
+                <td
+                  className="row-mark-cell"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleMark(row);
+                  }}
+                  title="Unmark (Space)"
+                >
+                  ●
+                </td>
+              )}
+              {!isMarked && onToggleMark && (
+                <td
+                  className="row-mark-cell row-mark-empty"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleMark(row);
+                  }}
+                  title="Mark (Space)"
+                >
+                  {/* intentionally blank */}
+                </td>
+              )}
               {columns.map((c, ci) => {
                 const cell = row.cells[ci];
                 if (!cell) {
@@ -136,7 +170,8 @@ export function ResourceTable({
                 );
               })}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

@@ -39,6 +39,7 @@ import { ExecModal } from "./components/ExecModal";
 import { PortForwardModal } from "./components/PortForwardModal";
 import { ActionBar } from "./components/actions/ActionBar";
 import { CommandPalette, type Command } from "./components/CommandPalette";
+import { AboutModal } from "./components/AboutModal";
 
 export default function App() {
   // ---- connection state ----
@@ -53,12 +54,14 @@ export default function App() {
   const [namespace, setNamespace] = useState<string>("");
   const [filter, setFilter] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [markedUids, setMarkedUids] = useState<Set<string>>(new Set());
   const [detailRow, setDetailRow] = useState<Row | null>(null);
   const [detailTab, setDetailTab] = useState<"yaml" | "events" | "properties">("yaml");
   const [logsRow, setLogsRow] = useState<Row | null>(null);
   const [execRow, setExecRow] = useState<Row | null>(null);
   const [pfRow, setPfRow] = useState<Row | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // ---- live data ----
   const [rowsByKind, setRowsByKind] = useState<Map<string, Row[]>>(new Map());
@@ -126,9 +129,10 @@ export default function App() {
     };
   }, []);
 
-  // Reset selection when kind or filter changes
+  // Reset selection + marks when kind or filter changes
   useEffect(() => {
     setSelectedIndex(0);
+    setMarkedUids(new Set());
   }, [activeKind, filter]);
 
   // ---- derived ----
@@ -177,6 +181,15 @@ export default function App() {
   const onActivate = useCallback((row: Row) => {
     setDetailRow(row);
     setDetailTab("yaml");
+  }, []);
+
+  const onToggleMark = useCallback((row: Row) => {
+    setMarkedUids((prev) => {
+      const next = new Set(prev);
+      if (next.has(row.uid)) next.delete(row.uid);
+      else next.add(row.uid);
+      return next;
+    });
   }, []);
 
   const onCloseDetail = useCallback(() => setDetailRow(null), []);
@@ -298,6 +311,18 @@ export default function App() {
           e.preventDefault();
           setSelectedIndex(Math.max(0, total - 1));
           break;
+        case " ":
+          if (selectedRow) {
+            e.preventDefault();
+            onToggleMark(selectedRow);
+          }
+          break;
+        case "?":
+          if (e.shiftKey) {
+            e.preventDefault();
+            setAboutOpen(true);
+          }
+          break;
         case "Enter":
         case "d":
           if (selectedRow) {
@@ -350,6 +375,7 @@ export default function App() {
     openLogs,
     openExec,
     openPortForward,
+    onToggleMark,
     activeKind,
   ]);
 
@@ -373,6 +399,7 @@ export default function App() {
           filter={filter}
           onFilterChange={setFilter}
           clusterName={clusterInfo?.clusterName}
+          onAbout={() => setAboutOpen(true)}
         />
         <div className="content">
           {connectError ? (
@@ -406,6 +433,8 @@ export default function App() {
             filter={filter}
             onSelectIndex={setSelectedIndex}
             onActivate={onActivate}
+            markedUids={markedUids}
+            onToggleMark={onToggleMark}
           />
         </div>
         <StatusBar status={status} activeWatchers={activeWatchers} />
@@ -447,6 +476,14 @@ export default function App() {
         onJump={onJump}
         onPickKind={onPickKind}
       />
+      {aboutOpen && (
+        <AboutModal
+          clusterInfo={clusterInfo}
+          status={status}
+          contextName={currentContext}
+          onClose={() => setAboutOpen(false)}
+        />
+      )}
     </div>
   );
 }
