@@ -1,0 +1,16 @@
+[package]
+name = "k7s-probe"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "probe"
+path = "src/main.rs"
+
+[dependencies]
+kube = { version = "1", features = ["default", "runtime"] }
+kube-client = "1"
+k8s-openapi = { version = "0.25", features = ["latest"] }
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
