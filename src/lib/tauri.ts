@@ -5,6 +5,7 @@ import type {
   ConfigMapRow,
   DaemonSetRow,
   DeploymentRow,
+  DescribeResult,
   EventRow,
   ExecResult,
   HpaRow,
@@ -127,6 +128,42 @@ export const api = {
   stopPortForward: (id: string) =>
     invoke<void>("stop_port_forward", { id }),
   listPortForwards: () => invoke<PortForwardInfo[]>("list_port_forwards"),
+
+  // Scale / apply / describe (k9s-style :s / :e / :d)
+  scaleResource: (
+    kind: string,
+    name: string,
+    namespace: string,
+    replicas: number,
+  ) =>
+    invoke<number>("scale_resource", {
+      kind,
+      name,
+      namespace,
+      replicas,
+    }),
+  applyYaml: (
+    kind: string,
+    name: string,
+    namespace: string,
+    yaml: string,
+  ) =>
+    invoke<string>("apply_yaml", {
+      kind,
+      name,
+      namespace,
+      yaml,
+    }),
+  describe: (
+    kind: string,
+    name: string,
+    namespace: string,
+  ) =>
+    invoke<DescribeResult>("describe", {
+      kind,
+      name,
+      namespace,
+    }),
 };
 
 // Canonical capitalization used by the Rust backend for each resource kind.

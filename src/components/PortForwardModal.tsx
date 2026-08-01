@@ -6,15 +6,28 @@ interface PortForwardModalProps {
   kind: string;
   name: string;
   namespace: string;
+  /**
+   * For Service forwards: a list of remote ports the Service exposes
+   * (so the user can pick a target). For Pod forwards, this is empty —
+   * the user just types the container port they want.
+   */
+  servicePorts?: number[];
   onClose: () => void;
 }
 
 const DEFAULT_LOCAL = 18080;
 const DEFAULT_REMOTE = 80;
 
-export function PortForwardModal({ kind, name, namespace, onClose }: PortForwardModalProps) {
+export function PortForwardModal({
+  kind,
+  name,
+  namespace,
+  servicePorts,
+  onClose,
+}: PortForwardModalProps) {
   const [localPort, setLocalPort] = useState<number>(DEFAULT_LOCAL);
-  const [remotePort, setRemotePort] = useState<number>(DEFAULT_REMOTE);
+  const initialRemote = servicePorts?.[0] ?? DEFAULT_REMOTE;
+  const [remotePort, setRemotePort] = useState<number>(initialRemote);
   const [active, setActive] = useState<PortForwardInfo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,17 +116,34 @@ export function PortForwardModal({ kind, name, namespace, onClose }: PortForward
             />
           </label>
           <span className="arrow">→</span>
-          <label className="toolbar-field">
-            <span>remote</span>
-            <input
-              className="input input-narrow"
-              type="number"
-              min={1}
-              max={65535}
-              value={remotePort}
-              onChange={(e) => setRemotePort(Number(e.target.value) || 1)}
-            />
-          </label>
+          {servicePorts && servicePorts.length > 0 ? (
+            <label className="toolbar-field">
+              <span>remote</span>
+              <select
+                className="select"
+                value={remotePort}
+                onChange={(e) => setRemotePort(Number(e.target.value))}
+              >
+                {servicePorts.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label className="toolbar-field">
+              <span>remote</span>
+              <input
+                className="input input-narrow"
+                type="number"
+                min={1}
+                max={65535}
+                value={remotePort}
+                onChange={(e) => setRemotePort(Number(e.target.value) || 1)}
+              />
+            </label>
+          )}
           <button className="btn btn-primary" onClick={start} disabled={busy}>
             {busy ? "Starting…" : "Start"}
           </button>
