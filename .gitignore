@@ -35,12 +35,18 @@ kubeconfig*.yaml
 kubeconfig
 dev-server.log
 dev-server.err.log
+.dev-server.log
+.dev-server.err.log
 snap.png
 fix_mirror*.js
 fix_mirror.sh
+fix_final.sh
 run_fix.cjs
 use_repo_mirror.sh
 verify*.js
+probe_daocloud.sh
+crates/probe/last_run.txt
+crates/probe/last_run.err.txt
 
 # logs
 npm-debug.log*

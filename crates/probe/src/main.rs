@@ -10,11 +10,16 @@ use std::env;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use k8s_openapi::api::apps::v1::Deployment;
-use k8s_openapi::api::core::v1::{Namespace, Node, Pod, Service};
+use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
+use k8s_openapi::api::batch::v1::{CronJob, Job};
+use k8s_openapi::api::core::v1::{
+    ConfigMap, Namespace, Node, PersistentVolumeClaim, Pod, Secret, Service,
+};
+use k8s_openapi::api::autoscaling::v1::HorizontalPodAutoscaler;
 use kube::api::{Api, ListParams, ResourceExt as _};
 use kube::config::Kubeconfig;
 use kube_client::Client;
+use serde::Serialize;
 
 fn find_kubeconfig() -> Result<PathBuf> {
     if let Ok(p) = env::var("KUBECONFIG") {
@@ -310,6 +315,223 @@ async fn main() -> Result<()> {
         );
     }
 
+    // --- All 14 k7s resource kinds (mirrors the sidebar). Empty results are
+    //     expected on a fresh cluster; what matters is the call path works.
+    section("All k7s resource kinds (coverage check)");
+    println!("  kind                  count  api_ok");
+    println!("  -------------------- ----- ------");
+    for (label, count_fn) in build_kind_probes() {
+        let count = count_fn(&client).await;
+        println!(
+            "  {:<20}  {:>5}  {}",
+            label,
+            count.as_ref().map(|n| n.to_string()).unwrap_or_else(|_| "—".to_string()),
+            if count.is_ok() { "✓" } else { "✗" }
+        );
+    }
+
+    // --- Emit the exact JSON k7s's Tauri command would send to the React
+    //     frontend. The structure must match the TS Row types exactly.
+    section("JSON shape (what k7s's React UI receives)");
+    if let Some(pod) = plist.items.first() {
+        let row = pod_to_row(pod);
+        let json = serde_json::to_string_pretty(&row)?;
+        println!("  PodRow for {}/{}:", "kube-system", pod.name_any());
+        for line in json.lines().take(20) {
+            println!("    {}", line);
+        }
+        println!("    ... ({} bytes total)", json.len());
+    }
+
     println!("\n✓ probe succeeded — same code path k7s uses on Tauri");
     Ok(())
+}
+
+// --- end of main, helpers below ---
+
+#[derive(Serialize)]
+struct PodRowJson {
+    name: String,
+    namespace: String,
+    status: String,
+    ready: String,
+    restarts: i32,
+    age: String,
+    node: String,
+    ip: String,
+    containers: String,
+}
+
+fn pod_to_row(p: &Pod) -> PodRowJson {
+    let phase = p
+        .status
+        .as_ref()
+        .and_then(|s| s.phase.clone())
+        .unwrap_or_else(|| "Unknown".to_string());
+    let (ready, restarts) = p
+        .status
+        .as_ref()
+        .map(|s| {
+            let total = s.container_statuses.as_ref().map(|c| c.len()).unwrap_or(0);
+            let ready = s
+                .container_statuses
+                .as_ref()
+                .map(|cs| cs.iter().filter(|c| c.ready).count())
+                .unwrap_or(0);
+            let restarts = s
+                .container_statuses
+                .as_ref()
+                .map(|cs| cs.iter().map(|c| c.restart_count).sum())
+                .unwrap_or(0);
+            (format!("{}/{}", ready, total), restarts)
+        })
+        .unwrap_or_else(|| ("0/0".to_string(), 0));
+    let containers = p
+        .spec
+        .as_ref()
+        .map(|spec| {
+            spec.containers
+                .iter()
+                .map(|c| c.name.clone())
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+        .unwrap_or_default();
+    PodRowJson {
+        name: p.name_any(),
+        namespace: p.namespace().unwrap_or_default(),
+        status: phase,
+        ready,
+        restarts,
+        age: "live".to_string(),
+        node: p.spec.as_ref().and_then(|s| s.node_name.clone()).unwrap_or_default(),
+        ip: p
+            .status
+            .as_ref()
+            .and_then(|s| s.pod_ip.clone())
+            .unwrap_or_default(),
+        containers,
+    }
+}
+
+/// All 14 resource kinds k7s supports, with a closure that lists each
+/// (catching errors per-kind so a single failure doesn't break the rest).
+type KindFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Result<usize>> + Send>>;
+type KindProbe = Box<dyn Fn(&Client) -> KindFuture + Send + Sync>;
+
+fn build_kind_probes() -> Vec<(&'static str, KindProbe)> {
+    fn pods(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<Pod> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn deployments(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<Deployment> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn statefulsets(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<StatefulSet> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn daemonsets(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<DaemonSet> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn replicasets(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<ReplicaSet> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn jobs(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<Job> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn cronjobs(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<CronJob> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn services(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<Service> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn configmaps(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<ConfigMap> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn secrets(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<Secret> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn pvc(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<PersistentVolumeClaim> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn nodes(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<Node> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn namespaces(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<Namespace> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    fn hpa(c: &Client) -> KindFuture {
+        let c = c.clone();
+        Box::pin(async move {
+            let api: Api<HorizontalPodAutoscaler> = Api::all(c);
+            Ok(api.list(&ListParams::default()).await?.items.len())
+        })
+    }
+    vec![
+        ("pods", Box::new(pods)),
+        ("deployments", Box::new(deployments)),
+        ("statefulsets", Box::new(statefulsets)),
+        ("daemonsets", Box::new(daemonsets)),
+        ("replicasets", Box::new(replicasets)),
+        ("jobs", Box::new(jobs)),
+        ("cronjobs", Box::new(cronjobs)),
+        ("services", Box::new(services)),
+        ("configmaps", Box::new(configmaps)),
+        ("secrets", Box::new(secrets)),
+        ("pvc", Box::new(pvc)),
+        ("nodes", Box::new(nodes)),
+        ("namespaces", Box::new(namespaces)),
+        ("hpa", Box::new(hpa)),
+    ]
 }
