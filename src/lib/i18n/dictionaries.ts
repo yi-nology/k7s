@@ -85,6 +85,16 @@ export interface Dictionary {
       move: string;
       open: string;
       escClose: string;
+      actions: {
+        settings: string;
+        importKubeconfig: string;
+        cordon: (node: string) => string;
+        uncordon: (node: string) => string;
+      };
+      /** Right-aligned hint for an app-level action (settings, import). */
+      actionHintApp: string;
+      /** Right-aligned hint for a per-node action (cordon/uncordon). */
+      actionHintNode: string;
     };
   };
 
@@ -473,6 +483,14 @@ export const en: Dictionary = {
       move: "↑↓ move",
       open: "⏎ open",
       escClose: "esc close",
+      actions: {
+        settings: "Open settings",
+        importKubeconfig: "Import kubeconfig…",
+        cordon: (node) => `Cordon ${node}`,
+        uncordon: (node) => `Uncordon ${node}`,
+      },
+      actionHintApp: "app",
+      actionHintNode: "node",
     },
   },
 
@@ -925,6 +943,14 @@ export const zh: Dictionary = {
       move: "↑↓ 选择",
       open: "⏎ 打开",
       escClose: "esc 关闭",
+      actions: {
+        settings: "打开设置",
+        importKubeconfig: "导入 kubeconfig…",
+        cordon: (node) => `禁止调度 ${node}`,
+        uncordon: (node) => `允许调度 ${node}`,
+      },
+      actionHintApp: "应用",
+      actionHintNode: "节点",
     },
   },
 

@@ -179,6 +179,43 @@ describe("buildPalette", () => {
     expect(cordon?.label).toBe("Cordon murphy-yi");
   });
 
+  // ---- locale ----
+
+  it("renders app-action labels in the active locale (zh)", () => {
+    const out = buildPalette("", ctx({ locale: "zh" }));
+    const settings = out.find((i) => i.type === "action" && i.id === "settings");
+    const importKc = out.find((i) => i.type === "action" && i.id === "import-kubeconfig");
+    expect(settings?.label).toBe("打开设置");
+    expect(settings?.hint).toBe("应用");
+    expect(importKc?.label).toBe("导入 kubeconfig…");
+    expect(importKc?.hint).toBe("应用");
+  });
+
+  it("renders app-action labels in English by default", () => {
+    const out = buildPalette("", ctx());
+    const settings = out.find((i) => i.type === "action" && i.id === "settings");
+    expect(settings?.label).toBe("Open settings");
+    expect(settings?.hint).toBe("app");
+  });
+
+  it("renders the node-action label in the active locale (zh)", () => {
+    const out = buildPalette(
+      "",
+      ctx({ locale: "zh", nav: "nodes", selectedRow: row("murphy-yi") }),
+    );
+    const cordon = out.find((i) => i.type === "action" && i.id === "cordon");
+    const uncordon = out.find((i) => i.type === "action" && i.id === "uncordon");
+    expect(cordon?.label).toBe("禁止调度 murphy-yi");
+    expect(cordon?.hint).toBe("节点");
+    expect(uncordon?.label).toBe("允许调度 murphy-yi");
+  });
+
+  it("keeps the English verb as a target, so a non-native locale can still match it", () => {
+    // A zh user reaching for the English word "settings" should still find the action.
+    const out = buildPalette("settings", ctx({ locale: "zh" }));
+    expect(out.some((i) => i.type === "action" && i.id === "settings")).toBe(true);
+  });
+
   it("never offers delete or drain — they need a confirmation the palette has no room for", () => {
     const out = buildPalette("", ctx({ nav: "nodes", selectedRow: row("murphy-yi") }));
     const ids = out.filter((i) => i.type === "action").map((i) => (i.type === "action" ? i.id : ""));

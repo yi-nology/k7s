@@ -13,7 +13,7 @@
 
 import { fuzzyMatch } from "./fuzzy";
 import { isCustomKind, KIND_META, KIND_ORDER, type KindId } from "./kinds";
-import { kindLabelFor as i18nKindLabel, type Locale } from "./i18n";
+import { dict, kindLabelFor as i18nKindLabel, type Locale } from "./i18n";
 import type { CustomKind, Row } from "../providers/types";
 
 /** Actions the palette can run. Data, not closures, so this stays testable. */
@@ -224,33 +224,104 @@ function objectCandidates(ctx: PaletteContext, namespace: string | undefined) {
  * reversible by each other.
  */
 function actionCandidates(ctx: PaletteContext) {
+  const locale = ctx.locale ?? "en";
+  const appHint = paletteStr(locale, "chrome.palette.actionHintApp", "app");
+  const nodeHint = paletteStr(locale, "chrome.palette.actionHintNode", "node");
+
   const items: { item: Omit<ActionItem, "score" | "indices">; targets: string[] }[] = [
     {
-      item: { type: "action", id: "settings", label: "Open settings", hint: "app" },
-      targets: ["Open settings", "preferences"],
+      item: {
+        type: "action",
+        id: "settings",
+        label: paletteStr(locale, "chrome.palette.actions.settings", "Open settings"),
+        hint: appHint,
+      },
+      // "preferences" is the only real English synonym — keep it in the targets
+      // so an English user can still find this by either spelling.
+      targets: [paletteStr(locale, "chrome.palette.actions.settings", "Open settings"), "Open settings", "preferences"],
     },
     {
-      item: { type: "action", id: "import-kubeconfig", label: "Import kubeconfig…", hint: "app" },
-      targets: ["Import kubeconfig"],
+      item: {
+        type: "action",
+        id: "import-kubeconfig",
+        label: paletteStr(locale, "chrome.palette.actions.importKubeconfig", "Import kubeconfig…"),
+        hint: appHint,
+      },
+      // Keep the English label as a fallback target so the search still works
+      // for users who type the English verb in their non-native locale.
+      targets: [
+        paletteStr(locale, "chrome.palette.actions.importKubeconfig", "Import kubeconfig…"),
+        "Import kubeconfig",
+      ],
     },
   ];
 
   // Node actions need a selected node to act on.
   if (ctx.nav === "nodes" && ctx.selectedRow) {
     const node = ctx.selectedRow.name;
+    const cordonLabel = paletteStr(locale, "chrome.palette.actions.cordon", `Cordon ${node}`, node);
+    const uncordonLabel = paletteStr(
+      locale,
+      "chrome.palette.actions.uncordon",
+      `Uncordon ${node}`,
+      node,
+    );
     items.push(
       {
-        item: { type: "action", id: "cordon", label: `Cordon ${node}`, hint: "node" },
-        targets: [`Cordon ${node}`],
+        item: { type: "action", id: "cordon", label: cordonLabel, hint: nodeHint },
+        // Match the translated *and* the canonical English "Cordon ${node}" so
+        // a Chinese user who reaches for the English verb still gets a hit.
+        targets: [cordonLabel, `Cordon ${node}`],
       },
       {
-        item: { type: "action", id: "uncordon", label: `Uncordon ${node}`, hint: "node" },
-        targets: [`Uncordon ${node}`],
+        item: { type: "action", id: "uncordon", label: uncordonLabel, hint: nodeHint },
+        targets: [uncordonLabel, `Uncordon ${node}`],
       },
     );
   }
 
   return items;
+}
+
+/**
+ * Look up a chrome.palette.* key in the active locale, falling back to English
+ * and finally to a hardcoded default. We avoid `translate()` here because
+ * function-typed leaves (e.g. `cordon(node)`) don't get a safe default-copy
+ * fallback when called with a string arg, and writing the helper locally keeps
+ * the precedence rules obvious.
+ */
+function paletteStr(
+  locale: Locale,
+  key: string,
+  fallback: string,
+  ...args: unknown[]
+): string {
+  for (const loc of [locale, "en"] as Locale[]) {
+    const out = lookupPaletteStr(loc, key, args);
+    if (out !== undefined) return out;
+  }
+  return fallback;
+}
+
+function lookupPaletteStr(locale: Locale, key: string, args: unknown[]): string | undefined {
+  let cur: unknown = dict(locale);
+  for (const seg of key.split(".")) {
+    if (cur && typeof cur === "object" && seg in (cur as Record<string, unknown>)) {
+      cur = (cur as Record<string, unknown>)[seg];
+    } else {
+      return undefined;
+    }
+  }
+  if (typeof cur === "function") {
+    try {
+      const out = cur(...args);
+      return typeof out === "string" ? out : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+  if (typeof cur === "string") return cur;
+  return undefined;
 }
 
 /** Display label for a kind id, resolving discovered CRDs. */
