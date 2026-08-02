@@ -85,7 +85,6 @@ jobs:
       - name: install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
 
       - name: install Linux system deps
         if: runner.os == 'Linux'
@@ -162,7 +161,6 @@ jobs:
       - name: install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
 
       - name: install Linux system deps
         if: runner.os == 'Linux'
