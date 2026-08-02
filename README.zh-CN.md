@@ -66,6 +66,34 @@ k7s 故意保持「少量高质量原语 + 高速 UI」的克制路线，下面�
 
 ---
 
+## 📸 截图
+
+### 资源表
+
+深色、虚拟滚动的资源表，覆盖 Pods、Deployments、Services、CRD 等所有常见资源；行级状态色、每列指标与顶栏的实时 filter 全部就位。
+
+![Pods table](docs/screenshots/01-pods-table.png)
+
+### 详情面板 —— Logs · Properties · YAML · Shell
+
+同一行，四种视角。Logs 实时流式输出并支持 `since` 窗口；Properties 平铺整个 Pod spec；YAML 用 CodeMirror 直接就地编辑；Shell 走 xterm.js 起一个真实的 `kubectl exec` 会话。
+
+| Logs | Properties |
+| --- | --- |
+| ![Logs](docs/screenshots/02-logs.png) | ![Properties](docs/screenshots/03-properties.png) |
+
+| YAML | Shell |
+| --- | --- |
+| ![YAML](docs/screenshots/04-yaml.png) | ![Shell](docs/screenshots/05-shell.png) |
+
+### 指标
+
+基于 Plotly 的 Node / Pod 指标图：CPU、内存、网络、Load，以及文件系统用量；数据通过 port-forward 的 metrics 端点实时刷新。
+
+![Metrics](docs/screenshots/06-metrics.png)
+
+---
+
 ## 🧱 技术栈
 
 | 层 | 选型 |

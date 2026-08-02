@@ -66,6 +66,34 @@ Open any of these from the **Tools** group in the sidebar.
 
 ---
 
+## 📸 Screenshots
+
+### Resource table
+
+A dark, virtualised table for every common resource — Pods, Deployments, Services, CRDs — with tone-coloured status, per-column metrics and a live filter bar.
+
+![Pods table](docs/screenshots/01-pods-table.png)
+
+### Detail panel — Logs · Properties · YAML · Shell
+
+The same row, four different lenses. Logs stream live with a `since` window, Properties lay out the full Pod spec, YAML gives you an in-place CodeMirror editor, and Shell drops you into a real `kubectl exec` session inside xterm.js.
+
+| Logs | Properties |
+| --- | --- |
+| ![Logs](docs/screenshots/02-logs.png) | ![Properties](docs/screenshots/03-properties.png) |
+
+| YAML | Shell |
+| --- | --- |
+| ![YAML](docs/screenshots/04-yaml.png) | ![Shell](docs/screenshots/05-shell.png) |
+
+### Metrics
+
+Plotly-powered charts for any node or pod: CPU, memory, network and load, plus filesystem usage, all updated live over a port-forwarded metrics endpoint.
+
+![Metrics](docs/screenshots/06-metrics.png)
+
+---
+
 ## 🧱 Tech stack
 
 | Layer | Choice |
