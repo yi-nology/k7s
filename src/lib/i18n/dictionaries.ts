@@ -178,6 +178,7 @@ export interface Dictionary {
       forward: string;
       scale: string;
       restart: string;
+      files: string;
       cordon: string;
       uncordon: string;
       drain: string;
@@ -425,6 +426,23 @@ export interface Dictionary {
     pick: string;
     tabs: { alerts: string; silences: string };
     empty: { alerts: string; silences: string };
+    /** Column headers for the alerts + silences tables inside the
+     *  Alerting overlay. Kept short and uppercased like the rest of
+     *  the chrome, but routed through the dictionary so zh doesn't
+     *  read the English originals. */
+    cols: {
+      alert: string;
+      severity: string;
+      state: string;
+      summary: string;
+      activeSince: string;
+      matchers: string;
+      comment: string;
+      createdBy: string;
+      starts: string;
+      ends: string;
+      status: string;
+    };
   };
 }
 
@@ -611,6 +629,7 @@ export const en: Dictionary = {
       forward: "Forward…",
       scale: "Scale…",
       restart: "Restart…",
+      files: "Open files…",
       cordon: "Cordon",
       uncordon: "Uncordon",
       drain: "Drain…",
@@ -886,6 +905,19 @@ export const en: Dictionary = {
     pick: "Add an AlertManager instance to get started",
     tabs: { alerts: "Alerts", silences: "Silences" },
     empty: { alerts: "No active alerts", silences: "No silences" },
+    cols: {
+      alert: "Alert",
+      severity: "Severity",
+      state: "State",
+      summary: "Summary",
+      activeSince: "Active since",
+      matchers: "Matchers",
+      comment: "Comment",
+      createdBy: "Created by",
+      starts: "Starts",
+      ends: "Ends",
+      status: "Status",
+    },
   },
 };
 
@@ -1071,6 +1103,7 @@ export const zh: Dictionary = {
       forward: "端口转发…",
       scale: "伸缩…",
       restart: "重启…",
+      files: "打开文件…",
       cordon: "禁止调度",
       uncordon: "允许调度",
       drain: "驱逐…",
@@ -1344,5 +1377,18 @@ export const zh: Dictionary = {
     pick: "添加 AlertManager 实例开始",
     tabs: { alerts: "告警", silences: "静默" },
     empty: { alerts: "无活动告警", silences: "无静默" },
+    cols: {
+      alert: "告警",
+      severity: "严重程度",
+      state: "状态",
+      summary: "摘要",
+      activeSince: "激活时间",
+      matchers: "匹配规则",
+      comment: "备注",
+      createdBy: "创建者",
+      starts: "开始",
+      ends: "结束",
+      status: "状态",
+    },
   },
 };

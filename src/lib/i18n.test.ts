@@ -160,6 +160,45 @@ describe("table empty-state keys", () => {
   });
 });
 
+/** The Alerting overlay's two table subcomponents (alerts + silences) route
+ *  their empty-state copy and column headers through `t()`. The English
+ *  values are the original hardcoded strings; the Chinese values are the
+ *  translations — both must be present so a half-translated UI doesn't
+ *  fall back to a raw dotted key. */
+describe("alerts panel keys", () => {
+  it("ships alerts.empty.alerts in both locales", () => {
+    expect(translate("en", "alerts.empty.alerts")).toBe("No active alerts");
+    expect(translate("zh", "alerts.empty.alerts")).toBe("无活动告警");
+  });
+
+  it("ships alerts.empty.silences in both locales", () => {
+    expect(translate("en", "alerts.empty.silences")).toBe("No silences");
+    expect(translate("zh", "alerts.empty.silences")).toBe("无静默");
+  });
+
+  it("ships alerts.cols.alert through alerts.cols.status in both locales", () => {
+    for (const key of [
+      "alert",
+      "severity",
+      "state",
+      "summary",
+      "activeSince",
+      "matchers",
+      "comment",
+      "createdBy",
+      "starts",
+      "ends",
+      "status",
+    ]) {
+      const en = translate("en", `alerts.cols.${key}`);
+      const zh = translate("zh", `alerts.cols.${key}`);
+      expect(en.length, `alerts.cols.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `alerts.cols.${key} zh`).toBeGreaterThan(0);
+      expect(en, `alerts.cols.${key} en !== zh`).not.toBe(zh);
+    }
+  });
+});
+
 describe("tabLabel", () => {
   it("returns the English name for English", () => {
     expect(tabLabel("logs", "en")).toBe("Logs");

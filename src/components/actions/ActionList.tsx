@@ -312,7 +312,7 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
             onClose();
           }}
         >
-          {tr("actions.files", "Open files…")}
+          {tr("actions.labels.files")}
         </div>
       )}
       {safe.length > 0 && dangerous.length > 0 && <div className={styles.separator} />}

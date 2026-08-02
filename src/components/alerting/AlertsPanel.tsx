@@ -93,7 +93,7 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
                   className={tab === "alerts" ? styles.activeTab : styles.tab}
                   onClick={() => setTab("alerts")}
                 >
-                  {t("alerts.tab.alerts", "Alerts")} ({alerts.length})
+                  {t("alerts.tabs.alerts", "Alerts")} ({alerts.length})
                 </button>
                 <button
                   className={
@@ -101,7 +101,7 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
                   }
                   onClick={() => setTab("silences")}
                 >
-                  {t("alerts.tab.silences", "Silences")} ({silences.length})
+                  {t("alerts.tabs.silences", "Silences")} ({silences.length})
                 </button>
               </div>
               {tab === "alerts" ? (
@@ -122,20 +122,23 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
 }
 
 function AlertList({ alerts }: { alerts: Alert[] }) {
+  const { t } = useTranslation();
   if (alerts.length === 0) {
     return (
-      <div className={styles.empty}>No active alerts.</div>
+      <div className={styles.empty}>
+        {t("alerts.empty.alerts", "No active alerts")}
+      </div>
     );
   }
   return (
     <table className={styles.table}>
       <thead>
         <tr>
-          <th>Alert</th>
-          <th>Severity</th>
-          <th>State</th>
-          <th>Summary</th>
-          <th>Active since</th>
+          <th>{t("alerts.cols.alert", "Alert")}</th>
+          <th>{t("alerts.cols.severity", "Severity")}</th>
+          <th>{t("alerts.cols.state", "State")}</th>
+          <th>{t("alerts.cols.summary", "Summary")}</th>
+          <th>{t("alerts.cols.activeSince", "Active since")}</th>
         </tr>
       </thead>
       <tbody>
@@ -174,19 +177,24 @@ function AlertList({ alerts }: { alerts: Alert[] }) {
 }
 
 function SilenceList({ silences }: { silences: Silence[] }) {
+  const { t } = useTranslation();
   if (silences.length === 0) {
-    return <div className={styles.empty}>No active silences.</div>;
+    return (
+      <div className={styles.empty}>
+        {t("alerts.empty.silences", "No silences")}
+      </div>
+    );
   }
   return (
     <table className={styles.table}>
       <thead>
         <tr>
-          <th>Matchers</th>
-          <th>Comment</th>
-          <th>Created by</th>
-          <th>Starts</th>
-          <th>Ends</th>
-          <th>Status</th>
+          <th>{t("alerts.cols.matchers", "Matchers")}</th>
+          <th>{t("alerts.cols.comment", "Comment")}</th>
+          <th>{t("alerts.cols.createdBy", "Created by")}</th>
+          <th>{t("alerts.cols.starts", "Starts")}</th>
+          <th>{t("alerts.cols.ends", "Ends")}</th>
+          <th>{t("alerts.cols.status", "Status")}</th>
         </tr>
       </thead>
       <tbody>
