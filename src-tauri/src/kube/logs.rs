@@ -13,7 +13,7 @@ use kube::api::{Api, LogParams};
 use kube::Client;
 use serde::Serialize;
 use futures::{AsyncBufReadExt, StreamExt};
-use tauri::{AppHandle, Emitter};
+use crate::core::events::EventSink;
 use tokio::time::{interval, Duration};
 
 /// Flush cadence for batched log lines.
@@ -60,7 +60,7 @@ pub struct LogStreamOptions {
 /// Emits `log-line:{stream_id}` batches and a final `log-closed:{stream_id}`.
 pub async fn run_log_stream(
     client: Client,
-    app: AppHandle,
+    sink: EventSink,
     stream_id: String,
     namespace: String,
     pod: String,
@@ -70,17 +70,17 @@ pub async fn run_log_stream(
     let closed_event = format!("{}{}", events::LOG_CLOSED_PREFIX, stream_id);
     // Empty container = stream every container of the pod, interleaved (B7).
     let result = if container.is_empty() {
-        stream_all(client, &app, &stream_id, &namespace, &pod, opts).await
+        stream_all(client, &sink, &stream_id, &namespace, &pod, opts).await
     } else {
-        stream_one(client, &app, &stream_id, &namespace, &pod, &container, opts).await
+        stream_one(client, &sink, &stream_id, &namespace, &pod, &container, opts).await
     };
     match result {
         Ok(reason) => {
-            let _ = app.emit(&closed_event, reason);
+            let _ = sink.emit(&closed_event, &reason);
         }
         Err(e) => {
             // Surface the API error as the close reason so the UI can show it.
-            let _ = app.emit(&closed_event, e.to_string());
+            let _ = sink.emit(&closed_event, &e.to_string());
         }
     }
 }
@@ -122,7 +122,7 @@ pub fn log_params(container: &str, opts: &LogStreamOptions) -> LogParams {
 /// Stream a single container's logs, tagging each line with the container name.
 async fn stream_one(
     client: Client,
-    app: &AppHandle,
+    sink: &EventSink,
     stream_id: &str,
     namespace: &str,
     pod: &str,
@@ -149,15 +149,15 @@ async fn stream_one(
                     batch.push(line);
                 }
                 None => {
-                    flush_batch(app, &line_event, &mut batch);
+                    flush_batch(&sink, &line_event, &mut batch);
                     return Ok("stream ended".to_string());
                 }
                 Some(Err(e)) => {
-                    flush_batch(app, &line_event, &mut batch);
+                    flush_batch(&sink, &line_event, &mut batch);
                     return Err(AppError::Kube(e.to_string()));
                 }
             },
-            _ = flush.tick() => flush_batch(app, &line_event, &mut batch),
+            _ = flush.tick() => flush_batch(&sink, &line_event, &mut batch),
         }
     }
 }
@@ -167,7 +167,7 @@ async fn stream_one(
 /// so aborting this stream (dropping the JoinSet) aborts them too.
 async fn stream_all(
     client: Client,
-    app: &AppHandle,
+    sink: &EventSink,
     stream_id: &str,
     namespace: &str,
     pod: &str,
@@ -214,19 +214,19 @@ async fn stream_all(
             got = rx.recv() => match got {
                 Some(line) => batch.push(line),
                 None => {
-                    flush_batch(app, &line_event, &mut batch);
+                    flush_batch(&sink, &line_event, &mut batch);
                     return Ok("stream ended".to_string());
                 }
             },
-            _ = flush.tick() => flush_batch(app, &line_event, &mut batch),
+            _ = flush.tick() => flush_batch(&sink, &line_event, &mut batch),
         }
     }
 }
 
 /// Emit and clear the batch if non-empty.
-fn flush_batch(app: &AppHandle, line_event: &str, batch: &mut Vec<LogLine>) {
+fn flush_batch(sink: &EventSink, line_event: &str, batch: &mut Vec<LogLine>) {
     if !batch.is_empty() {
-        let _ = app.emit(line_event, LogBatch { lines: std::mem::take(batch) });
+        let _ = sink.emit(line_event, &LogBatch { lines: std::mem::take(batch) });
     }
 }
 

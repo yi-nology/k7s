@@ -22,7 +22,7 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::api::{Api, ListParams};
 use kube::{Client, ResourceExt};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use crate::core::events::EventSink;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{interval, Duration, MissedTickBehavior};
 
@@ -76,10 +76,10 @@ pub async fn find_exporter(client: Client, node: &str) -> AppResult<(String, Str
 }
 
 /// Scrape `node`'s exporter every `every`, emitting samples until aborted.
-pub async fn run_node_stats(client: Client, app: AppHandle, node: String, every: Duration) {
+pub async fn run_node_stats(client: Client, sink: EventSink, node: String, every: Duration) {
     let (namespace, pod) = match find_exporter(client.clone(), &node).await {
         Ok(v) => v,
-        Err(e) => return fail(&app, &node, e.to_string()),
+        Err(e) => return fail(&sink, &node, e.to_string()),
     };
 
     // One forward for the life of the tab, rather than one per scrape: setting a
@@ -100,11 +100,11 @@ pub async fn run_node_stats(client: Client, app: AppHandle, node: String, every:
         Ok(Ok(p)) => p,
         Ok(Err(e)) => {
             pf.abort();
-            return fail(&app, &node, format!("could not forward to {pod}: {e}"));
+            return fail(&sink, &node, format!("could not forward to {pod}: {e}"));
         }
         Err(_) => {
             pf.abort();
-            return fail(&app, &node, "port-forward ended before it was ready".into());
+            return fail(&sink, &node, "port-forward ended before it was ready".into());
         }
     };
 
@@ -123,7 +123,7 @@ pub async fn run_node_stats(client: Client, app: AppHandle, node: String, every:
         // A dead forward is unrecoverable here (the pod went away); say so rather
         // than tick silently forever.
         if let Ok(e) = err_rx.try_recv() {
-            fail(&app, &node, format!("port-forward to {pod} failed: {e}"));
+            fail(&sink, &node, format!("port-forward to {pod} failed: {e}"));
             break;
         }
 
@@ -133,13 +133,13 @@ pub async fn run_node_stats(client: Client, app: AppHandle, node: String, every:
                 let raw = exporter::parse(&text, now_ms());
                 // The first scrape only establishes a baseline for the counters.
                 if let Some(sample) = sampler.push(raw) {
-                    let _ = app.emit(events::NODE_STATS, NodeStats { node: node.clone(), sample });
+                    let _ = sink.emit(events::NODE_STATS, &NodeStats { node: node.clone(), sample });
                 }
             }
             Err(e) => {
                 if !reported {
                     reported = true;
-                    fail(&app, &node, format!("scrape failed: {e}"));
+                    fail(&sink, &node, format!("scrape failed: {e}"));
                 }
             }
         }
@@ -164,10 +164,10 @@ async fn scrape(http: &reqwest::Client, url: &str) -> Result<String, String> {
 }
 
 /// Tell the UI why this node has no plots (best-effort).
-fn fail(app: &AppHandle, node: &str, message: String) {
+fn fail(sink: &EventSink, node: &str, message: String) {
     tracing::warn!("node stats for {node}: {message}");
     let _ =
-        app.emit(events::NODE_STATS_ERROR, NodeStatsError { node: node.to_string(), message });
+        sink.emit(events::NODE_STATS_ERROR, &NodeStatsError { node: node.to_string(), message });
 }
 
 /// Epoch milliseconds.

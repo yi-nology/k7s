@@ -172,6 +172,35 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
     icon: "◫",
     columns: ["NAME", "STATUS", "PODS", "AGE"],
   },
+  // Phase 2 Tier-2 of KubePi parity: NetworkPolicy / HPA / ResourceQuota /
+  // LimitRange. The Rust mappers exist in `mappers.rs`; the watcher
+  // integration is left to the lazy CRD path (open a row → the data
+  // appears). Columns are intentionally minimal: deep columns would
+  // require typed mappers and a per-kind watcher.
+  networkpolicies: {
+    group: "network",
+    label: "NetworkPolicies",
+    icon: "▦",
+    columns: ["NAME", "NAMESPACE", "POD_SELECTOR", "AGE"],
+  },
+  horizontalpodautoscalers: {
+    group: "workloads",
+    label: "HPAs",
+    icon: "↕",
+    columns: ["NAME", "NAMESPACE", "TARGET", "MIN", "MAX", "REPLICAS", "AGE"],
+  },
+  resourcequotas: {
+    group: "config",
+    label: "ResourceQuotas",
+    icon: "∑",
+    columns: ["NAME", "NAMESPACE", "HARD", "USED", "AGE"],
+  },
+  limitranges: {
+    group: "config",
+    label: "LimitRanges",
+    icon: "≤",
+    columns: ["NAME", "NAMESPACE", "LIMITS", "AGE"],
+  },
   // A read-only feed rather than a managed resource, but it lives in the Cluster
   // group because it is cluster-wide. It *is* namespaced, so it keeps a NAMESPACE
   // column and honours the namespace filter.

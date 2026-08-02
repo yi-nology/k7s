@@ -72,6 +72,54 @@ export function NavList() {
           </div>
         ),
       )}
+      {/* Feature overlays — Phase 1/2/4/5 of KubePi parity. Each one opens
+          a full-width panel above the resource table; clicking the table
+          again (or pressing Esc) closes it. */}
+      <OverlaySection t={t} />
+    </div>
+  );
+}
+
+/** Sidebar entries for the feature overlays. Grouped under a single
+ * "Tools" header so they don't pollute the regular kind nav. The Tier-1
+ * entries (Helm Market, Pod Files, Image Registries, Templates) are
+ * always shown; the Tier-2 entries (Dashboard, Metrics, Grafana,
+ * Endpoints, Topology, Alerting) sit below a thin separator. */
+function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
+  const overlay = useStore((s) => s.overlay);
+  const openOverlay = useStore((s) => s.openOverlay);
+  const closeOverlay = useStore((s) => s.closeOverlay);
+  const items: Array<{ key: import("../../store").OverlayKey; label: string; icon: string }> = [
+    { key: "helm-market", label: t("chrome.sidebar.tools.helmMarket", "Helm Market"), icon: "⎈" },
+    { key: "pod-files", label: t("chrome.sidebar.tools.podFiles", "Pod Files"), icon: "▤" },
+    { key: "image-repos", label: t("chrome.sidebar.tools.imageRepos", "Image Registries"), icon: "⬚" },
+    { key: "templates", label: t("chrome.sidebar.tools.templates", "Templates"), icon: "✚" },
+    { key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: "◐" },
+    { key: "metrics", label: t("chrome.sidebar.tools.metrics", "Metrics"), icon: "≋" },
+    { key: "grafana", label: t("chrome.sidebar.tools.grafana", "Grafana"), icon: "▣" },
+    { key: "endpoints", label: t("chrome.sidebar.tools.endpoints", "Endpoints"), icon: "⇆" },
+    { key: "topology", label: t("chrome.sidebar.tools.topology", "Service Topology"), icon: "◌" },
+    { key: "alerting", label: t("chrome.sidebar.tools.alerting", "Alerting"), icon: "△" },
+  ];
+  return (
+    <div>
+      <div className={styles.sectionHeader}>
+        {t("chrome.sidebar.tools.header", "Tools")}
+      </div>
+      {items.map((it) => {
+        const active = overlay === it.key;
+        return (
+          <div
+            key={it.key}
+            className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
+            onClick={() => (active ? closeOverlay() : openOverlay(it.key))}
+            title={active ? t("chrome.sidebar.tools.close", "Click to close") : it.label}
+          >
+            <span className={styles.navIcon}>{it.icon}</span>
+            <span className={styles.navLabel}>{it.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

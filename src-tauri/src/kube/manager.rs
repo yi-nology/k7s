@@ -5,10 +5,10 @@
 
 use super::discovery::CustomKind;
 use super::events;
+use crate::core::events::EventSink;
 use kube::Client;
 use serde::Serialize;
 use std::collections::HashMap;
-use tauri::{AppHandle, Emitter};
 use tokio::sync::{mpsc, RwLock};
 use tokio::task::JoinHandle;
 
@@ -55,11 +55,25 @@ struct ForwardEntry {
     dto: ForwardDto,
 }
 
+/// What the UI shows in the connection banner: which context we're on,
+/// where it points, and what the API server reported. Cheap to clone —
+/// it's read by `GET /api/status` on every poll.
+#[derive(Clone, Debug)]
+pub struct ConnectionInfo {
+    pub context: String,
+    pub server: String,
+    pub version: String,
+}
+
 /// Mutable connection state guarded by an async RwLock.
 #[derive(Default)]
 struct Inner {
     /// Active client (None when disconnected).
     client: Option<Client>,
+    /// Active cluster's connection metadata (None when disconnected). Cleared
+    /// on reset so a `connection_info()` reader can tell "no current
+    /// connection" from "stale info from a previous context".
+    connection: Option<ConnectionInfo>,
     /// Watcher + poller tasks tied to the current connection.
     tasks: Vec<JoinHandle<()>>,
     /// Live log-stream tasks keyed by stream id.
@@ -84,16 +98,32 @@ struct Inner {
 
 /// A context imported from a non-default kubeconfig file: its source path and the
 /// cluster it points at (for display in the switcher).
+///
+/// The `kubeconfig` field is `Some` only in the web shell — the Tauri
+/// shell has the real file on disk and can re-read it from `path` on
+/// every `connect`, while the web shell only ever has the bytes the user
+/// picked in the browser. Storing the parsed `Kubeconfig` here lets
+/// `connect` work in both shells without re-parsing or re-reading from
+/// disk.
 #[derive(Clone)]
 pub struct ImportedContext {
     pub path: String,
     pub cluster: String,
+    /// Parsed kubeconfig. `Some` in the web shell, `None` in the Tauri
+    /// shell (which re-reads from `path` on every connect).
+    pub kubeconfig: Option<kube::config::Kubeconfig>,
 }
 
 /// Owns the client + all connection-scoped tasks. Stored in Tauri managed state
 /// and shared across commands via `State<Arc<ClientManager>>`.
+///
+/// The manager no longer holds a Tauri `AppHandle` — it holds an `EventSink`
+/// instead, so the same manager can be used by the standalone web shell (with
+/// a `WebEventSink` that publishes to a broadcast channel) and the Tauri
+/// shell (with a `TauriEventSink` that calls `app.emit`). Wire format on the
+/// Tauri IPC channel is unchanged; the web shell sees the same event names.
 pub struct ClientManager {
-    app: AppHandle,
+    sink: EventSink,
     inner: RwLock<Inner>,
     /// Contexts imported from extra kubeconfig files, keyed by context name.
     /// Persists across connect/reset (it's not connection-scoped) so `connect` can
@@ -102,9 +132,9 @@ pub struct ClientManager {
 }
 
 impl ClientManager {
-    pub fn new(app: AppHandle) -> Self {
+    pub fn new(sink: EventSink) -> Self {
         ClientManager {
-            app,
+            sink,
             inner: RwLock::new(Inner::default()),
             imports: RwLock::new(HashMap::new()),
         }
@@ -120,6 +150,18 @@ impl ClientManager {
         self.imports.read().await.get(context).map(|i| i.path.clone())
     }
 
+    /// The parsed `Kubeconfig` for an imported context, if it was uploaded
+    /// through the web shell (which can't read the file again later). The
+    /// Tauri shell always returns `None` here — it has the real file on
+    /// disk and re-reads it through `import_path` + `build_client_from_file`.
+    pub async fn import_kubeconfig(&self, context: &str) -> Option<kube::config::Kubeconfig> {
+        self.imports
+            .read()
+            .await
+            .get(context)
+            .and_then(|i| i.kubeconfig.clone())
+    }
+
     /// Snapshot of all imported contexts (name → source), for building the merged
     /// switcher list.
     pub async fn imports(&self) -> HashMap<String, ImportedContext> {
@@ -129,6 +171,20 @@ impl ClientManager {
     /// Clone of the active client, if connected.
     pub async fn client(&self) -> Option<Client> {
         self.inner.read().await.client.clone()
+    }
+
+    /// Snapshot of the active connection (context / server / version). `None`
+    /// when disconnected — distinct from "stale info", because `reset`
+    /// clears this field atomically with the client.
+    pub async fn connection_info(&self) -> Option<ConnectionInfo> {
+        self.inner.read().await.connection.clone()
+    }
+
+    /// Number of resource watchers running for the current connection. Zero
+    /// when disconnected. Used by the sidebar footer (k7s) and by
+    /// `GET /api/status` (web shell).
+    pub async fn watcher_count(&self) -> usize {
+        self.inner.read().await.watcher_count
     }
 
     /// Tear down the current connection: abort every watcher, poller, and log
@@ -159,6 +215,10 @@ impl ClientManager {
         // The discovered kinds belong to the old cluster; the next connect re-discovers.
         inner.custom_kinds.clear();
         inner.client = None;
+        // Drop connection metadata so a reader can't see "context: prod,
+        // server: X" with no actual client behind it. Important for the
+        // status endpoint: `connected: true` only when both are present.
+        inner.connection = None;
         inner.watcher_count = 0;
         drop(inner);
         self.emit_watch().await;
@@ -168,10 +228,17 @@ impl ClientManager {
 
     /// Record a freshly established connection. Watchers are registered separately
     /// via [`push_task`]; `watcher_count` is the number of kinds being watched,
-    /// used for the sidebar footer.
-    pub async fn set_connected(&self, client: Client, watcher_count: usize) {
+    /// used for the sidebar footer. `info` is what `GET /api/status` returns
+    /// to identify the cluster to the user.
+    pub async fn set_connected(
+        &self,
+        client: Client,
+        info: ConnectionInfo,
+        watcher_count: usize,
+    ) {
         let mut inner = self.inner.write().await;
         inner.client = Some(client);
+        inner.connection = Some(info);
         inner.watcher_count = watcher_count;
         drop(inner);
         self.emit_watch().await;
@@ -296,7 +363,7 @@ impl ClientManager {
     /// Push the current forwards to the UI.
     async fn emit_forwards(&self) {
         let list = self.list_forwards().await;
-        let _ = self.app.emit(events::FORWARDS_UPDATE, list);
+        self.sink.emit(events::FORWARDS_UPDATE, &list);
     }
 
     // ---- custom (CRD-backed) kinds (B15) ----
@@ -381,11 +448,13 @@ impl ClientManager {
                 + inner.forwards.len()
         };
         // Emit failures are non-fatal (the webview may be gone during shutdown).
-        let _ = self.app.emit(events::WATCH_STATUS, count);
+        self.sink.emit(events::WATCH_STATUS, &count);
     }
 
-    /// The AppHandle, for tasks that need to emit their own events.
-    pub fn app(&self) -> AppHandle {
-        self.app.clone()
+    /// The event sink, for tasks that need to emit their own events. Cloning
+    /// the `EventSink` enum is cheap (it holds either a Tauri `AppHandle` —
+    /// already cheap to clone — or a `broadcast::Sender` — already `Arc`-wrapped).
+    pub fn sink(&self) -> EventSink {
+        self.sink.clone()
     }
 }

@@ -17,7 +17,7 @@ use kube::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tauri::{AppHandle, Emitter};
+use crate::core::events::EventSink;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration, Instant};
 
@@ -116,25 +116,25 @@ type SharedClusterPct = Arc<Mutex<Option<(f64, f64)>>>;
 /// Spawn the metrics + status pollers, returning their join handles for the
 /// manager to register (and abort on disconnect).
 pub fn spawn_pollers(
-    app: AppHandle,
+    sink: EventSink,
     client: Client,
     intervals: PollIntervals,
 ) -> (tokio::task::JoinHandle<()>, tokio::task::JoinHandle<()>) {
     let shared: SharedClusterPct = Arc::new(Mutex::new(None));
 
     let metrics_task = tokio::spawn(metrics_loop(
-        app.clone(),
+        sink.clone(),
         client.clone(),
         shared.clone(),
         intervals.metrics,
     ));
-    let status_task = tokio::spawn(status_loop(app, client, shared, intervals.status));
+    let status_task = tokio::spawn(status_loop(sink, client, shared, intervals.status));
     (metrics_task, status_task)
 }
 
 /// Poll pod/node metrics on an interval; emit events; track availability.
 async fn metrics_loop(
-    app: AppHandle,
+    sink: EventSink,
     client: Client,
     shared: SharedClusterPct,
     every: Duration,
@@ -158,8 +158,8 @@ async fn metrics_loop(
         match (pods, nodes) {
             (Ok(pod_map), Ok((node_map, cluster_pct))) => {
                 miss_streak = 0;
-                let _ = app.emit(events::POD_METRICS, &pod_map);
-                let _ = app.emit(events::NODE_METRICS, &node_map);
+                let _ = sink.emit(events::POD_METRICS, &&pod_map);
+                let _ = sink.emit(events::NODE_METRICS, &&node_map);
                 *shared.lock().await = Some(cluster_pct);
             }
             _ => {
@@ -241,7 +241,7 @@ async fn fetch_node_metrics(
 }
 
 /// Poll cluster status on an interval: version, latency, nodes ready, cpu/mem %.
-async fn status_loop(app: AppHandle, client: Client, shared: SharedClusterPct, every: Duration) {
+async fn status_loop(sink: EventSink, client: Client, shared: SharedClusterPct, every: Duration) {
     let mut tick = interval(every);
     loop {
         tick.tick().await;
@@ -280,7 +280,7 @@ async fn status_loop(app: AppHandle, client: Client, shared: SharedClusterPct, e
             cpu_percent: cpu,
             mem_percent: mem,
         };
-        let _ = app.emit(events::CLUSTER_STATUS, payload);
+        let _ = sink.emit(events::CLUSTER_STATUS, &payload);
     }
 }
 

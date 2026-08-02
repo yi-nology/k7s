@@ -11,11 +11,35 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { exportFilename } from "../../lib/logview";
 import type {
+  Alert,
+  AlertManager,
+  AlertManagerUpsert,
+  ApplyResult,
   ClusterInfo,
   ClusterStatus,
   ContextInfo,
   DataProvider,
+  DashboardPreset,
   DrainProgress,
+  EndpointAddress,
+  EndpointRow,
+  GrafanaConfig,
+  GrafanaConfigUpsert,
+  HelmChartSummary,
+  HelmChartVersionEntry,
+  HelmOp,
+  HelmOpResult,
+  HelmRepo,
+  HelmRepoUpsert,
+  HelmRevisionEntry,
+  ImageRegistry,
+  ImageRegistryUpsert,
+  ImageRepo,
+  ImageTag,
+  ImageManifest,
+  SavedQuery,
+  MetricsConfig,
+  MetricsConfigUpsert,
   NodeSample,
   NodeStatsError,
   EventItem,
@@ -26,8 +50,11 @@ import type {
   LogOptions,
   NodeShellHandle,
   NodeMetricsMap,
+  PodFileEntry,
   PodMetricsMap,
   PodSample,
+  PromQueryResult,
+  Silence,
   Prefs,
   Properties,
   CustomKind,
@@ -471,4 +498,308 @@ export class TauriProvider implements DataProvider {
   listPortForwards(): Promise<ForwardInfo[]> {
     return invoke<ForwardInfo[]>("list_port_forwards");
   }
+
+  // ---- Helm marketplace (Phase 1 of KubePi parity) ----
+
+  helmListRepos(): Promise<HelmRepo[]> {
+    return invoke<HelmRepo[]>("helm_list_repos");
+  }
+  helmAddRepo(input: HelmRepoUpsert): Promise<HelmRepo> {
+    return invoke<HelmRepo>("helm_add_repo", { ...input });
+  }
+  helmRemoveRepo(name: string): Promise<void> {
+    return invoke<void>("helm_remove_repo", { name });
+  }
+  helmUpdateRepo(name: string): Promise<HelmRepo> {
+    return invoke<HelmRepo>("helm_update_repo", { name });
+  }
+  helmUpdateAllRepos(): Promise<HelmRepo[]> {
+    return invoke<HelmRepo[]>("helm_update_all_repos");
+  }
+  helmSearchCharts(query: string): Promise<HelmChartSummary[]> {
+    return invoke<HelmChartSummary[]>("helm_search_charts", { query });
+  }
+  helmChartVersions(repo: string, chart: string): Promise<HelmChartVersionEntry[]> {
+    return invoke<HelmChartVersionEntry[]>("helm_chart_versions", { repo, chart });
+  }
+  helmRenderDefaultValues(
+    chart: string,
+    version: string,
+    kubeconfig?: string,
+  ): Promise<string> {
+    return invoke<string>("helm_render_default_values", {
+      chart,
+      version,
+      kubeconfig: kubeconfig ?? null,
+    });
+  }
+  helmRunOp(op: HelmOp): Promise<HelmOpResult> {
+    // The backend uses serde's `tag = "op"`, which on the wire means the
+    // discriminant is the *top-level* field. Mirror that on the JS side so
+    // the call site can stay readable.
+    return invoke<HelmOpResult>("helm_run_op", op as unknown as Record<string, unknown>);
+  }
+  helmReleaseHistory(
+    release: string,
+    namespace: string,
+    kubeconfig?: string,
+  ): Promise<HelmRevisionEntry[]> {
+    return invoke<HelmRevisionEntry[]>("helm_release_history", {
+      release,
+      namespace,
+      kubeconfig: kubeconfig ?? null,
+    });
+  }
+  onHelmOpLog(
+    cb: (line: { stream: "stdout" | "stderr"; line: string }) => void,
+  ): Unsub {
+    return subscribe<{ stream: "stdout" | "stderr"; line: string }>("helm-op-log", cb);
+  }
+  onHelmOpDone(cb: (result: HelmOpResult) => void): Unsub {
+    return subscribe<HelmOpResult>("helm-op-done", cb);
+  }
+
+  // ---- Pod file management (Phase 2 of KubePi parity) ----
+
+  podFilesList(
+    ref: ResourceRef,
+    container: string | null,
+    path: string,
+  ): Promise<PodFileEntry[]> {
+    return invoke<PodFileEntry[]>("pod_files_list", {
+      namespace: ref.namespace,
+      pod: ref.name,
+      container,
+      path,
+    });
+  }
+  podFilesRead(
+    ref: ResourceRef,
+    container: string | null,
+    path: string,
+  ): Promise<string> {
+    return invoke<string>("pod_files_read", {
+      namespace: ref.namespace,
+      pod: ref.name,
+      container,
+      path,
+    });
+  }
+  podFilesWrite(
+    ref: ResourceRef,
+    container: string | null,
+    path: string,
+    content: string,
+  ): Promise<void> {
+    return invoke<void>("pod_files_write", {
+      namespace: ref.namespace,
+      pod: ref.name,
+      container,
+      path,
+      content,
+    });
+  }
+  podFilesDownload(
+    ref: ResourceRef,
+    container: string | null,
+    path: string,
+  ): Promise<Uint8Array> {
+    // Tauri serialises Vec<u8> as a number array; convert back to a typed
+    // array on this side for the eventual `new Blob([bytes])` call.
+    return invoke<number[]>("pod_files_download", {
+      namespace: ref.namespace,
+      pod: ref.name,
+      container,
+      path,
+    }).then((arr) => Uint8Array.from(arr));
+  }
+  podFilesUpload(
+    ref: ResourceRef,
+    container: string | null,
+    destDir: string,
+    tarBytes: Uint8Array,
+  ): Promise<void> {
+    return invoke<void>("pod_files_upload", {
+      namespace: ref.namespace,
+      pod: ref.name,
+      container,
+      destDir,
+      // base64 in transit keeps the wire format text-only and survives
+      // Tauri's JSON serialiser.
+      tarB64: bytesToBase64(tarBytes),
+    });
+  }
+
+  // ---- Image registry management (Phase 5 of KubePi parity) ----
+
+  imageRegistryList(): Promise<ImageRegistry[]> {
+    return invoke<ImageRegistry[]>("image_registry_list");
+  }
+  imageRegistryUpsert(input: ImageRegistryUpsert): Promise<ImageRegistry> {
+    return invoke<ImageRegistry>("image_registry_upsert", { ...input });
+  }
+  imageRegistryRemove(name: string): Promise<void> {
+    return invoke<void>("image_registry_remove", { name });
+  }
+  imageRegistryTest(name: string): Promise<void> {
+    return invoke<void>("image_registry_test", { name });
+  }
+  imageRegistryRepos(name: string): Promise<ImageRepo[]> {
+    return invoke<ImageRepo[]>("image_registry_repos", { name });
+  }
+  imageRegistryTags(name: string, repo: string): Promise<ImageTag[]> {
+    return invoke<ImageTag[]>("image_registry_tags", { name, repo });
+  }
+
+  // ---- Multi-document YAML apply (Phase 4 — templates) ----
+
+  applyYamlBundle(yaml: string): Promise<ApplyResult[]> {
+    return invoke<ApplyResult[]>("apply_yaml_bundle", { yaml });
+  }
+
+  // ---- Endpoints (Phase 1 Tier-2) ----
+
+  listEndpoints(): Promise<EndpointRow[]> {
+    return invoke<EndpointRow[]>("list_endpoints");
+  }
+  listEndpointsForService(namespace: string, name: string): Promise<EndpointRow[]> {
+    return invoke<EndpointRow[]>("list_endpoints_for_service", { namespace, name });
+  }
+  listEndpointAddresses(namespace: string, name: string): Promise<EndpointAddress[]> {
+    return invoke<EndpointAddress[]>("list_endpoint_addresses", { namespace, name });
+  }
+
+  // ---- CronJob manual trigger (Phase 2 Tier-2) ----
+
+  triggerCronjob(namespace: string, name: string): Promise<string> {
+    return invoke<string>("trigger_cronjob", { namespace, name });
+  }
+
+  // ---- Metrics / Prometheus multi-instance ----
+
+  metricsList(): Promise<MetricsConfig[]> {
+    return invoke<MetricsConfig[]>("metrics_list");
+  }
+  metricsUpsert(input: MetricsConfigUpsert): Promise<MetricsConfig> {
+    return invoke<MetricsConfig>("metrics_upsert", { ...input });
+  }
+  metricsRemove(name: string): Promise<void> {
+    return invoke<void>("metrics_remove", { name });
+  }
+  metricsTest(name: string): Promise<void> {
+    return invoke<void>("metrics_test", { name });
+  }
+  metricsQuery(name: string, promql: string): Promise<PromQueryResult> {
+    return invoke<PromQueryResult>("metrics_query", { name, promql });
+  }
+  metricsQueryRange(
+    name: string,
+    promql: string,
+    startMs: number,
+    endMs: number,
+    stepSeconds: number,
+  ): Promise<PromQueryResult> {
+    return invoke<PromQueryResult>("metrics_query_range", {
+      name,
+      promql,
+      startMs,
+      endMs,
+      stepSeconds,
+    });
+  }
+
+  // ---- Grafana ----
+
+  grafanaList(): Promise<GrafanaConfig[]> {
+    return invoke<GrafanaConfig[]>("grafana_list");
+  }
+  grafanaUpsert(input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
+    return invoke<GrafanaConfig>("grafana_upsert", { ...input });
+  }
+  grafanaRemove(name: string): Promise<void> {
+    return invoke<void>("grafana_remove", { name });
+  }
+  grafanaTest(name: string): Promise<void> {
+    return invoke<void>("grafana_test", { name });
+  }
+  grafanaPresets(): Promise<DashboardPreset[]> {
+    return invoke<DashboardPreset[]>("grafana_presets");
+  }
+  grafanaDashboardUrl(
+    name: string,
+    uid: string,
+    fromMs: number,
+    toMs: number,
+  ): Promise<string> {
+    return invoke<string>("grafana_dashboard_url", { name, uid, fromMs, toMs });
+  }
+
+  // ---- AlertManager ----
+
+  alertManagerList(): Promise<AlertManager[]> {
+    return invoke<AlertManager[]>("alertmanager_list");
+  }
+  alertManagerUpsert(input: AlertManagerUpsert): Promise<AlertManager> {
+    return invoke<AlertManager>("alertmanager_upsert", { ...input });
+  }
+  alertManagerRemove(name: string): Promise<void> {
+    return invoke<void>("alertmanager_remove", { name });
+  }
+  alertManagerTest(name: string): Promise<void> {
+    return invoke<void>("alertmanager_test", { name });
+  }
+  alertManagerAlerts(name: string): Promise<Alert[]> {
+    return invoke<Alert[]>("alertmanager_alerts", { name });
+  }
+  alertManagerSilences(name: string): Promise<Silence[]> {
+    return invoke<Silence[]>("alertmanager_silences", { name });
+  }
+
+  // ---- Saved PromQL queries ----
+
+  savedQueriesList(): Promise<SavedQuery[]> {
+    return invoke<SavedQuery[]>("saved_queries_list");
+  }
+  savedQueriesUpsert(query: SavedQuery): Promise<SavedQuery> {
+    return invoke<SavedQuery>("saved_queries_upsert", { ...query });
+  }
+  savedQueriesRemove(name: string): Promise<void> {
+    return invoke<void>("saved_queries_remove", { name });
+  }
+  savedQueriesClearCache(): Promise<void> {
+    return invoke<void>("saved_queries_clear_cache");
+  }
+  savedQueriesRun(
+    query: SavedQuery,
+    instance: string,
+    forceRefresh: boolean,
+  ): Promise<PromQueryResult> {
+    return invoke<PromQueryResult>("saved_queries_run", {
+      query,
+      instance,
+      forceRefresh,
+    });
+  }
+
+  // ---- Image manifest drill-down ----
+
+  imageRegistryManifest(
+    name: string,
+    repo: string,
+    tag: string,
+  ): Promise<ImageManifest> {
+    return invoke<ImageManifest>("image_registry_manifest", { name, repo, tag });
+  }
+}
+
+/** Encode a `Uint8Array` to base64 without depending on a Node-only API. */
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(i, Math.min(i + chunk, bytes.length)),
+    );
+  }
+  return btoa(binary);
 }

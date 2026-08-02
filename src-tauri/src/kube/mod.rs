@@ -4,15 +4,25 @@
 //! Everything the frontend sees flows through the DTOs in [`dto`] and the Tauri
 //! events named in [`events`].
 
+pub mod alerting;
 pub mod client;
 pub mod discovery;
 pub mod drain;
 pub mod dto;
+pub mod endpoints;
 pub mod exec;
 pub mod exporter;
+pub mod grafana;
 pub mod helm;
+pub mod helm_market;
+pub mod helm_ops;
+pub mod imagerepo;
 pub mod logs;
 pub mod manager;
+pub mod metrics_config;
+pub mod pod_files;
+pub mod saved_queries;
+pub mod templates;
 pub mod mappers;
 pub mod metrics;
 pub mod nodeshell;
@@ -54,6 +64,14 @@ pub enum ResourceKind {
     Persistentvolumes,
     /// The classes claims are provisioned from (cluster-scoped).
     Storageclasses,
+    /// NetworkPolicy — namespaced; selects which pods can talk to which.
+    Networkpolicies,
+    /// HorizontalPodAutoscaler — namespaced; scales a workload on metrics.
+    Horizontalpodautoscalers,
+    /// ResourceQuota — namespaced; caps the total resource use in an ns.
+    Resourcequotas,
+    /// LimitRange — namespaced; caps per-Pod / per-Container resources.
+    Limitranges,
     Nodes,
     Namespaces,
     /// Cluster-wide event feed (B14) — a read-only view, not a managed resource.
@@ -82,6 +100,10 @@ impl ResourceKind {
             ResourceKind::Persistentvolumeclaims => "persistentvolumeclaims",
             ResourceKind::Persistentvolumes => "persistentvolumes",
             ResourceKind::Storageclasses => "storageclasses",
+            ResourceKind::Networkpolicies => "networkpolicies",
+            ResourceKind::Horizontalpodautoscalers => "horizontalpodautoscalers",
+            ResourceKind::Resourcequotas => "resourcequotas",
+            ResourceKind::Limitranges => "limitranges",
             ResourceKind::Nodes => "nodes",
             ResourceKind::Namespaces => "namespaces",
             ResourceKind::Events => "events",

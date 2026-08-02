@@ -18,6 +18,53 @@ reference project.
 
 ---
 
+## 🤔 Why k7s (vs [KubePi](https://github.com/1Panel-dev/KubePi) / Lens / Headlamp)?
+
+Both **k7s** and **[KubePi](https://github.com/1Panel-dev/KubePi)** are K8s dashboards that
+have grown toward each other — both ship a Helm marketplace, an image-registry
+panel, pod file browser, and a YAML-template-driven resource creator. They are
+**not** the same product, and choosing between them is about *who's holding the
+mouse*:
+
+| | **k7s** | **KubePi** |
+|---|---|---|
+| **Shape** | Single ~9 MB native desktop app (Tauri 2) | Web app (Go + Iris + Vue 2) on a Docker image |
+| **Deploy** | `pnpm tauri:build` → `.dmg` / `.appimage`; or `k7s-web` single binary | `docker run 1panel/kubepi` on a server |
+| **Primary user** | A single SRE / platform engineer on their own laptop | A team / company sharing one dashboard via SSO + RBAC |
+| **Local data** | Reads your `~/.kube/config` directly, no server | Reads whatever kubeconfig you point the cluster at |
+| **AI integration** | **Built-in** stdio + HTTP MCP server; ~30 tools for Claude / Cursor / Claude Code | None |
+| **Auth** | Whatever your local kubeconfig says (KUBECONFIG, exec plugins) | OIDC, SAML2, LDAP, MFA, RBAC down to the namespace |
+| **Demo mode** | `pnpm dev` — full UI with seeded mock data, no cluster | Needs a real cluster |
+| **Bundle size** | ~9 MB binary | ~hundreds of MB container |
+| **Telemetry / audit** | None | Login + operation log to embedded DB |
+
+**Pick k7s if** you want a fast, native, single-binary K8s monitor with first-class
+AI control and you don't need a multi-tenant web dashboard for your whole team.
+
+**Pick KubePi if** you need SSO + RBAC + audit for a shared team installation
+behind a web login.
+
+### Feature parity (the work in this repo)
+
+k7s is intentionally a small set of high-quality primitives plus a fast UI;
+the four feature panels below bring it close to KubePi on the operator-facing
+surface, all without giving up the single-binary / single-user story:
+
+- **Helm Marketplace** — repo CRUD, chart search across cached `index.yaml`,
+  install/upgrade/uninstall/rollback with live log streaming, release history.
+- **Pod Files** — browse / read / write / download / upload files inside a
+  running container, via `tar` over `kubectl exec`.
+- **Image Registries** — manage private OCI registries (Harbor, GHCR, ECR,
+  Docker Hub), browse repositories and tags via the OCI Distribution v2
+  spec with bearer-auth challenge dance.
+- **YAML Templates** — pick a template (Deployment + Service, Ingress,
+  ConfigMap), fill the form, preview the rendered YAML, apply as a
+  multi-document bundle.
+
+Open any of these from the **Tools** group in the sidebar.
+
+---
+
 ## ✨ Features / 功能
 
 - **Multi-cluster** — kubeconfig context switcher with on-the-fly import /

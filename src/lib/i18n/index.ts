@@ -88,6 +88,12 @@ export function dict(locale: Locale): Dictionary {
  * version, and finally to the key itself, so a half-translated language is a
  * half-translated UI rather than a blank one.
  *
+ * Optional fallback (a leading string in `args`): when neither the active
+ * locale nor English has the key, the fallback is returned instead of the raw
+ * key. Call sites can use this to ship English copy inline before the
+ * dictionary catches up; the typical pattern is `t("metrics.title", "Metrics")`
+ * so a missing translation still renders sensibly.
+ *
  * The return type is `string` — every dictionary leaf is either a string or a
  * function returning a string. A function returning anything else would not be
  * type-checked against this signature, which is the point.
@@ -97,6 +103,10 @@ export function translate(locale: Locale, key: string, ...args: unknown[]): stri
   if (fromLocale !== undefined) return fromLocale;
   const fromEnglish = resolve("en", key, args);
   if (fromEnglish !== undefined) return fromEnglish;
+  // Fallback: a leading string in `args` is treated as the default copy for an
+  // untranslated key. A function with the right arity would have consumed it,
+  // so by here we know the function-args case didn't fire.
+  if (args.length > 0 && typeof args[0] === "string") return args[0];
   return key;
 }
 
@@ -163,6 +173,10 @@ const KIND_LABELS_ZH: Record<ResourceKind, string> = {
   namespaces: "命名空间",
   events: "事件",
   helm: "发布",
+  networkpolicies: "网络策略",
+  horizontalpodautoscalers: "HPA",
+  resourcequotas: "资源配额",
+  limitranges: "限制范围",
 };
 
 const TAB_LABELS_ZH: Record<DetailTabId, string> = {

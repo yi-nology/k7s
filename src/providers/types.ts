@@ -31,6 +31,10 @@ export type ResourceKind =
   | "persistentvolumeclaims"
   | "persistentvolumes"
   | "storageclasses"
+  | "networkpolicies"
+  | "horizontalpodautoscalers"
+  | "resourcequotas"
+  | "limitranges"
   | "nodes"
   | "namespaces"
   | "events"
@@ -659,4 +663,447 @@ export interface DataProvider {
   listPortForwards(): Promise<ForwardInfo[]>;
   /** Active forwards, pushed on add/remove/failure (B16). */
   onForwards(cb: (forwards: ForwardInfo[]) => void): Unsub;
+
+  // ---- Helm chart marketplace (Phase 1 of KubePi parity) ----
+  /** A configured chart repository. The password never reaches the front-end;
+   * it lives in the backend's local secrets store (chmod 0600). */
+  helmListRepos(): Promise<HelmRepo[]>;
+  helmAddRepo(input: HelmRepoUpsert): Promise<HelmRepo>;
+  helmRemoveRepo(name: string): Promise<void>;
+  /** Re-fetch a single repo's index.yaml. On failure, the repo's `lastError`
+   * is updated and the error is re-thrown for inline display. */
+  helmUpdateRepo(name: string): Promise<HelmRepo>;
+  helmUpdateAllRepos(): Promise<HelmRepo[]>;
+  /** Search every cached index. Empty query returns the full catalog. */
+  helmSearchCharts(query: string): Promise<HelmChartSummary[]>;
+  helmChartVersions(repo: string, chart: string): Promise<HelmChartVersionEntry[]>;
+  /** Default values.yaml from the chart itself (via `helm show values`). */
+  helmRenderDefaultValues(
+    chart: string,
+    version: string,
+    kubeconfig?: string,
+  ): Promise<string>;
+  /** Run install/upgrade/uninstall/rollback to completion. Live logs and the
+   * final result stream back through `onHelmOpLog` and `onHelmOpDone`. */
+  helmRunOp(op: HelmOp): Promise<HelmOpResult>;
+  helmReleaseHistory(
+    release: string,
+    namespace: string,
+    kubeconfig?: string,
+  ): Promise<HelmRevisionEntry[]>;
+  onHelmOpLog(cb: (line: { stream: "stdout" | "stderr"; line: string }) => void): Unsub;
+  onHelmOpDone(cb: (result: HelmOpResult) => void): Unsub;
+
+  // ---- Pod file management (Phase 2 of KubePi parity) ----
+  podFilesList(
+    ref: ResourceRef,
+    container: string | null,
+    path: string,
+  ): Promise<PodFileEntry[]>;
+  podFilesRead(
+    ref: ResourceRef,
+    container: string | null,
+    path: string,
+  ): Promise<string>;
+  podFilesWrite(
+    ref: ResourceRef,
+    container: string | null,
+    path: string,
+    content: string,
+  ): Promise<void>;
+  /** Returns the tar archive bytes (base64 in transit). The UI turns these
+   * into a user-saved file. */
+  podFilesDownload(
+    ref: ResourceRef,
+    container: string | null,
+    path: string,
+  ): Promise<Uint8Array>;
+  /** Upload a tar archive (base64) into a directory inside the container. */
+  podFilesUpload(
+    ref: ResourceRef,
+    container: string | null,
+    destDir: string,
+    tarBytes: Uint8Array,
+  ): Promise<void>;
+
+  // ---- Image registry management (Phase 5 of KubePi parity) ----
+  imageRegistryList(): Promise<ImageRegistry[]>;
+  imageRegistryUpsert(input: ImageRegistryUpsert): Promise<ImageRegistry>;
+  imageRegistryRemove(name: string): Promise<void>;
+  imageRegistryTest(name: string): Promise<void>;
+  imageRegistryRepos(name: string): Promise<ImageRepo[]>;
+  imageRegistryTags(name: string, repo: string): Promise<ImageTag[]>;
+
+  // ---- Multi-document YAML apply (Phase 4 — templates) ----
+  /** Apply a YAML bundle. Returns one entry per document with an `action`
+   * of "created" / "updated" / "failed" and a per-doc error message. */
+  applyYamlBundle(yaml: string): Promise<ApplyResult[]>;
+
+  // ---- Endpoints (Phase 1 Tier-2 of KubePi parity) ----
+  /** List all EndpointSlices cluster-wide. */
+  listEndpoints(): Promise<EndpointRow[]>;
+  /** EndpointSlices for one Service. */
+  listEndpointsForService(namespace: string, name: string): Promise<EndpointRow[]>;
+  /** Per-address detail for one slice. */
+  listEndpointAddresses(
+    namespace: string,
+    name: string,
+  ): Promise<EndpointAddress[]>;
+
+  // ---- CronJob manual trigger (Phase 2 Tier-2) ----
+  /** Create a Job from a CronJob. Returns the new Job's name. */
+  triggerCronjob(namespace: string, name: string): Promise<string>;
+
+  // ---- Metrics / Prometheus multi-instance ----
+  metricsList(): Promise<MetricsConfig[]>;
+  metricsUpsert(input: MetricsConfigUpsert): Promise<MetricsConfig>;
+  metricsRemove(name: string): Promise<void>;
+  metricsTest(name: string): Promise<void>;
+  /** Instant PromQL query. */
+  metricsQuery(name: string, promql: string): Promise<PromQueryResult>;
+  /** Range query. Times are Unix ms; step is seconds. */
+  metricsQueryRange(
+    name: string,
+    promql: string,
+    startMs: number,
+    endMs: number,
+    stepSeconds: number,
+  ): Promise<PromQueryResult>;
+
+  // ---- Grafana ----
+  grafanaList(): Promise<GrafanaConfig[]>;
+  grafanaUpsert(input: GrafanaConfigUpsert): Promise<GrafanaConfig>;
+  grafanaRemove(name: string): Promise<void>;
+  grafanaTest(name: string): Promise<void>;
+  grafanaPresets(): Promise<DashboardPreset[]>;
+  /** Build the iframe URL for a given dashboard uid. */
+  grafanaDashboardUrl(
+    name: string,
+    uid: string,
+    fromMs: number,
+    toMs: number,
+  ): Promise<string>;
+
+  // ---- AlertManager ----
+  alertManagerList(): Promise<AlertManager[]>;
+  alertManagerUpsert(input: AlertManagerUpsert): Promise<AlertManager>;
+  alertManagerRemove(name: string): Promise<void>;
+  alertManagerTest(name: string): Promise<void>;
+  alertManagerAlerts(name: string): Promise<Alert[]>;
+  alertManagerSilences(name: string): Promise<Silence[]>;
+
+  // ---- Saved PromQL queries + in-memory cache ----
+  savedQueriesList(): Promise<SavedQuery[]>;
+  savedQueriesUpsert(query: SavedQuery): Promise<SavedQuery>;
+  savedQueriesRemove(name: string): Promise<void>;
+  savedQueriesClearCache(): Promise<void>;
+  savedQueriesRun(
+    query: SavedQuery,
+    instance: string,
+    forceRefresh: boolean,
+  ): Promise<PromQueryResult>;
+
+  // ---- Image manifest drill-down ----
+  imageRegistryManifest(
+    name: string,
+    repo: string,
+    tag: string,
+  ): Promise<ImageManifest>;
+}
+
+// ---------------------------------------------------------------------------
+// Types for the Helm / PodFiles / ImageRegistries surface above.
+// Kept in this file (rather than per-feature) so a single import gets the
+// whole shape — the UI side is one of "is this connected?" plumbing and
+// doesn't benefit from splitting the contract across files.
+// ---------------------------------------------------------------------------
+
+export interface HelmRepo {
+  name: string;
+  url: string;
+  description: string;
+  lastRefreshed: string | null;
+  lastError: string | null;
+}
+
+export interface HelmRepoUpsert {
+  name: string;
+  url: string;
+  description: string;
+}
+
+export interface HelmChartSummary {
+  repo: string;
+  name: string;
+  version: string;
+  appVersion: string;
+  description: string;
+  keywords: string[];
+  home: string;
+  maintainers: { name: string; email: string; url: string }[];
+}
+
+export interface HelmChartVersionEntry {
+  version: string;
+  appVersion: string;
+  created: string;
+  urls: string[];
+}
+
+/** One of the four helm operations. The `tag` discriminates which fields
+ * apply (matching the backend's `enum HelmOp`). */
+export type HelmOp =
+  | { op: "install"; args: HelmInstallArgs }
+  | { op: "upgrade"; args: HelmUpgradeArgs }
+  | { op: "uninstall"; args: HelmUninstallArgs }
+  | { op: "rollback"; args: HelmRollbackArgs };
+
+export interface HelmInstallArgs {
+  release: string;
+  chart: string;
+  version: string;
+  namespace: string;
+  kubeconfig?: string;
+  /** Rendered values.yaml. Sent over the wire as a file path the backend
+   * already wrote; the helpers in helm/runOp handle that translation. */
+  values: string;
+  dryRun: boolean;
+  createNamespace: boolean;
+}
+
+export interface HelmUpgradeArgs {
+  release: string;
+  chart: string;
+  version: string;
+  namespace: string;
+  kubeconfig?: string;
+  values: string;
+  dryRun: boolean;
+  reuseValues: boolean;
+  rollbackOnFailure: boolean;
+}
+
+export interface HelmUninstallArgs {
+  release: string;
+  namespace: string;
+  kubeconfig?: string;
+  keepHistory: boolean;
+}
+
+export interface HelmRollbackArgs {
+  release: string;
+  namespace: string;
+  revision: number | null;
+  kubeconfig?: string;
+}
+
+export interface HelmOpResult {
+  op: string;
+  release: string;
+  namespace: string;
+  success: boolean;
+  lines: number;
+  summary: string;
+}
+
+export interface HelmRevisionEntry {
+  revision: number;
+  updated: string;
+  status: string;
+  chart: string;
+  appVersion: string;
+  description: string;
+}
+
+export interface PodFileEntry {
+  name: string;
+  /** "file" | "dir" | "symlink" | "other" */
+  kind: string;
+  size: number;
+  /** Unix mtime seconds; 0 if unknown. */
+  modified: number;
+  target?: string;
+  mode: number;
+}
+
+export interface ImageRegistry {
+  name: string;
+  url: string;
+  username: string;
+  insecure: boolean;
+  description: string;
+  lastError: string | null;
+  lastRefreshed: string | null;
+}
+
+export interface ImageRegistryUpsert {
+  name: string;
+  url: string;
+  username: string;
+  password: string;
+  insecure: boolean;
+  description: string;
+}
+
+export interface ImageRepo {
+  name: string;
+}
+
+export interface ImageTag {
+  name: string;
+  digest: string | null;
+  size: number | null;
+  created: string | null;
+}
+
+export interface ApplyResult {
+  name: string;
+  kind: string;
+  namespace: string;
+  /** "created" | "updated" | "unchanged" | "failed" */
+  action: string;
+  error: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Endpoints / metrics / grafana / alerting / cronjob — Phase 1 Tier-2 of
+// KubePi parity.
+// ---------------------------------------------------------------------------
+
+export interface EndpointRow {
+  name: string;
+  namespace: string;
+  service: string;
+  ready: number;
+  total: number;
+  addresses: string[];
+  age: string;
+}
+
+export interface EndpointAddress {
+  address: string;
+  ready: boolean;
+  nodeName: string;
+  targetRefKind: string;
+  targetRefName: string;
+}
+
+export interface MetricsConfig {
+  name: string;
+  url: string;
+  username: string;
+  description: string;
+  lastError: string | null;
+  lastRefreshed: string | null;
+}
+
+export interface MetricsConfigUpsert {
+  name: string;
+  url: string;
+  username: string;
+  password: string;
+  description: string;
+}
+
+export interface PromSample {
+  /** Unix milliseconds. */
+  ts: number;
+  value: number;
+}
+
+export interface PromSeries {
+  metric: Record<string, string>;
+  samples: PromSample[];
+}
+
+export interface PromQueryResult {
+  resultType: string;
+  series: PromSeries[];
+}
+
+export interface GrafanaConfig {
+  name: string;
+  url: string;
+  username: string;
+  defaultDatasource: string;
+  description: string;
+  lastError: string | null;
+  lastRefreshed: string | null;
+}
+
+export interface GrafanaConfigUpsert {
+  name: string;
+  url: string;
+  username: string;
+  password: string;
+  apiToken: string;
+  defaultDatasource: string;
+  description: string;
+}
+
+export interface DashboardPreset {
+  id: string;
+  title: string;
+  uid: string;
+  description: string;
+}
+
+export interface AlertManager {
+  name: string;
+  url: string;
+  description: string;
+  lastError: string | null;
+  lastRefreshed: string | null;
+}
+
+export interface AlertManagerUpsert {
+  name: string;
+  url: string;
+  bearerToken: string;
+  description: string;
+}
+
+export interface Alert {
+  fingerprint: string;
+  name: string;
+  state: string;
+  severity: string;
+  summary: string;
+  description: string;
+  activeAt: string;
+  labels: Record<string, string>;
+}
+
+export interface Silence {
+  id: string;
+  matchers: string[];
+  createdBy: string;
+  comment: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+}
+
+export interface SavedQuery {
+  name: string;
+  promql: string;
+  note: string;
+  cacheSeconds: number;
+}
+
+export interface ImageManifest {
+  schemaVersion: number;
+  mediaType: string;
+  digest: string;
+  size: number;
+  raw: string;
+  configDigest: string;
+  configSize: number;
+  layers: ImageLayer[];
+}
+
+export interface ImageLayer {
+  digest: string;
+  size: number;
+  mediaType: string;
 }

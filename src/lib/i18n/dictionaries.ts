@@ -32,6 +32,9 @@ export interface Dictionary {
       footerNote: string;
       reset: string;
     };
+    copy: string;
+    copied: string;
+    copyFailed: string;
     sidebar: {
       settings: string;
       watch: (n: number) => string;
@@ -39,9 +42,27 @@ export interface Dictionary {
       filterKinds: string;
       importKubeconfig: string;
       noContexts: string;
+      /** The "Tools" section in the sidebar — overlays for Helm Market,
+       *  Pod Files, Image Registries, Templates, and the Tier-2 features
+       *  (Dashboard, Metrics, Grafana, Endpoints, Topology, Alerting). */
+      tools: {
+        header: string;
+        helmMarket: string;
+        podFiles: string;
+        imageRepos: string;
+        templates: string;
+        dashboard: string;
+        metrics: string;
+        grafana: string;
+        endpoints: string;
+        topology: string;
+        alerting: string;
+        close: string;
+      };
     };
     topbar: {
       nsPrefix: string;
+      searchPlaceholder: string;
     };
     statusbar: {
       api: (ms: number | null) => string;
@@ -77,6 +98,30 @@ export interface Dictionary {
     defaultNamespace: { label: string; hint: string; placeholder: string };
     shellCommand: { label: string; hint: string; placeholder: string };
     nodeShellImage: { label: string; hint: string; placeholder: string };
+    /** The "AI integration" panel at the bottom of the Settings dialog.
+        Surfaces the MCP endpoint URL + ready-to-paste configs for
+        Claude Desktop, Claude Code, and Cursor. */
+    mcp: {
+      sectionTitle: string;
+      sectionHint: (url: string) => string;
+      tools: (n: number) => string;
+      stdioNote: string;
+      claudeDesktop: {
+        title: string;
+        hint: string;
+        configPath: string;
+      };
+      claudeCode: {
+        title: string;
+        hint: string;
+        cliHint: string;
+      };
+      cursor: {
+        title: string;
+        hint: string;
+        configPath: string;
+      };
+    };
   };
 
   /** Detail panel — tabs, header meta, common buttons. */
@@ -99,6 +144,8 @@ export interface Dictionary {
   table: {
     filterPlaceholder: string;
     empty: string;
+    /** "N selected" chip shown when multi-select has > 1 row picked. */
+    selected: string;
   };
 
   /** The shared action list and its confirmation wording. */
@@ -197,6 +244,157 @@ export interface Dictionary {
     noChanges: string;
     diffNote: string;
   };
+
+  /** Feature overlay panels (Phase 1/2/4/5 of KubePi parity). Each panel
+   *  has a title + close, plus a per-feature nested block for the rest. */
+  helm: {
+    title: string;
+    close: string;
+    tabs: { charts: string; repos: string };
+    search: { placeholder: string };
+    repos: {
+      refreshAll: string;
+      empty: string;
+      error: string;
+      ok: string;
+      never: string;
+      refresh: string;
+      remove: string;
+      add: string;
+      confirmRemove: (name: string) => string;
+      form: { name: string; url: string; desc: string; add: string; cancel: string };
+    };
+    empty: { noMatch: string; noRepos: string };
+    detail: { pickChart: string };
+    wizard: {
+      step: { version: string; values: string; review: string };
+      releaseName: string;
+      namespace: string;
+      createNs: string;
+      version: string;
+      next: string;
+      back: string;
+      chart: string;
+      installing: string;
+      install: string;
+      done: string;
+    };
+  };
+  podFiles: { title: string; close: string; noPod: string; placeholder: string };
+  image: {
+    title: string;
+    close: string;
+    test: string;
+    confirmRemove: string;
+    remove: string;
+    add: string;
+    pick: string;
+    repos: string;
+    reposEmpty: string;
+    tags: string;
+    manifest: string;
+    mediaType: string;
+    digest: string;
+    schemaVersion: string;
+    size: string;
+    layers: string;
+    raw: string;
+    form: {
+      title: string;
+      name: string;
+      url: string;
+      username: string;
+      password: string;
+      description: string;
+      save: string;
+      cancel: string;
+    };
+  };
+  tpl: { title: string; close: string; preview: string; applying: string; apply: string; pick: string };
+  metricsExplorer: {
+    title: string;
+    close: string;
+    instance: string;
+    instant: string;
+    range: string;
+    placeholder: string;
+    run: string;
+    running: string;
+    refresh: string;
+    refreshTitle: string;
+    empty: string;
+    noSources: string;
+    addSource: string;
+    saved: {
+      title: string;
+      saveTitle: string;
+      save: string;
+      namePlaceholder: string;
+      notePlaceholder: string;
+      saveAction: string;
+      clearCache: string;
+      clearCacheBtn: string;
+      refreshHint: string;
+      removeHint: string;
+      confirmRemove: (name: string) => string;
+    };
+  };
+  grafana: {
+    title: string;
+    close: string;
+    none: string;
+    test: string;
+    confirmRemove: string;
+    remove: string;
+    add: string;
+    pick: string;
+    dashboards: string;
+    openInGrafana: string;
+    form: {
+      title: string;
+      name: string;
+      url: string;
+      apiToken: string;
+      ds: string;
+      save: string;
+      cancel: string;
+    };
+  };
+  topology: {
+    title: string;
+    close: string;
+    empty: string;
+    loading: string;
+    pick: string;
+    col: { service: string; endpoints: string; pods: string };
+    legend: { service: string; endpoint: string; pod: string; container: string };
+  };
+  dashboard: {
+    title: string;
+    close: string;
+    cluster: string;
+    phase: string;
+    nodes: string;
+    cpu: string;
+    mem: string;
+    events: string;
+    eventsEmpty: string;
+    noStatus: string;
+  };
+  endpoints: {
+    title: string;
+    close: string;
+    empty: string;
+    col: { name: string; namespace: string; service: string; ready: string; addresses: string; address: string; target: string; node: string };
+  };
+  alerts: {
+    title: string;
+    close: string;
+    none: string;
+    pick: string;
+    tabs: { alerts: string; silences: string };
+    empty: { alerts: string; silences: string };
+  };
 }
 
 /** English (default). */
@@ -216,6 +414,9 @@ export const en: Dictionary = {
       footerNote: "changes save automatically",
       reset: "reset to defaults",
     },
+    copy: "copy",
+    copied: "copied",
+    copyFailed: "copy failed",
     sidebar: {
       settings: "settings",
       watch: (n) => `watch: ${n} streams active`,
@@ -223,9 +424,24 @@ export const en: Dictionary = {
       filterKinds: "filter kinds…",
       importKubeconfig: "Import kubeconfig…",
       noContexts: "no contexts",
+      tools: {
+        header: "Tools",
+        helmMarket: "Helm Market",
+        podFiles: "Pod Files",
+        imageRepos: "Image Registries",
+        templates: "Templates",
+        dashboard: "Dashboard",
+        metrics: "Metrics",
+        grafana: "Grafana",
+        endpoints: "Endpoints",
+        topology: "Service Topology",
+        alerting: "Alerting",
+        close: "Click to close",
+      },
     },
     topbar: {
       nsPrefix: "ns:",
+      searchPlaceholder: "Search anything…",
     },
     statusbar: {
       api: (ms) => (ms == null ? "api: —" : `api: ${ms}ms`),
@@ -296,6 +512,28 @@ export const en: Dictionary = {
       hint: "blank uses nicolaka/netshoot; must be multi-arch on a mixed-arch cluster",
       placeholder: "(nicolaka/netshoot)",
     },
+    mcp: {
+      sectionTitle: "AI integration (MCP)",
+      sectionHint: (url) =>
+        `Exposes the same tools you see here as a Model Context Protocol server. The current page origin is the URL: ${url}`,
+      tools: (n) => `${n} tools available — list / get / describe / logs / apply / scale / drain / port-forward / shell`,
+      stdioNote: "For local stdio, run the `k7s-mcp` binary instead (see README).",
+      claudeDesktop: {
+        title: "Claude Desktop",
+        hint: "Restart Claude Desktop after editing the config.",
+        configPath: "~/Library/Application Support/Claude/claude_desktop_config.json",
+      },
+      claudeCode: {
+        title: "Claude Code",
+        hint: "Either edit ~/.claude.json or use the CLI below.",
+        cliHint: "CLI",
+      },
+      cursor: {
+        title: "Cursor",
+        hint: "Per-project file takes precedence over the global one.",
+        configPath: "~/.cursor/mcp.json  (or .cursor/mcp.json in a project)",
+      },
+    },
   },
 
   detail: {
@@ -324,6 +562,7 @@ export const en: Dictionary = {
   table: {
     filterPlaceholder: "filter…",
     empty: "no resources match filter",
+    selected: "selected",
   },
 
   actions: {
@@ -421,6 +660,185 @@ export const en: Dictionary = {
     noChanges: "No changes — the server would store this object exactly as it is now.",
     diffNote: "as the server would store it, after defaulting and any mutating webhooks",
   },
+
+  helm: {
+    title: "Helm Market",
+    close: "Close",
+    tabs: { charts: "Charts", repos: "Repositories" },
+    search: { placeholder: "Search charts…" },
+    repos: {
+      refreshAll: "Refresh all",
+      empty: "No repos yet",
+      error: "error",
+      ok: "fresh",
+      never: "never refreshed",
+      refresh: "Refresh",
+      remove: "Remove",
+      add: "Add repository",
+      confirmRemove: (name) => `Remove repo "${name}"?`,
+      form: {
+        name: "name",
+        url: "https://charts.example.com",
+        desc: "description (optional)",
+        add: "Add",
+        cancel: "Cancel",
+      },
+    },
+    empty: {
+      noMatch: "No charts match this search",
+      noRepos: "No repos yet — add one in Repositories",
+    },
+    detail: { pickChart: "Pick a chart on the left to install" },
+    wizard: {
+      step: { version: "Version", values: "Values", review: "Review" },
+      releaseName: "Release name",
+      namespace: "Namespace",
+      createNs: "Create namespace if missing",
+      version: "Version",
+      next: "Next",
+      back: "Back",
+      chart: "Chart",
+      installing: "Installing…",
+      install: "Install",
+      done: "Done",
+    },
+  },
+  podFiles: {
+    title: "Pod Files",
+    close: "Close",
+    noPod: "Open Pod Files from a Pod's row context menu.",
+    placeholder: "/path/in/pod",
+  },
+  image: {
+    title: "Image registries",
+    close: "Close",
+    test: "Test",
+    confirmRemove: "Remove this registry?",
+    remove: "Remove",
+    add: "Add registry",
+    pick: "Pick a registry on the left",
+    repos: "Repositories",
+    reposEmpty: "No repositories (or registry does not support /v2/_catalog)",
+    tags: "Tags",
+    manifest: "Manifest",
+    mediaType: "Media type",
+    digest: "Digest",
+    schemaVersion: "Schema",
+    size: "Size",
+    layers: "Layers",
+    raw: "Raw JSON",
+    form: {
+      title: "Registry",
+      name: "Name",
+      url: "URL",
+      username: "Username (optional)",
+      password: "Password (optional)",
+      description: "Description",
+      save: "Save",
+      cancel: "Cancel",
+    },
+  },
+  tpl: {
+    title: "Create from template",
+    close: "Close",
+    preview: "YAML preview",
+    applying: "Applying…",
+    apply: "Apply",
+    pick: "Pick a template on the left",
+  },
+  metricsExplorer: {
+    title: "Metrics Explorer",
+    close: "Close",
+    instance: "Prometheus",
+    instant: "Instant",
+    range: "Range",
+    placeholder: "PromQL expression…",
+    run: "Run",
+    running: "Running…",
+    refresh: "Refresh",
+    refreshTitle: "Force re-query, ignoring the cache",
+    empty: "No series returned.",
+    noSources: "No Prometheus instances yet — add one to start querying.",
+    addSource: "Add Prometheus",
+    saved: {
+      title: "Saved queries",
+      saveTitle: "Save this query",
+      save: "Save",
+      namePlaceholder: "Name",
+      notePlaceholder: "Note (optional)",
+      saveAction: "Save",
+      clearCache: "Wipe the in-memory query cache",
+      clearCacheBtn: "Clear cache",
+      refreshHint: "Run, ignoring the cache",
+      removeHint: "Delete saved query",
+      confirmRemove: (name) => `Delete saved query "${name}"?`,
+    },
+  },
+  grafana: {
+    title: "Grafana",
+    close: "Close",
+    none: "No Grafana instances yet",
+    test: "Test",
+    confirmRemove: "Remove this instance?",
+    remove: "Remove",
+    add: "Add instance",
+    pick: "Add a Grafana instance to get started",
+    dashboards: "Preset dashboards",
+    openInGrafana: "Open in Grafana",
+    form: {
+      title: "Grafana instance",
+      name: "Name",
+      url: "URL",
+      apiToken: "API token (optional)",
+      ds: "Default datasource",
+      save: "Save",
+      cancel: "Cancel",
+    },
+  },
+  topology: {
+    title: "Service Topology",
+    close: "Close",
+    empty: "No services with endpoints",
+    loading: "Loading…",
+    pick: "Pick a service on the left",
+    col: { service: "Service", endpoints: "Endpoints", pods: "Pods" },
+    legend: { service: "Service", endpoint: "Endpoint", pod: "Pod", container: "Container" },
+  },
+  dashboard: {
+    title: "Dashboard",
+    close: "Close",
+    cluster: "Cluster",
+    phase: "Status",
+    nodes: "Nodes",
+    cpu: "CPU",
+    mem: "Memory",
+    events: "Recent events",
+    eventsEmpty: "No recent events",
+    noStatus: "Cluster status unavailable",
+  },
+  endpoints: {
+    title: "Endpoints",
+    close: "Close",
+    empty: "No EndpointSlices in this cluster",
+    col: {
+      name: "Name",
+      namespace: "Namespace",
+      service: "Service",
+      ready: "Ready",
+      addresses: "Addresses",
+      address: "Address",
+      target: "Target",
+      node: "Node",
+    },
+  },
+  alerts: {
+    title: "Alerts",
+    close: "Close",
+    none: "No AlertManager instances yet",
+    pick: "Add an AlertManager instance to get started",
+    tabs: { alerts: "Alerts", silences: "Silences" },
+    empty: { alerts: "No active alerts", silences: "No silences" },
+  },
 };
 
 /** Simplified Chinese. */
@@ -440,6 +858,9 @@ export const zh: Dictionary = {
       footerNote: "修改自动保存",
       reset: "恢复默认",
     },
+    copy: "复制",
+    copied: "已复制",
+    copyFailed: "复制失败",
     sidebar: {
       settings: "设置",
       watch: (n) => `监听: ${n} 路活跃`,
@@ -447,9 +868,24 @@ export const zh: Dictionary = {
       filterKinds: "过滤类型…",
       importKubeconfig: "导入 kubeconfig…",
       noContexts: "无 context",
+      tools: {
+        header: "工具",
+        helmMarket: "Helm 市场",
+        podFiles: "Pod 文件",
+        imageRepos: "镜像仓库",
+        templates: "模板",
+        dashboard: "总览",
+        metrics: "指标查询",
+        grafana: "Grafana",
+        endpoints: "Endpoints",
+        topology: "服务拓扑",
+        alerting: "告警",
+        close: "点击关闭",
+      },
     },
     topbar: {
       nsPrefix: "命名空间:",
+      searchPlaceholder: "搜索任何内容…",
     },
     statusbar: {
       api: (ms) => (ms == null ? "api: —" : `api: ${ms}ms`),
@@ -519,6 +955,28 @@ export const zh: Dictionary = {
       hint: "留空使用 nicolaka/netshoot;混合架构集群需要多架构镜像",
       placeholder: "(nicolaka/netshoot)",
     },
+    mcp: {
+      sectionTitle: "AI 集成 (MCP)",
+      sectionHint: (url) =>
+        `把这套界面下同样的工具以 Model Context Protocol 协议暴露给 AI 客户端。当前页面源就是接入地址:${url}`,
+      tools: (n) => `共 ${n} 个工具,涵盖 list / get / describe / logs / apply / scale / drain / port-forward / shell`,
+      stdioNote: "本地 stdio 模式请跑 `k7s-mcp` 二进制(详见 README)。",
+      claudeDesktop: {
+        title: "Claude Desktop",
+        hint: "编辑后重启 Claude Desktop 生效。",
+        configPath: "~/Library/Application Support/Claude/claude_desktop_config.json",
+      },
+      claudeCode: {
+        title: "Claude Code",
+        hint: "可以编辑 ~/.claude.json,也可以用下面的 CLI。",
+        cliHint: "命令行",
+      },
+      cursor: {
+        title: "Cursor",
+        hint: "项目级 .cursor/mcp.json 优先级高于全局配置。",
+        configPath: "~/.cursor/mcp.json(或项目里的 .cursor/mcp.json)",
+      },
+    },
   },
 
   detail: {
@@ -547,6 +1005,7 @@ export const zh: Dictionary = {
   table: {
     filterPlaceholder: "过滤…",
     empty: "无匹配资源",
+    selected: "已选",
   },
 
   actions: {
@@ -641,5 +1100,184 @@ export const zh: Dictionary = {
     checking: "检查中…",
     noChanges: "无变更 — 服务端将原样存储此对象。",
     diffNote: "这是服务端经默认值与变更 webhook 处理后实际存储的版本",
+  },
+
+  helm: {
+    title: "Helm 市场",
+    close: "关闭",
+    tabs: { charts: "Charts", repos: "仓库" },
+    search: { placeholder: "搜索 Charts…" },
+    repos: {
+      refreshAll: "全部刷新",
+      empty: "暂无仓库",
+      error: "出错",
+      ok: "正常",
+      never: "未刷新",
+      refresh: "刷新",
+      remove: "删除",
+      add: "添加仓库",
+      confirmRemove: (name) => `删除仓库 "${name}"?`,
+      form: {
+        name: "name",
+        url: "https://charts.example.com",
+        desc: "描述(可选)",
+        add: "添加",
+        cancel: "取消",
+      },
+    },
+    empty: {
+      noMatch: "无匹配的 Charts",
+      noRepos: "暂无仓库 — 先在仓库页添加一个",
+    },
+    detail: { pickChart: "在左侧选一个 Chart 安装" },
+    wizard: {
+      step: { version: "版本", values: "配置", review: "确认" },
+      releaseName: "Release 名",
+      namespace: "命名空间",
+      createNs: "必要时创建命名空间",
+      version: "版本",
+      next: "下一步",
+      back: "上一步",
+      chart: "Chart",
+      installing: "安装中…",
+      install: "安装",
+      done: "完成",
+    },
+  },
+  podFiles: {
+    title: "Pod 文件",
+    close: "关闭",
+    noPod: "从 Pod 行的右键菜单打开 Pod Files。",
+    placeholder: "/容器内路径",
+  },
+  image: {
+    title: "镜像仓库",
+    close: "关闭",
+    test: "测试",
+    confirmRemove: "删除此仓库?",
+    remove: "删除",
+    add: "添加仓库",
+    pick: "在左侧选一个仓库",
+    repos: "镜像",
+    reposEmpty: "无镜像(或仓库不支持 /v2/_catalog)",
+    tags: "Tag",
+    manifest: "清单",
+    mediaType: "Media Type",
+    digest: "摘要",
+    schemaVersion: "Schema",
+    size: "大小",
+    layers: "层",
+    raw: "原始 JSON",
+    form: {
+      title: "仓库",
+      name: "名称",
+      url: "URL",
+      username: "用户名(可选)",
+      password: "密码(可选)",
+      description: "描述",
+      save: "保存",
+      cancel: "取消",
+    },
+  },
+  tpl: {
+    title: "从模板创建",
+    close: "关闭",
+    preview: "YAML 预览",
+    applying: "应用中…",
+    apply: "应用",
+    pick: "在左侧选一个模板",
+  },
+  metricsExplorer: {
+    title: "指标查询",
+    close: "关闭",
+    instance: "Prometheus",
+    instant: "瞬时",
+    range: "范围",
+    placeholder: "PromQL 表达式…",
+    run: "运行",
+    running: "运行中…",
+    refresh: "刷新",
+    refreshTitle: "强制重新查询,忽略缓存",
+    empty: "无返回数据",
+    noSources: "暂无 Prometheus 实例 — 添加一个开始查询。",
+    addSource: "添加 Prometheus",
+    saved: {
+      title: "已保存查询",
+      saveTitle: "保存此查询",
+      save: "保存",
+      namePlaceholder: "名称",
+      notePlaceholder: "备注(可选)",
+      saveAction: "保存",
+      clearCache: "清空内存查询缓存",
+      clearCacheBtn: "清空缓存",
+      refreshHint: "运行,忽略缓存",
+      removeHint: "删除已保存查询",
+      confirmRemove: (name) => `删除已保存查询 "${name}"?`,
+    },
+  },
+  grafana: {
+    title: "Grafana",
+    close: "关闭",
+    none: "暂无 Grafana 实例",
+    test: "测试",
+    confirmRemove: "删除此实例?",
+    remove: "删除",
+    add: "添加实例",
+    pick: "添加 Grafana 实例开始",
+    dashboards: "预设仪表板",
+    openInGrafana: "在 Grafana 中打开",
+    form: {
+      title: "Grafana 实例",
+      name: "名称",
+      url: "URL",
+      apiToken: "API Token(可选)",
+      ds: "默认数据源",
+      save: "保存",
+      cancel: "取消",
+    },
+  },
+  topology: {
+    title: "服务拓扑",
+    close: "关闭",
+    empty: "无带 Endpoints 的服务",
+    loading: "加载中…",
+    pick: "在左侧选一个服务",
+    col: { service: "服务", endpoints: "Endpoints", pods: "Pods" },
+    legend: { service: "服务", endpoint: "Endpoint", pod: "Pod", container: "容器" },
+  },
+  dashboard: {
+    title: "总览",
+    close: "关闭",
+    cluster: "集群",
+    phase: "状态",
+    nodes: "节点",
+    cpu: "CPU",
+    mem: "内存",
+    events: "最近事件",
+    eventsEmpty: "无最近事件",
+    noStatus: "集群状态不可用",
+  },
+  endpoints: {
+    title: "Endpoints",
+    close: "关闭",
+    empty: "此集群无 EndpointSlice",
+    col: {
+      name: "名称",
+      namespace: "命名空间",
+      service: "服务",
+      ready: "就绪",
+      addresses: "地址",
+      address: "地址",
+      target: "目标",
+      node: "节点",
+    },
+  },
+  alerts: {
+    title: "告警",
+    close: "关闭",
+    none: "暂无 AlertManager 实例",
+    pick: "添加 AlertManager 实例开始",
+    tabs: { alerts: "告警", silences: "静默" },
+    empty: { alerts: "无活动告警", silences: "无静默" },
   },
 };

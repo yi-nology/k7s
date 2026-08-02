@@ -1,49 +1,95 @@
-/* Pod detail panel (Design §4): 47% width (min 520px), left border, chrome bg.
-   Opens when a pod is selected. Contains a header, tab strip, and the active tab. */
+/* Pod detail panel (Design §4): 48% width (min 540px), left border, chrome bg.
+   Opens when a pod is selected. Contains a header, tab strip, and the active
+   tab. v2 — bigger shadow lift, accent-glow on the status dot, gradient tab
+   underline, ring border on action buttons. */
 
 .panel {
-  width: 47%;
-  min-width: 520px;
+  width: 48%;
+  min-width: 540px;
   flex: none;
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--border-default);
   background: var(--bg-chrome);
+  /* The big lift — looks like the panel is sitting slightly above the table. */
+  box-shadow: var(--shadow-panel);
   /* min-height:0 lets inner scroll regions (logs/yaml) size correctly. */
   min-height: 0;
+  position: relative;
 }
 
-/* ---------- Header ---------- */
+/* ============== Header ============== */
 
 .header {
   flex: none;
-  padding: 12px 16px 0;
+  padding: 16px 20px 0;
+  position: relative;
 }
+/* The header's bottom edge gets a soft gradient hairline, fading out at the
+   sides — feels like a "shelf" between the title and the tabs rather than a
+   hard 1px line. */
+.header::after {
+  content: "";
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border-default) 30%,
+    var(--border-default) 70%,
+    transparent
+  );
+}
+
 .titleRow {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 .statusDot {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   flex: none;
+  background: var(--status-ok);
+  /* Two-layer halo: an inner soft ring at fixed 3px, an outer 16px glow that
+     bleeds into the surrounding panel. The size is small enough to read as
+     "this is a dot", the glow is what tells you "this dot is alive". */
+  box-shadow:
+    0 0 0 3px var(--status-ok-soft),
+    0 0 16px rgba(78, 201, 176, 0.35);
+}
+.statusDotFailed {
+  background: var(--status-err);
+  box-shadow:
+    0 0 0 3px var(--status-err-soft),
+    0 0 16px rgba(247, 118, 142, 0.4);
+  animation: livePulse 1.4s ease-in-out infinite;
+}
+.statusDotPending {
+  background: var(--status-warn);
+  box-shadow:
+    0 0 0 3px var(--status-warn-soft),
+    0 0 14px rgba(224, 175, 104, 0.35);
 }
 .name {
   flex: 1;
   min-width: 0;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.01em;
 }
 .close {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   flex: none;
   display: flex;
   align-items: center;
@@ -51,49 +97,58 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 16px;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 .close:hover {
-  background: var(--bg-hover-strong);
+  background: var(--bg-hover);
   color: var(--text-primary);
+  border-color: var(--border-control);
 }
 
-/* ---------- Actions menu (⋯) ---------- */
+/* ============== Actions menu (⋯) ============== */
 
 .actionsWrap {
   position: relative;
   flex: none;
 }
 .actionsButton {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 .actionsButton:hover {
-  background: var(--bg-hover-strong);
+  background: var(--bg-hover);
   color: var(--text-primary);
+  border-color: var(--border-control);
 }
 .actionsAnchor {
   position: absolute;
   right: 0;
-  top: 28px;
+  top: 32px;
   z-index: 60;
 }
 /* Action error banner (below the title row). */
 .actionError {
-  margin: 8px 0 0;
-  padding: 6px 10px;
+  margin: 10px 0 0;
+  padding: 7px 11px;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--status-err);
-  background: color-mix(in srgb, var(--status-err) 12%, transparent);
+  background: var(--status-err-soft);
+  border: 1px solid var(--status-err-soft);
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: pre-wrap;
@@ -102,47 +157,81 @@
 
 .meta {
   display: flex;
-  gap: 14px;
-  margin: 6px 0 10px;
-  padding-left: 18px;
+  gap: 16px;
+  margin: 9px 0 12px;
+  padding-left: 22px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-muted);
 }
 .metaVal {
   color: var(--text-secondary);
+  font-weight: 500;
 }
 
-/* ---------- Tabs ---------- */
+/* ============== Tabs ============== */
 
 .tabs {
   display: flex;
-  gap: 2px;
+  gap: 4px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--border-default);
 }
 .tab {
-  padding: 7px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text-muted);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
+  transition: color 0.12s ease, border-color 0.12s ease;
+  position: relative;
 }
 .tab:hover {
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 .tabActive {
   color: var(--text-primary);
   border-bottom-color: var(--accent);
 }
+/* The active tab's underline gets a 12px glow centered on it — the same trick
+   as the nav active item, scaled to the panel. Visually anchors the tab. */
+.tabActive::after {
+  content: "";
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: -1px;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  border-radius: 2px;
+}
+.tabCount {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+  padding: 1px 6px;
+  background: var(--bg-control);
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.1s ease, background 0.1s ease;
+}
+.tabActive .tabCount {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
 
-/* ---------- Drain progress banner (B20) ---------- */
+/* ============== Drain progress banner (B20) ============== */
 
 /* Left-bordered in the tone of the drain's worst outcome (see DrainBanner). */
 .drainBanner {
-  margin: 6px 0 0;
-  padding: 5px 8px;
+  margin: 8px 0 0;
+  padding: 6px 9px;
   border: 1px solid var(--border-default);
   border-left-width: 2px;
   border-radius: var(--radius-sm);

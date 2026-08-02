@@ -1,5 +1,7 @@
 /* Resource table (Design §3): fills the remaining width and scrolls; sticky
-   monospace header; tone-colored cells; hover and selected row backgrounds. */
+   monospace header; tone-colored cells; hover and selected row backgrounds.
+   v2 — bigger row height, accent ring on focus/select, status dots with
+   halos, tabular numerals so metrics align. */
 
 /* Column: filter toolbar (fixed) above the scrolling table. */
 .container {
@@ -15,25 +17,28 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+  padding: 12px 18px;
   border-bottom: 1px solid var(--border-row);
 }
 .search {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: min(320px, 100%);
-  background: var(--bg-terminal);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  padding: 4px 9px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .search:focus-within {
-  border-color: var(--border-hover);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
 }
 .searchIcon {
   color: var(--text-faint);
-  font-size: 11px;
+  font-size: 12px;
+  flex: none;
 }
 .searchInput {
   flex: 1;
@@ -42,7 +47,47 @@
   border: none;
   color: var(--text-body);
   font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+}
+.searchInput::placeholder {
+  color: var(--text-faint);
+}
+
+/* Multi-select count chip. Appears next to the filter input when more than one
+   row is selected (⌘-click or shift-click). Provides discoverable feedback for
+   a feature that previously left the user with a row highlight and no count. */
+.selectionBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
   font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.selectionCount {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+.selectionClear {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.7;
+  transition: opacity 0.1s ease;
+}
+.selectionClear:hover {
+  opacity: 1;
 }
 
 .wrap {
@@ -55,7 +100,8 @@
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
 }
 
 .th {
@@ -64,15 +110,17 @@
   z-index: 2;
   background: var(--bg-chrome);
   text-align: left;
-  padding: 8px 14px;
-  font-size: 10px;
+  padding: 11px 18px;
+  font-size: 10.5px;
   font-weight: 600;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   color: var(--text-faint);
   border-bottom: 1px solid var(--border-default);
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
+  text-transform: uppercase;
+  transition: color 0.1s ease;
 }
 .th:hover {
   color: var(--text-secondary);
@@ -80,6 +128,7 @@
 /* Active-sort direction indicator. */
 .sortArrow {
   color: var(--accent);
+  margin-left: 4px;
 }
 
 /* Windowed tables only (B21): with the default auto layout, column widths are
@@ -95,6 +144,7 @@
 
 .row {
   background: transparent;
+  transition: background 0.1s ease;
 }
 
 /* Windowed rows are pinned to exactly the height the spacer math assumes — a row
@@ -110,10 +160,13 @@
   cursor: pointer;
 }
 .rowClickable:hover {
-  background: var(--bg-control);
+  background: var(--bg-hover);
 }
 .rowSelected {
   background: var(--bg-selected-row);
+}
+.rowSelected:hover {
+  background: #1F2D52;
 }
 /* Keyboard-highlighted row: a subtle inset accent bar + hover-like background. */
 .rowHighlight {
@@ -125,14 +178,100 @@
 }
 
 .td {
-  padding: 6px 14px;
+  padding: 11px 18px;
   border-bottom: 1px solid var(--border-row);
   white-space: nowrap;
 }
 
+/* Cell tone variants. */
+.cellName {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.cellNs,
+.cellAge {
+  color: var(--text-muted);
+}
+.cellMetric {
+  color: var(--text-secondary);
+}
+.cellWarn {
+  color: var(--status-warn);
+  font-weight: 500;
+}
+.cellErr {
+  color: var(--status-err);
+  font-weight: 600;
+}
+
+/* Status pill: dot with halo + label colored to match tone. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.statusRunning {
+  color: var(--status-ok);
+}
+.statusRunning .statusDot {
+  background: var(--status-ok);
+  box-shadow: 0 0 0 3px var(--status-ok-soft);
+}
+.statusPending {
+  color: var(--status-warn);
+}
+.statusPending .statusDot {
+  background: var(--status-warn);
+  box-shadow: 0 0 0 3px var(--status-warn-soft);
+}
+.statusFailed {
+  color: var(--status-err);
+  font-weight: 600;
+}
+.statusFailed .statusDot {
+  background: var(--status-err);
+  box-shadow: 0 0 0 3px var(--status-err-soft);
+  animation: statusAlert 1.4s ease-in-out infinite;
+}
+
+/* Mini progress bar shown before CPU / Memory cells. 44px so two-digit
+   percentages don't push the value column around. */
+.barMini {
+  display: inline-block;
+  width: 44px;
+  height: 4px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-row);
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 8px;
+  overflow: hidden;
+}
+.barMiniFill {
+  display: block;
+  height: 100%;
+  background: var(--accent-grad);
+  border-radius: 2px;
+}
+.barMiniWarn .barMiniFill {
+  background: var(--status-warn);
+}
+.barMiniErr .barMiniFill {
+  background: var(--status-err);
+}
+
 /* Empty-filter state (Design §3). */
 .empty {
-  padding: 40px;
+  padding: 56px 40px;
   text-align: center;
   font-family: var(--font-mono);
   font-size: 12px;
@@ -154,12 +293,21 @@
 /* Bulk-action error banner. */
 .actionError {
   flex: none;
-  padding: 6px 12px;
+  padding: 8px 14px;
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--status-err);
-  background: color-mix(in srgb, var(--status-err) 12%, transparent);
+  background: var(--status-err-soft);
   border-top: 1px solid var(--border-row);
   cursor: pointer;
   white-space: pre-wrap;
+}
+
+@keyframes statusAlert {
+  0%, 100% {
+    box-shadow: 0 0 0 3px var(--status-err-soft);
+  }
+  50% {
+    box-shadow: 0 0 0 5px var(--status-err-soft);
+  }
 }

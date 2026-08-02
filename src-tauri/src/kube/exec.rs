@@ -14,7 +14,7 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::api::{AttachParams, Api, TerminalSize};
 use kube::Client;
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use crate::core::events::EventSink;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
 
@@ -57,7 +57,7 @@ pub fn shell_cmd(override_cmd: &str) -> Vec<String> {
 #[allow(clippy::too_many_arguments)]
 pub async fn run_shell(
     client: Client,
-    app: AppHandle,
+    sink: EventSink,
     stream_id: String,
     namespace: String,
     pod: String,
@@ -69,7 +69,7 @@ pub async fn run_shell(
 ) {
     run_argv(
         client,
-        app,
+        sink,
         stream_id,
         namespace,
         pod,
@@ -90,7 +90,7 @@ pub async fn run_shell(
 #[allow(clippy::too_many_arguments)]
 pub async fn run_argv(
     client: Client,
-    app: AppHandle,
+    sink: EventSink,
     stream_id: String,
     namespace: String,
     pod: String,
@@ -102,7 +102,7 @@ pub async fn run_argv(
     let closed_event = format!("{}{}", SHELL_CLOSED_PREFIX, stream_id);
     let reason = match exec_pump(
         client,
-        &app,
+        &sink,
         &stream_id,
         &namespace,
         &pod,
@@ -116,13 +116,13 @@ pub async fn run_argv(
         Ok(r) => r,
         Err(e) => e.to_string(),
     };
-    let _ = app.emit(&closed_event, reason);
+    let _ = sink.emit(&closed_event, &reason);
 }
 
 #[allow(clippy::too_many_arguments)]
 async fn exec_pump(
     client: Client,
-    app: &AppHandle,
+    sink: &EventSink,
     stream_id: &str,
     namespace: &str,
     pod: &str,
@@ -159,7 +159,7 @@ async fn exec_pump(
                 Ok(0) => return Ok("session ended".into()),
                 Ok(n) => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = app.emit(&out_event, ShellOut { data });
+                    let _ = sink.emit(&out_event, &ShellOut { data });
                 }
                 Err(e) => return Err(AppError::Other(e.to_string())),
             },

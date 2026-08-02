@@ -1,0 +1,53 @@
+# Stuff we never want in a build context — keeps the build small and
+# prevents the build from invalidating on incidental changes.
+**/.git
+**/.git/**
+**/.DS_Store
+
+# Rust / Tauri
+src-tauri/target
+src-tauri/Cargo.lock.bak
+
+# Node / Vite
+**/node_modules
+**/dist
+**/.vite
+**/.cache
+
+# Tooling artefacts
+**/.idea
+**/.vscode
+**/.vscode/**
+**/coverage
+**/playwright-report
+**/test-results
+
+# Logs and env
+**/*.log
+.env
+.env.*
+!.env.example
+
+# This repo's own "scratch" / dev-only paths
+dev/preview
+dev/test-import.mjs
+dev/web.mjs
+dev/TEST_REPORT.md
+dev/cluster
+
+# Tauri icons are mounted at build time, not needed in the
+# front-end-only context — but harmless if included.
+# (left in: icons/128x128.png is also used as the favicon)
+
+# This file itself
+Dockerfile
+.dockerignore
+docker-compose*.yml
+.github
+
+# Big test fixtures / mock data
+src-tauri/src/bin
+src-tauri/examples
+src-tauri/src/mcp
+src-tauri/src/web
+docs/screenshots

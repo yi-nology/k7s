@@ -6,12 +6,37 @@
  */
 
 import type {
+  Alert,
+  AlertManager,
+  AlertManagerUpsert,
+  ApplyResult,
   ClusterInfo,
   ClusterStatus,
   ContextInfo,
   DataProvider,
+  DashboardPreset,
   DrainFailure,
   DrainProgress,
+  EndpointAddress,
+  EndpointRow,
+  GrafanaConfig,
+  GrafanaConfigUpsert,
+  HelmChartSummary,
+  HelmChartVersionEntry,
+  HelmOp,
+  HelmOpResult,
+  HelmRepo,
+  HelmRepoUpsert,
+  HelmRevisionEntry,
+  ImageRegistry,
+  ImageRegistryUpsert,
+  ImageRepo,
+  ImageTag,
+  ImageManifest,
+  ImageLayer,
+  SavedQuery,
+  MetricsConfig,
+  MetricsConfigUpsert,
   NodeSample,
   NodeStatsError,
   EventItem,
@@ -21,8 +46,11 @@ import type {
   LogLine,
   LogOptions,
   NodeMetricsMap,
+  PodFileEntry,
   PodMetricsMap,
   PodSample,
+  PromQueryResult,
+  Silence,
   Prefs,
   Properties,
   CustomKind,
@@ -591,4 +619,474 @@ export class MockProvider implements DataProvider {
   private emitForwards(): void {
     for (const cb of this.forwardCbs) cb([...this.forwards]);
   }
+
+  // ---- Helm marketplace: demo mode has no Helm backend. ----
+  // Stubbed to keep the interface satisfied; the UI either gates these on
+  // Tauri vs Mock or shows an "available in real cluster" hint.
+  async helmListRepos(): Promise<HelmRepo[]> {
+    return demoMockRepos();
+  }
+  async helmAddRepo(_input: HelmRepoUpsert): Promise<HelmRepo> {
+    throw new Error("Helm not available in demo mode");
+  }
+  async helmRemoveRepo(_name: string): Promise<void> {
+    throw new Error("Helm not available in demo mode");
+  }
+  async helmUpdateRepo(name: string): Promise<HelmRepo> {
+    const r = (await this.helmListRepos()).find((x) => x.name === name);
+    if (!r) throw new Error(`repo ${name} not found`);
+    return { ...r, lastRefreshed: new Date().toISOString(), lastError: null };
+  }
+  async helmUpdateAllRepos(): Promise<HelmRepo[]> {
+    return this.helmListRepos();
+  }
+  async helmSearchCharts(query: string): Promise<HelmChartSummary[]> {
+    const all = demoMockCharts();
+    const q = query.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.description.toLowerCase().includes(q) ||
+        c.keywords.some((k) => k.toLowerCase().includes(q)),
+    );
+  }
+  async helmChartVersions(_repo: string, chart: string): Promise<HelmChartVersionEntry[]> {
+    return [
+      { version: "1.2.3", appVersion: "1.0.0", created: "2024-01-01T00:00:00Z", urls: [] },
+      { version: "1.2.2", appVersion: "1.0.0", created: "2023-12-01T00:00:00Z", urls: [] },
+      { version: "1.2.1", appVersion: "0.9.0", created: "2023-11-01T00:00:00Z", urls: [] },
+    ].filter((v) => v.version.startsWith(chart.slice(0, 1)) || chart === "demo");
+  }
+  async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
+    return "# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n";
+  }
+  async helmRunOp(_op: HelmOp): Promise<HelmOpResult> {
+    return {
+      op: "install",
+      release: "demo",
+      namespace: "default",
+      success: true,
+      lines: 0,
+      summary: "demo mode: no helm backend",
+    };
+  }
+  async helmReleaseHistory(
+    _release: string,
+    _ns: string,
+    _kc?: string,
+  ): Promise<HelmRevisionEntry[]> {
+    return [];
+  }
+  onHelmOpLog(
+    _cb: (line: { stream: "stdout" | "stderr"; line: string }) => void,
+  ): Unsub {
+    return () => {};
+  }
+  onHelmOpDone(_cb: (result: HelmOpResult) => void): Unsub {
+    return () => {};
+  }
+
+  // ---- Pod file management: demo mode renders a static tree. ----
+  async podFilesList(
+    _ref: ResourceRef,
+    _container: string | null,
+    _path: string,
+  ): Promise<PodFileEntry[]> {
+    return [
+      { name: "etc", kind: "dir", size: 0, modified: 1700000000, mode: 0o755 },
+      { name: "var", kind: "dir", size: 0, modified: 1700000000, mode: 0o755 },
+      { name: "tmp", kind: "dir", size: 0, modified: 1700000000, mode: 0o1777 },
+      { name: "demo.txt", kind: "file", size: 12, modified: 1700000000, mode: 0o644 },
+    ];
+  }
+  async podFilesRead(
+    _ref: ResourceRef,
+    _container: string | null,
+    path: string,
+  ): Promise<string> {
+    return `demo file: ${path}\n`;
+  }
+  async podFilesWrite(
+    _ref: ResourceRef,
+    _container: string | null,
+    _path: string,
+    _content: string,
+  ): Promise<void> {
+    // No-op: writes don't actually persist in demo mode.
+  }
+  async podFilesDownload(
+    _ref: ResourceRef,
+    _container: string | null,
+    _path: string,
+  ): Promise<Uint8Array> {
+    return new TextEncoder().encode("demo archive\n");
+  }
+  async podFilesUpload(
+    _ref: ResourceRef,
+    _container: string | null,
+    _destDir: string,
+    _tar: Uint8Array,
+  ): Promise<void> {
+    // No-op.
+  }
+
+  // ---- Image registry management: empty in demo. ----
+  async imageRegistryList(): Promise<ImageRegistry[]> {
+    return [
+      {
+        name: "demo",
+        url: "https://registry.demo/v2",
+        username: "",
+        insecure: false,
+        description: "Demo OCI registry",
+        lastError: null,
+        lastRefreshed: new Date().toISOString(),
+      },
+    ];
+  }
+  async imageRegistryUpsert(_input: ImageRegistryUpsert): Promise<ImageRegistry> {
+    throw new Error("image registry not available in demo mode");
+  }
+  async imageRegistryRemove(_name: string): Promise<void> {
+    // No-op: nothing to remove.
+  }
+  async imageRegistryTest(_name: string): Promise<void> {
+    // No-op.
+  }
+  async imageRegistryRepos(_name: string): Promise<ImageRepo[]> {
+    return [
+      { name: "library/nginx" },
+      { name: "library/redis" },
+      { name: "library/postgres" },
+    ];
+  }
+  async imageRegistryTags(_name: string, _repo: string): Promise<ImageTag[]> {
+    return [
+      { name: "1.25", digest: "sha256:" + "a".repeat(64), size: 142000000, created: "2024-01-15T10:00:00Z" },
+      { name: "1.24", digest: "sha256:" + "b".repeat(64), size: 140000000, created: "2023-12-01T10:00:00Z" },
+      { name: "latest", digest: "sha256:" + "c".repeat(64), size: 142000000, created: "2024-01-15T10:00:00Z" },
+    ];
+  }
+
+  // ---- Multi-document YAML apply: stub that "succeeds" in demo. ----
+  async applyYamlBundle(_yaml: string): Promise<ApplyResult[]> {
+    return [
+      {
+        name: "demo",
+        kind: "Deployment",
+        namespace: "default",
+        action: "created",
+        error: null,
+      },
+    ];
+  }
+
+  // ---- Endpoints / metrics / grafana / alerting (Phase 1 Tier-2) ----
+  // All return seed data so the demo mode dashboard isn't empty.
+
+  async listEndpoints(): Promise<EndpointRow[]> {
+    return [
+      {
+        name: "nginx-slice-1",
+        namespace: "default",
+        service: "nginx",
+        ready: 3,
+        total: 3,
+        addresses: ["10.1.0.5:80", "10.1.0.6:80", "10.1.0.7:80"],
+        age: "5m",
+      },
+      {
+        name: "redis-slice-1",
+        namespace: "default",
+        service: "redis",
+        ready: 1,
+        total: 1,
+        addresses: ["10.1.0.10:6379"],
+        age: "10m",
+      },
+    ];
+  }
+  async listEndpointsForService(
+    _ns: string,
+    _name: string,
+  ): Promise<EndpointRow[]> {
+    return this.listEndpoints();
+  }
+  async listEndpointAddresses(
+    _ns: string,
+    _name: string,
+  ): Promise<EndpointAddress[]> {
+    return [
+      {
+        address: "10.1.0.5:80",
+        ready: true,
+        nodeName: "node-1",
+        targetRefKind: "Pod",
+        targetRefName: "nginx-1",
+      },
+      {
+        address: "10.1.0.6:80",
+        ready: true,
+        nodeName: "node-2",
+        targetRefKind: "Pod",
+        targetRefName: "nginx-2",
+      },
+    ];
+  }
+  async triggerCronjob(_ns: string, _name: string): Promise<string> {
+    return "demo-job-1";
+  }
+  async metricsList(): Promise<MetricsConfig[]> {
+    return [
+      {
+        name: "demo",
+        url: "http://prometheus.demo:9090",
+        username: "",
+        description: "Demo Prometheus",
+        lastError: null,
+        lastRefreshed: new Date().toISOString(),
+      },
+    ];
+  }
+  async metricsUpsert(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
+    throw new Error("metrics not available in demo mode");
+  }
+  async metricsRemove(_name: string): Promise<void> {
+    /* no-op */
+  }
+  async metricsTest(_name: string): Promise<void> {
+    /* no-op */
+  }
+  async metricsQuery(_name: string, promql: string): Promise<PromQueryResult> {
+    // Synthesize a flat line of 30 points so the Explorer isn't empty.
+    const now = Date.now();
+    const series = Array.from({ length: 30 }, (_, i) => ({
+      ts: now - (29 - i) * 1000,
+      value: Math.sin(i / 3) * 10 + 50,
+    }));
+    return {
+      resultType: "matrix",
+      series: [
+        {
+          metric: { __name__: "demo", query: promql },
+          samples: series,
+        },
+      ],
+    };
+  }
+  async metricsQueryRange(
+    _name: string,
+    promql: string,
+    startMs: number,
+    endMs: number,
+  ): Promise<PromQueryResult> {
+    void startMs;
+    void endMs;
+    return this.metricsQuery(_name, promql);
+  }
+  async grafanaList(): Promise<GrafanaConfig[]> {
+    return [
+      {
+        name: "demo",
+        url: "http://grafana.demo:3000",
+        username: "",
+        defaultDatasource: "prometheus",
+        description: "Demo Grafana",
+        lastError: null,
+        lastRefreshed: new Date().toISOString(),
+      },
+    ];
+  }
+  async grafanaUpsert(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
+    throw new Error("grafana not available in demo mode");
+  }
+  async grafanaRemove(_name: string): Promise<void> {
+    /* no-op */
+  }
+  async grafanaTest(_name: string): Promise<void> {
+    /* no-op */
+  }
+  async grafanaPresets(): Promise<DashboardPreset[]> {
+    return [
+      { id: "k7s-nodes", title: "Cluster / Nodes", uid: "demo-1", description: "CPU, memory, disk, network per node" },
+      { id: "k7s-pods", title: "Cluster / Pods", uid: "demo-2", description: "Per-pod CPU and memory" },
+    ];
+  }
+  async grafanaDashboardUrl(
+    _name: string,
+    _uid: string,
+    _fromMs: number,
+    _toMs: number,
+  ): Promise<string> {
+    return "https://example.com/d/demo?from=now-1h&to=now&kiosk";
+  }
+  async alertManagerList(): Promise<AlertManager[]> {
+    return [
+      {
+        name: "demo",
+        url: "http://alertmanager.demo:9093",
+        description: "Demo AlertManager",
+        lastError: null,
+        lastRefreshed: new Date().toISOString(),
+      },
+    ];
+  }
+  async alertManagerUpsert(_input: AlertManagerUpsert): Promise<AlertManager> {
+    throw new Error("alertmanager not available in demo mode");
+  }
+  async alertManagerRemove(_name: string): Promise<void> {
+    /* no-op */
+  }
+  async alertManagerTest(_name: string): Promise<void> {
+    /* no-op */
+  }
+  async alertManagerAlerts(_name: string): Promise<Alert[]> {
+    return [
+      {
+        fingerprint: "abc123",
+        name: "DemoHighCpu",
+        state: "firing",
+        severity: "warning",
+        summary: "CPU > 80% for 5m",
+        description: "demo alert",
+        activeAt: new Date().toISOString(),
+        labels: { severity: "warning", instance: "demo" },
+      },
+    ];
+  }
+  async alertManagerSilences(_name: string): Promise<Silence[]> {
+    return [];
+  }
+
+  // ---- Saved PromQL queries (demo seeds) ----
+  async savedQueriesList(): Promise<SavedQuery[]> {
+    return [
+      {
+        name: "Node CPU",
+        promql: "rate(node_cpu_seconds_total{mode!=\"idle\"}[5m])",
+        note: "Per-node CPU usage",
+        cacheSeconds: 30,
+      },
+      {
+        name: "Pod restarts",
+        promql: "rate(kube_pod_container_status_restarts_total[15m])",
+        note: "Pods restarting frequently",
+        cacheSeconds: 0,
+      },
+    ];
+  }
+  async savedQueriesUpsert(query: SavedQuery): Promise<SavedQuery> {
+    return query;
+  }
+  async savedQueriesRemove(_name: string): Promise<void> {
+    /* no-op */
+  }
+  async savedQueriesClearCache(): Promise<void> {
+    /* no-op */
+  }
+  async savedQueriesRun(
+    query: SavedQuery,
+    _instance: string,
+    _force: boolean,
+  ): Promise<PromQueryResult> {
+    // Synthesize a couple of fake series so the demo isn't empty.
+    const now = Date.now();
+    const samples = Array.from({ length: 30 }, (_, i) => ({
+      ts: now - (29 - i) * 1000,
+      value: Math.sin(i / 3) * 10 + 50,
+    }));
+    return {
+      resultType: "matrix",
+      series: [
+        {
+          metric: { __name__: "demo", query: query.promql },
+          samples,
+        },
+      ],
+    };
+  }
+
+  // ---- Image manifest (demo seed) ----
+  async imageRegistryManifest(
+    _name: string,
+    repo: string,
+    tag: string,
+  ): Promise<ImageManifest> {
+    return {
+      schemaVersion: 2,
+      mediaType: "application/vnd.docker.distribution.manifest.v2+json",
+      digest: `sha256:${tag.padEnd(64, "0")}`,
+      size: 7168,
+      raw: JSON.stringify(
+        {
+          schemaVersion: 2,
+          mediaType: "application/vnd.docker.distribution.manifest.v2+json",
+        },
+        null,
+        2,
+      ),
+      configDigest: `sha256:config-${repo}-${tag}`.padEnd(63, "0"),
+      configSize: 1024,
+      layers: [
+        { digest: `sha256:layer-1`.padEnd(64, "0"), size: 2048, mediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip" },
+        { digest: `sha256:layer-2`.padEnd(64, "0"), size: 4096, mediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip" },
+      ] as ImageLayer[],
+    };
+  }
+}
+
+/** Seeded chart repos so the Marketplace tab has something to show in demo. */
+function demoMockRepos(): HelmRepo[] {
+  return [
+    {
+      name: "bitnami",
+      url: "https://charts.bitnami.com/bitnami",
+      description: "Bitnami catalog (demo)",
+      lastRefreshed: null,
+      lastError: null,
+    },
+    {
+      name: "stable",
+      url: "https://charts.helm.sh/stable",
+      description: "Helm stable (demo)",
+      lastRefreshed: null,
+      lastError: null,
+    },
+  ];
+}
+
+function demoMockCharts(): HelmChartSummary[] {
+  return [
+    {
+      repo: "bitnami",
+      name: "nginx",
+      version: "15.4.0",
+      appVersion: "1.25.3",
+      description: "Chart for the nginx server",
+      keywords: ["web", "http"],
+      home: "https://example.com",
+      maintainers: [],
+    },
+    {
+      repo: "bitnami",
+      name: "postgresql",
+      version: "13.2.0",
+      appVersion: "16.1.0",
+      description: "PostgreSQL database",
+      keywords: ["database", "sql"],
+      home: "https://postgresql.org",
+      maintainers: [],
+    },
+    {
+      repo: "stable",
+      name: "redis",
+      version: "17.0.0",
+      appVersion: "7.2.0",
+      description: "Redis in-memory store",
+      keywords: ["cache", "kv"],
+      home: "https://redis.io",
+      maintainers: [],
+    },
+  ];
 }
