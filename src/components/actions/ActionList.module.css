@@ -94,6 +94,13 @@
   font-size: 11px;
   color: var(--text-secondary);
   border: 1px solid var(--border-default);
+  /* Reset the native <button> defaults so a real <button> renders the same as
+     the <div> the action menu used to use. `font: inherit` is the important
+     one: a <button> otherwise has its own user-agent font and 2px outset
+     border that the class above doesn't cover. */
+  background: transparent;
+  font: inherit;
+  line-height: 1.4;
 }
 
 .cancelBtn:hover {
@@ -109,6 +116,8 @@
   color: var(--bg-app);
   background: var(--accent);
   border: 1px solid var(--accent);
+  font-family: inherit;
+  line-height: 1.4;
 }
 
 .applyBtn:hover {
@@ -125,6 +134,8 @@
   color: var(--bg-app);
   background: var(--status-err);
   border: 1px solid var(--status-err);
+  font-family: inherit;
+  line-height: 1.4;
 }
 
 .dangerBtn:hover {
@@ -132,9 +143,13 @@
 }
 
 /* Applied to both confirm buttons while an action is in flight. The old menu
-   only disabled the Apply variant, so a Delete could be double-fired. */
+   only disabled the Apply variant, so a Delete could be double-fired. Covers
+   both `aria-disabled` (the old <div> paths) and the real `disabled` HTML
+   attribute that the form-based scale / port-forward Apply now sets. */
 .applyBtn[aria-disabled="true"],
-.dangerBtn[aria-disabled="true"] {
+.dangerBtn[aria-disabled="true"],
+.applyBtn[disabled],
+.dangerBtn[disabled] {
   opacity: 0.6;
   pointer-events: none;
 }

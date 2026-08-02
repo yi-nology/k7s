@@ -209,12 +209,24 @@ export interface Dictionary {
       generic: (id: string, what: string, names: string) => string;
     };
     scope: (n: number, what: string) => string;
-    scaleForm: { title: (name: string) => string };
+    scaleForm: {
+      title: (name: string) => string;
+      /** Apply-button label while a scale request is in flight. */
+      applying: string;
+      /** Inline hint next to the numeric input ("replicas" / "副本数"). */
+      replicasLabel: string;
+    };
     forwardForm: {
       titlePod: string;
       titleService: string;
       apply: string;
+      /** Apply-button label while a port-forward is being set up. */
+      applying: string;
+      /** Inline hint next to the port input ("port" / "端口"). */
+      portLabel: string;
     };
+    /** In-flight indicator on the confirm buttons (Delete / Restart / Drain). */
+    confirming: string;
     bulk: { allFailed: (n: number, list: string) => string; partial: (ok: number, failed: number, list: string) => string };
   };
 
@@ -327,7 +339,20 @@ export interface Dictionary {
       remove: string;
       add: string;
       confirmRemove: (name: string) => string;
-      form: { name: string; url: string; desc: string; add: string; cancel: string };
+      form: {
+        name: string;
+        url: string;
+        desc: string;
+        add: string;
+        cancel: string;
+        /** Add-button label while the helm add is in flight. */
+        adding: string;
+        /** `title=` attribute on the name input — describes the regex the
+         *  `pattern` attribute enforces. Surfaced by the browser as a native
+         *  tooltip on focus, so the user can see why their input is invalid
+         *  before they hit submit. */
+        nameTitle: string;
+      };
     };
     empty: { noMatch: string; noRepos: string };
     detail: { pickChart: string };
@@ -734,8 +759,19 @@ export const en: Dictionary = {
       generic: (id, what, names) => `${id} ${what}?${names}`,
     },
     scope: (n, what) => `${n} ${what} selected`,
-    scaleForm: { title: (name) => `Replicas for ${name}` },
-    forwardForm: { titlePod: "Forward pod port", titleService: "Forward service port", apply: "Forward" },
+    scaleForm: {
+      title: (name) => `Replicas for ${name}`,
+      applying: "Applying…",
+      replicasLabel: "replicas",
+    },
+    forwardForm: {
+      titlePod: "Forward pod port",
+      titleService: "Forward service port",
+      apply: "Forward",
+      applying: "Forwarding…",
+      portLabel: "port",
+    },
+    confirming: "…",
     bulk: {
       allFailed: (n, list) => `all ${n} failed — ${list}`,
       partial: (ok, failed, list) => `${ok} succeeded, ${failed} failed — ${list}`,
@@ -849,6 +885,8 @@ export const en: Dictionary = {
         desc: "description (optional)",
         add: "Add",
         cancel: "Cancel",
+        adding: "Adding…",
+        nameTitle: "lowercase letters, digits, and '-'",
       },
     },
     empty: {
@@ -1259,8 +1297,19 @@ export const zh: Dictionary = {
       generic: (id, what, names) => `${id} ${what}?${names}`,
     },
     scope: (n, what) => `已选 ${n} 个 ${what}`,
-    scaleForm: { title: (name) => `${name} 的副本数` },
-    forwardForm: { titlePod: "转发 Pod 端口", titleService: "转发 Service 端口", apply: "开始转发" },
+    scaleForm: {
+      title: (name) => `${name} 的副本数`,
+      applying: "正在调整…",
+      replicasLabel: "副本数",
+    },
+    forwardForm: {
+      titlePod: "转发 Pod 端口",
+      titleService: "转发 Service 端口",
+      apply: "开始转发",
+      applying: "正在转发…",
+      portLabel: "端口",
+    },
+    confirming: "…",
     bulk: {
       allFailed: (n, list) => `全部 ${n} 个失败 — ${list}`,
       partial: (ok, failed, list) => `${ok} 成功,${failed} 失败 — ${list}`,
@@ -1373,6 +1422,8 @@ export const zh: Dictionary = {
         desc: "描述(可选)",
         add: "添加",
         cancel: "取消",
+        adding: "正在添加…",
+        nameTitle: "小写字母、数字与 '-'",
       },
     },
     empty: {

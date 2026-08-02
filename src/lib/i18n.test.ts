@@ -223,7 +223,7 @@ describe("helm market repositories panel keys", () => {
       expect(en.length, `helm.repos.${key} en`).toBeGreaterThan(0);
       expect(zh.length, `helm.repos.${key} zh`).toBeGreaterThan(0);
     }
-    for (const key of ["name", "url", "desc", "add", "cancel"]) {
+    for (const key of ["name", "url", "desc", "add", "cancel", "adding", "nameTitle"]) {
       const en = translate("en", `helm.repos.form.${key}`);
       const zh = translate("zh", `helm.repos.form.${key}`);
       expect(en.length, `helm.repos.form.${key} en`).toBeGreaterThan(0);
@@ -256,6 +256,55 @@ describe("helm market repositories panel keys", () => {
     );
     expect(translate("zh", "helm.empty.noRepos")).toBe(
       "暂无仓库 — 先在仓库页添加一个",
+    );
+  });
+});
+
+/** Pass-18 — the ActionList scale + port-forward forms gained a `<form>` wrapper
+ *  with Enter-to-submit, a real `disabled` Apply button, and an in-flight text
+ *  indicator. The forms also gained a typing path for the scale `replicas`
+ *  input and a clamp path for the forward `port` input. Pin the new i18n keys
+ *  so a future dict shrink can't drop the in-flight labels. */
+describe("action list scale + forward form keys (pass-18)", () => {
+  it("ships actions.scaleForm.{applying, replicasLabel} in both locales", () => {
+    expect(translate("en", "actions.scaleForm.applying")).toBe("Applying…");
+    expect(translate("zh", "actions.scaleForm.applying")).toBe("正在调整…");
+    expect(translate("en", "actions.scaleForm.replicasLabel")).toBe("replicas");
+    expect(translate("zh", "actions.scaleForm.replicasLabel")).toBe("副本数");
+  });
+
+  it("ships actions.forwardForm.{applying, portLabel} in both locales", () => {
+    expect(translate("en", "actions.forwardForm.applying")).toBe("Forwarding…");
+    expect(translate("zh", "actions.forwardForm.applying")).toBe("正在转发…");
+    expect(translate("en", "actions.forwardForm.portLabel")).toBe("port");
+    expect(translate("zh", "actions.forwardForm.portLabel")).toBe("端口");
+  });
+
+  it("ships actions.confirming (in-flight indicator on confirm buttons) in both locales", () => {
+    // The Delete / Restart / Drain confirm dialog now reads this key while
+    // the request is in flight. The English value is the same Unicode ellipsis
+    // (single character) — the i18n win is that the form now reads the dict
+    // instead of hardcoding the literal.
+    expect(translate("en", "actions.confirming")).toBe("…");
+    expect(translate("zh", "actions.confirming")).toBe("…");
+  });
+
+  it("keeps helm.repos.form.nameTitle distinct from the name placeholder (it documents the pattern)", () => {
+    // The name input has `pattern="[a-z0-9][a-z0-9-]*"` and a `title=` attribute
+    // surfacing the rule. The placeholder stays a short affordance ("name");
+    // nameTitle is the longer regex description. If a future refactor collapses
+    // them, the user loses the tooltip explaining the pattern attribute.
+    expect(translate("en", "helm.repos.form.nameTitle")).toBe(
+      "lowercase letters, digits, and '-'",
+    );
+    expect(translate("zh", "helm.repos.form.nameTitle")).toBe(
+      "小写字母、数字与 '-'",
+    );
+    expect(translate("en", "helm.repos.form.nameTitle")).not.toBe(
+      translate("en", "helm.repos.form.name"),
+    );
+    expect(translate("zh", "helm.repos.form.nameTitle")).not.toBe(
+      translate("zh", "helm.repos.form.name"),
     );
   });
 });

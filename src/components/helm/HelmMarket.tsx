@@ -192,6 +192,7 @@ function HelmRepos({
 }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [description, setDescription] = useState("");
@@ -270,6 +271,12 @@ function HelmRepos({
           className={styles.repoForm}
           onSubmit={async (e) => {
             e.preventDefault();
+            // Already in flight — `<button type="submit" disabled>` covers the
+            // native path, but a programmatic .submit() (or a browser that
+            // ignores `disabled` on the submit) can still reach this handler.
+            // Guard here so a double-fire doesn't queue two helm adds.
+            if (submitting) return;
+            setSubmitting(true);
             try {
               await getProvider().helmAddRepo({ name, url, description });
               setName("");
@@ -279,13 +286,23 @@ function HelmRepos({
               onChange();
             } catch (err) {
               onError(String(err));
+            } finally {
+              setSubmitting(false);
             }
           }}
         >
           <input
             required
+            // Helm repo names follow the same charset as DNS labels: lowercase
+            // letters, digits, and `-`. The browser surfaces a `patternMismatch`
+            // validation message before submit, so the user can't accidentally
+            // send `my repo /` to the backend (which fails the provider-side
+            // validation with a less helpful error).
+            pattern="[a-z0-9][a-z0-9-]*"
+            title={t("helm.repos.form.nameTitle", "lowercase letters, digits, and '-'")}
             placeholder={t("helm.repos.form.name", "name")}
             value={name}
+            disabled={submitting}
             onChange={(e) => setName(e.target.value)}
           />
           <input
@@ -293,17 +310,29 @@ function HelmRepos({
             type="url"
             placeholder={t("helm.repos.form.url", "https://charts.example.com")}
             value={url}
+            disabled={submitting}
             onChange={(e) => setUrl(e.target.value)}
           />
           <input
             placeholder={t("helm.repos.form.desc", "description (optional)")}
             value={description}
+            disabled={submitting}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <button className={styles.primary} type="submit">
-            {t("helm.repos.form.add", "Add")}
+          <button
+            className={styles.primary}
+            type="submit"
+            disabled={submitting}
+          >
+            {submitting
+              ? t("helm.repos.form.adding", "Adding…")
+              : t("helm.repos.form.add", "Add")}
           </button>
-          <button type="button" onClick={() => setAdding(false)}>
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => setAdding(false)}
+          >
             {t("helm.repos.form.cancel", "Cancel")}
           </button>
         </form>

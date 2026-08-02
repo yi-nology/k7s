@@ -177,15 +177,25 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
             {confirmText(mode.id, kind, rows, locale, tx)}
           </div>
           <div className={styles.confirmRow}>
-            <div className={styles.cancelBtn} onClick={() => setMode({ kind: "menu" })}>
+            <div
+              className={styles.cancelBtn}
+              aria-disabled={busy}
+              onClick={() => {
+                if (busy) return;
+                setMode({ kind: "menu" });
+              }}
+            >
               {tr("chrome.common.cancel")}
             </div>
             <div
               className={danger ? styles.dangerBtn : styles.applyBtn}
               aria-disabled={busy}
-              onClick={() => confirmed(mode.id)}
+              onClick={() => {
+                if (busy) return;
+                confirmed(mode.id);
+              }}
             >
-              {busy ? "…" : confirmLabel(mode.id, locale)}
+              {busy ? tr("actions.confirming", "…") : confirmLabel(mode.id, locale)}
             </div>
           </div>
         </div>
@@ -197,32 +207,87 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   if (mode.kind === "form" && mode.id === "scale") {
     return (
       <div className={styles.menu}>
-        <div className={styles.confirm}>
-          <div className={styles.confirmText}>{tr("actions.scaleForm.title", single.name)}</div>
-          <div className={styles.confirmRow} style={{ justifyContent: "center", gap: 10 }}>
-            <div className={styles.cancelBtn} onClick={() => setReplicas((n) => Math.max(0, n - 1))}>
-              −
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (busy) return;
+            void execute((row) => getProvider().scaleResource(refOf(row), replicas), false);
+          }}
+        >
+          <div className={styles.confirm}>
+            <div className={styles.confirmText}>{tr("actions.scaleForm.title", single.name)}</div>
+            <div className={styles.confirmRow} style={{ justifyContent: "center", gap: 10 }}>
+              <div
+                className={styles.cancelBtn}
+                aria-disabled={busy || replicas <= 0}
+                onClick={() => {
+                  if (busy) return;
+                  setReplicas((n) => Math.max(0, n - 1));
+                }}
+              >
+                −
+              </div>
+              <input
+                type="number"
+                min={0}
+                value={replicas}
+                disabled={busy}
+                onChange={(e) => {
+                  // The browser will show an empty string on invalid input; keep
+                  // the local state numeric (and non-negative) so the next Apply
+                  // can't go to k8s with `replicas: NaN`.
+                  const n = Number.parseInt(e.target.value, 10);
+                  setReplicas(Number.isNaN(n) ? 0 : Math.max(0, n));
+                }}
+                style={{
+                  background: "var(--bg-terminal)",
+                  border: "1px solid var(--border-control)",
+                  borderRadius: "var(--radius-sm)",
+                  color: "var(--text-body)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  padding: "4px 8px",
+                  width: 64,
+                  textAlign: "center",
+                }}
+              />
+              <div
+                className={styles.cancelBtn}
+                aria-disabled={busy}
+                onClick={() => {
+                  if (busy) return;
+                  setReplicas((n) => n + 1);
+                }}
+              >
+                +
+              </div>
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                {tr("actions.scaleForm.replicasLabel", "replicas")}
+              </span>
             </div>
-            <span style={{ fontSize: 13, minWidth: 24, textAlign: "center" }}>{replicas}</span>
-            <div className={styles.cancelBtn} onClick={() => setReplicas((n) => n + 1)}>
-              +
+            <div className={styles.confirmRow}>
+              <div
+                className={styles.cancelBtn}
+                aria-disabled={busy}
+                onClick={() => {
+                  if (busy) return;
+                  setMode({ kind: "menu" });
+                }}
+              >
+                {tr("chrome.common.cancel")}
+              </div>
+              <button
+                type="submit"
+                className={styles.applyBtn}
+                disabled={busy}
+              >
+                {busy
+                  ? tr("actions.scaleForm.applying", "Applying…")
+                  : tr("chrome.common.apply")}
+              </button>
             </div>
           </div>
-          <div className={styles.confirmRow}>
-            <div className={styles.cancelBtn} onClick={() => setMode({ kind: "menu" })}>
-              {tr("chrome.common.cancel")}
-            </div>
-            <div
-              className={styles.applyBtn}
-              aria-disabled={busy}
-              onClick={() =>
-                void execute((row) => getProvider().scaleResource(refOf(row), replicas), false)
-              }
-            >
-              {tr("chrome.common.apply")}
-            </div>
-          </div>
-        </div>
+        </form>
       </div>
     );
   }
@@ -231,47 +296,79 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   if (mode.kind === "form" && mode.id === "forward") {
     return (
       <div className={styles.menu}>
-        <div className={styles.confirm}>
-          <div className={styles.confirmText}>
-            {tr(
-              kind === "services" ? "actions.forwardForm.titleService" : "actions.forwardForm.titlePod",
-            )}
-          </div>
-          <input
-            type="number"
-            min={1}
-            max={65535}
-            value={port}
-            onChange={(e) => setPort(Number(e.target.value))}
-            style={{
-              background: "var(--bg-terminal)",
-              border: "1px solid var(--border-control)",
-              borderRadius: "var(--radius-sm)",
-              color: "var(--text-body)",
-              fontFamily: "var(--font-mono)",
-              fontSize: 11.5,
-              padding: "4px 8px",
-            }}
-          />
-          <div className={styles.confirmRow}>
-            <div className={styles.cancelBtn} onClick={() => setMode({ kind: "menu" })}>
-              {tr("chrome.common.cancel")}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (busy) return;
+            void execute(async (row) => {
+              const fwd = await getProvider().startPortForward(refOf(row), port);
+              setPortForwards(await getProvider().listPortForwards());
+              await copyToClipboard(`localhost:${fwd.localPort}`);
+            }, false);
+          }}
+        >
+          <div className={styles.confirm}>
+            <div className={styles.confirmText}>
+              {tr(
+                kind === "services" ? "actions.forwardForm.titleService" : "actions.forwardForm.titlePod",
+              )}
             </div>
-            <div
-              className={styles.applyBtn}
-              aria-disabled={busy}
-              onClick={() =>
-                void execute(async (row) => {
-                  const fwd = await getProvider().startPortForward(refOf(row), port);
-                  setPortForwards(await getProvider().listPortForwards());
-                  await copyToClipboard(`localhost:${fwd.localPort}`);
-                }, false)
-              }
-            >
-              {tr("actions.forwardForm.apply")}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                type="number"
+                min={1}
+                max={65535}
+                value={port}
+                disabled={busy}
+                onChange={(e) => {
+                  // Browser gives us "" for invalid / cleared input; clamp to a
+                  // safe sentinel so the form's Apply can't send `NaN` to the
+                  // backend. The user can re-type a real value before submitting.
+                  const n = Number.parseInt(e.target.value, 10);
+                  if (Number.isNaN(n)) {
+                    setPort(1);
+                    return;
+                  }
+                  setPort(Math.max(1, Math.min(65535, n)));
+                }}
+                style={{
+                  background: "var(--bg-terminal)",
+                  border: "1px solid var(--border-control)",
+                  borderRadius: "var(--radius-sm)",
+                  color: "var(--text-body)",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 11.5,
+                  padding: "4px 8px",
+                  width: 80,
+                }}
+              />
+              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                {tr("actions.forwardForm.portLabel", "port")}
+              </span>
+            </div>
+            <div className={styles.confirmRow}>
+              <div
+                className={styles.cancelBtn}
+                aria-disabled={busy}
+                onClick={() => {
+                  if (busy) return;
+                  setMode({ kind: "menu" });
+                }}
+              >
+                {tr("chrome.common.cancel")}
+              </div>
+              <button
+                type="submit"
+                className={styles.applyBtn}
+                disabled={busy}
+              >
+                {busy
+                  ? tr("actions.forwardForm.applying", "Forwarding…")
+                  : tr("actions.forwardForm.apply")}
+              </button>
             </div>
           </div>
-        </div>
+        </form>
       </div>
     );
   }
