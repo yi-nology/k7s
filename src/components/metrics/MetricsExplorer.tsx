@@ -241,7 +241,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
           className={styles.btn}
           onClick={() => run()}
           disabled={!result}
-          title={t("metricsExplorer.refreshTitle", "Force re-query, ignoring the cache")}
+          title={t("metricsExplorer.refreshTitle", "Re-run the current query")}
         >
           {t("metricsExplorer.refresh", "Refresh")}
         </button>
@@ -253,13 +253,20 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
             placeholder={t("metricsExplorer.saved.namePlaceholder", "Name")}
             value={saveName}
             onChange={(e) => setSaveName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void saveCurrent();
+            }}
           />
           <input
             placeholder={t("metricsExplorer.saved.notePlaceholder", "Note (optional)")}
             value={saveNote}
             onChange={(e) => setSaveNote(e.target.value)}
           />
-          <button className={styles.primary} onClick={saveCurrent}>
+          <button
+            className={styles.primary}
+            onClick={saveCurrent}
+            disabled={!saveName.trim()}
+          >
             {t("metricsExplorer.saved.saveAction", "Save")}
           </button>
         </div>

@@ -247,6 +247,84 @@ describe("settings panel keys", () => {
   });
 });
 
+/** The Metrics Explorer overlay (B14) hosts the PromQL bar plus a "saved
+ *  queries" panel that drives CRUD. Pass-11's audit found the Refresh
+ *  button's tooltip claiming "Force re-query, ignoring the cache" while
+ *  the implementation just calls `run()` — `metricsQuery` /
+ *  `metricsQueryRange` don't use a cache, so the tooltip misled the user
+ *  about what the click would do. Pin the new values so a future
+ *  refactor that re-introduces the misleading claim trips the test. */
+describe("metrics explorer saved-queries strings", () => {
+  it("ships metricsExplorer.refreshTitle in both locales without a cache-bypass claim", () => {
+    const en = translate("en", "metricsExplorer.refreshTitle");
+    const zh = translate("zh", "metricsExplorer.refreshTitle");
+    expect(en.length).toBeGreaterThan(0);
+    expect(zh.length).toBeGreaterThan(0);
+    // The previous English copy ("Force re-query, ignoring the cache")
+    // implied a cache that the metricsQuery / metricsQueryRange path
+    // does not actually use — only saved queries go through the
+    // cached `run_saved` command. The button just re-runs the
+    // current query, so the tooltip now reflects that.
+    expect(en.toLowerCase()).not.toContain("ignoring the cache");
+    expect(en.toLowerCase()).not.toContain("ignore the cache");
+    expect(zh).not.toContain("忽略缓存");
+  });
+
+  it("preserves the canonical refreshTitle values in both locales", () => {
+    // Pin the actual strings so a future copy edit doesn't silently
+    // drift back to a misleading claim. The exact wording is the
+    // contract; the prior implementation's "force / cache" phrasing
+    // is what we're guarding against.
+    expect(translate("en", "metricsExplorer.refreshTitle")).toBe(
+      "Re-run the current query",
+    );
+    expect(translate("zh", "metricsExplorer.refreshTitle")).toBe(
+      "重新运行当前查询",
+    );
+  });
+
+  it("ships the metricsExplorer.saved.* sub-keys in both locales", () => {
+    // CRUD chrome for the saved queries panel: title, save affordance,
+    // input placeholders, clear-cache hint, and the delete confirm.
+    // Pin the keys we touch in MetricsExplorer.tsx so a future
+    // dictionary shrink doesn't drop one (same leak class as
+    // chrome.palette.actions.* / topology.*).
+    const keys = [
+      "title",
+      "saveTitle",
+      "save",
+      "namePlaceholder",
+      "notePlaceholder",
+      "saveAction",
+      "clearCache",
+      "clearCacheBtn",
+      "refreshHint",
+      "removeHint",
+    ];
+    for (const key of keys) {
+      const en = translate("en", `metricsExplorer.saved.${key}`);
+      const zh = translate("zh", `metricsExplorer.saved.${key}`);
+      expect(en.length, `metricsExplorer.saved.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `metricsExplorer.saved.${key} zh`).toBeGreaterThan(0);
+    }
+  });
+
+  it("preserves confirmRemove's parameterised shape (it is a function, not a string)", () => {
+    // The `removeSaved` handler builds the confirm prompt via
+    // `t("metricsExplorer.saved.confirmRemove", \`Delete saved query "${name}"?\`)`
+    // — the value is a function `name => string`, not a plain string.
+    // Pin the function shape so a future refactor that turns it into a
+    // static string (and silently breaks the name interpolation) trips
+    // the test.
+    const enVal = dict("en").metricsExplorer.saved.confirmRemove;
+    const zhVal = dict("zh").metricsExplorer.saved.confirmRemove;
+    expect(typeof enVal, "en confirmRemove must be a function").toBe("function");
+    expect(typeof zhVal, "zh confirmRemove must be a function").toBe("function");
+    expect((enVal as (n: string) => string)("cpu")).toBe('Delete saved query "cpu"?');
+    expect((zhVal as (n: string) => string)("cpu")).toBe('删除已保存查询 "cpu"?');
+  });
+});
+
 describe("tabLabel", () => {
   it("returns the English name for English", () => {
     expect(tabLabel("logs", "en")).toBe("Logs");
