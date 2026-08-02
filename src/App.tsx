@@ -11,7 +11,7 @@ import { useBootstrap } from "./hooks/useBootstrap";
 import { useCustomKindWatch } from "./hooks/useCustomKindWatch";
 import { useGlobalKeys } from "./hooks/useGlobalKeys";
 import { useTheme } from "./hooks/useTheme";
-import { useLocaleSync } from "./hooks/useI18n";
+import { useLocaleSync, useTranslation } from "./hooks/useI18n";
 import { Sidebar } from "./components/sidebar/Sidebar";
 import { TopBar } from "./components/topbar/TopBar";
 import { StatusBar } from "./components/statusbar/StatusBar";
@@ -49,6 +49,7 @@ export default function App() {
   const overlay = useStore((s) => s.overlay);
   const overlayPodRef = useStore((s) => s.overlayPodRef);
   const closeOverlay = useStore((s) => s.closeOverlay);
+  const { t } = useTranslation();
 
   return (
     <div className={styles.app}>
@@ -82,7 +83,7 @@ export default function App() {
               ) : (
                 // No pod picked yet — show a friendly empty state.
                 <div className={styles.overlayEmpty}>
-                  Open Pod Files from a Pod's row context menu.
+                  {t("podFiles.noPod", "Open Pod Files from a Pod's row context menu.")}
                 </div>
               )}
             </div>
