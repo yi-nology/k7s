@@ -228,18 +228,20 @@ export function HelmInstallWizard({
             <strong>{t("helm.wizard.chart", "Chart")}:</strong>{" "}
             {chart.repo}/{chart.name}@{selectedVersion}
           </div>
-          <button
-            className={styles.primary}
-            disabled={running || !releaseName || !namespace}
-            onClick={doInstall}
-          >
-            {running
-              ? t("helm.wizard.installing", "Installing…")
-              : t("helm.wizard.install", "Install")}
-          </button>
-          <button onClick={() => setStep("values")} disabled={running}>
-            {t("helm.wizard.back", "Back")}
-          </button>
+          <div className={styles.wizardActions}>
+            <button onClick={() => setStep("values")} disabled={running}>
+              {t("helm.wizard.back", "Back")}
+            </button>
+            <button
+              className={styles.primary}
+              disabled={running || !releaseName || !namespace}
+              onClick={doInstall}
+            >
+              {running
+                ? t("helm.wizard.installing", "Installing…")
+                : t("helm.wizard.install", "Install")}
+            </button>
+          </div>
           <div className={styles.logs} ref={logsRef}>
             {logs.map((l, i) => (
               <div

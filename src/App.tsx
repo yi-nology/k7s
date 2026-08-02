@@ -99,7 +99,7 @@ export default function App() {
           )}
           {overlay === "dashboard" && (
             <div className={styles.overlay}>
-              <Dashboard />
+              <Dashboard onClose={closeOverlay} />
             </div>
           )}
           {overlay === "metrics" && (
