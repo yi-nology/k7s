@@ -19,10 +19,10 @@ Each pass writes a per-pass report and appends a row here.
 ### Untested rotation
 1. ~~Row context menu — 8 actions~~ — **covered in pass 1**
 2. Pod Files panel
-3. Service Topology (d3-force)
+3. ~~Service Topology (d3-force)~~ — **covered in pass 2 + pass 3** (mock bug + dual-ref + Container legend fixed in `3d56a73`; cursor:pointer cleanup in `fd54152`; edges still near-invisible — known issue, user is iterating)
 4. Alerting panel
 5. Settings / preferences
-6. ⌘K command palette
+6. ~~⌘K command palette~~ — **covered in pass 1**
 7. Detail panel tab cycling `[` / `]`
 8. i18n switch EN ↔ zh
 9. Saved Queries CRUD
@@ -39,3 +39,5 @@ Each pass writes a per-pass report and appends a row here.
 | 0 | 2026-08-03 (bootstrap) | — | bootstrap index | — | this file |
 | 1 | 2026-08-03 (first real pass) | ⌘K command palette (EN + zh) | 1 high: action labels + hints were hardcoded English even in zh locale. 1 low (not fixed): object-candidate kind-hint stays English in zh. | commit `29b0fd5` — palette action labels and hints routed through `chrome.palette.actions.*` in both locales, with paletteStr helper that falls back zh → en → hardcoded; 4 new tests; tsc / vitest 309 / cargo check all clean. | [qa-v0.2.4-pass-2026-08-03.md](qa-v0.2.4-pass-2026-08-03.md) |
 | 1 | 2026-08-03 | Row context menu (8 actions) + global Esc cascade | Overlay (Pod Files, etc.) ignored Esc — feature gaps in `useGlobalKeys`; missing `actions.files` in zh dict (low) | Esc → `closeOverlay()` in cascade; new test in `useGlobalKeys.test.ts` — **4b6496f** | [pass-1](qa-v0.2.4-pass-2026-08-03.md) |
+| 2 | 2026-08-03 | Service Topology overlay (d3-force) | 1 high: `listEndpointAddresses` mock ignored `ns`/`name` and always returned nginx pods, so redis was wired to nginx-1/nginx-2. 1 medium: Container legend chip with no Container kind nodes. 1 low: `svgRef` attached to both `.canvas` div and inner `<svg>`. 1 low: ResizeObserver only fired on change so first paint used 800×500 default. **Known issue (not fixed)**: 0 `<line>` elements render despite positions Map being populated (7 keys, 5 links). | `3d56a73` — Mock branches per slice (redis→redis-0, nginx→nginx-1/2); Container legend chip dropped; svgRef cleaned up (HTMLDivElement on the div only); updateSize() runs on mount. tsc / vitest 309 / cargo check all clean. | *index-only summary* (per-pass file written by the previous cron session but not committed; the row above captures the findings) |
+| 3 | 2026-08-03 | Service Topology overlay (re-test after `3d56a73`) | 1 medium: `cursor: pointer` on Service list items advertised a click the panel doesn't perform. 2 low (not fixed): dead i18n keys `topology.pick`/`topology.loading` and dead CSS rules (`.graph`/`.column`/`.arrow`/`.nodePrimary`/`.nodeOk`/`.nodeBad`) — left as cleanup for a future pass. **Known issue (not fixed)**: graph edges are nearly invisible (`stroke=var(--border)` `strokeWidth=0.7` `opacity=0.5`) — see pass-2's row and the new pass-3 "Notes for next pass". | commit `fd54152` — dropped `cursor: pointer` and dead `.itemActive` rule on `.item` in `TopologyPanel.module.css`; tsc / vitest 309 / cargo check all clean; pushed to `origin/main`. | [pass-3](qa-v0.2.4-pass-2026-08-03-3.md) |
