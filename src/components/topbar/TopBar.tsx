@@ -15,7 +15,13 @@ import { useStore } from "../../store";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useTranslation } from "../../hooks/useI18n";
 import { kindMeta, type KindId } from "../../lib/kinds";
-import { groupLabel, LOCALES, LOCALE_LABELS, type Locale } from "../../lib/i18n";
+import {
+  groupLabel,
+  kindLabelFor,
+  LOCALES,
+  LOCALE_LABELS,
+  type Locale,
+} from "../../lib/i18n";
 
 export function TopBar() {
   const nav = useStore((s) => s.nav);
@@ -45,6 +51,10 @@ export function TopBar() {
   // for custom kinds there's no static group label, so we fall back to the
   // raw group name (which is itself the meaningful identifier).
   const groupText = group === "custom" ? "custom" : group ? groupLabel(group, locale) : "custom";
+  // The kind label in the breadcrumb is localised through `kindLabelFor` (zh
+  // ships "Pod" not "Pods", "节点" not "Nodes"). Falls back to the static
+  // KIND_META label and finally to the raw nav id if neither resolves.
+  const kindText = kindLabelFor(nav, customKinds, locale) ?? meta?.label ?? nav;
 
   // "all" plus the live namespace names (sorted for stable display).
   const namespaces = useMemo(() => {
@@ -57,7 +67,7 @@ export function TopBar() {
       <div className={styles.breadcrumb}>
         {cluster} <span className={styles.sep}>/</span> {groupText}{" "}
         <span className={styles.sep}>/</span>{" "}
-        <span className={styles.kind}>{meta?.label ?? nav}</span>
+        <span className={styles.kind}>{kindText}</span>
       </div>
 
       <div className={styles.spacer} />

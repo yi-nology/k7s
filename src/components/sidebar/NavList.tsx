@@ -23,7 +23,7 @@ import {
   type NavGroup,
   type ResourceKind,
 } from "../../lib/kinds";
-import { groupLabel } from "../../lib/i18n";
+import { groupLabel, kindLabelFor } from "../../lib/i18n";
 import { useTranslation } from "../../hooks/useI18n";
 import type { CustomKind } from "../../providers/types";
 
@@ -56,6 +56,12 @@ export function NavList() {
             {kindsInGroup(group).map((kind) => {
               const active = nav === kind;
               const meta = kindMeta(kind, customKinds);
+              // Localised label (zh ships "Pod" not "Pods", "节点" not "Nodes");
+              // falls back to the static KIND_META label and finally to the
+              // raw id if neither resolves — same precedence as the topbar
+              // breadcrumb, so a Chinese UI reads "工作负载 / Pod" not
+              // "Workloads / Pods".
+              const label = kindLabelFor(kind, customKinds, locale) ?? meta?.label ?? kind;
               return (
                 <div
                   key={kind}
@@ -63,7 +69,7 @@ export function NavList() {
                   onClick={() => setNav(kind)}
                 >
                   <span className={styles.navIcon}>{meta?.icon}</span>
-                  <span className={styles.navLabel}>{meta?.label}</span>
+                  <span className={styles.navLabel}>{label}</span>
                   {/* Live count = number of rows currently in the store for this kind. */}
                   <span className={styles.navCount}>{rows[kind].length}</span>
                 </div>

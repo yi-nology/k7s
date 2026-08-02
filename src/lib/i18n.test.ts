@@ -7,6 +7,8 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   asLocale,
   cachedLocale,
@@ -20,6 +22,7 @@ import {
   translate,
   type Locale,
 } from "./i18n";
+import { KIND_META, KIND_ORDER } from "./kinds";
 
 /**
  * Some vitest environments don't ship a working `localStorage` (the one Node
@@ -1248,4 +1251,92 @@ describe("cacheLocale / cachedLocale", () => {
     window.localStorage.setItem("k7s.locale", "klingon");
     expect(cachedLocale()).toBe("en");
   });
+});
+
+/** Three chrome surfaces — the sidebar (NavList), the topbar breadcrumb, and
+ *  the detail panel header — all render a kind's display name. The pre-pass-27
+ *  implementation read `kindMeta(...).label` directly, which returned the
+ *  hardcoded English `KIND_META[id].label` ("Pods" / "Deployments" / "Nodes"
+ *  / …) and rendered unchanged in zh. The fix routes each surface through
+ *  `kindLabelFor`, which returns the canonical zh form (singular for K8s
+ *  kinds — `Pod` / `Deployment` / …, and translated for the cluster-scoped
+ *  ones — `节点` / `命名空间`). This describe pins the three contracts at
+ *  once: the dict resolves every kind, the function returns a zh label
+ *  distinct from the English plural, and the three source files actually
+ *  call the function. */
+describe("chrome kind labels (NavList + TopBar + DetailPanel, pass-27)", () => {
+  /** Every kind in the sidebar iterates this set. A missing zh label here
+   *  means a kind the chrome renders would fall back to the English
+   *  plural in zh — the exact regression this describe is built to catch. */
+  for (const id of KIND_ORDER) {
+    it(`kindLabelFor(${id}, zh) returns a non-empty localised label`, () => {
+      const got = kindLabelFor(id, [], "zh");
+      expect(got, `${id} zh`).toBeDefined();
+      expect(got!.length, `${id} zh length`).toBeGreaterThan(0);
+    });
+  }
+
+  /** The English KIND_META labels are pluralised ("Pods" / "Deployments"
+   *  / "Nodes" / …) — exactly the strings the previous chrome leaked into
+   *  zh. For every kind the chrome renders, the zh label must NOT equal
+   *  the English plural (it can equal the singular for K8s kinds that
+   *  happen to be the same word in both locales, e.g. "Pod" / "Job"). */
+  it("does not leak the English pluralised KIND_META label into the zh locale", () => {
+    for (const id of KIND_ORDER) {
+      const enPlural = KIND_META[id].label; // "Pods" / "Deployments" / …
+      const got = kindLabelFor(id, [], "zh");
+      expect(got, `${id} zh`).toBeDefined();
+      expect(got, `${id} zh != ${enPlural}`).not.toBe(enPlural);
+    }
+  });
+
+  /** Source-level contract: the three chrome surfaces import `kindLabelFor`
+   *  from `lib/i18n` and use it (instead of `meta?.label` or `KIND_META`). A
+   *  refactor that swaps the i18n helper for the raw English label trips
+   *  this test — the dictionary is intact, the test is intact, only the
+   *  call site is wrong, and this is the cheapest place to catch that. */
+  const REPO = ".";
+  const sources: Array<{ path: string }> = [
+    { path: "src/components/sidebar/NavList.tsx" },
+    { path: "src/components/topbar/TopBar.tsx" },
+    { path: "src/components/detail/DetailPanel.tsx" },
+  ];
+
+  for (const { path } of sources) {
+    it(`${path} imports and calls kindLabelFor`, () => {
+      const src = readFileSync(resolve(REPO, path), "utf8");
+      // Import — must come from the i18n barrel (other call sites resolve
+      // their own helpers but the chrome must use the canonical one).
+      expect(src, `${path} imports kindLabelFor`).toMatch(
+        /import\s*\{[^}]*\bkindLabelFor\b[^}]*\}\s*from\s*["']\.\.\/\.\.\/lib\/i18n["']/,
+      );
+      // Call — must appear at least once in the file (the JSX render).
+      // Loose pattern; a renamed destructured binding would still match
+      // because the call site uses the imported name verbatim.
+      expect(src, `${path} calls kindLabelFor`).toMatch(/\bkindLabelFor\s*\(/);
+    });
+  }
+
+  /** Defensive: the three chrome surfaces must NOT render `meta?.label`
+   *  directly (the old code). They MAY use it as a fallback after
+   *  `kindLabelFor` returns undefined, but the JSX render itself must
+   *  bind to a localised variable — pinning that the primary path is
+   *  the i18n function. The pattern matches a `{label}` / `{kindText}`
+   *  / `{kindLabel}` binding that comes from the localised call. */
+  for (const { path } of sources) {
+    it(`${path} JSX renders the localised kind variable (not meta?.label)`, () => {
+      const src = readFileSync(resolve(REPO, path), "utf8");
+      // The old broken pattern: a direct `{meta?.label}` in the JSX
+      // for the kind name. Allow it inside the `mustCall: kindLabelFor`
+      // fallback branch (e.g. `kindLabelFor(...) ?? meta?.label ?? kind`),
+      // but the JSX itself must not bind to `meta?.label` directly.
+      // Heuristic: the JSX of the kind-name span shouldn't contain
+      // `meta?.label` as the rendered expression. We check the file
+      // string for the broken pattern as a whole, since the renders in
+      // question used to be `<span>{meta?.label}</span>`.
+      expect(src, `${path} still renders meta?.label as the kind name`).not.toMatch(
+        /\{meta\?\.label\}/,
+      );
+    });
+  }
 });

@@ -17,7 +17,7 @@ import { useTranslation } from "../../hooks/useI18n";
 import { formatAge } from "../../lib/format";
 import { toneColor } from "../../lib/tone";
 import { DETAIL_TABS, kindMeta, KINDS_WITH_PROPERTIES, tabsFor } from "../../lib/kinds";
-import { tabLabel } from "../../lib/i18n";
+import { tabLabel, kindLabelFor } from "../../lib/i18n";
 import { drainErrors, drainSummary, drainTone, pdbBlocked } from "../../lib/drain";
 import { LogsTab } from "./LogsTab";
 import { PropertiesTab } from "./PropertiesTab";
@@ -66,7 +66,9 @@ export function DetailPanel() {
         ? `${styles.statusDot} ${styles.statusDotPending}`
         : styles.statusDot;
   // Custom kinds resolve their label from discovery, so this is a runtime lookup.
-  const kindLabel = kindMeta(nav, customKinds)?.label ?? nav;
+  // Localised through `kindLabelFor` so a Chinese UI reads "Deployment" /
+  // "节点" / "ConfigMap" rather than the raw English KIND_META label.
+  const kindLabel = kindLabelFor(nav, customKinds, locale) ?? kindMeta(nav, customKinds)?.label ?? nav;
 
   // data-surface="panel": in light mode the inspector is dark chrome (tokens.css).
   return (
