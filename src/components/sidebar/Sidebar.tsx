@@ -1,73 +1,19 @@
 /**
- * Sidebar — the resource navigator.
- *
- * Pure presentation: the parent owns `active` and `onPick`. Renders the
- * k7s brand, the current context, and the grouped nav items.
- *
- * Style is driven by tokens (see `src/styles/tokens.css`) — no hard
- * colors here.
+ * Sidebar composition (Design §1): cluster switcher, scrollable nav, watch footer.
  */
 
-import type { ResourceKind } from "../../providers/types";
+import styles from "./Sidebar.module.css";
+import { ClusterSwitcher } from "./ClusterSwitcher";
+import { NavList } from "./NavList";
+import { WatchFooter } from "./WatchFooter";
 
-export interface NavLeaf {
-  kind: ResourceKind | string;
-  label: string;
-  icon: string;
-  hotkey?: string;
-}
-
-export interface NavGroup {
-  group: string;
-  items: NavLeaf[];
-}
-
-interface SidebarProps {
-  nav: NavGroup[];
-  active: string;
-  onPick: (kind: string) => void;
-  contextName: string | null;
-}
-
-export function Sidebar({ nav, active, onPick, contextName }: SidebarProps) {
+export function Sidebar() {
+  // data-surface="panel": in light mode the sidebar is dark chrome (tokens.css).
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="brand-mark">k7s</div>
-        <div className="brand-sub">{contextName ?? "no context"}</div>
-      </div>
-      <nav className="nav">
-        {nav.map((g) => (
-          <div key={g.group} className="nav-group">
-            <div className="nav-group-title">{g.group}</div>
-            {g.items.map((item) => {
-              const isActive = item.kind === active;
-              return (
-                <button
-                  key={item.kind}
-                  className={`nav-item ${isActive ? "is-active" : ""}`}
-                  onClick={() => onPick(item.kind)}
-                >
-                  <span className="nav-icon" aria-hidden>
-                    {item.icon}
-                  </span>
-                  <span className="nav-label">{item.label}</span>
-                  {item.hotkey && <span className="nav-hotkey">{item.hotkey}</span>}
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-      <div className="sidebar-footer">
-        <span className="kbd">j</span>
-        <span className="kbd">k</span>
-        <span> nav</span>
-        <span className="kbd">⏎</span>
-        <span> detail</span>
-        <span className="kbd">/</span>
-        <span> filter</span>
-      </div>
-    </aside>
+    <div className={styles.sidebar} data-surface="panel">
+      <ClusterSwitcher />
+      <NavList />
+      <WatchFooter />
+    </div>
   );
 }

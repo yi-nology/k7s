@@ -1,115 +1,156 @@
 /**
- * TopBar — context switcher, namespace filter, search input.
+ * Top bar (Design §2): breadcrumb (cluster / group / Kind) on the left, the
+ * language switcher + namespace filter dropdown on the right. The namespace
+ * list is live — derived from the Namespaces the backend is watching, plus the
+ * "all" option.
  *
- * Pure presentation. The parent owns the data; this just lays it out.
+ * The language switcher is the most-affordant UI: two-letter code (EN / 中),
+ * clicking opens a small menu with every locale. The settings panel has the
+ * same control in case the user is in a flow that already has the panel open.
  */
 
-import { useEffect, useRef } from "react";
-import type { ContextInfo, Row } from "../../providers/types";
+import { useMemo, useRef } from "react";
+import styles from "./TopBar.module.css";
+import { useStore } from "../../store";
+import { useClickOutside } from "../../hooks/useClickOutside";
+import { useTranslation } from "../../hooks/useI18n";
+import { kindMeta, type KindId } from "../../lib/kinds";
+import { groupLabel, LOCALES, LOCALE_LABELS, type Locale } from "../../lib/i18n";
 
-interface TopBarProps {
-  contexts: ContextInfo[];
-  currentContext: string | null;
-  namespaces: Row[];
-  namespace: string;
-  onPickContext: (name: string) => void;
-  onPickNamespace: (name: string) => void;
-  filter: string;
-  onFilterChange: (s: string) => void;
-  /** Optional connected cluster name (shown right-aligned). */
-  clusterName?: string;
-  /** Optional click handler for the about button. */
-  onAbout?: () => void;
-}
+export function TopBar() {
+  const nav = useStore((s) => s.nav);
+  const namespace = useStore((s) => s.namespace);
+  const connection = useStore((s) => s.connection);
+  const nsRows = useStore((s) => s.rows.namespaces);
+  const open = useStore((s) => s.openMenu === "ns");
+  const toggleMenu = useStore((s) => s.toggleMenu);
+  const closeMenus = useStore((s) => s.closeMenus);
+  const setNamespace = useStore((s) => s.setNamespace);
+  const customKinds = useStore((s) => s.customKinds);
+  const setSettings = useStore((s) => s.setSettings);
+  const { locale, t } = useTranslation();
 
-export function TopBar({
-  contexts,
-  currentContext,
-  namespaces,
-  namespace,
-  onPickContext,
-  onPickNamespace,
-  filter,
-  onFilterChange,
-  clusterName,
-  onAbout,
-}: TopBarProps) {
-  const filterRef = useRef<HTMLInputElement | null>(null);
+  const nsRef = useRef<HTMLDivElement>(null);
+  const langRef = useRef<HTMLDivElement>(null);
+  useClickOutside(nsRef, closeMenus, open);
+  // The language switcher closes any open dropdown (including itself) when a
+  // locale is picked. useClickOutside handles clicks *outside*; the close here
+  // is for when the user picks a value, which is an inside-click.
 
-  // Global "/" to focus filter.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "/") return;
-      const tag = document.activeElement?.tagName?.toUpperCase();
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      e.preventDefault();
-      filterRef.current?.focus();
-      filterRef.current?.select();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  const cluster = connection.clusterName ?? connection.context ?? "k7s";
+  // Runtime lookup: custom (CRD-backed) kinds aren't in the static table (B15).
+  const meta = kindMeta(nav as KindId, customKinds);
+  const group = meta?.group;
+  // The group header in the breadcrumb is the localised label when we have one;
+  // for custom kinds there's no static group label, so we fall back to the
+  // raw group name (which is itself the meaningful identifier).
+  const groupText = group === "custom" ? "custom" : group ? groupLabel(group, locale) : "custom";
+
+  // "all" plus the live namespace names (sorted for stable display).
+  const namespaces = useMemo(() => {
+    const names = nsRows.map((r) => r.name).sort();
+    return ["all", ...names];
+  }, [nsRows]);
 
   return (
-    <header className="topbar">
-      <div className="topbar-section">
-        <span className="dot dot-ok pulse" />
-        <select
-          className="select"
-          value={currentContext ?? ""}
-          onChange={(e) => onPickContext(e.target.value)}
-          title="Switch context"
-        >
-          {contexts.length === 0 && <option value="">(no contexts)</option>}
-          {contexts.map((c) => (
-            <option key={c.name} value={c.name}>
-              {c.name}
-              {c.isCurrent ? " (current)" : ""}
-            </option>
-          ))}
-        </select>
+    <div className={styles.topbar}>
+      <div className={styles.breadcrumb}>
+        {cluster} <span className={styles.sep}>/</span> {groupText}{" "}
+        <span className={styles.sep}>/</span>{" "}
+        <span className={styles.kind}>{meta?.label ?? nav}</span>
       </div>
 
-      <div className="topbar-section">
-        <span className="topbar-label">NS</span>
-        <select
-          className="select"
-          value={namespace}
-          onChange={(e) => onPickNamespace(e.target.value)}
-          title="Namespace filter"
-        >
-          <option value="">all</option>
-          {namespaces.map((ns) => (
-            <option key={ns.uid || ns.name} value={ns.name}>
-              {ns.name}
-            </option>
-          ))}
-        </select>
+      <div className={styles.spacer} />
+
+      {/* Language switcher: the current locale's short code, with a dropdown of
+          every supported language on click. Lives next to the namespace picker
+          because both are "set the working context" controls. */}
+      <LanguageSwitcher
+        ref={langRef}
+        current={locale}
+        onPick={(l) => {
+          useStore.getState().closeMenus();
+          setSettings({ language: l });
+        }}
+      />
+
+      <div className={styles.nsWrap} ref={nsRef}>
+        <div className={styles.nsButton} onClick={() => toggleMenu("ns")}>
+          <span className={styles.nsPrefix}>{t("chrome.topbar.nsPrefix")}</span>
+          <span className={styles.nsValue}>{namespace}</span>
+          <span className={styles.nsChevron}>▼</span>
+        </div>
+
+        {open && (
+          <div className={styles.nsMenu}>
+            {namespaces.map((ns) => {
+              const selected = ns === namespace;
+              return (
+                <div
+                  key={ns}
+                  className={`${styles.nsRow} ${selected ? styles.nsRowSelected : ""}`}
+                  onClick={() => setNamespace(ns)}
+                >
+                  <span className={styles.nsCheck}>{selected ? "✓" : ""}</span>
+                  {ns}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
-
-      <div className="topbar-section topbar-filter">
-        <span className="topbar-label">Filter</span>
-        <input
-          ref={filterRef}
-          className="input"
-          placeholder="/ to focus"
-          value={filter}
-          onChange={(e) => onFilterChange(e.target.value)}
-        />
-      </div>
-
-      <div className="topbar-spacer" />
-
-      {clusterName && <div className="topbar-cluster">{clusterName}</div>}
-      {onAbout && (
-        <button
-          className="iconbtn topbar-about"
-          onClick={onAbout}
-          title="About / settings (Shift+?)"
-        >
-          ?
-        </button>
-      )}
-    </header>
+    </div>
   );
+}
+
+/**
+ * The compact language switcher. Renders a button with the current locale's
+ * short label ("EN" / "中"), opening a menu of every supported locale.
+ */
+function LanguageSwitcher({
+  current,
+  onPick,
+  ref,
+}: {
+  current: Locale;
+  onPick: (l: Locale) => void;
+  ref: React.Ref<HTMLDivElement>;
+}) {
+  const open = useStore((s) => s.openMenu === "lang");
+  const toggleMenu = useStore((s) => s.toggleMenu);
+
+  return (
+    <div className={styles.langWrap} ref={ref}>
+      <div className={styles.langButton} onClick={() => toggleMenu("lang")} title={LOCALE_LABELS[current]}>
+        <span className={styles.langGlyph}>{shortLabel(current)}</span>
+      </div>
+      {open && (
+        <div className={styles.langMenu}>
+          {LOCALES.map((l) => {
+            const selected = l === current;
+            return (
+              <div
+                key={l}
+                className={`${styles.langRow} ${selected ? styles.langRowSelected : ""}`}
+                onClick={() => onPick(l)}
+              >
+                <span className={styles.langCheck}>{selected ? "✓" : ""}</span>
+                {LOCALE_LABELS[l]}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Compact label for the language button. Each locale picks its own glyph. */
+function shortLabel(locale: Locale): string {
+  switch (locale) {
+    case "zh":
+      return "中";
+    case "en":
+      return "EN";
+  }
 }
