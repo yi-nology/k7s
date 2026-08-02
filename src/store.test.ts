@@ -438,3 +438,87 @@ describe("multi-row selection (B39)", () => {
     expect(useStore.getState().selectedRow?.name).toBe("api");
   });
 });
+
+/**
+ * The YAML edit-mode lifecycle (B36). The draft lives in the store so Preview and
+ * Apply can read it; the question is when it gets cleared.
+ *
+ * The fix here is: any of the three actions that close the edit session also clear
+ * the draft. Without it, the draft becomes "dead state" — the user thinks their
+ * work is preserved, but the next Edit click on the *new* row overwrites the draft
+ * with the fresh YAML, silently discarding every keystroke they typed.
+ */
+describe("yamlDraft lifecycle (pass-24)", () => {
+  beforeEach(() => {
+    useStore.setState({
+      selectedRow: null,
+      yamlEditing: false,
+      yamlDraft: "",
+    });
+  });
+
+  /** A non-pod row — opens on the yaml tab (no logs). */
+  const row = (name: string): Row => ({
+    uid: `cronjobs:prod/${name}`,
+    name,
+    namespace: "prod",
+    cells: [],
+  });
+
+  /**
+   * selectRow closes any in-progress edit (yamlEditing → false) and now also
+   * clears the draft. Without the clear, switching rows leaves the old draft in
+   * the store, where the next Edit click on the new row overwrites it with the
+   * fresh fetch — the user's work vanishes with no warning.
+   *
+   * (The "click the same row" case is also covered by this: selectRow resets
+   * yamlEditing to false unconditionally, so the user has already lost the edit
+   * by the time selectRow returns. Carrying a draft that the editor no longer
+   * shows is dead state.)
+   */
+  it("selectRow clears the stale yamlDraft", () => {
+    useStore.setState({ yamlEditing: true, yamlDraft: "edited content" });
+    useStore.getState().selectRow(row("B"));
+    expect(useStore.getState().yamlEditing).toBe(false);
+    expect(useStore.getState().yamlDraft).toBe("");
+  });
+
+  /**
+   * Cancel is the user saying "abandon this edit". That includes the draft — a
+   * preserved draft is invisible (the editor is read-only), and the next Edit
+   * click overwrites it. Clearing makes the discard explicit.
+   */
+  it("cancelYaml clears the yamlDraft (Cancel means discard)", () => {
+    useStore.setState({ yamlEditing: true, yamlDraft: "edited content" });
+    useStore.getState().cancelYaml();
+    expect(useStore.getState().yamlEditing).toBe(false);
+    expect(useStore.getState().yamlDraft).toBe("");
+  });
+
+  /**
+   * Switching tabs closes the edit session the same way Cancel does: the editor
+   * is read-only, the user is now looking at a different surface. Leaving the
+   * draft behind invites the same silent-overwrite bug as Cancel.
+   */
+  it("setActiveTab clears the yamlDraft", () => {
+    useStore.setState({ yamlEditing: true, yamlDraft: "edited content" });
+    useStore.getState().setActiveTab("logs");
+    expect(useStore.getState().yamlEditing).toBe(false);
+    expect(useStore.getState().yamlDraft).toBe("");
+  });
+
+  /**
+   * The happy path: startYamlEdit sets the draft, setYamlDraft updates it on each
+   * keystroke, and a fresh startYamlEdit still overwrites — that's the one case
+   * where the user is explicitly asking to start a new edit session.
+   */
+  it("startYamlEdit then setYamlDraft round-trips through the store", () => {
+    useStore.getState().startYamlEdit("original: 1");
+    expect(useStore.getState().yamlEditing).toBe(true);
+    expect(useStore.getState().yamlDraft).toBe("original: 1");
+    useStore.getState().setYamlDraft("original: 2");
+    expect(useStore.getState().yamlDraft).toBe("original: 2");
+    useStore.getState().startYamlEdit("fresh fetch");
+    expect(useStore.getState().yamlDraft).toBe("fresh fetch");
+  });
+});

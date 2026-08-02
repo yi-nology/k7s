@@ -112,7 +112,12 @@ function selectionPatch(row: Row) {
     selection: { selected: [row.uid], anchor: row.uid } as SelectionState,
     // Pods open on Logs; every other kind lacks that tab, so YAML is the default.
     activeTab: (row.pod ? "logs" : "yaml") as DetailTab,
+    // Closing the edit session also drops the draft. Otherwise it lives in the
+    // store as dead state: the editor is now read-only, the user can't see it,
+    // and the next Edit click on any row overwrites it with the fresh fetch —
+    // silently discarding every keystroke they typed.
     yamlEditing: false,
+    yamlDraft: "",
     logBuffer: [] as LogLine[],
     logSearch: "",
     containerIndex: 0,
@@ -600,8 +605,10 @@ export const useStore = create<AppState>((set) => ({
   // (The logs component re-seeds the stream in response to a pod selection.)
   selectRow: (row) => set(selectionPatch(row)),
   closeDetail: () => set({ selectedRow: null }),
-  // Switching tabs cancels any in-progress YAML edit (design behavior).
-  setActiveTab: (tab) => set({ activeTab: tab, yamlEditing: false }),
+  // Switching tabs cancels any in-progress YAML edit (design behavior) and
+  // also drops the draft — see selectionPatch for why carrying it forward is
+  // worse than discarding it.
+  setActiveTab: (tab) => set({ activeTab: tab, yamlEditing: false, yamlDraft: "" }),
 
   // ---------- logs ----------
   setLogSearch: (q) => set({ logSearch: q }),
@@ -627,6 +634,8 @@ export const useStore = create<AppState>((set) => ({
 
   // ---------- yaml ----------
   startYamlEdit: (initial) => set({ yamlEditing: true, yamlDraft: initial }),
-  cancelYaml: () => set({ yamlEditing: false }),
+  // Cancel is "abandon this edit" — including the draft. See selectionPatch /
+  // setActiveTab for the reasoning.
+  cancelYaml: () => set({ yamlEditing: false, yamlDraft: "" }),
   setYamlDraft: (text) => set({ yamlDraft: text }),
 }));
