@@ -1,0 +1,323 @@
+name: release
+
+# Triggered when you push a tag like v0.4.1. The version in
+# src-tauri/tauri.conf.json and src-tauri/Cargo.toml MUST match the
+# stripped tag (e.g. tag v0.4.1 → config says "0.4.1") or
+# tauri-action will refuse with "version mismatch".
+#
+# If you want a non-release sanity build, push a normal commit to main
+# or open a PR — the `build` job runs on every push and PR via the
+# push / pull_request triggers at the bottom.
+#
+# What this produces on each runner (Tauri's default bundle matrix
+# because src-tauri/tauri.conf.json has bundle.targets = "all"):
+#
+#   ubuntu-22.04 →  k7s_x.y.z_amd64.deb
+#                    k7s-x.y.z-1.x86_64.rpm
+#                    k7s_x.y.z_amd64.AppImage
+#
+#   macos-latest →  k7s_x.y.z_aarch64.dmg   (Apple Silicon runner)
+#                    k7s.app
+#                    plus the x86_64 .dmg when run on intel runners
+#
+#   windows-latest → k7s_x.y.z_x64-setup.exe   (NSIS)
+#                    k7s_x.y.z_x64_en-US.msi   (WiX)
+#
+# Code signing / notarisation is intentionally NOT wired up here — the
+# `signingIdentity` / `appleId` / `windows.certificate` inputs are
+# commented below. Plug them in once you have a Developer ID cert and an
+# Apple notarisation password, plus the matching repo secrets.
+
+on:
+  push:
+    tags:
+      - "v*"
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed so the release step can push a tag / upload assets
+
+jobs:
+  # ────────────────────────────────────────────────────────────────
+  # 1) Sanity build on every push / PR — no release artefacts.
+  # ────────────────────────────────────────────────────────────────
+  build:
+    name: build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            rust: stable
+            pkg: deb,rpm,appimage
+          - os: macos-latest
+            rust: stable
+            pkg: dmg,app
+          - os: windows-latest
+            rust: stable
+            pkg: msi,nsis
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          # cache the workspace that contains Cargo.toml
+          workspaces: src-tauri -> target
+
+      - name: install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            file
+
+      - name: install JS deps
+        run: pnpm install --frozen-lockfile
+
+      # Run unit tests first — much cheaper than a full Tauri build,
+      # catches regressions in the React / lib layer before we touch
+      # the Rust toolchain.
+      - name: run JS unit tests
+        run: pnpm test -- --run
+
+      # No `--bundles` so tauri-action uses the platform default
+      # (the "all" set in tauri.conf.json) — that already covers every
+      # format the matrix row is responsible for. On push / PR we don't
+      # want to upload to a release, so we pass `releaseTag: ""` to make
+      # tauri-action skip the GitHub-release side-effect.
+      - name: build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseTag: ""
+
+  # ────────────────────────────────────────────────────────────────
+  # 2) Tagged release — same matrix, but uploads artefacts to a
+  #    GitHub release named after the tag.
+  # ────────────────────────────────────────────────────────────────
+  release:
+    name: release (${{ matrix.os }})
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            rust: stable
+          - os: macos-latest
+            rust: stable
+          - os: windows-latest
+            rust: stable
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            file
+
+      - name: install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: run JS unit tests
+        run: pnpm test -- --run
+
+      - name: build & release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Project name (matches productName in tauri.conf.json).
+          projectName: k7s
+          # The tag that triggered this run, minus the leading 'v'.
+          tagName: ${{ github.ref_name }}
+          # First public release — publish immediately rather than as a
+          # draft. Switch back to `releaseDraft: true` once you have a
+          # routine for sanity-checking the artefacts.
+          releaseDraft: false
+          prerelease: false
+          # ── code signing (uncomment + add secrets to enable) ──
+          # macOS notarisation:
+          # appleId: ${{ secrets.APPLE_ID }}
+          # applePassword: ${{ secrets.APPLE_PASSWORD }}
+          # appleTeamId: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows signing:
+          # signingIdentity: ${{ secrets.WINDOWS_CERT }}
+          # Windows installer signing (if you have an EV cert):
+          # windows: |
+          #   {"certificatePath": "${{ secrets.WINDOWS_CERT_PATH }}",
+          #    "certificatePassword": "${{ secrets.WINDOWS_CERT_PASSWORD }}"}
+
+  # ────────────────────────────────────────────────────────────────
+  # 3) Container image — independent of the desktop bundlers, runs
+  #    only on tag push. Builds k7s-web (the axum server) for
+  #    linux/amd64 + linux/arm64 and pushes to ghcr.io.
+  # ────────────────────────────────────────────────────────────────
+  docker:
+    name: docker (${{ matrix.platform }})
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+    permissions:
+      contents: read
+      packages: write   # push to ghcr.io
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: free disk space
+        # ghcr runners are tight on /; a few GB back from docker prune
+        # is enough for a clean Rust build under QEMU.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                       /opt/hostedtoolcache/CodeQL || true
+          docker image prune -af || true
+          docker builder prune -af --filter "until=24h" || true
+          df -h /
+
+      - name: set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: compute image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/zy84338719/k7s
+          # strip the leading 'v' for semver tags
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+          flavor: latest=auto
+
+      - name: build & push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          # Don't push from non-default-branch tags; only release tags.
+          push: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # BuildKit cache from the GitHub Actions cache backend — keeps
+          # subsequent tag builds in the 1-2 minute range instead of 8+.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # provenance / SBOM are on by default; quiet them for now.
+          provenance: false
+
+# ─────────────────────────────────────────────────────────────────
+# Notes on what gets produced
+# ─────────────────────────────────────────────────────────────────
+#
+# After a successful tag run, the GitHub release will carry these
+# artefacts (concrete names for tag v0.2.1):
+#
+#   k7s_0.2.1_amd64.deb
+#   k7s-0.2.1-1.x86_64.rpm
+#   k7s_0.2.1_amd64.AppImage
+#   k7s_0.2.1_aarch64.dmg
+#   k7s_0.2.1_x64-setup.exe
+#   k7s_0.2.1_x64_en-US.msi
+#   latest.json                        (Tauri's auto-updater manifest)
+#
+# In parallel, the `docker` job publishes:
+#   ghcr.io/zy84338719/k7s:v0.2.1
+#   ghcr.io/zy84338719/k7s:0.2.1
+#   ghcr.io/zy84338719/k7s:0.2
+#   ghcr.io/zy84338719/k7s:latest        (only for the default branch's
+#                                         most-recent tag)
+#
+# If you want both x86_64 and aarch64 for macOS in the same release, run
+# the macOS row twice with `macos-13` (Intel) and `macos-latest` (M1) —
+# but the default `macos-latest` is already Apple Silicon, which is
+# fine for most new projects; the universal binary tauri-action builds
+# works on both Intel and M1 Macs anyway.
+#
+# Optional follow-up: a nightly / canary job on a schedule:
+#
+#   on:
+#     schedule:
+#       - cron: "0 6 * * *"   # every day at 06:00 UTC
+#     workflow_dispatch:
+#
+# …and `releaseDraft: true` plus a `prerelease: true` so the canary
+# release doesn't get advertised on the repo's "Latest" badge.
