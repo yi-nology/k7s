@@ -1,494 +1,264 @@
-//! Reflector-based live watchers — emit `resource-update` events
-//! (debounced) to the frontend.
+//! Per-kind watchers. Each kind gets a task that drives a `kube` reflector (so a
+//! local store stays current, including deletes) and emits a *full row snapshot*
+//! for that kind, debounced to at most once per [`DEBOUNCE`]. Snapshots are
+//! idempotent, which avoids any delta-reconciliation bugs in the UI.
 //!
-//! ## How it works
+//! A watcher that fails (e.g. RBAC forbids a kind) logs and — thanks to
+//! `default_backoff` — keeps retrying without affecting the other kinds.
 //!
-//! - One `WatcherHandle` per kind, owned by `ClientManager`.
-//! - Each watcher:
-//!   1. Emits an **initial snapshot** immediately.
-//!   2. Opens a `kube::runtime::watcher` stream and on every event
-//!      re-snapshots and re-emits — **throttled** to one emit per
-//!      `THROTTLE` window, so a burst of events becomes one UI update.
-//! - On disconnect / context switch, the manager drops every handle,
-//!   which aborts the task and the stream.
-//!
-//! We don't care about the **payload** of any event — we re-snapshot
-//! on every signal. So each kind owns its own thin loop that converts
-//! the typed event stream into a stream of `Result<(), kube_client::Error>`.
-//!
-//! ## Event names (kept in sync with the React side)
-//!
-//! - `resource-update`  → `ResourceSnapshot { kind, rows }`
-//! - `cluster-status`   → `ClusterStatus` (separate status poller)
-//! - `watch-status`     → `number` (count of active watchers)
+//! Each watcher also carries a post-processor applied to the snapshot before it
+//! is emitted. Most kinds use [`identity`] (the frontend sorts); the Events feed
+//! uses it to order and cap a stream that can otherwise run to thousands of rows.
 
-use std::sync::Arc;
-use std::time::Duration;
-
-use futures::Stream;
+use super::discovery::CustomKind;
+use super::{dto::Row, events, helm, mappers, ClientManager, ResourceKind, ResourceUpdate};
+use futures::stream::BoxStream;
 use futures::StreamExt;
-use kube::api::ListParams;
-use kube::runtime::watcher;
+use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
+use k8s_openapi::api::batch::v1::{CronJob, Job};
+use k8s_openapi::api::core::v1::{
+    ConfigMap, Event, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod, Secret,
+    Service, ServiceAccount,
+};
+use k8s_openapi::api::networking::v1::{Ingress, IngressClass};
+use k8s_openapi::api::storage::v1::StorageClass;
+use kube::core::{ApiResource, DynamicObject};
+use kube::runtime::reflector::Lookup;
+use kube::runtime::{reflector, watcher, WatchStreamExt};
+use kube::{Api, Client, Resource};
+use serde::de::DeserializeOwned;
+use std::fmt::Debug;
+use std::hash::Hash;
 use tauri::{AppHandle, Emitter};
+use tokio::time::{interval, Duration, MissedTickBehavior};
 
-use crate::error::AppResult;
-use crate::kube::dto::{ClusterStatus, ResourceSnapshot};
-use crate::kube::manager::ClientManager;
+/// Maximum snapshot emit rate per kind (coalesces bursts of watch events).
+const DEBOUNCE: Duration = Duration::from_millis(150);
 
-// ---------------------------------------------------------------------------
-// Throttle + status polling cadence
-// ---------------------------------------------------------------------------
+/// Cap on the cluster-wide events feed (B14) — busy clusters produce thousands.
+const EVENTS_CAP: usize = 500;
 
-/// Minimum time between two `resource-update` emits for the same kind.
-/// Bursts of watcher events become a single UI update.
-pub const THROTTLE: Duration = Duration::from_millis(200);
-
-/// Polling interval for the cluster status poller.
-pub const STATUS_INTERVAL: Duration = Duration::from_secs(5);
-
-// ---------------------------------------------------------------------------
-// Kinds the manager starts by default after `connect`.
-// ---------------------------------------------------------------------------
-
-/// The set of kinds the manager starts watching automatically. Adding a
-/// new kind? Drop it in here and the frontend will see it update live.
-pub const DEFAULT_WATCHED: &[&str] = &[
-    "pods",
-    "deployments",
-    "statefulsets",
-    "daemonsets",
-    "replicasets",
-    "jobs",
-    "cronjobs",
-    "services",
-    "configmaps",
-    "secrets",
-    "hpa",
-    "events",
-    "pvc",
-    "nodes",
-    "namespaces",
-];
-
-// ---------------------------------------------------------------------------
-// WatcherHandle — drop or abort to stop.
-// ---------------------------------------------------------------------------
-
-/// Watcher task handle. Drop or call `abort` to stop.
-pub struct WatcherHandle {
-    /// Friendly name (for the "watch: N streams active" footer).
-    pub kind: String,
-    /// The background task; abort on drop.
-    pub task: tokio::task::JoinHandle<()>,
+/// Default snapshot post-processing: emit rows as the reflector holds them.
+fn identity(rows: Vec<Row>) -> Vec<Row> {
+    rows
 }
 
-impl WatcherHandle {
-    pub fn abort(&self) {
-        self.task.abort();
-    }
+/// Events feed ordering: Warnings first, newest first, capped.
+fn events_order(rows: Vec<Row>) -> Vec<Row> {
+    mappers::sort_events(rows, EVENTS_CAP)
 }
 
-impl Drop for WatcherHandle {
-    fn drop(&mut self) {
-        self.task.abort();
-    }
+/// Start watchers for every kind and register their tasks with the manager so
+/// they are aborted on disconnect/context-switch. Returns the number started.
+pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
+    // Each line pairs a typed resource with its mapper (the column contract) and
+    // a snapshot post-processor (ordering/capping; identity for most kinds).
+    spawn::<Pod>(mgr, &client, ResourceKind::Pods, mappers::map_pod, identity).await;
+    spawn::<Deployment>(mgr, &client, ResourceKind::Deployments, mappers::map_deployment, identity).await;
+    spawn::<ReplicaSet>(mgr, &client, ResourceKind::Replicasets, mappers::map_replicaset, identity).await;
+    spawn::<StatefulSet>(mgr, &client, ResourceKind::Statefulsets, mappers::map_statefulset, identity).await;
+    spawn::<DaemonSet>(mgr, &client, ResourceKind::Daemonsets, mappers::map_daemonset, identity).await;
+    spawn::<Job>(mgr, &client, ResourceKind::Jobs, mappers::map_job, identity).await;
+    spawn::<CronJob>(mgr, &client, ResourceKind::Cronjobs, mappers::map_cronjob, identity).await;
+    spawn::<Service>(mgr, &client, ResourceKind::Services, mappers::map_service, identity).await;
+    spawn::<Ingress>(mgr, &client, ResourceKind::Ingresses, mappers::map_ingress, identity).await;
+    spawn::<IngressClass>(mgr, &client, ResourceKind::Ingressclasses, mappers::map_ingressclass, identity).await;
+    spawn::<ConfigMap>(mgr, &client, ResourceKind::Configmaps, mappers::map_configmap, identity).await;
+    spawn::<Secret>(mgr, &client, ResourceKind::Secrets, mappers::map_secret, identity).await;
+    spawn::<ServiceAccount>(mgr, &client, ResourceKind::Serviceaccounts, mappers::map_serviceaccount, identity).await;
+    spawn::<PersistentVolumeClaim>(mgr, &client, ResourceKind::Persistentvolumeclaims, mappers::map_pvc, identity).await;
+    spawn::<PersistentVolume>(mgr, &client, ResourceKind::Persistentvolumes, mappers::map_pv, identity).await;
+    spawn::<StorageClass>(mgr, &client, ResourceKind::Storageclasses, mappers::map_storageclass, identity).await;
+    spawn::<Node>(mgr, &client, ResourceKind::Nodes, mappers::map_node, identity).await;
+    spawn::<Namespace>(mgr, &client, ResourceKind::Namespaces, mappers::map_namespace, identity).await;
+    // Cluster-wide events feed: ordered Warnings-first/newest and capped (B14).
+    spawn::<Event>(mgr, &client, ResourceKind::Events, mappers::map_event, events_order).await;
+    // Helm releases, decoded from their Secrets (B26).
+    let app = mgr.app();
+    let helm_client = client.clone();
+    let handle = tokio::spawn(async move { run_helm_watcher(helm_client, app).await });
+    mgr.push_task(handle).await;
+    21
 }
 
-// ---------------------------------------------------------------------------
-// start_watcher — public entry point used by ClientManager.
-// ---------------------------------------------------------------------------
+/// Spawn one watcher task and register it with the manager.
+async fn spawn<K>(
+    mgr: &ClientManager,
+    client: &Client,
+    kind: ResourceKind,
+    map_fn: fn(&K) -> Row,
+    post_fn: fn(Vec<Row>) -> Vec<Row>,
+) where
+    // All of these are concrete typed resources whose DynamicType (for both the
+    // Resource and Lookup traits) is the unit type; pinning it to () disambiguates
+    // the two associated types and satisfies the Default/Eq/Hash/Clone/Send bounds
+    // required by Api::all, watcher(), and reflector::store().
+    K: Resource<DynamicType = ()>
+        + Lookup<DynamicType = ()>
+        + Clone
+        + DeserializeOwned
+        + Debug
+        + Send
+        + Sync
+        + 'static,
+{
+    let app = mgr.app();
+    let client = client.clone();
+    let handle = tokio::spawn(async move {
+        run_watcher::<K>(client, app, kind, map_fn, post_fn).await;
+    });
+    mgr.push_task(handle).await;
+}
 
-/// Start a watcher for `kind`. Emits the initial snapshot immediately,
-/// then watches and emits (throttled) on every change.
-pub async fn start_watcher(
+/// Drive a reflector for `K` and emit debounced, post-processed snapshots for `kind`.
+async fn run_watcher<K>(
+    client: Client,
     app: AppHandle,
-    mgr: Arc<ClientManager>,
-    kind: &'static str,
-) -> AppResult<WatcherHandle> {
-    let client = mgr.client().await?;
+    kind: ResourceKind,
+    map_fn: fn(&K) -> Row,
+    post_fn: fn(Vec<Row>) -> Vec<Row>,
+) where
+    // Pin both DynamicType assoc types to () (see spawn()'s bound for why).
+    K: Resource<DynamicType = ()>
+        + Lookup<DynamicType = ()>
+        + Clone
+        + DeserializeOwned
+        + Debug
+        + Send
+        + Sync
+        + 'static,
+{
+    // Cluster-wide watch for this kind.
+    let api: Api<K> = Api::all(client);
+    let (reader, writer) = reflector::store::<K>();
 
-    // 1) Initial snapshot — UI has data right away.
-    if let Ok(snap) = snapshot_kind(&client, kind).await {
-        let _ = app.emit("resource-update", &snap);
-    }
+    // reflector() writes every event into the store and passes it through; the
+    // store therefore reflects adds *and* deletes. default_backoff() retries on
+    // transient/permission errors instead of terminating the stream.
+    let stream = reflector(writer, watcher(api, watcher::Config::default()))
+        .default_backoff()
+        .boxed();
 
-    // 2) Spawn the watch loop. It owns its own client fetch on reconnect.
-    let task = tokio::spawn(watch_loop(app, mgr, kind));
-
-    Ok(WatcherHandle {
-        kind: kind.to_string(),
-        task,
-    })
+    pump(reader, stream, app, kind.id().to_string(), |o| Some(map_fn(o)), post_fn).await;
 }
 
-/// The actual watch loop for one kind. Reconnects on transient errors
-/// (e.g. the watcher's internal backoff), bails on disconnect.
-async fn watch_loop(app: AppHandle, mgr: Arc<ClientManager>, kind: &'static str) {
-    let mut last_emit: Option<tokio::time::Instant> = None;
-
-    loop {
-        let client = match mgr.client().await {
-            Ok(c) => c,
-            Err(_) => return, // disconnected — bail
-        };
-
-        // Build the typed signal stream for this kind.
-        let mut stream = match build_signal_stream(&client, kind).await {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::warn!(kind, "watcher build failed: {e}");
-                if mgr.client().await.is_err() {
-                    return;
-                }
-                tokio::time::sleep(Duration::from_secs(2)).await;
-                continue;
-            }
-        };
-
-        // Drain the signal stream. Throttle emits to one per `THROTTLE`.
-        while let Some(signal) = stream.next().await {
-            match signal {
-                Ok(()) => {
-                    let now = tokio::time::Instant::now();
-                    let elapsed = last_emit.map(|t| now.duration_since(t));
-                    let should_emit = match elapsed {
-                        None => true,
-                        Some(d) => d >= THROTTLE,
-                    };
-                    if should_emit {
-                        last_emit = Some(now);
-                        emit_snapshot(&app, &mgr, kind).await;
-                    } else {
-                        // Throttled — sleep the remainder then emit.
-                        let wait = THROTTLE - elapsed.unwrap();
-                        tokio::time::sleep(wait).await;
-                        if mgr.client().await.is_err() {
-                            return;
-                        }
-                        last_emit = Some(tokio::time::Instant::now());
-                        emit_snapshot(&app, &mgr, kind).await;
-                    }
-                }
-                Err(e) => {
-                    tracing::warn!(kind, "watcher stream error: {e}");
-                    // Rebuild the stream after a short pause.
-                    if mgr.client().await.is_err() {
-                        return;
-                    }
-                    break;
-                }
-            }
-        }
-
-        // Stream ended — loop and rebuild.
-        if mgr.client().await.is_err() {
-            return;
-        }
-        tokio::time::sleep(Duration::from_millis(200)).await;
-    }
+/// Ordering/reduction for the Helm feed: newest revision per release (B26).
+fn helm_latest(rows: Vec<Row>) -> Vec<Row> {
+    helm::latest_only(rows)
 }
 
-async fn emit_snapshot(app: &AppHandle, mgr: &ClientManager, kind: &str) {
-    let Ok(client) = mgr.client().await else { return };
-    let Ok(snap) = snapshot_kind(&client, kind).await else {
-        return;
-    };
-    let _ = app.emit("resource-update", &snap);
+/// Watch Helm releases (B26).
+///
+/// A second Secrets watch, field-selected to Helm's release type — the API server
+/// does the filtering, so this doesn't re-ship every Secret in the cluster just to
+/// throw most of them away. It's separate from the Secrets kind on purpose: that
+/// one redacts and lists Secrets as Secrets, while this one decodes them into
+/// something else entirely.
+async fn run_helm_watcher(client: Client, app: AppHandle) {
+    let api: Api<Secret> = Api::all(client);
+    let (reader, writer) = reflector::store::<Secret>();
+    let cfg = watcher::Config::default().fields(&format!("type={}", helm::RELEASE_SECRET_TYPE));
+    let stream = reflector(writer, watcher(api, cfg)).default_backoff().boxed();
+
+    pump(
+        reader,
+        stream,
+        app,
+        ResourceKind::Helm.id().to_string(),
+        helm::map_release,
+        helm_latest,
+    )
+    .await;
 }
 
-// ---------------------------------------------------------------------------
-// build_signal_stream — turn a typed `Api<K>` into a stream of Ok(()) / Err.
-// ---------------------------------------------------------------------------
-
-/// A signal stream is a stream of `Result<(), anyhow::Error>` —
-/// one signal per watcher event. The payload is discarded; we re-snapshot
-/// the whole kind on every signal.
-type SignalStream = std::pin::Pin<Box<dyn Stream<Item = anyhow::Result<()>> + Send>>;
-
-async fn build_signal_stream(client: &kube::Client, kind: &str) -> anyhow::Result<SignalStream> {
-    use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
-    use k8s_openapi::api::autoscaling::v1::HorizontalPodAutoscaler;
-    use k8s_openapi::api::batch::v1::{CronJob, Job};
-    use k8s_openapi::api::core::v1::{
-        ConfigMap, Event, Namespace, Node, PersistentVolumeClaim, Pod, Secret, Service,
-    };
-
-    let cfg = kube::runtime::watcher::Config::default();
-
-    /// Wrap a typed watcher stream into our signal shape.
-    fn signalize<K, S>(s: S) -> SignalStream
-    where
-        S: Stream<Item = kube::runtime::watcher::Result<watcher::Event<K>>> + Send + 'static,
-    {
-        Box::pin(s.map(|res| {
-            res.map(|_event| ()).map_err(|e| anyhow::anyhow!("{e}"))
-        }))
-    }
-
-    Ok(match kind {
-        "pods" => signalize(watcher(
-            kube::api::Api::<Pod>::all(client.clone()),
-            cfg,
-        )),
-        "deployments" => signalize(watcher(
-            kube::api::Api::<Deployment>::all(client.clone()),
-            cfg,
-        )),
-        "statefulsets" => signalize(watcher(
-            kube::api::Api::<StatefulSet>::all(client.clone()),
-            cfg,
-        )),
-        "daemonsets" => signalize(watcher(
-            kube::api::Api::<DaemonSet>::all(client.clone()),
-            cfg,
-        )),
-        "replicasets" => signalize(watcher(
-            kube::api::Api::<ReplicaSet>::all(client.clone()),
-            cfg,
-        )),
-        "jobs" => signalize(watcher(
-            kube::api::Api::<Job>::all(client.clone()),
-            cfg,
-        )),
-        "cronjobs" => signalize(watcher(
-            kube::api::Api::<CronJob>::all(client.clone()),
-            cfg,
-        )),
-        "services" => signalize(watcher(
-            kube::api::Api::<Service>::all(client.clone()),
-            cfg,
-        )),
-        "configmaps" => signalize(watcher(
-            kube::api::Api::<ConfigMap>::all(client.clone()),
-            cfg,
-        )),
-        "secrets" => signalize(watcher(
-            kube::api::Api::<Secret>::all(client.clone()),
-            cfg,
-        )),
-        "nodes" => signalize(watcher(
-            kube::api::Api::<Node>::all(client.clone()),
-            cfg,
-        )),
-        "namespaces" => signalize(watcher(
-            kube::api::Api::<Namespace>::all(client.clone()),
-            cfg,
-        )),
-        "hpa" => signalize(watcher(
-            kube::api::Api::<HorizontalPodAutoscaler>::all(client.clone()),
-            cfg,
-        )),
-        "events" => signalize(watcher(
-            kube::api::Api::<Event>::all(client.clone()),
-            cfg,
-        )),
-        "pvc" => signalize(watcher(
-            kube::api::Api::<PersistentVolumeClaim>::all(client.clone()),
-            cfg,
-        )),
-        other => anyhow::bail!("unsupported watched kind: {other}"),
-    })
+/// Spawn a watcher for a CRD-backed kind (B15), registered so it can be aborted
+/// on its own when the user navigates away. Unlike the built-ins these start
+/// lazily: freya alone has 44 CRDs, and watching them all on connect would open
+/// dozens of pointless streams.
+pub async fn spawn_custom(mgr: &ClientManager, client: Client, kind: &CustomKind) {
+    let app = mgr.app();
+    let id = kind.id.clone();
+    let ar = kind.api_resource();
+    let namespaced = kind.namespaced;
+    let handle = tokio::spawn(async move {
+        run_custom_watcher(client, app, id, ar, namespaced).await;
+    });
+    mgr.add_custom_watcher(kind.id.clone(), handle).await;
 }
 
-// ---------------------------------------------------------------------------
-// snapshot_kind — fresh list, used by the watcher on every emit and
-// also by the `list_*` Tauri commands for cold reads.
-// ---------------------------------------------------------------------------
+/// Drive a `DynamicObject` reflector for one CRD-backed kind.
+async fn run_custom_watcher(
+    client: Client,
+    app: AppHandle,
+    id: String,
+    ar: ApiResource,
+    namespaced: bool,
+) {
+    let api: Api<DynamicObject> = Api::all_with(client, &ar);
 
-/// Take a complete snapshot of `kind` via a fresh list call.
-pub async fn snapshot_kind(
-    client: &kube::Client,
-    kind: &str,
-) -> Result<ResourceSnapshot, anyhow::Error> {
-    use super::mappers;
+    // DynamicObject's DynamicType is the ApiResource itself (it's what tells the
+    // store how to identify objects), so the store is built from `ar` rather than
+    // via reflector::store()'s Default-based path used for typed kinds.
+    let writer = reflector::store::Writer::<DynamicObject>::new(ar.clone());
+    let reader = writer.as_reader();
 
-    let rows: Vec<super::dto::Row> = match kind {
-        "pods" => {
-            let api: kube::api::Api<k8s_openapi::api::core::v1::Pod> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::pod_to_row).collect()
-        }
-        "deployments" => {
-            let api: kube::api::Api<k8s_openapi::api::apps::v1::Deployment> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::deployment_to_row).collect()
-        }
-        "services" => {
-            let api: kube::api::Api<k8s_openapi::api::core::v1::Service> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::service_to_row).collect()
-        }
-        "nodes" => {
-            let api: kube::api::Api<k8s_openapi::api::core::v1::Node> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::node_to_row).collect()
-        }
-        "namespaces" => {
-            let api: kube::api::Api<k8s_openapi::api::core::v1::Namespace> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::namespace_to_row).collect()
-        }
-        "configmaps" => {
-            let api: kube::api::Api<k8s_openapi::api::core::v1::ConfigMap> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::configmap_to_row).collect()
-        }
-        "events" => {
-            let api: kube::api::Api<k8s_openapi::api::core::v1::Event> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::event_to_row).collect()
-        }
-        "secrets" => {
-            let api: kube::api::Api<k8s_openapi::api::core::v1::Secret> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::secret_to_row).collect()
-        }
-        "hpa" => {
-            let api: kube::api::Api<
-                k8s_openapi::api::autoscaling::v1::HorizontalPodAutoscaler,
-            > = kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::hpa_to_row).collect()
-        }
-        "statefulsets" => {
-            let api: kube::api::Api<k8s_openapi::api::apps::v1::StatefulSet> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::statefulset_to_row).collect()
-        }
-        "daemonsets" => {
-            let api: kube::api::Api<k8s_openapi::api::apps::v1::DaemonSet> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::daemonset_to_row).collect()
-        }
-        "replicasets" => {
-            let api: kube::api::Api<k8s_openapi::api::apps::v1::ReplicaSet> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::replicaset_to_row).collect()
-        }
-        "jobs" => {
-            let api: kube::api::Api<k8s_openapi::api::batch::v1::Job> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::job_to_row).collect()
-        }
-        "cronjobs" => {
-            let api: kube::api::Api<k8s_openapi::api::batch::v1::CronJob> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::cronjob_to_row).collect()
-        }
-        "pvc" => {
-            let api: kube::api::Api<k8s_openapi::api::core::v1::PersistentVolumeClaim> =
-                kube::api::Api::all(client.clone());
-            let list = api.list(&ListParams::default()).await?;
-            list.iter().map(mappers::pvc_to_row).collect()
-        }
-        other => anyhow::bail!("snapshot_kind: unsupported kind {other}"),
-    };
+    let stream = reflector(writer, watcher(api, watcher::Config::default()))
+        .default_backoff()
+        .boxed();
 
-    Ok(ResourceSnapshot {
-        kind: kind.to_string(),
-        rows,
-    })
-}
-
-// ---------------------------------------------------------------------------
-// cluster-status poller
-// ---------------------------------------------------------------------------
-
-/// Spawn a background task that polls cluster status every
-/// [`STATUS_INTERVAL`] and emits a `cluster-status` event.
-pub fn spawn_status_poller(app: AppHandle, mgr: Arc<ClientManager>) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(STATUS_INTERVAL);
-        // First tick fires immediately; skip it so we don't emit a
-        // pre-connection status.
-        ticker.tick().await;
-        loop {
-            ticker.tick().await;
-            if mgr.client().await.is_err() {
-                return; // disconnected
-            }
-            let status = compute_status(&mgr).await;
-            let _ = app.emit("cluster-status", &status);
-        }
-    })
-}
-
-/// Snapshot the cluster status (latency, ready/total nodes, optional
-/// metrics-server CPU/mem).
-async fn compute_status(mgr: &ClientManager) -> ClusterStatus {
-    let mut s = ClusterStatus {
-        connected: true,
-        ..ClusterStatus::default()
-    };
-
-    if let Some(info) = mgr.cluster_info().await {
-        s.version = info.version;
-    }
-
-    let client = match mgr.client().await {
-        Ok(c) => c,
-        Err(_) => return s,
-    };
-
-    // Latency: time a small list call takes.
-    let start = tokio::time::Instant::now();
-    let nodes_res = kube::api::Api::<k8s_openapi::api::core::v1::Node>::all(client.clone())
-        .list(&kube::api::ListParams {
-            limit: Some(50),
-            ..Default::default()
-        })
+    // Generic columns only: a CRD's interesting fields live in an arbitrary schema.
+    pump(reader, stream, app, id, move |o| Some(mappers::map_dynamic(o, namespaced)), identity)
         .await;
-    s.api_latency_ms = start.elapsed().as_millis() as u64;
+}
 
-    if let Ok(list) = nodes_res {
-        s.nodes_total = list.items.len() as u32;
-        s.nodes_ready = list
-            .items
-            .iter()
-            .filter(|n| {
-                n.status
-                    .as_ref()
-                    .and_then(|st| st.conditions.as_ref())
-                    .map(|conds| {
-                        conds
-                            .iter()
-                            .any(|c| c.type_ == "Ready" && c.status == "True")
-                    })
-                    .unwrap_or(false)
-            })
-            .count() as u32;
+/// The shared watch loop: coalesce watch events, then emit a full post-processed
+/// snapshot at most once per [`DEBOUNCE`]. Generic over the object type so typed
+/// and dynamic watchers share one implementation.
+async fn pump<K>(
+    reader: reflector::Store<K>,
+    mut stream: BoxStream<'static, Result<watcher::Event<K>, watcher::Error>>,
+    app: AppHandle,
+    kind: String,
+    // Option, not Row: the Helm watcher (B26) sees Secrets it can't decode, and a
+    // watcher that must invent a row for every object it's handed would have to
+    // put junk in the table.
+    map_fn: impl Fn(&K) -> Option<Row>,
+    post_fn: fn(Vec<Row>) -> Vec<Row>,
+) where
+    K: Lookup + Clone + 'static,
+    K::DynamicType: Eq + Hash + Clone,
+{
+    // A ticker gates emits to at most one per DEBOUNCE window.
+    let mut ticker = interval(DEBOUNCE);
+    ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
+
+    let mut dirty = false;
+    loop {
+        tokio::select! {
+            // A watch event arrived; the store is already updated. Mark dirty so the
+            // next tick emits a fresh snapshot.
+            ev = stream.next() => match ev {
+                Some(Ok(_)) => { dirty = true; }
+                Some(Err(e)) => {
+                    // Logged, not fatal — backoff will retry this one kind.
+                    tracing::warn!("watch {kind} error: {e}");
+                }
+                None => break, // stream ended (client dropped on reset)
+            },
+            // Debounce window elapsed; emit if anything changed.
+            _ = ticker.tick() => {
+                if dirty {
+                    dirty = false;
+                    let rows: Vec<Row> =
+                        reader.state().iter().filter_map(|o| map_fn(o.as_ref())).collect();
+                    let rows = post_fn(rows);
+                    // Emit failures are non-fatal (webview may be gone).
+                    let _ = app.emit(
+                        events::RESOURCE_UPDATE,
+                        ResourceUpdate { kind: kind.clone(), rows },
+                    );
+                }
+            }
+        }
     }
-
-    // P1: CPU / mem from metrics-server are deferred — k8s-openapi
-    // 0.25 doesn't ship `metrics.k8s.io` types without a feature flag.
-    // The DTO has `Option<f64>`, so the UI just renders "—".
-
-    s
-}
-
-#[allow(dead_code)]
-fn parse_cpu(q: Option<k8s_openapi::apimachinery::pkg::api::resource::Quantity>) -> f64 {
-    // Reserved for P2 — k8s-openapi 0.25 doesn't ship metrics types
-    // without a feature flag. Reused once the feature is enabled.
-    let _ = q;
-    0.0
-}
-
-#[allow(dead_code)]
-fn parse_mem(q: Option<k8s_openapi::apimachinery::pkg::api::resource::Quantity>) -> f64 {
-    let _ = q;
-    0.0
 }

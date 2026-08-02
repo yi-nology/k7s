@@ -1,84 +1,70 @@
-//! Unified error type for the k7s backend.
+//! Application error type.
 //!
-//! Everything that crosses the Tauri command boundary funnels through
-//! `AppError`, so the frontend can show a single, consistent error message
-//! (with the underlying cause chain) instead of "stringly typed" surprises.
-//!
-//! Rules of thumb:
-//!   - Wrap anything from `kube`, `k8s_openapi`, `serde_yaml`, etc. with
-//!     `AppError::from` (the `From` impl handles the conversion).
-//!   - For domain errors, add a new variant rather than smuggling strings.
-//!   - The `Display` impl is what the frontend sees — keep it short and useful.
+//! Every Tauri command returns `Result<T, AppError>`. `AppError` serializes to a
+//! plain string so the frontend receives a human-readable message (e.g. a
+//! kubeconfig parse failure or a Kubernetes API 403) rather than an opaque code.
 
-use serde::Serialize;
-use thiserror::Error;
+use serde::{Serialize, Serializer};
 
-#[derive(Debug, Error)]
+/// The single error type surfaced to the frontend across the command boundary.
+#[derive(Debug, thiserror::Error)]
 pub enum AppError {
+    /// No kubeconfig could be found or parsed.
     #[error("kubeconfig error: {0}")]
     Kubeconfig(String),
 
-    #[error("kubernetes API error: {0}")]
-    Kube(#[from] kube_client::Error),
+    /// Building a client or talking to the API server failed.
+    #[error("kubernetes error: {0}")]
+    Kube(String),
 
-    #[error("serialization error: {0}")]
-    Serde(#[from] serde_yaml::Error),
-
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("invalid argument: {0}")]
-    Invalid(String),
-
+    /// A requested context/resource was not present.
     #[error("not found: {0}")]
     NotFound(String),
 
-    #[error("forbidden: {0}")]
-    Forbidden(String),
+    /// YAML (de)serialization failed while reading or applying a manifest.
+    #[error("yaml error: {0}")]
+    Yaml(String),
 
-    #[error("conflict: {0}")]
-    Conflict(String),
-
-    #[error("not connected to a cluster")]
-    NotConnected,
-
-    #[error("operation cancelled")]
-    Cancelled,
-
+    /// Catch-all for anything that doesn't fit the above.
     #[error("{0}")]
     Other(String),
 }
 
-impl AppError {
-    /// Build a generic error from a `Display` value.
-    pub fn msg(s: impl Into<String>) -> Self {
-        AppError::Other(s.into())
+// Serialize the error as its `Display` string. Tauri sends this to the webview,
+// where the UI shows it verbatim (e.g. inline under the YAML editor).
+impl Serialize for AppError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+// Convenience conversions so `?` works against the crates we use most.
+impl From<kube::Error> for AppError {
+    fn from(e: kube::Error) -> Self {
+        AppError::Kube(e.to_string())
+    }
+}
+
+impl From<kube::config::KubeconfigError> for AppError {
+    fn from(e: kube::config::KubeconfigError) -> Self {
+        AppError::Kubeconfig(e.to_string())
+    }
+}
+
+impl From<serde_yaml::Error> for AppError {
+    fn from(e: serde_yaml::Error) -> Self {
+        AppError::Yaml(e.to_string())
     }
 }
 
 impl From<anyhow::Error> for AppError {
     fn from(e: anyhow::Error) -> Self {
-        AppError::Other(format!("{e:#}"))
+        AppError::Other(e.to_string())
     }
 }
 
-/// Tauri commands return `Result<T, AppError>`. The frontend sees a string
-/// (Tauri's default for `serde::Serialize` of an `Error` type). We wrap the
-/// error in a structured shape so callers can introspect cause if needed,
-/// while keeping the surface stable.
-#[derive(Debug, Serialize)]
-pub struct AppErrorDto {
-    pub message: String,
-}
-
-impl Serialize for AppError {
-    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        AppErrorDto {
-            message: self.to_string(),
-        }
-        .serialize(serializer)
-    }
-}
-
-/// Convenience alias used throughout the backend.
-pub type AppResult<T> = std::result::Result<T, AppError>;
+/// Shorthand for command return types.
+pub type AppResult<T> = Result<T, AppError>;

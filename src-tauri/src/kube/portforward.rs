@@ -1,311 +1,252 @@
-//! Port-forwarding — real SPDY stream with TCP listener.
+//! Port-forwarding a pod port to a local TCP listener (B6), and resolving a
+//! Service down to one of its pods so Services can be forwarded too (B16).
 //!
-//! Flow:
-//!   1. Bind a `TcpListener` on `127.0.0.1:local_port` (fail fast if taken).
-//!   2. For `kind=Service`, resolve to a backing pod (the kubelet
-//!      portforward subresource only exists on Pod).
-//!   3. Open a `kube::api::Portforwarder` (uses the websocket
-//!      streaming protocol).
-//!   4. Accept the first TCP connection, pump bytes both ways until
-//!      it closes, then abort the Portforwarder.
-//!   5. On `stop_port_forward`: drop the listener, notify the pump
-//!      task, abort the underlying Portforwarder.
+//! A forward binds `127.0.0.1:0` (an OS-assigned local port) and, for each
+//! incoming local connection, opens a fresh `portforward` to the pod and pumps
+//! bytes bidirectionally. Per-connection tasks live in a JoinSet owned by the
+//! accept loop, so aborting the forward (on stop / disconnect) tears down every
+//! connection with it.
 //!
-//! k7s v0.1: one TCP connection per forward. The Portforwarder gives
-//! us a single `AsyncRead + AsyncWrite` duplex per port; serving
-//! concurrent connections would require requesting multiple ports
-//! from the kubelet. If you need parallel, open multiple forwards.
+//! Kubernetes has no "forward to a Service" primitive — `kubectl port-forward
+//! svc/x` also just picks a backing pod — so [`resolve_service`] does that pick
+//! here and everything downstream is the plain pod path.
 
-use std::sync::Arc;
-
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::Api;
-use tokio::io::{AsyncRead, AsyncWrite};
+use crate::error::AppError;
+use k8s_openapi::api::core::v1::{Pod, Service};
+use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
+use kube::api::ListParams;
+use kube::{Api, Client};
 use tokio::net::TcpListener;
-use tokio::sync::Notify;
-use tracing::{error, info, warn};
+use tokio::sync::{mpsc, oneshot};
+use tokio::task::JoinSet;
 
-use crate::error::{AppError, AppResult};
-use crate::kube::manager::{ClientManager, PortForwardHandle};
-
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct ForwardDto {
-    pub id: String,
-    pub kind: String,
-    pub name: String,
-    pub namespace: String,
-    pub local_port: u16,
-    pub remote_port: u16,
-    pub started_at: chrono::DateTime<chrono::Utc>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub service: Option<String>,
-    /// The actual pod we're forwarding through (resolved for Service
-    /// forwards).
-    pub pod: String,
-}
-
-pub async fn start_port_forward(
-    mgr: Arc<ClientManager>,
-    kind: String,
-    name: String,
+/// Run a port-forward accept loop. Sends the bound local port (or an error) back
+/// through `ready` once the listener is up, then serves connections until aborted.
+///
+/// `errors` reports per-connection failures (the pod died, connection refused) so
+/// the UI can flag the forward: those happen long after `ready` has been answered,
+/// and would otherwise be invisible — the local port keeps accepting either way.
+pub async fn run_port_forward(
+    client: Client,
     namespace: String,
-    local_port: u16,
-    remote_port: u16,
-) -> AppResult<ForwardDto> {
-    // 1. Bind the local listener. If the port is taken, fail fast.
-    let listener = TcpListener::bind(("127.0.0.1", local_port))
-        .await
-        .map_err(|e| AppError::msg(format!("local port {local_port} unavailable: {e}")))?;
-
-    // 2. Resolve the eventual target. The portforward subresource is
-    // only on Pod, so for a Service we pick one backing pod.
-    let (target_name, service_label) = if kind.eq_ignore_ascii_case("Service") {
-        let pod = pick_pod_for_service(&mgr, &name, &namespace).await?;
-        (pod, Some(name.clone()))
-    } else {
-        (name.clone(), None)
-    };
-
-    // 3. Open the Portforwarder.
-    let client = mgr.client().await?;
-    let api: Api<Pod> = Api::namespaced(client, &namespace);
-    let mut pf = api
-        .portforward(&target_name, &[remote_port])
-        .await
-        .map_err(|e| AppError::msg(format!("portforward open: {e}")))?;
-
-    // 4. Take the per-port duplex stream.
-    let pf_stream = pf
-        .take_stream(remote_port)
-        .ok_or_else(|| AppError::msg(format!("port {remote_port} not in portforwarder")))?;
-
-    // 5. Register the handle in the manager.
-    let id = format!("{}-{}", target_name, uuid_v4_short());
-    let cancel = Arc::new(Notify::new());
-    let started_at = chrono::Utc::now();
-    mgr.insert_port_forward(PortForwardHandle {
-        id: id.clone(),
-        kind: kind.clone(),
-        name: name.clone(),
-        namespace: namespace.clone(),
-        local_port,
-        remote_port,
-        started_at,
-        cancel: Some(cancel.clone()),
-    })
-    .await;
-
-    // 6. Spawn the pump task. It accepts ONE connection, pumps, and
-    // aborts. The Portforwarder is held in a Mutex so `stop` can
-    // call `.abort()` on it from another task.
-    let pf_handle = Arc::new(tokio::sync::Mutex::new(pf));
-    let pump_id = id.clone();
-    let pump_pod = target_name.clone();
-    tokio::spawn(async move {
-        if let Err(e) = pump_one_connection(
-            listener,
-            pf_stream,
-            pf_handle,
-            cancel,
-            pump_id.clone(),
-            pump_pod,
-            local_port,
-            remote_port,
-        )
-        .await
-        {
-            error!(id = pump_id, error = %e, "port-forward pump ended with error");
-        }
-    });
-
-    info!(
-        id,
-        local = local_port,
-        remote = remote_port,
-        target = %target_name,
-        "port-forward started"
-    );
-
-    Ok(ForwardDto {
-        id,
-        kind,
-        name,
-        namespace,
-        local_port,
-        remote_port,
-        started_at,
-        service: service_label,
-        pod: target_name,
-    })
-}
-
-pub async fn stop_port_forward(mgr: Arc<ClientManager>, id: &str) -> AppResult<()> {
-    if let Some(mut h) = mgr.take_port_forward(id).await {
-        if let Some(notify) = h.cancel.take() {
-            notify.notify_one();
-        }
-        Ok(())
-    } else {
-        Err(AppError::NotFound(format!("port forward {id}")))
-    }
-}
-
-pub async fn list_port_forwards(mgr: Arc<ClientManager>) -> AppResult<Vec<ForwardDto>> {
-    let list = mgr.list_port_forwards().await;
-    Ok(list
-        .into_iter()
-        .map(|h| {
-            let pod = h.name.clone();
-            ForwardDto {
-                id: h.id,
-                kind: h.kind,
-                name: h.name,
-                namespace: h.namespace,
-                local_port: h.local_port,
-                remote_port: h.remote_port,
-                started_at: h.started_at,
-                service: None,
-                pod,
-            }
-        })
-        .collect())
-}
-
-/// Accept one TCP connection, pump bytes both ways, return. Cancel
-/// drops the listener so the blocked `accept` errors out and we
-/// exit; the Portforwarder is then aborted to release the kubelet
-/// connection.
-async fn pump_one_connection<S>(
-    listener: TcpListener,
-    pf_stream: S,
-    pf_handle: Arc<tokio::sync::Mutex<kube::api::Portforwarder>>,
-    cancel: Arc<Notify>,
-    id: String,
     pod: String,
-    local_port: u16,
     remote_port: u16,
-) -> AppResult<()>
-where
-    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
-{
-    // Wait for the first connection or cancel.
-    let (mut tcp, peer) = tokio::select! {
-        biased;
-        _ = cancel.notified() => {
-            info!(id, "port-forward cancelled before any connection");
-            pf_handle.lock().await.abort();
-            return Ok(());
+    ready: oneshot::Sender<Result<u16, String>>,
+    errors: mpsc::Sender<String>,
+) {
+    let listener = match TcpListener::bind(("127.0.0.1", 0)).await {
+        Ok(l) => l,
+        Err(e) => {
+            let _ = ready.send(Err(e.to_string()));
+            return;
         }
-        accept = listener.accept() => accept.map_err(|e| {
-            AppError::msg(format!("accept on 127.0.0.1:{local_port}: {e}"))
-        })?,
     };
-
-    info!(
-        id,
-        pod = %pod,
-        local = local_port,
-        remote = remote_port,
-        peer = %peer,
-        "port-forward connection open"
-    );
-
-    // `copy_bidirectional` takes two AsyncRead+AsyncWrite streams.
-    // TcpStream and the Portforwarder duplex both qualify, so we
-    // don't need to split either.
-    let mut pf_stream = pf_stream;
-    let pump = tokio::io::copy_bidirectional(&mut tcp, &mut pf_stream);
-    tokio::select! {
-        biased;
-        _ = cancel.notified() => {
-            info!(id, "port-forward cancelled mid-pump");
+    let local_port = match listener.local_addr() {
+        Ok(a) => a.port(),
+        Err(e) => {
+            let _ = ready.send(Err(e.to_string()));
+            return;
         }
-        res = pump => {
-            if let Err(e) = res {
-                warn!(id, error = %e, "pump ended with error");
-            } else {
-                info!(id, "pump finished cleanly");
-            }
-        }
+    };
+    // Report success (with the chosen local port) before entering the accept loop.
+    if ready.send(Ok(local_port)).is_err() {
+        return; // caller went away
     }
 
-    pf_handle.lock().await.abort();
-    info!(id, "port-forward one-shot cycle complete");
-    Ok(())
+    let api: Api<Pod> = Api::namespaced(client, &namespace);
+    let mut conns = JoinSet::new();
+
+    while let Ok((mut tcp, _)) = listener.accept().await {
+        let api = api.clone();
+        let pod = pod.clone();
+        let errors = errors.clone();
+        conns.spawn(async move {
+            // One portforward stream per local connection.
+            match api.portforward(&pod, &[remote_port]).await {
+                Ok(mut pf) => match pf.take_stream(remote_port) {
+                    // Pump until either side closes.
+                    Some(mut upstream) => {
+                        let _ = tokio::io::copy_bidirectional(&mut tcp, &mut upstream).await;
+                    }
+                    None => {
+                        let _ = errors.try_send(format!("port {remote_port} not open on {pod}"));
+                    }
+                },
+                Err(e) => {
+                    // try_send, not send: never block the accept loop on a full
+                    // error channel — one reported failure is enough to flag it.
+                    let _ = errors.try_send(e.to_string());
+                }
+            }
+        });
+    }
 }
 
-/// Resolve a Service to one of its backing pods. Picks the first
-/// ready pod the selector matches; falls back to any match.
-async fn pick_pod_for_service(
-    mgr: &ClientManager,
-    service: &str,
+/// Resolve a Service to a Ready backing pod and the container port to forward to.
+///
+/// `service_port` is the port as published by the Service; the returned port is
+/// its `targetPort` on the pod, which is often different and may be *named* (in
+/// which case it's looked up in the chosen pod's container ports).
+pub async fn resolve_service(
+    client: Client,
     namespace: &str,
-) -> AppResult<String> {
-    use k8s_openapi::api::core::v1::{Pod as KubePod, Service};
-    use kube::api::ListParams;
-    use kube::ResourceExt;
-
-    let client = mgr.client().await?;
+    service: &str,
+    service_port: u16,
+) -> Result<(String, u16), AppError> {
     let svc_api: Api<Service> = Api::namespaced(client.clone(), namespace);
     let svc = svc_api
-        .get(service)
+        .get_opt(service)
         .await
-        .map_err(|e| AppError::msg(format!("service {service} not found: {e}")))?;
-    let selector = svc
+        .map_err(|e| AppError::Kube(e.to_string()))?
+        .ok_or_else(|| AppError::NotFound(format!("service {service} not found")))?;
+    let spec = svc
         .spec
-        .as_ref()
-        .and_then(|s| s.selector.as_ref())
-        .ok_or_else(|| {
-            AppError::msg(format!("service {service} has no selector (headless? externalName?)"))
-        })?;
+        .ok_or_else(|| AppError::Other(format!("service {service} has no spec")))?;
+
+    // Selector-less Services (ExternalName, or manually-managed Endpoints) have no
+    // pods of their own to forward to.
+    let selector = spec.selector.unwrap_or_default();
     if selector.is_empty() {
-        return Err(AppError::msg(format!(
-            "service {service} has empty selector"
+        return Err(AppError::Other(format!(
+            "service {service} has no selector, so it has no pods to forward to"
         )));
     }
 
-    let label_sel = selector
+    // Find the requested port's spec to learn its targetPort.
+    let ports = spec.ports.unwrap_or_default();
+    let port_spec = ports
         .iter()
-        .map(|(k, v)| format!("{k}={v}"))
-        .collect::<Vec<_>>()
-        .join(",");
+        .find(|p| p.port == i32::from(service_port))
+        .ok_or_else(|| {
+            let available: Vec<String> = ports.iter().map(|p| p.port.to_string()).collect();
+            AppError::Other(format!(
+                "service {service} has no port {service_port} (has: {})",
+                if available.is_empty() { "none".into() } else { available.join(", ") }
+            ))
+        })?;
 
-    let pod_api: Api<KubePod> = Api::namespaced(client, namespace);
-    let pods = pod_api
-        .list(&ListParams::default().labels(&label_sel))
+    // Pick a Ready pod: an unready pod would accept the forward and fail the traffic.
+    let label_selector =
+        selector.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(",");
+    let pods: Api<Pod> = Api::namespaced(client, namespace);
+    let list = pods
+        .list(&ListParams::default().labels(&label_selector))
         .await
-        .map_err(|e| AppError::msg(format!("pod list for service {service}: {e}")))?;
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+    let pod = list
+        .items
+        .iter()
+        .find(|p| is_ready(p))
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "service {service} has no ready pods ({} matched its selector)",
+                list.items.len()
+            ))
+        })?;
+    let pod_name = pod.metadata.name.clone().unwrap_or_default();
 
-    let ready = pods.iter().find(|p| is_pod_ready(p));
-    let pick = ready.or_else(|| pods.items.first());
-
-    pick.map(|p| p.name_any()).ok_or_else(|| {
-        AppError::msg(format!(
-            "service {service} selector matched no pods in {namespace}"
-        ))
-    })
-}
-
-fn is_pod_ready(pod: &Pod) -> bool {
-    let status = match pod.status.as_ref() {
-        Some(s) => s,
-        None => return false,
+    // targetPort defaults to the service port when unset; a named one is resolved
+    // against the pod we just chose.
+    let target = match &port_spec.target_port {
+        None => service_port,
+        Some(IntOrString::Int(n)) => u16::try_from(*n)
+            .map_err(|_| AppError::Other(format!("invalid targetPort {n}")))?,
+        Some(IntOrString::String(name)) => named_container_port(pod, name).ok_or_else(|| {
+            AppError::Other(format!(
+                "service {service} targets port \"{name}\", which pod {pod_name} does not declare"
+            ))
+        })?,
     };
-    let phase_ok = status.phase.as_deref() == Some("Running");
-    let ready_cond = status
-        .conditions
-        .as_ref()
-        .and_then(|c| c.iter().find(|c| c.type_ == "Ready"))
-        .map(|c| c.status == "True")
-        .unwrap_or(false);
-    phase_ok && ready_cond
+
+    Ok((pod_name, target))
 }
 
-fn uuid_v4_short() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-    format!("{:x}", nanos)
+/// True when the pod's Ready condition is True.
+fn is_ready(pod: &Pod) -> bool {
+    pod.status
+        .as_ref()
+        .and_then(|s| s.conditions.as_ref())
+        .map(|cs| cs.iter().any(|c| c.type_ == "Ready" && c.status == "True"))
+        .unwrap_or(false)
+}
+
+/// Look up a named container port (e.g. targetPort: "http") in a pod's containers.
+fn named_container_port(pod: &Pod, name: &str) -> Option<u16> {
+    let spec = pod.spec.as_ref()?;
+    for c in &spec.containers {
+        for p in c.ports.iter().flatten() {
+            if p.name.as_deref() == Some(name) {
+                return u16::try_from(p.container_port).ok();
+            }
+        }
+    }
+    None
+}
+
+/// Ensure a pod exists (friendly error otherwise) before forwarding to it.
+pub async fn ensure_pod(client: Client, namespace: &str, pod: &str) -> Result<(), AppError> {
+    let api: Api<Pod> = Api::namespaced(client, namespace);
+    match api.get_opt(pod).await {
+        Ok(Some(_)) => Ok(()),
+        Ok(None) => Err(AppError::NotFound(format!("pod {pod} not found"))),
+        Err(e) => Err(AppError::Kube(e.to_string())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// A pod with the given Ready condition and named container ports.
+    fn pod(ready: bool, ports: &[(&str, i32)]) -> Pod {
+        let ports: Vec<_> =
+            ports.iter().map(|(n, p)| json!({ "name": n, "containerPort": p })).collect();
+        serde_json::from_value(json!({
+            "metadata": { "name": "p1", "namespace": "prod" },
+            "spec": { "containers": [{ "name": "app", "ports": ports }] },
+            "status": {
+                "conditions": [
+                    { "type": "Ready", "status": if ready { "True" } else { "False" } }
+                ]
+            },
+        }))
+        .unwrap()
+    }
+
+    /// Only pods whose Ready condition is True are forwardable: an unready pod
+    /// would accept the connection and then fail the traffic.
+    #[test]
+    fn readiness_is_read_from_conditions() {
+        assert!(is_ready(&pod(true, &[])));
+        assert!(!is_ready(&pod(false, &[])));
+    }
+
+    /// A pod with no status at all (just scheduled) is not ready.
+    #[test]
+    fn pod_without_status_is_not_ready() {
+        let p: Pod = serde_json::from_value(json!({ "metadata": { "name": "p" } })).unwrap();
+        assert!(!is_ready(&p));
+    }
+
+    /// Named targetPorts resolve to the container port that declares the name.
+    #[test]
+    fn resolves_named_container_port() {
+        let p = pod(true, &[("http", 8080), ("metrics", 9090)]);
+        assert_eq!(named_container_port(&p, "metrics"), Some(9090));
+        assert_eq!(named_container_port(&p, "http"), Some(8080));
+    }
+
+    /// An unknown port name resolves to nothing (caller turns this into an error
+    /// naming the pod, rather than forwarding to a wrong port).
+    #[test]
+    fn unknown_port_name_is_none() {
+        assert_eq!(named_container_port(&pod(true, &[("http", 8080)]), "grpc"), None);
+    }
+
+    /// Containers without declared ports don't panic the lookup.
+    #[test]
+    fn pod_without_ports_is_none() {
+        assert_eq!(named_container_port(&pod(true, &[]), "http"), None);
+    }
 }

@@ -1,29 +1,26 @@
 /**
- * Provider injection — single entry point for "which data source".
+ * Provider selection. Exactly one {@link DataProvider} is constructed for the app:
+ *   - demo mode (VITE_DEMO=1): MockProvider — runs anywhere, no cluster
+ *   - otherwise:               TauriProvider — talks to the Rust backend
  *
- * `VITE_DEMO=1` (vite env) → MockProvider; otherwise → TauriProvider.
- * Components import `useProvider()` and never see either directly.
+ * Components import `getProvider()` and never reference a concrete class, keeping
+ * the two implementations interchangeable.
  */
-
-import { TauriProvider } from "./tauri/TauriProvider";
-import { MockProvider } from "./mock/MockProvider";
 
 import type { DataProvider } from "./types";
+import { MockProvider } from "./mock/MockProvider";
+import { TauriProvider } from "./tauri/TauriProvider";
 
-/**
- * The single shared provider instance. Picked at module load time
- * (vite replaces `import.meta.env.VITE_DEMO` at build).
- *
- * - `npm run dev`     → MockProvider if VITE_DEMO=1
- * - `npm run tauri:dev` → TauriProvider (no env var)
- */
-const useMock =
-  typeof import.meta !== "undefined" &&
-  (import.meta as { env?: Record<string, string> }).env?.VITE_DEMO === "1";
+/** True when the app was started in demo mode (Vite env flag). */
+export const IS_DEMO = import.meta.env.VITE_DEMO === "1";
 
-export const provider: DataProvider = useMock
-  ? new MockProvider()
-  : new TauriProvider();
+// Single shared instance for the lifetime of the app.
+let instance: DataProvider | null = null;
 
-export { TauriProvider, MockProvider };
-export type { DataProvider } from "./types";
+/** Return the app's data provider (constructed lazily, once). */
+export function getProvider(): DataProvider {
+  if (!instance) {
+    instance = IS_DEMO ? new MockProvider() : new TauriProvider();
+  }
+  return instance;
+}

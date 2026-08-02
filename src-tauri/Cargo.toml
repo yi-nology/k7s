@@ -1,13 +1,16 @@
 [package]
 name = "k7s"
-version = "0.1.0"
-description = "k7s - a cross-platform Kubernetes cluster manager"
-authors = ["k7s contributors"]
+version = "0.4.0"
+description = "k7s — a Lens-style Kubernetes visual monitor"
+authors = ["k7s"]
 edition = "2021"
-rust-version = "1.77"
+# 1.77.2 is what our dependency set actually needs (tauri-plugin-window-state
+# 2.x declares it). Leaving this at 1.77 silently resolved that plugin to a
+# v0.1.1 built for Tauri v1 — cargo downgrades rather than complains.
+rust-version = "1.77.2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
+# The library crate holds all app logic (commands, kube plumbing) so it can be
+# unit-tested with `cargo test`; main.rs is a thin binary that calls into it.
 [lib]
 name = "k7s_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -16,26 +19,85 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# --- Tauri shell ---
 tauri = { version = "2", features = [] }
-tauri-plugin-opener = "2"
+tauri-plugin-shell = "2"
+# Native file-open dialog for the "Import kubeconfig" action.
+tauri-plugin-dialog = "2"
+# Remembers window size/position/monitor across launches (B22).
+tauri-plugin-window-state = "2"
+
+# HTTP client for scraping node-exporter over a port-forward (B27). Already in
+# the tree via kube, so this adds no build time; default features off because the
+# forward is plaintext on localhost and needs no TLS stack of its own.
+reqwest = { version = "0.13", default-features = false }
+
+# --- Serialization ---
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
-tokio = { version = "1", features = ["full"] }
-kube = { version = "1", features = ["default", "runtime", "ws"] }
-kube-client = { version = "1", features = ["ws"] }
-k8s-openapi = { version = "0.25", features = ["latest"] }
-anyhow = "1"
-thiserror = "1"
-chrono = { version = "0.4", features = ["serde"] }
+
+# --- Async runtime & stream helpers ---
+# "signal" powers the SIGTERM handler that saves window state (B22): dev/run.sh
+# stops the app with SIGTERM, which Tauri does not hook.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "sync", "time"] }
 futures = "0.3"
-async-stream = "0.3"
-bytes = "1"
-base64 = "0.22"
+
+# --- Kubernetes ---
+# `kube` gives us the typed client, config parsing, and the watcher/reflector runtime.
+kube = { version = "0.99", features = ["client", "config", "runtime", "ws"] }
+# `k8s-openapi` provides the typed resource structs. The feature gate pins the API
+# surface; `latest` tracks the newest Kubernetes release supported by the crate.
+k8s-openapi = { version = "0.24", features = ["latest"] }
+
+# --- Error handling & logging ---
+thiserror = "2"
+anyhow = "1"
 tracing = "0.1"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# --- Time formatting for log timestamps ---
+chrono = { version = "0.4", features = ["serde"] }
+
+# --- Raw HTTP requests to metrics.k8s.io (via kube::Client::request) ---
+http = "1"
+base64 = "0.22"
+flate2 = "1"
+
+# --- Web mode (Phase 1+ of "browser-only" feature) ---
+# A standalone axum server exposing the same command surface as Tauri, so the
+# React app can run in a plain browser tab against a real cluster. Only pulled
+# in when the `web` feature is on — the desktop build is unaffected.
+axum = { version = "0.7", optional = true }
+tower = { version = "0.5", optional = true }
+tower-http = { version = "0.6", features = ["cors", "trace"], optional = true }
+# `eventsource-stream` parses the SSE bytes the server sends into typed events
+# on the client side, but for the server we only need axum's `Sse` response type
+# from `axum::response::sse` which is part of axum proper.
+async-stream = { version = "0.3", optional = true }
 
 [features]
-# this feature is used for production builds or when `devUrl` points to the filesystem
-# DO NOT REMOVE!!
+# Reserved for future custom-protocol tweaks; kept so tauri.conf can reference it.
 custom-protocol = ["tauri/custom-protocol"]
+# Browser mode: enables axum + SSE so `cargo build --features web --bin k7s-web`
+# produces a standalone HTTP server that fronts the same kube plumbing.
+web = ["dep:axum", "dep:tower", "dep:tower-http", "dep:async-stream"]
+
+# Default-deps branch: the lib crate still pulls in the same things; the only
+# flip is which binary gets built. `cargo build` → tauri app, `cargo build
+# --features web --bin k7s-web` → axum server.
+[[bin]]
+name = "k7s"
+path = "src/main.rs"
+
+[[bin]]
+name = "k7s-web"
+path = "src/bin/k7s-web.rs"
+required-features = ["web"]
+
+[profile.release]
+# Smaller, faster desktop binary.
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
