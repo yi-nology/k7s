@@ -199,6 +199,67 @@ describe("alerts panel keys", () => {
   });
 });
 
+/** The Helm Market Repositories tab (Phase 1 of KubePi parity) — add/remove/
+ *  refresh + the inline form. Pass-12 surfaced that the inline form was a
+ *  bare `<div>` with no `<form onSubmit>` and no `required` attributes, so
+ *  Enter didn't submit and empty fields silently went to the provider. The
+ *  fix is mechanical, but this describe pins every key the panel renders so
+ *  a future dictionary shrink can't drop one (same leak class as
+ *  `chrome.palette.actions.*` / `topology.*`). */
+describe("helm market repositories panel keys", () => {
+  it("ships helm.repos.* and helm.repos.form.* in both locales", () => {
+    for (const key of [
+      "refreshAll",
+      "empty",
+      "error",
+      "ok",
+      "never",
+      "refresh",
+      "remove",
+      "add",
+    ]) {
+      const en = translate("en", `helm.repos.${key}`);
+      const zh = translate("zh", `helm.repos.${key}`);
+      expect(en.length, `helm.repos.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `helm.repos.${key} zh`).toBeGreaterThan(0);
+    }
+    for (const key of ["name", "url", "desc", "add", "cancel"]) {
+      const en = translate("en", `helm.repos.form.${key}`);
+      const zh = translate("zh", `helm.repos.form.${key}`);
+      expect(en.length, `helm.repos.form.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `helm.repos.form.${key} zh`).toBeGreaterThan(0);
+    }
+  });
+
+  it("preserves confirmRemove's parameterised shape (it is a function, not a string)", () => {
+    // The `remove` row-action builds the confirm prompt via
+    // `t("helm.repos.confirmRemove", ...)` and the value is a
+    // `name => string` function so the repo name interpolates cleanly.
+    // Pin the function shape so a future refactor that turns it into a
+    // static string (silently breaking the name interpolation) trips
+    // the test. Same shape as `metricsExplorer.saved.confirmRemove`.
+    const enVal = dict("en").helm.repos.confirmRemove;
+    const zhVal = dict("zh").helm.repos.confirmRemove;
+    expect(typeof enVal, "en confirmRemove must be a function").toBe("function");
+    expect(typeof zhVal, "zh confirmRemove must be a function").toBe("function");
+    expect((enVal as (n: string) => string)("bitnami")).toBe('Remove repo "bitnami"?');
+    expect((zhVal as (n: string) => string)("bitnami")).toBe('删除仓库 "bitnami"?');
+  });
+
+  it("ships helm.empty.{noMatch, noRepos} in both locales", () => {
+    expect(translate("en", "helm.empty.noMatch")).toBe(
+      "No charts match this search",
+    );
+    expect(translate("zh", "helm.empty.noMatch")).toBe("无匹配的 Charts");
+    expect(translate("en", "helm.empty.noRepos")).toBe(
+      "No repos yet — add one in Repositories",
+    );
+    expect(translate("zh", "helm.empty.noRepos")).toBe(
+      "暂无仓库 — 先在仓库页添加一个",
+    );
+  });
+});
+
 /** The Settings panel (B23) is a single overlay with eight rows plus a footer
  *  note + reset, all routed through `t()`. Pass-9's manual walk-through found
  *  the panel renders correctly in both locales with no leaks; this describe

@@ -266,13 +266,31 @@ function HelmRepos({
       )}
 
       {adding ? (
-        <div className={styles.repoForm}>
+        <form
+          className={styles.repoForm}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              await getProvider().helmAddRepo({ name, url, description });
+              setName("");
+              setUrl("");
+              setDescription("");
+              setAdding(false);
+              onChange();
+            } catch (err) {
+              onError(String(err));
+            }
+          }}
+        >
           <input
+            required
             placeholder={t("helm.repos.form.name", "name")}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <input
+            required
+            type="url"
             placeholder={t("helm.repos.form.url", "https://charts.example.com")}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -282,27 +300,13 @@ function HelmRepos({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <button
-            className={styles.primary}
-            onClick={async () => {
-              try {
-                await getProvider().helmAddRepo({ name, url, description });
-                setName("");
-                setUrl("");
-                setDescription("");
-                setAdding(false);
-                onChange();
-              } catch (e) {
-                onError(String(e));
-              }
-            }}
-          >
+          <button className={styles.primary} type="submit">
             {t("helm.repos.form.add", "Add")}
           </button>
-          <button onClick={() => setAdding(false)}>
+          <button type="button" onClick={() => setAdding(false)}>
             {t("helm.repos.form.cancel", "Cancel")}
           </button>
-        </div>
+        </form>
       ) : (
         <button
           className={styles.primary}
