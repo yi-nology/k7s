@@ -186,6 +186,14 @@ export interface ClusterStatus {
   /** null when metrics-server is unavailable — UI renders "—". */
   cpuPercent: number | null;
   memPercent: number | null;
+  /**
+   * Kubeconfig context this status belongs to. Optional for backward
+   * compatibility with backends that pre-date the context-tagging wire change;
+   * when present, `useBootstrap`'s reconciliation drops statuses whose context
+   * doesn't match the store's current context (so a stale event from the
+   * previous cluster can't flip the new cluster's connection phase).
+   */
+  context?: string;
 }
 
 /** A kubeconfig context entry for the cluster switcher. */

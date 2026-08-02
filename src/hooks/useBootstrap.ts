@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { getProvider, IS_DEMO } from "../providers";
 import { useStore } from "../store";
 import { connectTo } from "../lib/connect";
+import { reconcileClusterStatus } from "../lib/clusterStatus";
 import { isCustomKind, KIND_META } from "../lib/kinds";
 import { sanitizeSettings } from "../lib/settings";
 
@@ -35,22 +36,16 @@ export function useBootstrap(): void {
 
     // Reconcile cluster-status into the connection lifecycle (Story 6.2): a live
     // cluster going unreachable flips the UI to disconnected, and recovery flips it
-    // back — without a manual reconnect. Also clears stale metrics when the metrics
-    // API disappears (cpuPercent goes null) so CPU/MEM fall back to "—".
+    // back — without a manual reconnect. Also clears stale metrics when the
+    // metrics API disappears (cpuPercent goes null) so CPU/MEM fall back to "—".
+    // The reconciliation lives in `lib/clusterStatus` so it can be unit-tested
+    // with a hand-rolled store, and so the context gate (drops stale events
+    // from a previous cluster) sits in exactly one place.
     const onClusterStatus = (status: Parameters<typeof setClusterStatus>[0]) => {
-      setClusterStatus(status);
-      const { connection, setConnection, setPodMetrics: setPM, setNodeMetrics: setNM } =
-        useStore.getState();
-      if (connection.phase === "connected" && !status.connected) {
-        setConnection({ phase: "error", error: "cluster unreachable" });
-      } else if (connection.phase === "error" && status.connected) {
-        setConnection({ phase: "connected", error: undefined });
-      }
-      if (status.cpuPercent == null) {
-        // metrics-server gone: drop cached usage so nothing stale lingers.
-        setPM({});
-        setNM({});
-      }
+      // Re-read on every push so the reconciliation sees the latest connection
+      // phase (the destructured `setConnection` would be stale after a
+      // `connectTo` race; see connect.ts for the same pattern).
+      reconcileClusterStatus(status, useStore.getState());
     };
 
     // Wire every push channel to its store setter. Each returns an unsubscribe fn.

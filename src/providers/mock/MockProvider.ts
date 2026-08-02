@@ -131,9 +131,11 @@ export class MockProvider implements DataProvider {
   }
 
   async connect(context: string): Promise<ClusterInfo> {
+    // Tag every status emit with the current context so the bootstrap
+    // reconciliation can drop stale events from a previous cluster.
     // Re-emit all snapshots so a data reset (on switch) is repopulated.
     this.emitAllRows();
-    for (const cb of this.statusCbs) cb(MOCK_STATUS);
+    for (const cb of this.statusCbs) cb({ ...MOCK_STATUS, context });
     for (const cb of this.watchCbs) cb(MOCK_WATCH_COUNT);
     return { context, clusterName: context, server: "https://mock.local:6443", version: "v1.31" };
   }
