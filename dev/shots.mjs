@@ -2,8 +2,8 @@
 /**
  * Regenerate the README screenshots.
  *
- *   pnpm dev:shots           # assumes a demo server on :5199
- *   PORT=5199 node dev/shots.mjs
+ *   pnpm dev:shots           # connects to the local dev server on 1420
+ *   PORT=1420 pnpm dev:shots
  *
  * Drives headless Chrome over the DevTools Protocol using Node's built-in
  * WebSocket (Node 22+), so this adds no dependency and never touches your real
@@ -23,7 +23,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 
-const PORT = process.env.PORT ?? "5199";
+const PORT = process.env.PORT ?? "1420";
 const URL = `http://localhost:${PORT}`;
 const OUT = "docs/screenshots";
 const CDP_PORT = 9333;
@@ -129,6 +129,23 @@ async function evaluate(expression) {
   return result?.value;
 }
 
+/** Set a localStorage key, retrying until the page is on the right origin.
+ * The page starts on about:blank where localStorage throws, so the first
+ * call after navigate has to wait for the real origin to load. */
+async function setLocalStorageItem(key, value) {
+  for (let i = 0; i < 30; i++) {
+    try {
+      await evaluate(
+        `localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(value)});`,
+      );
+      return;
+    } catch {
+      await sleep(500);
+    }
+  }
+  throw new Error(`could not set localStorage["${key}"] after retries`);
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
   rmSync(PROFILE, { recursive: true, force: true });
@@ -170,11 +187,14 @@ async function main() {
   });
 
   // The theme is read from localStorage before first paint, so set it and reload.
+  // v2 ships two themes; the README uses dark as the headline palette, with
+  // light shown by toggling. Force dark here.
   await send("Page.navigate", { url: URL });
-  await sleep(1500);
-  await evaluate(`localStorage.setItem("k7s.theme", "light");`);
+  // setLocalStorageItem retries until the page is on the right origin
+  // (about:blank → localhost:5199); localStorage throws before that flip.
+  await setLocalStorageItem("k7s.theme", "dark");
   await send("Page.reload");
-  await sleep(2500);
+  await sleep(3000);
 
   for (const shot of SHOTS) {
     await evaluate(shot.script);
