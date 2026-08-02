@@ -17,7 +17,7 @@ Each pass writes a per-pass report and appends a row here.
 - ImageRepoPanel auto-select first registry — **fixed in 0b3a7a8**
 
 ### Untested rotation
-1. Row context menu — 8 actions
+1. ~~Row context menu — 8 actions~~ — **covered in pass 1**
 2. Pod Files panel
 3. Service Topology (d3-force)
 4. Alerting panel
@@ -37,3 +37,4 @@ Each pass writes a per-pass report and appends a row here.
 | # | Date (Asia/Shanghai) | Area tested | Findings | Fixes | Report |
 |---|---|---|---|---|---|
 | 0 | 2026-08-03 (bootstrap) | — | bootstrap index | — | this file |
+| 1 | 2026-08-03 | Row context menu (8 actions) + global Esc cascade | Overlay (Pod Files, etc.) ignored Esc — feature gaps in `useGlobalKeys`; missing `actions.files` in zh dict (low) | Esc → `closeOverlay()` in cascade; new test in `useGlobalKeys.test.ts` — **4b6496f** | [pass-1](qa-v0.2.4-pass-2026-08-03.md) |
