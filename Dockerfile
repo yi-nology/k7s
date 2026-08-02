@@ -46,11 +46,26 @@ RUN pnpm build
 # is the current stable bookworm tag.
 FROM rust:1.97-bookworm AS backend
 
-# System deps the build needs (libssl for reqwest HTTPS, libgit2 for
-# kube git source, etc.). Bookworm's base image already has gcc/make/cmake.
+# System deps. Bookworm's base image already has gcc/make/cmake,
+# but we need the Tauri webview toolchain because tauri 2's default
+# `wry` feature pulls webkit2gtk into the link graph even when
+# k7s-web doesn't use it at runtime (k7s-web is a server binary,
+# no UI). Without these apt packages, the build dies with:
+#
+#   The system library `gdk-3.0` required by crate `gdk-sys`
+#   was not found.
+#   Package gdk-3.0 was not found in the pkg-config search path.
+#
+# Keep this list in lock-step with the GitHub Actions release
+# workflow's 'install Linux system deps' step.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       pkg-config libssl-dev ca-certificates \
+      build-essential file \
+      libwebkit2gtk-4.1-dev \
+      libsoup-3.0-dev \
+      libayatana-appindicator3-dev \
+      librsvg2-dev \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src

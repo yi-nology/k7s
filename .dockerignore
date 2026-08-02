@@ -46,12 +46,14 @@ docker-compose*.yml
 .github
 
 # Big test fixtures / mock data
-# ── CAREFUL with src-tauri/src/bin/ — that directory holds
-# k7s-web.rs and k7s-mcp.rs, the [[bin]] entry-points referenced
-# from Cargo.toml. Excluding it makes `cargo build --bin k7s-web`
-# fail with: "can't find bin `k7s-web` at path
-# /src/src-tauri/src/bin/k7s-web.rs".
+# ── CAREFUL with src-tauri/src/* — k7s_lib's lib.rs declares
+# `pub mod mcp;` and `pub mod web;` for the feature-gated modules
+# in src/mcp/ and src/web/. If we exclude those directories from
+# the build context, the compile dies with:
+#   error[E0583]: file not found for module `mcp`
+#   error[E0583]: file not found for module `web`
+# The `web` and `mcp` features in Cargo.toml gate which code gets
+# *compiled into* the binary, but the source files must still be
+# present in the build context.
 src-tauri/examples
-src-tauri/src/mcp
-src-tauri/src/web
 docs/screenshots
