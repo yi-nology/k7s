@@ -54,6 +54,7 @@ beforeEach(() => {
     selection: { selected: [], anchor: null },
     nav: "pods",
     activeTab: "logs",
+    overlay: null,
   });
 });
 
@@ -123,6 +124,19 @@ describe("Escape cascade", () => {
     press("Escape");
     expect(useStore.getState().openMenu).toBeNull();
     expect(useStore.getState().tableFilter).toBe("wiki");
+  });
+
+  /**
+   * Pod Files / Helm Market / Dashboard etc. are fullscreen overlays — the
+   * only in-panel exit is the Close button, which the user can't reach when
+   * they're mid-keystroke. Esc is the standard way out.
+   */
+  it("closes a feature overlay before clearing the filter", () => {
+    useStore.setState({ overlay: "pod-files", tableFilter: "wiki" });
+    press("Escape");
+    const s = useStore.getState();
+    expect(s.overlay).toBeNull();
+    expect(s.tableFilter).toBe("wiki");
   });
 
   /**

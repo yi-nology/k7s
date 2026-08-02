@@ -41,6 +41,11 @@ export function useGlobalKeys(): void {
         // when focus has escaped the input.
         if (s.paletteOpen) s.setPaletteOpen(false);
         else if (s.openMenu) s.closeMenus();
+        // A feature overlay (Pod Files, Helm Market, Dashboard, …) is a
+        // fullscreen panel over the table — Esc is the standard way out, and
+        // the only other exit is the in-panel Close button, which isn't
+        // reachable when the user is mid-keystroke.
+        else if (s.overlay) s.closeOverlay();
         // A multi-row selection outranks the filter and the panel (B39): it's
         // the most recent thing you did, it's armed for a destructive action,
         // and there is otherwise no keyboard way to stand it down.
