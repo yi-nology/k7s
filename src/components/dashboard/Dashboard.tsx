@@ -20,8 +20,22 @@ import { getProvider } from "../../providers";
 import type { EventItem } from "../../providers/types";
 import { useStore } from "../../store";
 import { useTranslation } from "../../hooks/useI18n";
+import { kindLabelFor } from "../../lib/i18n";
 import styles from "./Dashboard.module.css";
 
+/**
+ * The nine resource cards the dashboard surfaces. Order is intentional — it
+ * matches the sidebar's group order (workloads, network, config, cluster) so a
+ * user who's been clicking around the sidebar lands on the dashboard and sees
+ * the same row they just left.
+ *
+ * The label is *not* stored here. It's resolved per render through
+ * `kindLabelFor()` so a Chinese UI shows `Pod / Deployment / Service / …` and
+ * the English UI shows `Pods / Deployments / Services / …` — the canonical
+ * kind names the rest of the chrome uses. A new kind added to this list still
+ * shows up correctly (the helper falls back to the static `KIND_META` label
+ * when the i18n registry doesn't have one yet).
+ */
 const RESOURCE_KINDS: Array<{
   id:
     | "pods"
@@ -33,22 +47,21 @@ const RESOURCE_KINDS: Array<{
     | "cronjobs"
     | "nodes"
     | "namespaces";
-  label: string;
   color: string;
 }> = [
-  { id: "pods", label: "Pods", color: "var(--accent)" },
-  { id: "deployments", label: "Deployments", color: "#5cc8ff" },
-  { id: "services", label: "Services", color: "#f7c948" },
-  { id: "configmaps", label: "ConfigMaps", color: "#a78bfa" },
-  { id: "secrets", label: "Secrets", color: "#fb7185" },
-  { id: "jobs", label: "Jobs", color: "#34d399" },
-  { id: "cronjobs", label: "CronJobs", color: "#fb923c" },
-  { id: "nodes", label: "Nodes", color: "#22d3ee" },
-  { id: "namespaces", label: "Namespaces", color: "#e879f9" },
+  { id: "pods", color: "var(--accent)" },
+  { id: "deployments", color: "#5cc8ff" },
+  { id: "services", color: "#f7c948" },
+  { id: "configmaps", color: "#a78bfa" },
+  { id: "secrets", color: "#fb7185" },
+  { id: "jobs", color: "#34d399" },
+  { id: "cronjobs", color: "#fb923c" },
+  { id: "nodes", color: "#22d3ee" },
+  { id: "namespaces", color: "#e879f9" },
 ];
 
 export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const connection = useStore((s) => s.connection);
   const rows = useStore((s) => s.rows);
   const nodeMetrics = useStore((s) => s.nodeMetrics);
@@ -143,31 +156,39 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
       </div>
 
       <div className={styles.resourceGrid}>
-        {RESOURCE_KINDS.map((k) => (
-          <div
-            key={k.id}
-            className={styles.resourceCard}
-            onClick={() => {
-              // Jump to the kind's table — closing the overlay so the
-              // table is actually visible behind it. setNav alone would
-              // change the active kind but leave the dashboard covering
-              // everything, which was the point of the audit fix.
-              setNav(k.id);
-              if (onClose) onClose();
-              else closeOverlay();
-            }}
-          >
-            <div className={styles.resourceCount}>
-              {rows[k.id]?.length ?? 0}
-            </div>
+        {RESOURCE_KINDS.map((k) => {
+          // kindLabelFor falls back to the static KIND_META label if the
+          // i18n registry ever drops a kind, so a future refactor that
+          // adds a kind here without adding it to the registry still
+          // renders something readable (the canonical English name) — not
+          // a blank tile.
+          const label = kindLabelFor(k.id, [], locale) ?? k.id;
+          return (
             <div
-              className={styles.resourceLabel}
-              style={{ color: k.color }}
+              key={k.id}
+              className={styles.resourceCard}
+              onClick={() => {
+                // Jump to the kind's table — closing the overlay so the
+                // table is actually visible behind it. setNav alone would
+                // change the active kind but leave the dashboard covering
+                // everything, which was the point of the audit fix.
+                setNav(k.id);
+                if (onClose) onClose();
+                else closeOverlay();
+              }}
             >
-              {k.label}
+              <div className={styles.resourceCount}>
+                {rows[k.id]?.length ?? 0}
+              </div>
+              <div
+                className={styles.resourceLabel}
+                style={{ color: k.color }}
+              >
+                {label}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className={styles.eventsPanel}>

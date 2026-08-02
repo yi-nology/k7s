@@ -282,6 +282,111 @@ describe("kindLabelFor", () => {
   });
 });
 
+/** The dashboard surfaces a row of nine resource cards whose labels are
+ *  resolved per render through `kindLabelFor()`. A kind added to the
+ *  dashboard's `RESOURCE_KINDS` list without a matching entry in the
+ *  i18n registry would render the raw id in zh, breaking the chrome.
+ *  Pin every dashboard kind in both locales — the canonical English
+ *  names ("Pods", "Deployments", …) and the canonical Chinese names
+ *  ("Pod", "Deployment", "节点", "命名空间"). */
+describe("dashboard resource card labels (via kindLabelFor)", () => {
+  // Mirror of Dashboard.tsx's RESOURCE_KINDS. If a new card lands in the
+  // dashboard, it must land here too — otherwise the test wouldn't notice
+  // the missing translation.
+  const DASHBOARD_KINDS = [
+    "pods",
+    "deployments",
+    "services",
+    "configmaps",
+    "secrets",
+    "jobs",
+    "cronjobs",
+    "nodes",
+    "namespaces",
+  ] as const;
+
+  for (const id of DASHBOARD_KINDS) {
+    it(`ships ${id} as a non-empty label in both locales`, () => {
+      const en = kindLabelFor(id, [], "en");
+      const zh = kindLabelFor(id, [], "zh");
+      expect(en, `kindLabelFor(${id}, en)`).toBeDefined();
+      expect(zh, `kindLabelFor(${id}, zh)`).toBeDefined();
+      expect(en!.length, `${id} en`).toBeGreaterThan(0);
+      expect(zh!.length, `${id} zh`).toBeGreaterThan(0);
+    });
+  }
+
+  /** The kind registry in `kinds.ts` keeps the canonical English names
+   *  ("Pods", "Deployments", "Services", "ConfigMaps", "Secrets", "Jobs",
+   *  "CronJobs", "Nodes", "Namespaces") — pin them so a future refactor
+   *  that drops the `KIND_LABELS_ZH` mapping (or the English
+   *  `KIND_META` label) trips the test instead of silently rendering a
+   *  half-translated dashboard. */
+  it("preserves the canonical English labels for the dashboard kinds", () => {
+    const expectedEn: Record<string, string> = {
+      pods: "Pods",
+      deployments: "Deployments",
+      services: "Services",
+      configmaps: "ConfigMaps",
+      secrets: "Secrets",
+      jobs: "Jobs",
+      cronjobs: "CronJobs",
+      nodes: "Nodes",
+      namespaces: "Namespaces",
+    };
+    for (const [id, label] of Object.entries(expectedEn)) {
+      expect(kindLabelFor(id, [], "en"), id).toBe(label);
+    }
+  });
+
+  /** In zh the chrome uses the canonical Chinese form (singular for
+   *  K8s kinds — `Pod`, `Deployment`, …) plus the local words
+   *  `节点` / `命名空间` for the two cluster-scoped kinds. Pin them
+   *  too — this is the actual bug the dashboard had: the previous
+   *  hardcoded English labels would render unchanged in zh. Note that
+   *  several K8s canonical names ARE English words ("Pod", "Job", …)
+   *  used in the Chinese UI by convention, so we pin the exact values
+   *  rather than asserting a character class. */
+  it("translates the dashboard kinds to the canonical zh labels", () => {
+    const expectedZh: Record<string, string> = {
+      pods: "Pod",
+      deployments: "Deployment",
+      services: "Service",
+      configmaps: "ConfigMap",
+      secrets: "Secret",
+      jobs: "Job",
+      cronjobs: "CronJob",
+      nodes: "节点",
+      namespaces: "命名空间",
+    };
+    for (const [id, label] of Object.entries(expectedZh)) {
+      expect(kindLabelFor(id, [], "zh"), id).toBe(label);
+    }
+  });
+
+  /** Cross-check: in zh the chrome must NOT render the English
+   *  pluralised labels (`Pods / Deployments / …`) that the dashboard
+   *  used to hardcode. This is the exact regression the pass-12 fix
+   *  addresses. */
+  it("does not leak the English pluralised labels into the zh locale", () => {
+    const ENGLISH_PLURALS: Record<string, string> = {
+      pods: "Pods",
+      deployments: "Deployments",
+      services: "Services",
+      configmaps: "ConfigMaps",
+      secrets: "Secrets",
+      jobs: "Jobs",
+      cronjobs: "CronJobs",
+      nodes: "Nodes",
+      namespaces: "Namespaces",
+    };
+    for (const [id, enPlural] of Object.entries(ENGLISH_PLURALS)) {
+      const got = kindLabelFor(id, [], "zh");
+      expect(got, `${id} zh != ${enPlural}`).not.toBe(enPlural);
+    }
+  });
+});
+
 describe("cacheLocale / cachedLocale", () => {
   beforeEach(() => {
     // Each test starts with a clean stub, so the round-trip assertion isn't
