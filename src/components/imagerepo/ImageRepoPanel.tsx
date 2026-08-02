@@ -44,14 +44,28 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
     description: "",
   });
 
-  const reload = () =>
+  const reload = (): Promise<ImageRegistry[]> =>
     getProvider()
       .imageRegistryList()
-      .then(setRegs)
-      .catch((e: unknown) => setError(String(e)));
+      .then((next) => {
+        setRegs(next);
+        return next;
+      })
+      .catch((e: unknown) => {
+        setError(String(e));
+        return [];
+      });
 
   useEffect(() => {
-    reload();
+    reload().then((next) => {
+      // Auto-select the first registry so the right pane is populated
+      // immediately — most clusters will have one, and the empty "Pick a
+      // registry on the left" state is a dead end otherwise.
+      if (next.length > 0 && selected == null) {
+        setSelected(next[0].name);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

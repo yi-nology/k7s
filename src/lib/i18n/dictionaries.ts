@@ -281,6 +281,14 @@ export interface Dictionary {
     };
   };
   podFiles: { title: string; close: string; noPod: string; placeholder: string };
+  files: {
+    up: string;
+    close: string;
+    empty: string;
+    save: string;
+    download: string;
+    pickFile: string;
+  };
   image: {
     title: string;
     close: string;
@@ -708,6 +716,14 @@ export const en: Dictionary = {
     close: "Close",
     noPod: "Open Pod Files from a Pod's row context menu.",
     placeholder: "/path/in/pod",
+  },
+  files: {
+    up: "Up",
+    close: "Close",
+    empty: "(empty directory)",
+    save: "Save",
+    download: "Download",
+    pickFile: "Pick a file to view or edit",
   },
   image: {
     title: "Image registries",
@@ -1149,6 +1165,14 @@ export const zh: Dictionary = {
     close: "关闭",
     noPod: "从 Pod 行的右键菜单打开 Pod Files。",
     placeholder: "/容器内路径",
+  },
+  files: {
+    up: "上一级",
+    close: "关闭",
+    empty: "(空目录)",
+    save: "保存",
+    download: "下载",
+    pickFile: "选一个文件查看或编辑",
   },
   image: {
     title: "镜像仓库",

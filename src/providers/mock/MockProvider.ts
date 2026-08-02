@@ -651,12 +651,12 @@ export class MockProvider implements DataProvider {
         c.keywords.some((k) => k.toLowerCase().includes(q)),
     );
   }
-  async helmChartVersions(_repo: string, chart: string): Promise<HelmChartVersionEntry[]> {
+  async helmChartVersions(_repo: string, _chart: string): Promise<HelmChartVersionEntry[]> {
     return [
       { version: "1.2.3", appVersion: "1.0.0", created: "2024-01-01T00:00:00Z", urls: [] },
       { version: "1.2.2", appVersion: "1.0.0", created: "2023-12-01T00:00:00Z", urls: [] },
       { version: "1.2.1", appVersion: "0.9.0", created: "2023-11-01T00:00:00Z", urls: [] },
-    ].filter((v) => v.version.startsWith(chart.slice(0, 1)) || chart === "demo");
+    ];
   }
   async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
     return "# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n";

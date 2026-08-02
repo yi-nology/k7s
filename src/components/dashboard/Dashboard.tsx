@@ -53,6 +53,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
   const rows = useStore((s) => s.rows);
   const nodeMetrics = useStore((s) => s.nodeMetrics);
   const setNav = useStore((s) => s.setNav);
+  const closeOverlay = useStore((s) => s.closeOverlay);
   const [events, setEvents] = useState<EventItem[]>([]);
 
   // Pull a few recent events on mount. We don't subscribe — events arrive
@@ -146,7 +147,15 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
           <div
             key={k.id}
             className={styles.resourceCard}
-            onClick={() => setNav(k.id)}
+            onClick={() => {
+              // Jump to the kind's table — closing the overlay so the
+              // table is actually visible behind it. setNav alone would
+              // change the active kind but leave the dashboard covering
+              // everything, which was the point of the audit fix.
+              setNav(k.id);
+              if (onClose) onClose();
+              else closeOverlay();
+            }}
           >
             <div className={styles.resourceCount}>
               {rows[k.id]?.length ?? 0}
