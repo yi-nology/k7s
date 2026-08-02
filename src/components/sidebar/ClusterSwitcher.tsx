@@ -10,7 +10,8 @@ import { useStore } from "../../store";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useTranslation } from "../../hooks/useI18n";
 import { connectTo } from "../../lib/connect";
-import { getProvider } from "../../providers";
+import { importKubeconfigViaInput } from "../../providers";
+import type { ImportResult } from "../../providers/types";
 
 /** First two letters of the cluster name, uppercased ("FR" for "murphy-yi"). */
 function initials(name: string): string {
@@ -29,17 +30,39 @@ export function ClusterSwitcher() {
   const { t } = useTranslation();
 
   const ref = useRef<HTMLDivElement>(null);
+  // A long-lived hidden file input. We `click()` it directly from the
+  // import button's onClick so the user-gesture chain is a single frame
+  // (no `await` in between). Spinning up a fresh input per click used
+  // to silently no-op in Safari because the gesture was lost across the
+  // Promise boundary.
+  const fileInputRef = useRef<HTMLInputElement>(null);
   useClickOutside(ref, closeMenus, open);
 
   // Import contexts from a kubeconfig file (native picker), then merge them into
   // the switcher list. A null result means the user cancelled the dialog.
-  const onImport = async () => {
+  //
+  // The user-gesture contract: this function is the onClick handler, and
+  // every line in it runs on the same gesture frame. We register the
+  // change listener and call `input.click()` back-to-back with no
+  // `await` between them — that's what makes Safari reliably pop the
+  // system picker. The fetch happens later inside the change handler.
+  const onImport = () => {
     closeMenus();
-    const result = await getProvider().importKubeconfig();
-    if (!result) return;
-    setContexts(result.contexts);
-    // Remember the file so its contexts come back on the next launch (B17).
-    addImportedFile(result.path);
+    const input = fileInputRef.current;
+    if (!input) return;
+    const promise = importKubeconfigViaInput(input).then((result: ImportResult | null) => {
+      if (!result) return;
+      setContexts(result.contexts);
+      // Remember the file so its contexts come back on the next launch (B17).
+      addImportedFile(result.path);
+    });
+    // The click() that opens the OS picker is part of the same user
+    // gesture as the button click — no `await` before it.
+    input.click();
+    // Swallow rejections from the picker (e.g. user dismissed) — those
+    // resolve as `null`, not as a rejected promise; rejections are real
+    // API errors and worth a console note.
+    void promise.catch((e: unknown) => console.error("[import] failed:", e));
   };
 
   // Display name: the connected cluster, else the selected context, else a stub.
@@ -104,6 +127,30 @@ export function ClusterSwitcher() {
           </div>
         </div>
       )}
+
+      {/*
+        The file picker. We keep one input in the React tree for the
+        lifetime of the switcher and click() it from the import button
+        so the user-gesture chain is unbroken. Hidden offscreen but
+        connected, so Safari will actually pop the system dialog.
+        accept is a hint, not a filter — kubeconfigs are sometimes
+        named `config` with no extension.
+      */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".yaml,.yml,.kubeconfig,application/x-yaml,text/yaml"
+        data-testid="kubeconfig-file-input"
+        style={{
+          position: "fixed",
+          left: -9999,
+          top: 0,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
     </div>
   );
 }

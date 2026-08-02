@@ -247,6 +247,20 @@ export function ResourceTable() {
             data-table-filter
           />
         </div>
+        {selection.selected.length > 1 && (
+          <div className={styles.selectionBar} data-testid="selection-bar">
+            <span className={styles.selectionCount}>
+              {selection.selected.length} {t("table.selected")}
+            </span>
+            <button
+              className={styles.selectionClear}
+              onClick={clearSelection}
+              title={t("chrome.common.dismiss")}
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
       <div className={styles.wrap} ref={scrollRef}>
         <table className={`${styles.table} ${virtual ? styles.tableFixed : ""}`}>
@@ -304,7 +318,15 @@ export function ResourceTable() {
                 onContextMenu={(e) => onRowContextMenu(e, row)}
               >
                 {row.cells.map((cell, j) => (
-                  <td key={j} className={styles.td} style={{ color: toneColor(cell.tone) }}>
+                  // When the cell carries a status dot, renderCell returns a
+                  // fully-styled <span> that owns its own color — so the <td>
+                  // stays neutral and the pill stands out instead of being
+                  // tinted by the table's tone.
+                  <td
+                    key={j}
+                    className={styles.td}
+                    style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
+                  >
                     {renderCell(cell, now)}
                   </td>
                 ))}
@@ -466,9 +488,25 @@ function useVirtualRows(
 }
 
 /** Render a cell's text: format age timestamps, prefix a status dot when set. */
-function renderCell(cell: Cell, now: number): string {
+function renderCell(cell: Cell, now: number): React.ReactNode {
   const text = cell.format === "age" ? formatAge(cell.text, now) : cell.text;
-  return cell.dot ? `● ${text}` : text;
+  if (!cell.dot) return text;
+  // Tone-classed pill: the dot gets a halo and a one-character label, the text
+  // is colored by its tone. Map the cell's tone to the corresponding status* class.
+  const toneCls =
+    cell.tone === "ok"
+      ? styles.statusRunning
+      : cell.tone === "warn"
+        ? styles.statusPending
+        : cell.tone === "err"
+          ? styles.statusFailed
+          : "";
+  return (
+    <span className={`${styles.status} ${toneCls}`}>
+      <span className={styles.statusDot} aria-hidden="true" />
+      {text}
+    </span>
+  );
 }
 
 /**
