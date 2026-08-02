@@ -40,7 +40,11 @@ RUN pnpm build
 # ─────────────────────────────────────────────────────────────────
 # Stage 2 — Rust binary
 # ─────────────────────────────────────────────────────────────────
-FROM rust:1.83-bookworm AS backend
+# rust:1.83 doesn't understand edition-2024 in the transitive dep
+# graph (rmcp 1.x, etc.) and bails with "Consider trying a newer
+# version of Cargo". 1.85 stabilised edition-2024. 1.86-bookworm
+# is the current stable bookworm tag.
+FROM rust:1.86-bookworm AS backend
 
 # System deps the build needs (libssl for reqwest HTTPS, libgit2 for
 # kube git source, etc.). Bookworm's base image already has gcc/make/cmake.
@@ -54,10 +58,12 @@ WORKDIR /src
 # Cache the dependency graph first. Copying only Cargo.{toml,lock}
 # lets Docker cache the registry + sccache layer even when src/* changes.
 COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./src-tauri/
+# Stub the source so `cargo fetch` can resolve the [lib] / [[bin]] targets
+# declared in Cargo.toml without us having to copy src/ yet.
 RUN mkdir -p src-tauri/src \
  && echo "fn main() {}" > src-tauri/src/main.rs \
  && echo "" > src-tauri/src/lib.rs \
- && cd src-tauri && cargo fetch
+ && cd src-tauri && cargo fetch --locked
 
 # Now the real source. Vite's dist/ is in the build context but isn't
 # needed here — Stage 1 produced it and Stage 3 will copy it.
