@@ -357,6 +357,13 @@ export interface Dictionary {
     size: string;
     layers: string;
     raw: string;
+    /**
+     * Tooltip on each tag row in the drill-down (the click target for
+     * `loadManifest`). Pre-fix, this was the literal `title="Inspect
+     * manifest"` HTML attribute, which leaked English in the zh locale the
+     * same way the other manifest chrome did.
+     */
+    inspectTitle: string;
     form: {
       title: string;
       name: string;
@@ -368,7 +375,27 @@ export interface Dictionary {
       cancel: string;
     };
   };
-  tpl: { title: string; close: string; preview: string; applying: string; apply: string; pick: string };
+  tpl: {
+    title: string;
+    close: string;
+    preview: string;
+    applying: string;
+    apply: string;
+    pick: string;
+    /**
+     * Per-template title translations keyed by the template id (`deployment`,
+     * `ingress`, `configmap`). Each `Template.title` in `lib/templates.ts` is
+     * the English fallback; the picker routes through `t("tpl.titles." + id,
+     * fallback)` so a missing key still renders the English copy.
+     */
+    titles: { deployment: string; ingress: string; configmap: string };
+    /**
+     * Per-template one-line description translations, keyed the same way as
+     * `titles`. Same fallback contract: each `Template.description` is the
+     * English fallback for a missing key.
+     */
+    descs: { deployment: string; ingress: string; configmap: string };
+  };
   metricsExplorer: {
     title: string;
     close: string;
@@ -842,6 +869,7 @@ export const en: Dictionary = {
     size: "Size",
     layers: "Layers",
     raw: "Raw JSON",
+    inspectTitle: "Inspect manifest",
     form: {
       title: "Registry",
       name: "Name",
@@ -860,6 +888,16 @@ export const en: Dictionary = {
     applying: "Applying…",
     apply: "Apply",
     pick: "Pick a template on the left",
+    titles: {
+      deployment: "Deployment",
+      ingress: "Ingress (Nginx)",
+      configmap: "ConfigMap",
+    },
+    descs: {
+      deployment: "Single-container Deployment with a Service (ClusterIP).",
+      ingress: "Ingress that routes a host to an existing Service.",
+      configmap: "ConfigMap with two key-value pairs.",
+    },
   },
   metricsExplorer: {
     title: "Metrics Explorer",
@@ -1336,6 +1374,7 @@ export const zh: Dictionary = {
     size: "大小",
     layers: "层",
     raw: "原始 JSON",
+    inspectTitle: "查看清单",
     form: {
       title: "仓库",
       name: "名称",
@@ -1354,6 +1393,16 @@ export const zh: Dictionary = {
     applying: "应用中…",
     apply: "应用",
     pick: "在左侧选一个模板",
+    titles: {
+      deployment: "Deployment",
+      ingress: "Ingress (Nginx)",
+      configmap: "ConfigMap",
+    },
+    descs: {
+      deployment: "单容器 Deployment 搭配 ClusterIP Service。",
+      ingress: "将一个域名路由到已有 Service 的 Ingress。",
+      configmap: "包含两组键值对的 ConfigMap。",
+    },
   },
   metricsExplorer: {
     title: "指标查询",

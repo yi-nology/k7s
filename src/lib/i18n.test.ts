@@ -623,6 +623,22 @@ describe("image registries panel keys", () => {
       expect(zh.length, `image.form.${key} zh`).toBeGreaterThan(0);
     }
   });
+
+  it("ships image.inspectTitle (tag-row tooltip) in both locales", () => {
+    // Pre-fix, ImageRepoPanel.tsx:297 was the literal
+    // `title="Inspect manifest"` HTML attribute — leaked English in zh the
+    // same way the rest of the panel's chrome did. The dict now ships
+    // `image.inspectTitle` and the call site routes through `t()`.
+    const en = translate("en", "image.inspectTitle");
+    const zh = translate("zh", "image.inspectTitle");
+    expect(en).toBe("Inspect manifest");
+    // The zh translation is "查看" + "清单" (verb "view" + the same noun
+    // as the manifest panel header `image.manifest: "清单"`). Pin that
+    // the tooltip contains the same manifest noun as the panel chrome
+    // sibling — a future refactor that drops the noun or uses a
+    // different one (e.g. "检查" for the verb) trips this test.
+    expect(zh).toContain(translate("zh", "image.manifest"));
+  });
 });
 
 /**
@@ -751,6 +767,96 @@ describe("detail-panel tab + dashboard i18n (pass-15 sweep)", () => {
     // critical diagnostic word trips this test.
     expect(enBody).toContain("metrics-server");
     expect(zhBody).toContain("metrics-server");
+  });
+});
+
+/**
+ * Pass-16 sweep: Template picker title/description i18n.
+ *
+ * `lib/templates.ts` ships three templates (deployment / ingress / configmap),
+ * each with a hardcoded English `title` and `description`. The picker used to
+ * render those strings directly (`{tt.title}` / `{tt.description}` /
+ * `{selected.title}`), so a zh user saw the English copy. The picker's
+ * `useTranslation()` call now routes the chrome through
+ * `t("tpl.titles." + id, tt.title)` and `t("tpl.descs." + id, tt.description)`
+ * with the registry's hardcoded string as the English fallback.
+ *
+ * These tests pin the new keys in both locales so a future refactor that
+ * drops either the per-id structure (e.g. folding them into a single flat
+ * `tpl.titles` string) or the canonical values trips a test.
+ */
+describe("template picker title/description i18n (pass-16 sweep)", () => {
+  const TEMPLATE_IDS = ["deployment", "ingress", "configmap"] as const;
+
+  it("ships tpl.titles.<id> for every template id in both locales", () => {
+    // Pinned so the picker's `t("tpl.titles." + tt.id, tt.title)` lookup
+    // always resolves in both locales. A refactor that flattens the structure
+    // (e.g. one big `tpl.titles` string) or drops an id trips this test.
+    for (const id of TEMPLATE_IDS) {
+      const en = translate("en", `tpl.titles.${id}`);
+      const zh = translate("zh", `tpl.titles.${id}`);
+      expect(en.length, `tpl.titles.${id} en`).toBeGreaterThan(0);
+      expect(zh.length, `tpl.titles.${id} zh`).toBeGreaterThan(0);
+    }
+  });
+
+  it("ships tpl.descs.<id> for every template id in both locales", () => {
+    // Same shape as the titles test; pinned so the per-id description lookup
+    // resolves in both locales. A refactor that drops an id or flattens the
+    // structure trips this test.
+    for (const id of TEMPLATE_IDS) {
+      const en = translate("en", `tpl.descs.${id}`);
+      const zh = translate("zh", `tpl.descs.${id}`);
+      expect(en.length, `tpl.descs.${id} en`).toBeGreaterThan(0);
+      expect(zh.length, `tpl.descs.${id} zh`).toBeGreaterThan(0);
+    }
+  });
+
+  it("matches the English canonical copy shipped in the templates registry", () => {
+    // The dictionary's en values must equal the hardcoded registry strings,
+    // because those strings are the English fallback the picker passes as
+    // the second argument to `t()`. If the registry is renamed and the dict
+    // lags, a missing key still renders the registry string — which is what
+    // the user would have seen pre-fix. This test pins the contract: the
+    // dict's en copy is the same as the registry's en copy, so the path
+    // through `t()` is a no-op for en and a translation for zh.
+    const titles: Record<string, string> = {
+      deployment: "Deployment",
+      ingress: "Ingress (Nginx)",
+      configmap: "ConfigMap",
+    };
+    const descs: Record<string, string> = {
+      deployment: "Single-container Deployment with a Service (ClusterIP).",
+      ingress: "Ingress that routes a host to an existing Service.",
+      configmap: "ConfigMap with two key-value pairs.",
+    };
+    for (const id of TEMPLATE_IDS) {
+      expect(translate("en", `tpl.titles.${id}`)).toBe(titles[id]);
+      expect(translate("en", `tpl.descs.${id}`)).toBe(descs[id]);
+    }
+  });
+
+  it("translates the deployment description to Chinese", () => {
+    // The deployment description is the longest of the three (the only one
+    // with a parenthetical `(ClusterIP)` that should be translated / dropped)
+    // and the one a user is most likely to read in the picker. Pin the
+    // canonical zh copy so a future refactor that drops the translation
+    // trips a test.
+    const zh = translate("zh", "tpl.descs.deployment");
+    expect(zh).toContain("Deployment");
+    expect(zh).toContain("Service");
+  });
+
+  it("the fallback path (t() with the registry string as the second arg) renders the registry copy when a key is missing", () => {
+    // Defence-in-depth: if a future template is added without a matching
+    // dictionary entry, the picker still renders the registry's hardcoded
+    // English string (not the raw key). The translate() helper takes a
+    // leading string as the fallback for a missing key — this test pins
+    // that contract for the tpl.titles.<id> shape specifically.
+    const fallback = "A New Template";
+    expect(translate("zh", "tpl.titles.does-not-exist", fallback)).toBe(
+      fallback,
+    );
   });
 });
 

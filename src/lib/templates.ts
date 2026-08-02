@@ -42,9 +42,17 @@ export interface TemplateParam {
 
 export interface Template {
   id: string;
-  /** Title shown in the picker. */
+  /**
+   * Title shown in the picker. The English canonical name (also the YAML
+   * `kind:` for the rendered resource) and the i18n fallback for the
+   * `tpl.titles.<id>` dictionary key — the picker passes it as the second
+   * argument to `t()` so a missing translation still renders sensibly.
+   */
   title: string;
-  /** One-line description. */
+  /**
+   * One-line description. English canonical copy and the i18n fallback for
+   * `tpl.descs.<id>`; same fallback contract as `title`.
+   */
   description: string;
   /** Parameters the form renders. */
   params: TemplateParam[];

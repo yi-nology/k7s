@@ -83,15 +83,19 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
               }
               onClick={() => pickTemplate(tt)}
             >
-              <div className={styles.itemTitle}>{tt.title}</div>
-              <div className={styles.itemDesc}>{tt.description}</div>
+              <div className={styles.itemTitle}>
+                {t(`tpl.titles.${tt.id}`, tt.title)}
+              </div>
+              <div className={styles.itemDesc}>
+                {t(`tpl.descs.${tt.id}`, tt.description)}
+              </div>
             </div>
           ))}
         </aside>
         <main className={styles.main}>
           {selected ? (
             <form onSubmit={onSubmit} className={styles.formRoot}>
-              <h3>{selected.title}</h3>
+              <h3>{t(`tpl.titles.${selected.id}`, selected.title)}</h3>
               <div className={styles.form}>
                 {selected.params.map((p) => (
                   <label key={p.key} className={styles.field}>

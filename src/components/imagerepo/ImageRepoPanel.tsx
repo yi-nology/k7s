@@ -294,7 +294,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                             : styles.tag
                         }
                         onClick={() => loadManifest(tt.name)}
-                        title="Inspect manifest"
+                        title={t("image.inspectTitle", "Inspect manifest")}
                       >
                         <span className={styles.tagName}>{tt.name}</span>
                         {/* ImageTag.size / .created are nullable per providers/types.ts
