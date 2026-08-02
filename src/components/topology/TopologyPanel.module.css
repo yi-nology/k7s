@@ -42,16 +42,13 @@
   padding: 0;
 }
 
-.item,
-.itemActive {
+/* The sidebar list is informational (no per-service click yet). cursor:default
+   keeps the OS from advertising a clickable affordance the user can't act on;
+   the panel header's Close button is the only interactive control here. */
+.item {
   border-radius: var(--radius-1);
-  cursor: pointer;
   margin-bottom: 2px;
   padding: var(--space-2);
-}
-
-.itemActive {
-  background: var(--surface-2);
 }
 
 .itemName {
