@@ -21,6 +21,15 @@ pub enum AppError {
     #[error("not found: {0}")]
     NotFound(String),
 
+    /// The server is reachable but no cluster is currently connected. The
+    /// front-end can switch on this variant to drive a "connect to a cluster"
+    /// banner instead of treating it as a generic failure — `NotFound` is
+    /// overloaded and a missing object looks the same as "you're not even
+    /// talking to a cluster yet". Splitting it out makes that case
+    /// cheap to detect without string-matching the message.
+    #[error("not connected to a cluster")]
+    Disconnected,
+
     /// YAML (de)serialization failed while reading or applying a manifest.
     #[error("yaml error: {0}")]
     Yaml(String),

@@ -23,6 +23,7 @@ import { LIMITS, DEFAULT_SETTINGS, sanitizeSettings, type Settings } from "../..
 import { asTheme, type Theme } from "../../lib/theme";
 import { asLocale, LOCALES, type Locale } from "../../lib/i18n";
 import { useTranslation } from "../../hooks/useI18n";
+import { McpPanel } from "./McpPanel";
 
 export function SettingsPanel() {
   const open = useStore((s) => s.settingsOpen);
@@ -185,6 +186,12 @@ export function SettingsPanel() {
               placeholder={t("settings.nodeShellImage.placeholder")}
             />
           </Row>
+
+          {/* AI integration — the MCP endpoint this same server exposes.
+              Renders below the regular settings so the "you can do all this
+              from Claude/Cursor too" point lands last, while the user is
+              still looking at the panel. */}
+          <McpPanel />
         </div>
 
         <div className={styles.footer}>

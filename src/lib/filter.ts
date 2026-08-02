@@ -54,10 +54,13 @@ export function isEmptyFilter(f: ParsedFilter): boolean {
 /**
  * Test a row against a parsed filter. Label selectors must all match the pod's
  * labels (a non-pod row has none, so any selector rejects it); the text term is
- * a name substring, except for Events whose name is an opaque id — there it
- * matches across the visible cells, as the pre-B33 filter did.
+ * a case-insensitive substring matched against the row's name, namespace, and
+ * every visible cell — so typing "kube" against a Pods table whose rows all
+ * live in `kube-system` matches them, and so does typing a status like
+ * "Running". This matches the muscle memory of `kubectl get -l` / grep without
+ * the surprise of "the column is visible but the filter ignores it".
  */
-export function matchesFilter(row: Row, f: ParsedFilter, nav: KindId): boolean {
+export function matchesFilter(row: Row, f: ParsedFilter, _nav: KindId): boolean {
   if (f.labels.length) {
     const labels = row.labels;
     if (!labels) return false;
@@ -66,9 +69,13 @@ export function matchesFilter(row: Row, f: ParsedFilter, nav: KindId): boolean {
     }
   }
   if (f.text === "") return true;
-  return nav === "events"
-    ? row.cells.some((c) => c.text.toLowerCase().includes(f.text))
-    : row.name.toLowerCase().includes(f.text);
+  // Match against name, namespace, and every visible cell. `name` and
+  // `namespace` are explicit (and ordered) so a user typing "kube" for a pod
+  // in `kube-system` gets a hit even if the row's first cell has been
+  // overridden (e.g. CRDs that show a different primary column).
+  if (row.name.toLowerCase().includes(f.text)) return true;
+  if (row.namespace && row.namespace.toLowerCase().includes(f.text)) return true;
+  return row.cells.some((c) => c.text.toLowerCase().includes(f.text));
 }
 
 /**

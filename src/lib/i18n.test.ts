@@ -95,6 +95,22 @@ describe("translate", () => {
     expect(translate("en", "no.such.key")).toBe("no.such.key");
   });
 
+  /** A leading string arg acts as the default copy for an untranslated key.
+   *  The call site pattern is `t("metrics.title", "Metrics")` — we want the
+   *  English copy to render when neither the active locale nor English has
+   *  the key, so a half-translated UI is half-translated English rather than
+   *  a raw key string. */
+  it("uses a leading string arg as the fallback when no dictionary has the key", () => {
+    expect(translate("en", "no.such.key", "Default copy")).toBe("Default copy");
+    expect(translate("zh", "no.such.key", "默认文案")).toBe("默认文案");
+  });
+
+  /** When the locale has the key, the fallback is ignored — the dictionary
+   *  is canonical. The fallback is only for untranslated keys. */
+  it("prefers the dictionary over the fallback when both exist", () => {
+    expect(translate("en", "chrome.settings.title", "Ignored")).toBe("Settings");
+  });
+
   it("falls back to English for a Chinese-only key", () => {
     // Synthesise a Chinese-only key by reading one that exists in English but
     // is missing in Chinese — built-in dictionaries are symmetrical today, so

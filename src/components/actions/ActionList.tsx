@@ -279,6 +279,7 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   // ---- the menu ----
   const safe = actions.filter((a) => !a.danger);
   const dangerous = actions.filter((a) => a.danger);
+  const openOverlay = useStore((s) => s.openOverlay);
 
   return (
     <div className={styles.menu}>
@@ -292,6 +293,28 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
           {a.label}
         </div>
       ))}
+      {/* Pod-only entry: open the Files overlay pointing at the first row's
+          container. Multi-row selection would be ambiguous (different pods),
+          so only show this when exactly one pod is selected. */}
+      {kind === "pods" && rows.length === 1 && (
+        <div
+          className={styles.row}
+          onClick={() => {
+            const r = rows[0];
+            openOverlay("pod-files", {
+              namespace: r.namespace ?? "",
+              name: r.name,
+              // Container is stored on the row as a chip; default to the
+              // first one if the backend didn't surface it. The panel can
+              // switch containers through its own UI once open.
+              container: null,
+            });
+            onClose();
+          }}
+        >
+          {tr("actions.files", "Open files…")}
+        </div>
+      )}
       {safe.length > 0 && dangerous.length > 0 && <div className={styles.separator} />}
       {dangerous.map((a) => (
         <div key={a.id} className={`${styles.row} ${styles.danger}`} onClick={() => pick(a)}>

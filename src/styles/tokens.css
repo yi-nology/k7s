@@ -1,14 +1,19 @@
 /*
  * k7s design tokens — the single source of truth for color, typography, radius,
- * and border values. The dark palette is transcribed verbatim from the design
- * handoff (design/README.md § "Design Tokens", plus the exact shades used in the
- * prototype design/K8s Monitor.dc.html). Components must reference these variables
- * only — never inline hex — so the whole UI stays pixel-consistent with the design.
+ * and border values.
  *
  * Two palettes (B52). `:root` is dark, `[data-theme="light"]` overrides it, and
  * every token is redefined in both — a token defined only in `:root` would silently
  * keep its dark value in light mode, which is exactly the bug that's hard to spot.
  * The attribute is set on <html> by src/lib/theme.ts.
+ *
+ * Design system (v2 — Linear/Vercel direction):
+ *   - Cool near-black surfaces with a slight purple/blue tint
+ *   - Linear-style indigo accent (#7B85F5) with gradient stops
+ *   - Teal-green status-ok (less "matrix") + amber/red sentinels
+ *   - Heavier use of soft color stops (--*-soft) for halos and glows
+ *   - Three radii (6/8/10/14) for layered depth
+ *   - Shadow tokens for menu / panel / glow / focus
  *
  * Token *names* describe role, not brightness, so both palettes can use the same
  * set. Two names are historical and now mildly misleading, worth knowing before
@@ -19,83 +24,103 @@
  */
 
 :root {
-  /* ---- Backgrounds ---- */
-  --bg-app: #0d0d0f; /* app root / window background */
-  --bg-panel: #121214; /* sidebar, detail event cards, status bar */
-  --bg-chrome: #101012; /* top bar, table header, detail panel body */
-  --bg-control: #17171a; /* buttons, menus, cluster switcher, ns button */
-  --bg-terminal: #0a0a0c; /* log area, YAML view, log search field */
-  --bg-hover: #1b1b1f; /* generic hover / active menu row */
-  --bg-hover-strong: #222227; /* stronger hover (menu rows, close button) */
-  --bg-selected-row: #122036; /* selected pod row */
-  --bg-nav-active: #16233a; /* active nav item background */
-  --bg-log-hover: #151519; /* hovered log/yaml line */
+  /* ================ Surfaces ================ */
+  --bg-app:        #0A0A0F; /* app root / window background */
+  --bg-panel:      #0F0F14; /* sidebar, detail event cards, status bar */
+  --bg-chrome:     #0C0C11; /* top bar, table header, detail panel body */
+  --bg-elevated:   #14141A; /* dropdowns, popovers, menu */
+  --bg-control:    #16161C; /* buttons, menus, cluster switcher, ns button */
+  --bg-terminal:   #08080C; /* log area, YAML view, log search field */
+  --bg-hover:      #1A1A22; /* generic hover / active menu row */
+  --bg-hover-strong: #20202A; /* stronger hover (menu rows, close button) */
+  --bg-selected-row: #1B2742; /* selected pod row */
+  --bg-nav-active: #1A2440; /* active nav item background */
+  --bg-log-hover:  #13131A; /* hovered log/yaml line */
 
-  /* ---- Borders ---- */
-  --border-default: #26262b; /* default separators, panel borders */
-  --border-control: #2e2e34; /* control (button) borders */
-  --border-menu: #38383f; /* dropdown menu borders */
-  --border-hover: #4a4a55; /* border on hover */
+  /* ================ Borders ================ */
+  --border-default: #23232C; /* default separators, panel borders */
+  --border-strong:  #2E2E3A; /* stronger separator (e.g. section divider) */
+  --border-control: #2A2A35; /* control (button) borders */
+  --border-menu:    #363645; /* dropdown menu borders */
+  --border-hover:   #5C5C7A; /* border on hover */
   --border-blue-action: #2a4a75; /* outline of the ghost "Edit" button */
-  --border-row: #1b1b1f; /* table row bottom border, toolbar dividers */
+  --border-row:     #1B1B23; /* table row bottom border, toolbar dividers */
+  --border-ring:    rgba(123, 133, 245, 0.20); /* subtle inner ring on active */
 
-  /* ---- Text ---- */
-  --text-primary: #ececf1; /* names, active labels, headings */
-  --text-body: #d2d2d8; /* default body text, inputs, yaml values */
-  --text-secondary: #a4a4ae; /* metrics, secondary values, log messages */
-  --text-muted: #70707a; /* namespace/age cells, muted metadata */
-  --text-faint: #57575f; /* section headers, faint labels, empty state */
-  --text-linenum: #34343c; /* yaml line numbers (also badge bg) */
-  --text-log-ts: #4c4c55; /* log timestamp column */
-  --text-nav-inactive: #8e8e98; /* inactive nav item label */
+  /* ================ Text ================ */
+  --text-primary:   #F2F2F8; /* names, active labels, headings */
+  --text-body:      #D6D6E0; /* default body text, inputs, yaml values */
+  --text-secondary: #A6A6B8; /* metrics, secondary values, log messages */
+  --text-muted:     #6E6E80; /* namespace/age cells, muted metadata */
+  --text-faint:     #56566A; /* section headers, faint labels, empty state */
+  --text-linenum:   #34343c; /* yaml line numbers (also scrollbar hover) */
+  --text-log-ts:    #4c4c55; /* log timestamp column */
+  --text-nav-inactive: #9595A6; /* inactive nav item label */
 
-  /* ---- Accent (blue): active indicators + primary actions ONLY ---- */
-  --accent: #4d9fff;
-  --accent-hover: #7db8ff;
+  /* ================ Accent (Linear-style indigo) ================ */
+  --accent:         #7B85F5;
+  --accent-hover:   #9AA3FF;
+  --accent-soft:    rgba(123, 133, 245, 0.18);
+  --accent-softer:  rgba(123, 133, 245, 0.08);
+  --accent-grad:    linear-gradient(135deg, #7B85F5 0%, #5E6AD2 100%);
+  --accent-glow:    0 0 0 3px rgba(123, 133, 245, 0.30);
+  --accent-shadow:  0 0 24px rgba(123, 133, 245, 0.35);
 
-  /* ---- Semantic status colors ---- */
-  --status-ok: #9ece6a; /* Running / Ready / Active / Normal event */
-  --status-warn: #e0af68; /* Pending / degraded ready / restarts / Warning */
-  --status-err: #f7768e; /* CrashLoopBackOff / Failed / Warning event */
-  --status-warn-msg: #d8c39a; /* soft tint for WARN log message text */
-  --status-err-msg: #f2a5b3; /* soft tint for ERROR log message text */
+  /* ================ Semantic status colors ================ */
+  --status-ok:      #4EC9B0; /* Running / Ready / Active / Normal event */
+  --status-warn:    #E0AF68; /* Pending / degraded ready / restarts / Warning */
+  --status-err:     #F76E8E; /* CrashLoopBackOff / Failed / Warning event */
+  --status-warn-msg: #D8C39A; /* soft tint for WARN log message text */
+  --status-err-msg:  #F2A5B3; /* soft tint for ERROR log message text */
+  /* Soft halos for status dots (used in tables, sidebar, status bar) */
+  --status-ok-soft:   rgba(78, 201, 176, 0.18);
+  --status-warn-soft: rgba(224, 175, 104, 0.18);
+  --status-err-soft:  rgba(247, 118, 142, 0.20);
 
-  /* ---- Misc specific shades from the prototype ---- */
-  --badge-bg: #34343c; /* cluster initials badge background */
-  --dot-inactive: #57575f; /* inactive context/status dot */
-  --dot-watch: #8e8e98; /* pulsing "watch: N streams" dot */
-  --separator: #3a3a42; /* breadcrumb "/" separators */
+  /* ================ Misc specific shades ================ */
+  --badge-bg:       #2A2A38; /* cluster initials badge background */
+  --dot-inactive:   #57575F; /* inactive context/status dot */
+  --dot-watch:      #8E8E98; /* pulsing "watch: N streams" dot */
+  --separator:      #3A3A4A; /* breadcrumb "/" separators */
 
-  /* ---- Follow / pause button (logs toolbar) ---- */
-  --follow-green-border: #3a5f35;
-  --follow-green-bg: #122015;
-  --follow-amber-border: #5a4a2a;
-  --follow-amber-bg: #1f1a10;
+  /* ================ Follow / pause button (logs toolbar) ================ */
+  --follow-green-border: #3A8A6F;
+  --follow-green-bg:     #11261F;
+  --follow-amber-border: #8A6A2A;
+  --follow-amber-bg:     #2A1F10;
 
-  /* ---- Terminal / editor surfaces (read at runtime by theme.ts) ----
+  /* ================ Terminal / editor surfaces (read at runtime by theme.ts) ================
    * xterm and CodeMirror need literal colors, so these exist as tokens rather
    * than as hex buried in a TS object. ANSI black is the terminal background in
    * dark (the usual convention) but real ink in light, where using the
    * background would render black text invisible. */
-  --ansi-black: #0a0a0c;
-  --ansi-magenta: #bb9af7;
-  --ansi-cyan: #7dcfff;
-  --editor-selection: #23324a; /* xterm + CodeMirror selection */
+  --ansi-black:    #08080C;
+  --ansi-magenta:  #BB9AF7;
+  --ansi-cyan:     #7DCFFF;
+  --editor-selection: #23324A; /* xterm + CodeMirror selection */
 
-  /* ---- Overlays ---- */
-  --scrim: rgba(0, 0, 0, 0.45); /* modal backdrop (settings, palette) */
-  --bg-edit-hover: #12203a; /* ghost "Edit" button hover */
+  /* ================ Overlays ================ */
+  --scrim:         rgba(0, 0, 0, 0.55); /* modal backdrop (settings, palette) */
+  --bg-edit-hover: #1B2A4A;             /* ghost "Edit" button hover */
+  --grad-bg:       radial-gradient(at 0% 0%, rgba(123, 133, 245, 0.04) 0px, transparent 50%);
 
-  /* ---- Typography ---- */
-  --font-ui: "IBM Plex Sans", system-ui, sans-serif; /* general UI */
+  /* ================ Typography ================ */
+  --font-ui:   "IBM Plex Sans", system-ui, sans-serif; /* general UI */
   --font-mono: "JetBrains Mono", ui-monospace, monospace; /* data, code, logs */
 
-  /* ---- Radius (design uses 5–6px) ---- */
-  --radius-sm: 5px;
-  --radius-md: 6px;
+  /* ================ Radius ================ */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
 
-  /* ---- Elevation ---- */
-  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5); /* dropdown menus */
+  /* ================ Elevation ================ */
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg:    0 12px 36px rgba(0, 0, 0, 0.5);
+  --shadow-panel: -16px 0 32px rgba(0, 0, 0, 0.45); /* detail panel lift */
+  --shadow-menu:  0 8px 24px rgba(0, 0, 0, 0.5);    /* dropdown menus */
+  --shadow-glow:  0 0 0 3px rgba(123, 133, 245, 0.30); /* focus ring (literal so light/dark differ) */
 }
 
 /*
@@ -104,8 +129,8 @@
  * Two things that are not a mechanical inversion, because a straight invert
  * looks wrong:
  *
- * 1. The accent and status hues are *darkened*, not lightened. #4d9fff on white
- *    is roughly 2.2:1 — unreadable as text — and the status colors are worse.
+ * 1. The accent and status hues are *darkened*, not lightened. #7B85F5 on white
+ *    is roughly 2.6:1 — unreadable as text — and the status colors are worse.
  *    These carry meaning (a red cell is the whole point of the cell), so they're
  *    re-picked for contrast on a light background rather than reused.
  * 2. The main content area (table, top bar, status bar) stays light. Side panels
@@ -114,71 +139,88 @@
  *    brightest thing without the inspector washing out into the same grey.
  */
 [data-theme="light"] {
-  /* ---- Backgrounds ---- */
-  --bg-app: #fbfbfc;
-  --bg-panel: #f4f4f6;
-  --bg-chrome: #eeeef1;
-  --bg-control: #ffffff;
-  --bg-terminal: #ffffff;
-  --bg-hover: #ebebef;
-  --bg-hover-strong: #e0e0e6;
-  --bg-selected-row: #dbe9ff;
-  --bg-nav-active: #e5efff;
-  --bg-log-hover: #f3f5f8;
+  /* ---- Surfaces ---- */
+  --bg-app:        #FAFAFB;
+  --bg-panel:      #FFFFFF;
+  --bg-chrome:     #FFFFFF;
+  --bg-elevated:   #FFFFFF;
+  --bg-control:    #FFFFFF;
+  --bg-terminal:   #F6F6F9;
+  --bg-hover:      #F0F0F4;
+  --bg-hover-strong: #E6E6EC;
+  --bg-selected-row: #EAF0FF;
+  --bg-nav-active: #EEF1FF;
+  --bg-log-hover:  #F2F2F6;
 
   /* ---- Borders ---- */
-  --border-default: #dcdce2;
-  --border-control: #cfcfd7;
-  --border-menu: #c2c2cc;
-  --border-hover: #a6a6b2;
-  --border-blue-action: #9dc3f0;
-  --border-row: #ececf0;
+  --border-default: #E5E5EC;
+  --border-strong:  #D5D5E0;
+  --border-control: #DDDDD4;
+  --border-menu:    #D0D0DA;
+  --border-hover:   #A8A8B6;
+  --border-blue-action: #9DC3F0;
+  --border-row:     #ECECF1;
+  --border-ring:    rgba(94, 106, 210, 0.18);
 
   /* ---- Text ---- */
-  --text-primary: #15151a;
-  --text-body: #2b2b33;
-  --text-secondary: #55555f;
-  --text-muted: #71717b;
-  --text-faint: #8b8b95;
-  --text-linenum: #b4b4bd;
-  --text-log-ts: #9696a0;
-  --text-nav-inactive: #5b5b65;
+  --text-primary:   #0E0E1A;
+  --text-body:      #2A2A38;
+  --text-secondary: #58586C;
+  --text-muted:     #77778A;
+  --text-faint:     #A0A0B0;
+  --text-linenum:   #B4B4BD;
+  --text-log-ts:    #9696A0;
+  --text-nav-inactive: #6E6E80;
 
   /* ---- Accent ---- */
-  --accent: #0b62c4;
-  --accent-hover: #0a4e9c;
+  --accent:         #5E6AD2;
+  --accent-hover:   #4A55C0;
+  --accent-soft:    rgba(94, 106, 210, 0.10);
+  --accent-softer:  rgba(94, 106, 210, 0.05);
+  --accent-grad:    linear-gradient(135deg, #5E6AD2 0%, #4A55C0 100%);
+  --accent-glow:    0 0 0 3px rgba(94, 106, 210, 0.20);
+  --accent-shadow:  0 0 24px rgba(94, 106, 210, 0.18);
 
-  /* ---- Semantic status colors ---- */
-  --status-ok: #2e7d32;
-  --status-warn: #8a5a00;
-  --status-err: #c0243c;
-  --status-warn-msg: #6f4a0a;
-  --status-err-msg: #9c1f33;
+  /* ---- Semantic status ---- */
+  --status-ok:      #1F8B70;
+  --status-warn:    #B47A0E;
+  --status-err:     #C42E4E;
+  --status-warn-msg: #8A5A00;
+  --status-err-msg:  #9C1F33;
+  --status-ok-soft:   rgba(31, 139, 112, 0.10);
+  --status-warn-soft: rgba(180, 122, 14, 0.10);
+  --status-err-soft:  rgba(196, 46, 78, 0.12);
 
   /* ---- Misc ---- */
-  --badge-bg: #d9d9e0;
-  --dot-inactive: #b2b2bb;
-  --dot-watch: #71717b;
-  --separator: #bfbfc9;
+  --badge-bg:       #E8E8EE;
+  --dot-inactive:   #B2B2BB;
+  --dot-watch:      #71717B;
+  --separator:      #D5D5DD;
 
   /* ---- Follow / pause button ---- */
-  --follow-green-border: #a3ce9f;
-  --follow-green-bg: #e9f6e9;
-  --follow-amber-border: #ddc189;
-  --follow-amber-bg: #fdf3e2;
+  --follow-green-border: #A3CE9F;
+  --follow-green-bg:     #E9F6E9;
+  --follow-amber-border: #DDC189;
+  --follow-amber-bg:     #FDF3E2;
 
   /* ---- Terminal / editor surfaces ---- */
-  --ansi-black: #15151a;
-  --ansi-magenta: #7c3aed;
-  --ansi-cyan: #0e7490;
-  --editor-selection: #cfe1ff;
+  --ansi-black:    #15151A;
+  --ansi-magenta:  #7C3AED;
+  --ansi-cyan:     #0E7490;
+  --editor-selection: #CFE1FF;
 
   /* ---- Overlays ---- */
-  --scrim: rgba(0, 0, 0, 0.3);
-  --bg-edit-hover: #dbe9ff;
+  --scrim:         rgba(20, 20, 50, 0.25);
+  --bg-edit-hover: #DBE9FF;
+  --grad-bg:       radial-gradient(at 0% 0%, rgba(94, 106, 210, 0.04) 0px, transparent 50%);
 
   /* ---- Elevation: a dark-theme shadow reads as soot on white. ---- */
-  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.14);
+  --shadow-sm:    0 1px 2px rgba(20, 20, 50, 0.04);
+  --shadow-md:    0 4px 16px rgba(20, 20, 50, 0.06);
+  --shadow-lg:    0 12px 36px rgba(20, 20, 50, 0.10);
+  --shadow-panel: -16px 0 32px rgba(20, 20, 50, 0.08);
+  --shadow-menu:  0 8px 24px rgba(20, 20, 50, 0.14);
+  --shadow-glow:  0 0 0 3px var(--accent-soft);
 }
 
 /*
@@ -193,58 +235,76 @@
 [data-theme="light"] [data-surface="panel"] {
   color-scheme: dark;
 
-  --bg-app: #0d0d0f;
-  --bg-panel: #161618;
-  --bg-chrome: #141416;
-  --bg-control: #1c1c20;
-  --bg-terminal: #0c0c0e;
-  --bg-hover: #1b1b1f;
-  --bg-hover-strong: #222227;
-  --bg-selected-row: #122036;
-  --bg-nav-active: #16233a;
-  --bg-log-hover: #151519;
+  --bg-app:        #0A0A0F;
+  --bg-panel:      #14141A;
+  --bg-chrome:     #101014;
+  --bg-elevated:   #18181F;
+  --bg-control:    #1A1A22;
+  --bg-terminal:   #08080C;
+  --bg-hover:      #1B1B22;
+  --bg-hover-strong: #22222A;
+  --bg-selected-row: #1B2742;
+  --bg-nav-active: #1A2440;
+  --bg-log-hover:  #13131A;
 
-  --border-default: #2a2a30;
-  --border-control: #34343c;
-  --border-menu: #3a3a42;
-  --border-hover: #4a4a55;
+  --border-default: #262630;
+  --border-strong:  #2F2F3A;
+  --border-control: #2F2F3A;
+  --border-menu:    #3A3A48;
+  --border-hover:   #5C5C7A;
   --border-blue-action: #2a4a75;
-  --border-row: #1b1b1f;
+  --border-row:     #1B1B23;
+  --border-ring:    rgba(123, 133, 245, 0.20);
 
-  --text-primary: #f2f2f6;
-  --text-body: #e0e0e6;
-  --text-secondary: #b0b0ba;
-  --text-muted: #8e8e98;
-  --text-faint: #6a6a74;
-  --text-linenum: #4a4a54;
-  --text-log-ts: #5c5c66;
-  --text-nav-inactive: #9a9aa4;
+  --text-primary:   #F2F2F8;
+  --text-body:      #D6D6E0;
+  --text-secondary: #A6A6B8;
+  --text-muted:     #77778A;
+  --text-faint:     #56566A;
+  --text-linenum:   #4A4A54;
+  --text-log-ts:    #5C5C66;
+  --text-nav-inactive: #9A9AA4;
 
-  --accent: #4d9fff;
-  --accent-hover: #7db8ff;
+  --accent:         #7B85F5;
+  --accent-hover:   #9AA3FF;
+  --accent-soft:    rgba(123, 133, 245, 0.18);
+  --accent-softer:  rgba(123, 133, 245, 0.08);
+  --accent-grad:    linear-gradient(135deg, #7B85F5 0%, #5E6AD2 100%);
+  --accent-glow:    0 0 0 3px rgba(123, 133, 245, 0.30);
+  --accent-shadow:  0 0 24px rgba(123, 133, 245, 0.35);
 
-  --status-ok: #9ece6a;
-  --status-warn: #e0af68;
-  --status-err: #f7768e;
-  --status-warn-msg: #d8c39a;
-  --status-err-msg: #f2a5b3;
+  --status-ok:      #4EC9B0;
+  --status-warn:    #E0AF68;
+  --status-err:     #F76E8E;
+  --status-warn-msg: #D8C39A;
+  --status-err-msg:  #F2A5B3;
+  --status-ok-soft:   rgba(78, 201, 176, 0.18);
+  --status-warn-soft: rgba(224, 175, 104, 0.18);
+  --status-err-soft:  rgba(247, 118, 142, 0.20);
 
-  --badge-bg: #34343c;
-  --dot-inactive: #57575f;
-  --dot-watch: #8e8e98;
-  --separator: #3a3a42;
+  --badge-bg:       #2A2A38;
+  --dot-inactive:   #57575F;
+  --dot-watch:      #8E8E98;
+  --separator:      #3A3A4A;
 
-  --follow-green-border: #3a5f35;
-  --follow-green-bg: #122015;
-  --follow-amber-border: #5a4a2a;
-  --follow-amber-bg: #1f1a10;
+  --follow-green-border: #3A8A6F;
+  --follow-green-bg:     #11261F;
+  --follow-amber-border: #8A6A2A;
+  --follow-amber-bg:     #2A1F10;
 
-  --ansi-black: #0a0a0c;
-  --ansi-magenta: #bb9af7;
-  --ansi-cyan: #7dcfff;
-  --editor-selection: #23324a;
+  --ansi-black:    #08080C;
+  --ansi-magenta:  #BB9AF7;
+  --ansi-cyan:     #7DCFFF;
+  --editor-selection: #23324A;
 
-  --scrim: rgba(0, 0, 0, 0.45);
-  --bg-edit-hover: #12203a;
-  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --scrim:         rgba(0, 0, 0, 0.55);
+  --bg-edit-hover: #1B2A4A;
+  --grad-bg:       radial-gradient(at 0% 0%, rgba(123, 133, 245, 0.04) 0px, transparent 50%);
+
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md:    0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg:    0 12px 36px rgba(0, 0, 0, 0.5);
+  --shadow-panel: -16px 0 32px rgba(0, 0, 0, 0.45);
+  --shadow-menu:  0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-glow:  0 0 0 3px var(--accent-soft);
 }

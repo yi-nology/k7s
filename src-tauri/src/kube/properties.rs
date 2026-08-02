@@ -16,10 +16,12 @@ use super::helm;
 use crate::error::{AppError, AppResult};
 use k8s_openapi::api::apps::v1::{Deployment, ReplicaSet, StatefulSet};
 use k8s_openapi::api::core::v1::{
-    ConfigMap, Node, PersistentVolume, PersistentVolumeClaim, Pod, Secret, Service,
+    ConfigMap, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod, Secret, Service,
+    ServiceAccount,
 };
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use k8s_openapi::api::networking::v1::Ingress;
+use k8s_openapi::api::storage::v1::StorageClass;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::api::{Api, ListParams};
 use kube::{Client, ResourceExt};
@@ -376,6 +378,11 @@ pub async fn gather(
         "statefulsets" => gather_statefulset(client, namespace, name).await,
         "ingresses" => gather_ingress(client, namespace, name).await,
         "nodes" => gather_node(client, name).await,
+        "configmaps" => gather_configmap(client, namespace, name).await,
+        "secrets" => gather_secret(client, namespace, name).await,
+        "namespaces" => gather_namespace(client, name).await,
+        "storageclasses" => gather_storageclass(client, name).await,
+        "serviceaccounts" => gather_serviceaccount(client, namespace, name).await,
         "helm" => gather_helm(client, namespace, name).await,
         other => Err(AppError::Other(format!("no properties for kind {other}"))),
     }
@@ -1702,6 +1709,300 @@ async fn gather_node(client: Client, name: &str) -> AppResult<Properties> {
     );
 
     meta_sections(&mut props, &node);
+    Ok(props)
+}
+
+// ---------------------------------------------------------------------------
+// ConfigMaps (B18-ish) — the question is "what keys does this carry, and
+// how big". A user hunting a misconfigured ConfigMap wants the key list
+// and the values side-by-side, so the YAML view stays a fallback.
+// ---------------------------------------------------------------------------
+
+async fn gather_configmap(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+    let api: Api<ConfigMap> = Api::namespaced(client, namespace);
+    let cm = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let data = cm.data.as_ref();
+    let binary = cm.binary_data.as_ref();
+    let mut props = Properties::default();
+
+    let data_count = data.map(|m| m.len()).unwrap_or(0);
+    let binary_count = binary.map(|m| m.len()).unwrap_or(0);
+    let immutable = cm.immutable.unwrap_or(false);
+    props.fields(
+        "Overview",
+        vec![
+            field("data keys", data_count.to_string()),
+            field("binary keys", binary_count.to_string()),
+            field_toned(
+                "immutable",
+                if immutable { "yes" } else { "no" },
+                if immutable { Tone::Good } else { Tone::Secondary },
+            ),
+        ],
+    );
+
+    // ---- data ----
+    // The two maps are mutually exclusive at the key level (the apiserver
+    // rejects overlap), but a single ConfigMap can have keys in both, so we
+    // show them as two tables rather than collapsing.
+    props.push_table(
+        "Data",
+        Some("no data keys"),
+        &["KEY", "VALUE"],
+        data.iter()
+            .flat_map(|m| m.iter())
+            .map(|(k, v)| vec![name_cell(k.clone()), c(v.clone())])
+            .collect(),
+    );
+    props.push_table(
+        "Binary data",
+        Some("no binary keys"),
+        &["KEY", "BYTES"],
+        binary
+            .iter()
+            .flat_map(|m| m.iter())
+            .map(|(k, v)| {
+                // ByteString derefs to &[u8] for length; printing a count is
+                // far more useful than dumping base64 of a TLS cert.
+                vec![name_cell(k.clone()), c(format!("{} bytes", v.0.len()))]
+            })
+            .collect(),
+    );
+
+    meta_sections(&mut props, &cm);
+    Ok(props)
+}
+
+// ---------------------------------------------------------------------------
+// Secrets — same shape as ConfigMaps, but every value is redacted. Showing
+// the base64 of `data` is the same kind of leak the YAML view guards
+// against; the tab is for "what keys are in here, and how big", not the
+// contents themselves. (kubectl get -o yaml still works for users with
+// the right RBAC — we just don't widen the surface area in the UI.)
+// ---------------------------------------------------------------------------
+
+async fn gather_secret(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+    let api: Api<Secret> = Api::namespaced(client, namespace);
+    let sec = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let data = sec.data.as_ref();
+    let string_data = sec.string_data.as_ref();
+    let mut props = Properties::default();
+
+    let data_count = data.map(|m| m.len()).unwrap_or(0);
+    let string_count = string_data.map(|m| m.len()).unwrap_or(0);
+    let immutable = sec.immutable.unwrap_or(false);
+    props.fields(
+        "Overview",
+        vec![
+            field("type", or_dash(sec.type_.clone())),
+            field("data keys", data_count.to_string()),
+            field("stringData keys", string_count.to_string()),
+            field_toned(
+                "immutable",
+                if immutable { "yes" } else { "no" },
+                if immutable { Tone::Good } else { Tone::Secondary },
+            ),
+        ],
+    );
+
+    // ---- data ----
+    // Redact values: only key + byte count, never the contents. Length is
+    // useful (a 4096-byte tls.crt is the same shape as 32-byte one, and
+    // the user can tell which keys are unexpectedly large).
+    props.push_table(
+        "Data",
+        Some("no data keys"),
+        &["KEY", "BYTES"],
+        data.iter()
+            .flat_map(|m| m.iter())
+            .map(|(k, v)| vec![name_cell(k.clone()), c(format!("{} bytes", v.0.len()))])
+            .collect(),
+    );
+    // stringData is write-only on the apiserver (it's never echoed back on
+    // GET), so this table is almost always empty — but if it does come
+    // through (some custom resources or shims), we'd still want to redact.
+    props.push_table(
+        "stringData",
+        Some("no stringData keys"),
+        &["KEY", "BYTES"],
+        string_data
+            .iter()
+            .flat_map(|m| m.iter())
+            .map(|(k, v)| vec![name_cell(k.clone()), c(format!("{} bytes", v.len()))])
+            .collect(),
+    );
+
+    meta_sections(&mut props, &sec);
+    Ok(props)
+}
+
+// ---------------------------------------------------------------------------
+// Namespaces — a thin "what is it" view. The cluster-scoped equivalent of
+// labels-on-anything: phase, the well-known status flags, and a name
+// column for the labels people actually use to organise their clusters.
+// ---------------------------------------------------------------------------
+
+async fn gather_namespace(client: Client, name: &str) -> AppResult<Properties> {
+    let api: Api<Namespace> = Api::all(client);
+    let ns = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let status = ns.status.clone().unwrap_or_default();
+    let mut props = Properties::default();
+
+    // Phase is the headline: Active is the only "normal" state, anything
+    // else is a reason to look closer. Terminating in particular is the
+    // common one — a stuck finalizer, etc.
+    let phase = status.phase.clone().unwrap_or_else(|| DASH.into());
+    let phase_tone = match phase.as_str() {
+        "Active" => Tone::Good,
+        "Terminating" => Tone::Warn,
+        _ => Tone::Secondary,
+    };
+    let label_count = ns
+        .metadata
+        .labels
+        .as_ref()
+        .map(|m| m.len())
+        .unwrap_or(0);
+    props.fields(
+        "Overview",
+        vec![
+            field_toned("phase", phase, phase_tone),
+            field("labels", label_count.to_string()),
+        ],
+    );
+
+    meta_sections(&mut props, &ns);
+    Ok(props)
+}
+
+// ---------------------------------------------------------------------------
+// StorageClasses — provisioner + reclaim policy are the two questions that
+// actually matter; the rest is "what knobs does it expose", and that lives
+// in the parameters table.
+// ---------------------------------------------------------------------------
+
+async fn gather_storageclass(client: Client, name: &str) -> AppResult<Properties> {
+    let api: Api<StorageClass> = Api::all(client);
+    let sc = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let mut props = Properties::default();
+
+    let allow_expand = sc.allow_volume_expansion.unwrap_or(false);
+    props.fields(
+        "Overview",
+        vec![
+            field("provisioner", sc.provisioner.clone()),
+            field(
+                "reclaim policy",
+                sc.reclaim_policy.clone().unwrap_or_else(|| DASH.into()),
+            ),
+            field(
+                "volume binding",
+                sc.volume_binding_mode
+                    .clone()
+                    .unwrap_or_else(|| "Immediate".into()),
+            ),
+            field_toned(
+                "allow expansion",
+                if allow_expand { "yes" } else { "no" },
+                if allow_expand { Tone::Good } else { Tone::Secondary },
+            ),
+        ],
+    );
+
+    // ---- parameters ----
+    props.push_table(
+        "Parameters",
+        Some("no parameters"),
+        &["KEY", "VALUE"],
+        sc.parameters
+            .iter()
+            .flatten()
+            .map(|(k, v)| vec![name_cell(k.clone()), c(v.clone())])
+            .collect(),
+    );
+
+    // ---- mount options ----
+    props.push_table(
+        "Mount options",
+        Some("no mount options"),
+        &["OPTION"],
+        sc.mount_options
+            .iter()
+            .flatten()
+            .map(|m| vec![c(m.clone())])
+            .collect(),
+    );
+
+    meta_sections(&mut props, &sc);
+    Ok(props)
+}
+
+// ---------------------------------------------------------------------------
+// ServiceAccounts — the two lists (imagePullSecrets and Secrets) are the
+// whole story: what registries this SA can pull from, and what secrets a
+// pod using it can mount. automount is the toggle that trips people up most.
+// ---------------------------------------------------------------------------
+
+async fn gather_serviceaccount(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
+    let api: Api<ServiceAccount> = Api::namespaced(client, namespace);
+    let sa = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let mut props = Properties::default();
+
+    let ips_count = sa.image_pull_secrets.as_ref().map(|v| v.len()).unwrap_or(0);
+    let sec_count = sa.secrets.as_ref().map(|v| v.len()).unwrap_or(0);
+    // `automountServiceAccountToken` is a tri-state: unset means "default"
+    // (which is true unless the pod opts out). Showing the literal field
+    // is the honest answer — kubectl does the same.
+    let automount = match sa.automount_service_account_token {
+        Some(true) => "true",
+        Some(false) => "false",
+        None => "(default)",
+    };
+    props.fields(
+        "Overview",
+        vec![
+            field("automount token", automount),
+            field("image pull secrets", ips_count.to_string()),
+            field("secrets", sec_count.to_string()),
+        ],
+    );
+
+    // ---- image pull secrets ----
+    props.push_table(
+        "Image pull secrets",
+        Some("no image pull secrets"),
+        &["NAME"],
+        sa.image_pull_secrets
+            .iter()
+            .flat_map(|v| v.iter())
+            // `LocalObjectReference.name` is a bare String (not Option), but
+            // the apiserver allows empty values for backwards-compat — show
+            // a dash so the row isn't blank.
+            .map(|r| {
+                vec![name_cell(
+                    if r.name.is_empty() { DASH.into() } else { r.name.clone() },
+                )]
+            })
+            .collect(),
+    );
+
+    // ---- secrets ----
+    props.push_table(
+        "Secrets",
+        Some("no secrets"),
+        &["NAME"],
+        sa.secrets
+            .iter()
+            .flat_map(|v| v.iter())
+            .map(|r| vec![name_cell(r.name.clone().unwrap_or_else(|| DASH.into()))])
+            .collect(),
+    );
+
+    meta_sections(&mut props, &sa);
     Ok(props)
 }
 

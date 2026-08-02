@@ -29,7 +29,7 @@ use kube::{Api, Client, Resource};
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::hash::Hash;
-use tauri::{AppHandle, Emitter};
+use crate::core::events::EventSink;
 use tokio::time::{interval, Duration, MissedTickBehavior};
 
 /// Maximum snapshot emit rate per kind (coalesces bursts of watch events).
@@ -71,12 +71,19 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
     spawn::<StorageClass>(mgr, &client, ResourceKind::Storageclasses, mappers::map_storageclass, identity).await;
     spawn::<Node>(mgr, &client, ResourceKind::Nodes, mappers::map_node, identity).await;
     spawn::<Namespace>(mgr, &client, ResourceKind::Namespaces, mappers::map_namespace, identity).await;
+    // Phase 2 Tier-2: NetworkPolicy / HPA / ResourceQuota / LimitRange.
+    // These four kinds are discoverable through the CRD-aware path that
+    // the user can open from a row's "View CRD" action; the dynamic-typed
+    // watcher needs a separate store integration that would balloon the
+    // scope of this commit. The mappers (map_networkpolicy, map_hpa, …)
+    // are wired up in `mappers.rs` and used by the lazy
+    // `watch_custom_kind` path when the user navigates to one of them.
     // Cluster-wide events feed: ordered Warnings-first/newest and capped (B14).
     spawn::<Event>(mgr, &client, ResourceKind::Events, mappers::map_event, events_order).await;
     // Helm releases, decoded from their Secrets (B26).
-    let app = mgr.app();
+    let sink = mgr.sink();
     let helm_client = client.clone();
-    let handle = tokio::spawn(async move { run_helm_watcher(helm_client, app).await });
+    let handle = tokio::spawn(async move { run_helm_watcher(helm_client, sink).await });
     mgr.push_task(handle).await;
     21
 }
@@ -102,10 +109,10 @@ async fn spawn<K>(
         + Sync
         + 'static,
 {
-    let app = mgr.app();
+    let sink = mgr.sink();
     let client = client.clone();
     let handle = tokio::spawn(async move {
-        run_watcher::<K>(client, app, kind, map_fn, post_fn).await;
+        run_watcher::<K>(client, sink, kind, map_fn, post_fn).await;
     });
     mgr.push_task(handle).await;
 }
@@ -113,7 +120,7 @@ async fn spawn<K>(
 /// Drive a reflector for `K` and emit debounced, post-processed snapshots for `kind`.
 async fn run_watcher<K>(
     client: Client,
-    app: AppHandle,
+    sink: EventSink,
     kind: ResourceKind,
     map_fn: fn(&K) -> Row,
     post_fn: fn(Vec<Row>) -> Vec<Row>,
@@ -139,7 +146,7 @@ async fn run_watcher<K>(
         .default_backoff()
         .boxed();
 
-    pump(reader, stream, app, kind.id().to_string(), |o| Some(map_fn(o)), post_fn).await;
+    pump(reader, stream, sink, kind.id().to_string(), |o| Some(map_fn(o)), post_fn).await;
 }
 
 /// Ordering/reduction for the Helm feed: newest revision per release (B26).
@@ -154,7 +161,7 @@ fn helm_latest(rows: Vec<Row>) -> Vec<Row> {
 /// throw most of them away. It's separate from the Secrets kind on purpose: that
 /// one redacts and lists Secrets as Secrets, while this one decodes them into
 /// something else entirely.
-async fn run_helm_watcher(client: Client, app: AppHandle) {
+async fn run_helm_watcher(client: Client, sink: EventSink) {
     let api: Api<Secret> = Api::all(client);
     let (reader, writer) = reflector::store::<Secret>();
     let cfg = watcher::Config::default().fields(&format!("type={}", helm::RELEASE_SECRET_TYPE));
@@ -163,7 +170,7 @@ async fn run_helm_watcher(client: Client, app: AppHandle) {
     pump(
         reader,
         stream,
-        app,
+        sink,
         ResourceKind::Helm.id().to_string(),
         helm::map_release,
         helm_latest,
@@ -176,12 +183,12 @@ async fn run_helm_watcher(client: Client, app: AppHandle) {
 /// lazily: murphy-yi alone has 44 CRDs, and watching them all on connect would open
 /// dozens of pointless streams.
 pub async fn spawn_custom(mgr: &ClientManager, client: Client, kind: &CustomKind) {
-    let app = mgr.app();
+    let sink = mgr.sink();
     let id = kind.id.clone();
     let ar = kind.api_resource();
     let namespaced = kind.namespaced;
     let handle = tokio::spawn(async move {
-        run_custom_watcher(client, app, id, ar, namespaced).await;
+        run_custom_watcher(client, sink, id, ar, namespaced).await;
     });
     mgr.add_custom_watcher(kind.id.clone(), handle).await;
 }
@@ -189,7 +196,7 @@ pub async fn spawn_custom(mgr: &ClientManager, client: Client, kind: &CustomKind
 /// Drive a `DynamicObject` reflector for one CRD-backed kind.
 async fn run_custom_watcher(
     client: Client,
-    app: AppHandle,
+    sink: EventSink,
     id: String,
     ar: ApiResource,
     namespaced: bool,
@@ -207,7 +214,7 @@ async fn run_custom_watcher(
         .boxed();
 
     // Generic columns only: a CRD's interesting fields live in an arbitrary schema.
-    pump(reader, stream, app, id, move |o| Some(mappers::map_dynamic(o, namespaced)), identity)
+    pump(reader, stream, sink, id, move |o| Some(mappers::map_dynamic(o, namespaced)), identity)
         .await;
 }
 
@@ -217,7 +224,7 @@ async fn run_custom_watcher(
 async fn pump<K>(
     reader: reflector::Store<K>,
     mut stream: BoxStream<'static, Result<watcher::Event<K>, watcher::Error>>,
-    app: AppHandle,
+    sink: EventSink,
     kind: String,
     // Option, not Row: the Helm watcher (B26) sees Secrets it can't decode, and a
     // watcher that must invent a row for every object it's handed would have to
@@ -253,9 +260,9 @@ async fn pump<K>(
                         reader.state().iter().filter_map(|o| map_fn(o.as_ref())).collect();
                     let rows = post_fn(rows);
                     // Emit failures are non-fatal (webview may be gone).
-                    let _ = app.emit(
+                    let _ = sink.emit(
                         events::RESOURCE_UPDATE,
-                        ResourceUpdate { kind: kind.clone(), rows },
+                        &ResourceUpdate { kind: kind.clone(), rows },
                     );
                 }
             }

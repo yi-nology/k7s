@@ -1,25 +1,45 @@
-/* Top bar (Design §2): 46px, chrome background, breadcrumb left, namespace
-   dropdown right. */
+/* Top bar (Design §2): 56px, glassy backdrop-blur, breadcrumb left, search
+   affordance + namespace dropdown + language switcher on the right. The glass
+   is anchored to the surface tone so the area below still shows through; the
+   blur radius + saturation are the Linear/Notion sweet spot. */
 
 .topbar {
   flex: none;
   display: flex;
   align-items: center;
   gap: 14px;
-  height: 46px;
-  padding: 0 16px;
+  height: 56px;
+  padding: 0 18px;
   border-bottom: 1px solid var(--border-default);
-  background: var(--bg-chrome);
+  /* Translucent over --bg-app, blurred+saturated. Light mode overrides the
+     background below — the blur+saturate parts are identical. */
+  background: rgba(10, 10, 15, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  position: relative;
+  z-index: 5;
+}
+[data-theme="light"] .topbar {
+  background: rgba(255, 255, 255, 0.72);
 }
 
-/* Breadcrumb: cluster / group / Kind. */
+/* ============== Breadcrumb ============== */
+
 .breadcrumb {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .sep {
   color: var(--separator);
+  opacity: 0.6;
 }
 .kind {
   color: var(--text-primary);
@@ -28,9 +48,62 @@
 
 .spacer {
   flex: 1;
+  min-width: 0;
 }
 
-/* ---------- Namespace dropdown ---------- */
+/* ============== Quick-search bar (click → open command palette) ============== */
+
+.cmdBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  padding: 6px 10px 6px 12px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  user-select: none;
+}
+.cmdBar:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+.cmdBar:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+.cmdIcon {
+  color: var(--text-faint);
+  font-size: 12px;
+  flex: none;
+}
+.cmdPlaceholder {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmdKbd {
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-app);
+  border: 1px solid var(--border-control);
+  border-radius: 4px;
+  line-height: 1.4;
+  flex: none;
+}
+
+/* ============== Namespace dropdown ============== */
 
 .nsWrap {
   position: relative;
@@ -39,23 +112,27 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 4px 10px;
+  padding: 5px 10px;
   background: var(--bg-control);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-secondary);
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 .nsButton:hover {
   border-color: var(--border-hover);
+  background: var(--bg-hover);
 }
 .nsPrefix {
   color: var(--text-faint);
 }
 .nsValue {
   color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .nsChevron {
   color: var(--text-faint);
@@ -65,14 +142,15 @@
 .nsMenu {
   position: absolute;
   right: 0;
-  top: 32px;
+  top: 36px;
   z-index: 60;
-  min-width: 170px;
-  background: var(--bg-control);
+  min-width: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
   border: 1px solid var(--border-menu);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-menu);
-  overflow: hidden;
+  box-shadow: var(--shadow-md);
   padding: 4px 0;
 }
 .nsRow {
@@ -84,9 +162,10 @@
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-secondary);
+  transition: background 0.1s ease;
 }
 .nsRow:hover {
-  background: var(--bg-hover-strong);
+  background: var(--bg-hover);
 }
 .nsRowSelected {
   color: var(--text-primary);
@@ -96,9 +175,11 @@
 .nsCheck {
   width: 12px;
   color: var(--accent);
+  flex: none;
+  text-align: center;
 }
 
-/* ---------- Language switcher ---------- */
+/* ============== Language switcher ============== */
 
 /* Mirror of the namespace button: same height, same chrome, just narrower. The
    glyph is short ("EN" / "中") so the button earns its place without competing
@@ -110,19 +191,21 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 5px 10px;
   background: var(--bg-control);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--text-secondary);
-  min-width: 36px;
+  min-width: 40px;
   justify-content: center;
+  transition: background 0.12s ease, border-color 0.12s ease;
 }
 .langButton:hover {
   border-color: var(--border-hover);
+  background: var(--bg-hover);
 }
 .langGlyph {
   color: var(--text-primary);
@@ -132,14 +215,13 @@
 .langMenu {
   position: absolute;
   right: 0;
-  top: 32px;
+  top: 36px;
   z-index: 60;
-  min-width: 140px;
-  background: var(--bg-control);
+  min-width: 150px;
+  background: var(--bg-elevated);
   border: 1px solid var(--border-menu);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-menu);
-  overflow: hidden;
+  box-shadow: var(--shadow-md);
   padding: 4px 0;
 }
 .langRow {
@@ -151,9 +233,10 @@
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-secondary);
+  transition: background 0.1s ease;
 }
 .langRow:hover {
-  background: var(--bg-hover-strong);
+  background: var(--bg-hover);
 }
 .langRowSelected {
   color: var(--text-primary);
@@ -162,4 +245,6 @@
 .langCheck {
   width: 12px;
   color: var(--accent);
+  flex: none;
+  text-align: center;
 }

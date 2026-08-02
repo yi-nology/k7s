@@ -21,7 +21,7 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::api::{Api, DeleteParams, EvictParams, ListParams, Patch, PatchParams};
 use kube::{Client, ResourceExt};
 use serde::Serialize;
-use tauri::{AppHandle, Emitter};
+use crate::core::events::EventSink;
 
 /// A pod that could not be evicted, and why.
 #[derive(Serialize, Clone)]
@@ -60,7 +60,7 @@ pub async fn cordon(client: Client, node: &str) -> AppResult<()> {
 ///
 /// Assumes the node is already cordoned (see [`cordon`]) — otherwise the
 /// scheduler could place new pods on it while we're evicting.
-pub async fn run_drain(client: Client, app: AppHandle, node: String) {
+pub async fn run_drain(client: Client, sink: EventSink, node: String) {
     let pods: Api<Pod> = Api::all(client.clone());
     // Only this node's pods. Field-selected server-side: a big cluster shouldn't
     // ship every pod over the wire to filter locally.
@@ -69,7 +69,7 @@ pub async fn run_drain(client: Client, app: AppHandle, node: String) {
         Ok(l) => l,
         Err(e) => {
             emit(
-                &app,
+                &sink,
                 DrainProgress {
                     node,
                     evicted: 0,
@@ -90,7 +90,7 @@ pub async fn run_drain(client: Client, app: AppHandle, node: String) {
     let total = targets.len();
     let mut progress =
         DrainProgress { node: node.clone(), evicted: 0, total, failures: Vec::new(), done: false };
-    emit(&app, progress.clone());
+    emit(&sink, progress.clone());
 
     let ep = EvictParams { delete_options: Some(DeleteParams::default()), ..Default::default() };
     for pod in targets {
@@ -116,16 +116,16 @@ pub async fn run_drain(client: Client, app: AppHandle, node: String) {
                 });
             }
         }
-        emit(&app, progress.clone());
+        emit(&sink, progress.clone());
     }
 
     progress.done = true;
-    emit(&app, progress);
+    emit(&sink, progress);
 }
 
 /// Emit progress (best-effort; the webview may be gone).
-fn emit(app: &AppHandle, p: DrainProgress) {
-    let _ = app.emit(events::DRAIN_PROGRESS, p);
+fn emit(sink: &EventSink, p: DrainProgress) {
+    let _ = sink.emit(events::DRAIN_PROGRESS, &p);
 }
 
 /// True when this pod should be evicted as part of a drain.

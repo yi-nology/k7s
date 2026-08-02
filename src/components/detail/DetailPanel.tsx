@@ -57,6 +57,14 @@ export function DetailPanel() {
   const tabIds = tabsFor(nav, isPod);
   const tabs = DETAIL_TABS.filter((t) => tabIds.includes(t.id));
   const statusColor = meta ? toneColor(meta.statusTone) : "var(--text-muted)";
+  // Status dot: tone-driven halo + (for err) a slow pulse so the eye lands on
+  // the failing pod at a glance. The base .statusDot is the green/ok version.
+  const statusDotCls =
+    meta?.statusTone === "err"
+      ? `${styles.statusDot} ${styles.statusDotFailed}`
+      : meta?.statusTone === "warn"
+        ? `${styles.statusDot} ${styles.statusDotPending}`
+        : styles.statusDot;
   // Custom kinds resolve their label from discovery, so this is a runtime lookup.
   const kindLabel = kindMeta(nav, customKinds)?.label ?? nav;
 
@@ -65,7 +73,7 @@ export function DetailPanel() {
     <div className={styles.panel} data-surface="panel">
       <div className={styles.header}>
         <div className={styles.titleRow}>
-          <span className={styles.statusDot} style={{ background: statusColor }} />
+          <span className={statusDotCls} />
           <div className={styles.name} title={row.name}>
             {row.name}
           </div>

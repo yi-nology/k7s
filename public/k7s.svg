@@ -1,9 +1,133 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect width="64" height="64" rx="12" fill="#0d1117"/>
-  <g fill="none" stroke="#58a6ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M20 18 L32 12 L44 18 L44 36 L32 42 L20 36 Z"/>
-    <path d="M20 18 L20 36 L32 42"/>
-    <path d="M32 12 L32 42"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- Deep cosmic background: deep navy fading to near-black -->
+    <radialGradient id="bg" cx="50%" cy="30%" r="95%">
+      <stop offset="0%" stop-color="#1f2d44"/>
+      <stop offset="55%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#03060a"/>
+    </radialGradient>
+
+    <!-- Hexagon body -->
+    <linearGradient id="hex" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="60%" stop-color="#0e1f37"/>
+      <stop offset="100%" stop-color="#070d1a"/>
+    </linearGradient>
+
+    <!-- Hex outer rim -->
+    <linearGradient id="rim" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#7cc4ff"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+
+    <!-- "k" fill: cool white, sits in the back -->
+    <linearGradient id="kFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f0f7ff"/>
+      <stop offset="100%" stop-color="#a8c5ff"/>
+    </linearGradient>
+
+    <!-- "7" fill: electric blue, the focal point -->
+    <linearGradient id="sevenFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a8e0ff"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+
+    <!-- "s" fill: subtle, supports the 7 -->
+    <linearGradient id="sFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#9eb1ce"/>
+      <stop offset="100%" stop-color="#5a6f8a"/>
+    </linearGradient>
+
+    <!-- Soft glow under the 7 -->
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="16" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <linearGradient id="spoke" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#58a6ff" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Hexagon (pointy-top, regular hex — the K8s reference shape) -->
+    <polygon id="hexShape" points="512,72 884,288 884,736 512,952 140,736 140,288"/>
+    <clipPath id="hexClip"><use href="#hexShape"/></clipPath>
+  </defs>
+
+  <!-- Rounded-square background -->
+  <rect width="1024" height="1024" rx="220" fill="url(#bg)"/>
+
+  <!-- Faint control-plane grid -->
+  <g opacity="0.06" stroke="#58a6ff" stroke-width="1" fill="none">
+    <path d="M0 256 L1024 256 M0 512 L1024 512 M0 768 L1024 768"/>
+    <path d="M256 0 L256 1024 M512 0 L512 1024 M768 0 L768 1024"/>
   </g>
-  <circle cx="32" cy="27" r="3" fill="#3fb950"/>
+
+  <!-- Soft halo behind the hex -->
+  <ellipse cx="512" cy="520" rx="440" ry="380" fill="#3b82f6" opacity="0.10" filter="url(#glow)"/>
+
+  <!-- Outer hex (slightly larger, faint halo) -->
+  <use href="#hexShape" fill="none" stroke="#3b82f6" stroke-opacity="0.18" stroke-width="4"
+       transform="translate(-22 -22) scale(1.045)"/>
+
+  <!-- Hex body -->
+  <use href="#hexShape" fill="url(#hex)" stroke="url(#rim)" stroke-width="6"/>
+
+  <!-- Inner hex stroke (concentric ring) -->
+  <polygon points="512,164 788,328 788,696 512,860 236,696 236,328"
+           fill="none" stroke="#58a6ff" stroke-opacity="0.22" stroke-width="2"/>
+
+  <g clip-path="url(#hexClip)">
+    <!-- Subtle control-plane spokes (k8s nod, 6 lines from center) -->
+    <g opacity="0.32" stroke="url(#spoke)" stroke-width="3">
+      <line x1="512" y1="512" x2="512" y2="90"/>
+      <line x1="512" y1="512" x2="868" y2="304"/>
+      <line x1="512" y1="512" x2="868" y2="720"/>
+      <line x1="512" y1="512" x2="512" y2="934"/>
+      <line x1="512" y1="512" x2="156" y2="720"/>
+      <line x1="512" y1="512" x2="156" y2="304"/>
+    </g>
+
+    <!-- The wordmark: k7s. Using system sans-serif so it renders the same on every
+         machine. Bold weight, tight letter-spacing for a confident, technical
+         feel. The "7" is the focal point; k and s support it. -->
+    <g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', 'Inter', system-ui, sans-serif"
+       font-weight="900"
+       text-anchor="middle"
+       dominant-baseline="central">
+      <!-- "k" — left, slightly back -->
+      <text x="290" y="540"
+            font-size="380"
+            fill="url(#kFill)"
+            letter-spacing="-12">k</text>
+      <!-- "7" — center, glowing, the star -->
+      <text x="512" y="540"
+            font-size="500"
+            fill="url(#sevenFill)"
+            filter="url(#glow)"
+            letter-spacing="-12">7</text>
+      <!-- "s" — right, subtle, supports -->
+      <text x="745" y="540"
+            font-size="380"
+            fill="url(#sFill)"
+            letter-spacing="-12">s</text>
+    </g>
+  </g>
+
+  <!-- Status indicator: connected/active. Bottom-right of the hex, well inside
+       the rounded square so it never clips at the OS mask. -->
+  <g>
+    <circle cx="820" cy="820" r="52" fill="#0d1117" stroke="#3fb950" stroke-width="8"/>
+    <circle cx="820" cy="820" r="22" fill="#3fb950"/>
+  </g>
+
+  <!-- Subtle top sheen on the hex -->
+  <path d="M 200 220 Q 512 80 824 220"
+        fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="3"/>
 </svg>

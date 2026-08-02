@@ -17,6 +17,17 @@ export default defineConfig({
     strictPort: true,
     // Fail loudly if HMR websocket can't bind rather than silently degrading.
     host: false,
+    // The browser shell needs a way to reach the k7s-web axum server (the
+    // Tauri runtime provides `invoke` directly, so this proxy is a no-op
+    // there). k7s-web already uses `/api/*` paths, so the proxy passes
+    // them through unchanged.
+    proxy: {
+      "/api": {
+        target: "http://127.0.0.1:7180",
+        changeOrigin: false,
+        ws: false,
+      },
+    },
   },
 
   // Vitest configuration lives here too (single source of truth).

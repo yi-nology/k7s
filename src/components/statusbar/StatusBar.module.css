@@ -1,16 +1,19 @@
-/* Status bar (Design §5): 26px, panel background, mono 10px muted, 18px gaps. */
+/* Status bar (Design §5): 30px, panel background, mono 10px, 20px gaps.
+   v2 — bigger line height, cluster + metric blocks read as a single row of
+   "facts about the cluster", with the strong tokens reserved for the numbers
+   the user actually watches. */
 
 .statusbar {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 18px;
-  height: 26px;
-  padding: 0 16px;
+  gap: 20px;
+  height: 30px;
+  padding: 0 18px;
   border-top: 1px solid var(--border-default);
   background: var(--bg-panel);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 10.5px;
   color: var(--text-muted);
 }
 
@@ -18,9 +21,49 @@
 .cluster {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.clusterDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--status-ok);
+  box-shadow: 0 0 0 2px var(--status-ok-soft);
+}
+
+/* Separator dot between facts. */
+.sep {
+  color: var(--separator);
+  opacity: 0.5;
+}
+
+/* A single "api 24ms"-style fact. */
+.fact {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.fact b {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .spacer {
   flex: 1;
+}
+
+/* The right-aligned kubectl context (last column). */
+.ctx {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  max-width: 50%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ctx b {
+  color: var(--text-secondary);
+  font-weight: 500;
 }

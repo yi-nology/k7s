@@ -62,6 +62,22 @@ export function TopBar() {
 
       <div className={styles.spacer} />
 
+      {/* Quick search affordance — opens the command palette (B28) when focused.
+          We render a static <div> rather than an <input> to avoid stealing
+          focus from the table on every refresh; clicking the box dispatches a
+          keyboard event the palette already listens for. */}
+      <div
+        className={styles.cmdBar}
+        role="button"
+        tabIndex={0}
+        onClick={() => useStore.getState().setPaletteOpen(true)}
+      >
+        <span className={styles.cmdIcon} aria-hidden="true">⌕</span>
+        <span className={styles.cmdPlaceholder}>{t("chrome.topbar.searchPlaceholder")}</span>
+        <span className={styles.cmdKbd}>⌘</span>
+        <span className={styles.cmdKbd}>K</span>
+      </div>
+
       {/* Language switcher: the current locale's short code, with a dropdown of
           every supported language on click. Lives next to the namespace picker
           because both are "set the working context" controls. */}

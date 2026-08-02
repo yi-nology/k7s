@@ -10,8 +10,27 @@ mod error;
 // mappers rather than a copy of them; nothing outside this crate consumes it.
 pub mod kube;
 
+pub mod core;
+
+// The web shell (axum HTTP server, k7s-web binary). `pub` because the binary
+// entry point lives in src/bin/ and needs to import the router; everything
+// inside is `#[cfg(feature = "web")]` so a `cargo build` of just the desktop
+// app doesn't pull in axum.
+#[cfg(feature = "web")]
+pub mod web;
+
+// The MCP server (stdio, k7s-mcp binary). Same `core::` business logic as the
+// other shells, just exposed through the Model Context Protocol so AI clients
+// (Claude Desktop, Cursor, Claude Code, …) can talk to a real cluster. Gated
+// on either the `mcp` feature (for the stdio `k7s-mcp` binary) or the
+// `web` feature (so the `k7s-web` server can mount the same MCP tools on a
+// `/mcp` HTTP endpoint). Either gate pulls the rmcp SDK in.
+#[cfg(any(feature = "mcp", feature = "web"))]
+pub mod mcp;
+
 pub use error::{AppError, AppResult};
 
+use core::CoreState;
 use kube::ClientManager;
 use std::sync::Arc;
 // Brings `.manage()` into scope for the App in the setup hook.
@@ -43,10 +62,19 @@ pub fn run() {
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .setup(|app| {
             // The ClientManager owns the active client and all connection-scoped
-            // tasks. It needs an AppHandle (to emit events), which only exists once
-            // setup runs — so it's constructed here and put into managed state.
-            let manager = Arc::new(ClientManager::new(app.handle().clone()));
-            app.manage(manager);
+            // tasks. It takes an `EventSink` (not a Tauri `AppHandle`) so the
+            // same manager can serve the standalone web shell in the future —
+            // TauriEventSink here, WebEventSink over there.
+            let sink = core::events::tauri_sink(app.handle().clone());
+            let manager = Arc::new(ClientManager::new(sink));
+            // Where `prefs.json` (and any future persistent state) lives. The
+            // web shell uses a XDG-style fallback — see `web/state.rs`.
+            let data_dir = app
+                .path()
+                .app_config_dir()
+                .map_err(|e| format!("no config dir: {e}"))?;
+            let state = CoreState::new(manager, data_dir);
+            app.manage(state);
             save_window_state_on_sigterm(app.handle().clone());
             Ok(())
         })
@@ -87,6 +115,68 @@ pub fn run() {
             commands::start_service_port_forward,
             commands::stop_port_forward,
             commands::list_port_forwards,
+            // Helm marketplace (Phase 1 of KubePi parity)
+            commands::helm_seed_repos,
+            commands::helm_list_repos,
+            commands::helm_add_repo,
+            commands::helm_remove_repo,
+            commands::helm_update_repo,
+            commands::helm_update_all_repos,
+            commands::helm_search_charts,
+            commands::helm_chart_versions,
+            commands::helm_render_default_values,
+            commands::helm_run_op,
+            commands::helm_release_history,
+            // Pod file management (Phase 2 of KubePi parity)
+            commands::pod_files_list,
+            commands::pod_files_read,
+            commands::pod_files_write,
+            commands::pod_files_download,
+            commands::pod_files_upload,
+            // Image registry management (Phase 5)
+            commands::image_registry_list,
+            commands::image_registry_upsert,
+            commands::image_registry_remove,
+            commands::image_registry_test,
+            commands::image_registry_repos,
+            commands::image_registry_tags,
+            // Multi-document YAML apply (Phase 4 — templates)
+            commands::apply_yaml_bundle,
+            // Endpoints (Phase 1 Tier-2 of KubePi parity)
+            commands::list_endpoints,
+            commands::list_endpoints_for_service,
+            commands::list_endpoint_addresses,
+            // CronJob manual trigger
+            commands::trigger_cronjob,
+            // Metrics / Prometheus multi-instance
+            commands::metrics_list,
+            commands::metrics_upsert,
+            commands::metrics_remove,
+            commands::metrics_test,
+            commands::metrics_query,
+            commands::metrics_query_range,
+            // Grafana
+            commands::grafana_list,
+            commands::grafana_upsert,
+            commands::grafana_remove,
+            commands::grafana_test,
+            commands::grafana_presets,
+            commands::grafana_dashboard_url,
+            // AlertManager
+            commands::alertmanager_list,
+            commands::alertmanager_upsert,
+            commands::alertmanager_remove,
+            commands::alertmanager_test,
+            commands::alertmanager_alerts,
+            commands::alertmanager_silences,
+            // Saved PromQL queries + cache
+            commands::saved_queries_list,
+            commands::saved_queries_upsert,
+            commands::saved_queries_remove,
+            commands::saved_queries_clear_cache,
+            commands::saved_queries_run,
+            // Image manifest drill-down
+            commands::image_registry_manifest,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");

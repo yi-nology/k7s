@@ -17,6 +17,7 @@ use k8s_openapi::api::core::v1::{
 };
 use k8s_openapi::api::networking::v1::{Ingress, IngressClass};
 use k8s_openapi::api::storage::v1::StorageClass;
+use kube::core::DynamicObject;
 use kube::ResourceExt;
 
 // ---------------------------------------------------------------------------
@@ -745,6 +746,167 @@ pub fn map_storageclass(sc: &StorageClass) -> Row {
         uid: uid_of(sc),
         name: sc.name_any(),
         namespace: None,
+        cells,
+        ..Default::default()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 Tier-2: NetworkPolicy / HPA / ResourceQuota / LimitRange
+//
+// We use the dynamic `DynamicObject` mapper path because each of these
+// kinds pulls from a different API group (networking.k8s.io,
+// autoscaling, core) and we don't want a separate k8s-openapi typed
+// mapper per kind — the columns are uniformly name + namespace + age,
+// and any deeper columns would be a separate feature.
+// ---------------------------------------------------------------------------
+
+/// NetworkPolicy: NAME, NAMESPACE, POD_SELECTOR, AGE.
+pub fn map_networkpolicy(obj: &DynamicObject) -> Row {
+    let pod_selector = obj
+        .data
+        .get("spec")
+        .and_then(|s| s.get("podSelector"))
+        .map(|p| serde_json::to_string(p).unwrap_or_default())
+        .unwrap_or_else(|| "—".to_string());
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(obj.namespace().unwrap_or_default(), Tone::Muted),
+        Cell::new(pod_selector, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("networkpolicy:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        name: obj.name_any(),
+        namespace: Some(obj.namespace().unwrap_or_default()),
+        cells,
+        ..Default::default()
+    }
+}
+
+/// HorizontalPodAutoscaler: NAME, NAMESPACE, TARGET, MIN, MAX, REPLICAS, AGE.
+pub fn map_hpa(obj: &DynamicObject) -> Row {
+    let target = obj
+        .data
+        .get("spec")
+        .and_then(|s| s.get("scaleTargetRef"))
+        .map(|t| {
+            let kind = t.get("kind").and_then(|v| v.as_str()).unwrap_or("?");
+            let name = t.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+            format!("{kind}/{name}")
+        })
+        .unwrap_or_else(|| "—".to_string());
+    let min = obj
+        .data
+        .get("spec")
+        .and_then(|s| s.get("minReplicas"))
+        .and_then(|v| v.as_i64())
+        .map(|n| n.to_string())
+        .unwrap_or_else(|| "—".to_string());
+    let max = obj
+        .data
+        .get("spec")
+        .and_then(|s| s.get("maxReplicas"))
+        .and_then(|v| v.as_i64())
+        .map(|n| n.to_string())
+        .unwrap_or_else(|| "—".to_string());
+    let replicas = obj
+        .data
+        .get("status")
+        .and_then(|s| s.get("currentReplicas"))
+        .and_then(|v| v.as_i64())
+        .map(|n| n.to_string())
+        .unwrap_or_else(|| "—".to_string());
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(obj.namespace().unwrap_or_default(), Tone::Muted),
+        Cell::new(target, Tone::Secondary),
+        Cell::new(min, Tone::Secondary),
+        Cell::new(max, Tone::Secondary),
+        Cell::new(replicas, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("horizontalpodautoscaler:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        name: obj.name_any(),
+        namespace: Some(obj.namespace().unwrap_or_default()),
+        cells,
+        ..Default::default()
+    }
+}
+
+/// ResourceQuota: NAME, NAMESPACE, HARD, USED, AGE.
+pub fn map_resourcequota(obj: &DynamicObject) -> Row {
+    let hard = obj
+        .data
+        .get("status")
+        .and_then(|s| s.get("hard"))
+        .map(|h| serde_json::to_string(h).unwrap_or_default())
+        .unwrap_or_else(|| "—".to_string());
+    let used = obj
+        .data
+        .get("status")
+        .and_then(|s| s.get("used"))
+        .map(|u| serde_json::to_string(u).unwrap_or_default())
+        .unwrap_or_else(|| "—".to_string());
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(obj.namespace().unwrap_or_default(), Tone::Muted),
+        Cell::new(hard, Tone::Secondary),
+        Cell::new(used, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("resourcequota:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        name: obj.name_any(),
+        namespace: Some(obj.namespace().unwrap_or_default()),
+        cells,
+        ..Default::default()
+    }
+}
+
+/// LimitRange: NAME, NAMESPACE, LIMITS, AGE.
+pub fn map_limitrange(obj: &DynamicObject) -> Row {
+    let limits = obj
+        .data
+        .get("spec")
+        .and_then(|s| s.get("limits"))
+        .map(|l| serde_json::to_string(l).unwrap_or_default())
+        .unwrap_or_else(|| "—".to_string());
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(obj.namespace().unwrap_or_default(), Tone::Muted),
+        Cell::new(limits, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("limitrange:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        name: obj.name_any(),
+        namespace: Some(obj.namespace().unwrap_or_default()),
         cells,
         ..Default::default()
     }

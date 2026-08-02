@@ -40,6 +40,23 @@ export type DetailTab = "logs" | "properties" | "metrics" | "shell" | "yaml" | "
 /** Which dropdown menu (if any) is currently open — only one at a time. */
 export type OpenMenu = "cluster" | "ns" | "lang" | null;
 
+/** Which feature overlay is open above the resource table. Each value maps
+ * to one of the feature panels added in the KubePi-parity phases:
+ *  - Tier 1 (Phase 1/2/4/5): helm-market, pod-files, image-repos, templates
+ *  - Tier 2 (Dashboard, Metrics, Grafana, Endpoints, Topology, Alerting)
+ * `null` means the regular resource table is showing. */
+export type OverlayKey =
+  | "helm-market"
+  | "pod-files"
+  | "image-repos"
+  | "templates"
+  | "dashboard"
+  | "metrics"
+  | "grafana"
+  | "endpoints"
+  | "topology"
+  | "alerting";
+
 /** Connection lifecycle for the active cluster/context. */
 export interface ConnectionState {
   phase: "idle" | "connecting" | "connected" | "error";
@@ -171,6 +188,21 @@ export interface AppState {
   sortDir: "asc" | "desc";
   /** Which dropdown is open (cluster switcher or ns menu). */
   openMenu: OpenMenu;
+
+  // ---------- overlays (Phase 1/2/4/5 of KubePi parity) ----------
+  /**
+   * Which feature panel is open as an overlay above the table. `null` means
+   * the regular resource table is showing. The overlay covers the content
+   * area but leaves the top bar / status bar / sidebar in place so the user
+   * can still switch contexts, change namespace, etc.
+   */
+  overlay: OverlayKey | null;
+  /**
+   * The pod + container the PodFiles overlay should target. Set when the
+   * overlay is opened from a Pod's row context menu. `null` for any other
+   * overlay.
+   */
+  overlayPodRef: { namespace: string; name: string; container: string | null } | null;
 
   // ---------- live data ----------
   /** Rows per kind. Built-ins always present; custom kinds appear once watched. */
@@ -333,6 +365,13 @@ export interface AppState {
   startYamlEdit: (initial: string) => void;
   cancelYaml: () => void;
   setYamlDraft: (text: string) => void;
+
+  // ---------- overlays (Phase 1/2/4/5 entry points) ----------
+  openOverlay: (
+    key: OverlayKey,
+    podRef?: { namespace: string; name: string; container: string | null } | null,
+  ) => void;
+  closeOverlay: () => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -349,6 +388,8 @@ export const useStore = create<AppState>((set) => ({
   sortCol: null,
   sortDir: "asc",
   openMenu: null,
+  overlay: null,
+  overlayPodRef: null,
 
   rows: emptyRows(),
   customKinds: [],
@@ -409,6 +450,15 @@ export const useStore = create<AppState>((set) => ({
   // Toggle a menu; opening one closes the other (only one open at a time).
   toggleMenu: (menu) => set((s) => ({ openMenu: s.openMenu === menu ? null : menu })),
   closeMenus: () => set({ openMenu: null }),
+
+  // ---------- overlays ----------
+  // Opening an overlay also closes any open menu so the chrome doesn't
+  // compete for attention. The podFiles overlay accepts a `podRef` so the
+  // shell can deep-link to a specific pod's filesystem; the other three
+  // ignore it.
+  openOverlay: (key, podRef) =>
+    set({ overlay: key, overlayPodRef: podRef ?? null, openMenu: null }),
+  closeOverlay: () => set({ overlay: null, overlayPodRef: null }),
 
   // ---------- connection/data setters ----------
   setConnection: (c) => set((s) => ({ connection: { ...s.connection, ...c } })),

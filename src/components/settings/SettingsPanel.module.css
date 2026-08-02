@@ -12,7 +12,8 @@
 }
 
 .panel {
-  width: min(520px, calc(100vw - 48px));
+  /* The MCP section needs room for code blocks; bumped from 520 → 640. */
+  width: min(640px, calc(100vw - 48px));
   max-height: calc(100vh - 96px);
   display: flex;
   flex-direction: column;
@@ -147,4 +148,173 @@
 }
 .reset:hover {
   color: var(--accent);
+}
+
+/* ---------- MCP / AI integration section ---------- */
+
+.mcpSection {
+  margin-top: 16px;
+  padding: 12px 0 6px;
+  border-top: 1px solid var(--border-row);
+}
+
+.mcpHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.mcpHeaderText {
+  flex: 1;
+  min-width: 0;
+}
+
+.mcpTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mcpBadge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  background: var(--accent-soft, transparent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+}
+
+.mcpHint {
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: var(--text-faint);
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.mcpStdioNote {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.mcpCards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcpCard {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.mcpCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.mcpCardTitle {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mcpCardHint {
+  margin-top: 2px;
+  font-size: 10px;
+  color: var(--text-faint);
+  line-height: 1.4;
+}
+
+.mcpCardPath {
+  margin-top: 3px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+.mcpCode {
+  position: relative;
+  margin: 0;
+  padding: 8px 10px;
+  /* Theme-aware. `--bg-terminal` is the dedicated "code surface" colour in
+     tokens.css — dark + slightly inset in dark mode (#14141B), a soft grey
+     in light mode (#F6F6F9). The previous version used a hardcoded dark
+     fallback (`#0d0e10`) which made the JSON invisible on light surfaces:
+     the body text (`--text-primary`) is also dark in light mode, so dark
+     text on dark background = nothing to read. The fix is to drop the
+     hardcoded fallback and let the token follow the theme. */
+  background: var(--bg-terminal);
+  color: var(--text-body);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.45;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.mcpCode code {
+  color: inherit;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  padding: 0;
+}
+
+.mcpCopy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 2px 8px;
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 80ms, border-color 80ms;
+}
+
+.mcpCopy:hover {
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.mcpCopyOk {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.mcpCopyErr {
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+}
+
+.mcpExtraLabel {
+  margin: 8px 0 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }

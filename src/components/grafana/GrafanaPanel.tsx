@@ -1,0 +1,286 @@
+/**
+ * GrafanaPanel — manage Grafana instances and embed dashboards.
+ *
+ * Three things in one file:
+ *   - left: list of configured Grafana instances (add/test/remove)
+ *   - center: list of preset dashboards for the selected instance
+ *   - right: an iframe rendering the selected dashboard
+ *
+ * The iframe is sandboxed (`sandbox="allow-same-origin allow-scripts"`) so
+ * a dashboard's broken JS can't escape the iframe and reach the rest of
+ * the app. We deliberately don't `allow-same-origin` to cookies — the
+ * iframe's origin is the Grafana host, which is the only place that
+ * needs its own auth.
+ */
+import { useEffect, useState } from "react";
+import { getProvider } from "../../providers";
+import type { DashboardPreset, GrafanaConfig } from "../../providers/types";
+import { useTranslation } from "../../hooks/useI18n";
+import styles from "./GrafanaPanel.module.css";
+
+const RANGE_OPTIONS = [
+  { label: "Last 1h", minutes: 60 },
+  { label: "Last 6h", minutes: 360 },
+  { label: "Last 24h", minutes: 1440 },
+  { label: "Last 7d", minutes: 10080 },
+];
+
+export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
+  const { t } = useTranslation();
+  const [instances, setInstances] = useState<GrafanaConfig[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [presets, setPresets] = useState<DashboardPreset[]>([]);
+  const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
+  const [rangeMinutes, setRangeMinutes] = useState(60);
+  const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({
+    name: "",
+    url: "",
+    username: "",
+    password: "",
+    apiToken: "",
+    defaultDatasource: "Prometheus",
+    description: "",
+  });
+
+  const reload = () =>
+    getProvider()
+      .grafanaList()
+      .then((rows) => {
+        setInstances(rows);
+        if (!selected && rows.length > 0) {
+          setSelected(rows[0].name);
+        }
+      })
+      .catch((e: unknown) => setError(String(e)));
+
+  useEffect(() => {
+    reload();
+    getProvider()
+      .grafanaPresets()
+      .then((p) => {
+        setPresets(p);
+        if (p.length > 0 && !activePreset) {
+          setActivePreset(p[0].uid);
+        }
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!selected || !activePreset) {
+      setIframeUrl(null);
+      return;
+    }
+    const endMs = Date.now();
+    const startMs = endMs - rangeMinutes * 60 * 1000;
+    getProvider()
+      .grafanaDashboardUrl(selected, activePreset, startMs, endMs)
+      .then(setIframeUrl)
+      .catch((e: unknown) => setError(String(e)));
+  }, [selected, activePreset, rangeMinutes]);
+
+  return (
+    <div className={styles.panel}>
+      <header className={styles.header}>
+        <h2>{t("grafana.title", "Grafana")}</h2>
+        {onClose && (
+          <button className={styles.btn} onClick={onClose}>
+            {t("grafana.close", "Close")}
+          </button>
+        )}
+      </header>
+      {error && <div className={styles.error}>{error}</div>}
+      <div className={styles.body}>
+        <aside className={styles.side}>
+          {instances.length === 0 ? (
+            <div className={styles.empty}>
+              {t("grafana.none", "No Grafana instances yet")}
+            </div>
+          ) : (
+            <ul className={styles.list}>
+              {instances.map((i) => (
+                <li
+                  key={i.name}
+                  className={
+                    selected === i.name ? styles.itemActive : styles.item
+                  }
+                  onClick={() => setSelected(i.name)}
+                >
+                  <div className={styles.itemName}>{i.name}</div>
+                  <div className={styles.itemUrl}>{i.url}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {selected && (
+            <div className={styles.sideActions}>
+              <button
+                className={styles.btn}
+                onClick={async () => {
+                  try {
+                    await getProvider().grafanaTest(selected);
+                    reload();
+                  } catch (e) {
+                    setError(String(e));
+                    reload();
+                  }
+                }}
+              >
+                {t("grafana.test", "Test")}
+              </button>
+              <button
+                className={styles.btnDanger}
+                onClick={async () => {
+                  if (!confirm(t("grafana.confirmRemove", "Remove this instance?"))) {
+                    return;
+                  }
+                  await getProvider().grafanaRemove(selected);
+                  setSelected(null);
+                  reload();
+                }}
+              >
+                {t("grafana.remove", "Remove")}
+              </button>
+            </div>
+          )}
+          <button
+            className={styles.primary}
+            onClick={() => {
+              setForm({
+                name: "",
+                url: "",
+                username: "",
+                password: "",
+                apiToken: "",
+                defaultDatasource: "Prometheus",
+                description: "",
+              });
+              setAdding(true);
+            }}
+          >
+            {t("grafana.add", "Add instance")}
+          </button>
+        </aside>
+
+        <main className={styles.main}>
+          {adding ? (
+            <form
+              className={styles.form}
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  await getProvider().grafanaUpsert({ ...form });
+                  setAdding(false);
+                  reload();
+                } catch (err) {
+                  setError(String(err));
+                }
+              }}
+            >
+              <h3>{t("grafana.form.title", "Grafana instance")}</h3>
+              <label>
+                <span>{t("grafana.form.name", "Name")}</span>
+                <input
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
+              </label>
+              <label>
+                <span>{t("grafana.form.url", "URL")}</span>
+                <input
+                  required
+                  placeholder="https://grafana.example.com"
+                  value={form.url}
+                  onChange={(e) => setForm({ ...form, url: e.target.value })}
+                />
+              </label>
+              <label>
+                <span>{t("grafana.form.apiToken", "API token (optional)")}</span>
+                <input
+                  type="password"
+                  value={form.apiToken}
+                  onChange={(e) => setForm({ ...form, apiToken: e.target.value })}
+                />
+              </label>
+              <label>
+                <span>{t("grafana.form.ds", "Default datasource")}</span>
+                <input
+                  value={form.defaultDatasource}
+                  onChange={(e) =>
+                    setForm({ ...form, defaultDatasource: e.target.value })
+                  }
+                />
+              </label>
+              <div className={styles.formActions}>
+                <button className={styles.primary} type="submit">
+                  {t("grafana.form.save", "Save")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdding(false)}
+                  className={styles.btn}
+                >
+                  {t("grafana.form.cancel", "Cancel")}
+                </button>
+              </div>
+            </form>
+          ) : selected ? (
+            <>
+              <div className={styles.dashHeader}>
+                <h3>{t("grafana.dashboards", "Preset dashboards")}</h3>
+                <div className={styles.rangePresets}>
+                  {RANGE_OPTIONS.map((r) => (
+                    <button
+                      key={r.label}
+                      className={
+                        rangeMinutes === r.minutes
+                          ? styles.activeRange
+                          : styles.rangePreset
+                      }
+                      onClick={() => setRangeMinutes(r.minutes)}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <ul className={styles.presetList}>
+                {presets.map((p) => (
+                  <li
+                    key={p.uid}
+                    className={
+                      activePreset === p.uid
+                        ? styles.presetActive
+                        : styles.preset
+                    }
+                    onClick={() => setActivePreset(p.uid)}
+                  >
+                    <div className={styles.presetTitle}>{p.title}</div>
+                    <div className={styles.presetDesc}>{p.description}</div>
+                  </li>
+                ))}
+              </ul>
+              {iframeUrl && (
+                <iframe
+                  className={styles.iframe}
+                  src={iframeUrl}
+                  title="Grafana"
+                  sandbox="allow-same-origin allow-scripts allow-popups"
+                />
+              )}
+            </>
+          ) : (
+            <div className={styles.empty}>
+              {t("grafana.pick", "Add a Grafana instance to get started")}
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}

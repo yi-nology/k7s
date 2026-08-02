@@ -3,12 +3,14 @@
 //! pushed back via events (see kube::events); these commands cover the one-shot
 //! request/response operations plus starting/stopping log streams.
 
+use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
 use crate::kube::client::{self, ClusterInfo, ContextInfo};
 use crate::kube::manager::{ForwardDto, ImportedContext, ShellSession};
 use crate::kube::{
-    discovery, drain, exec, exporter, helm, logs, mappers, metrics, nodeshell, nodestats,
-    portforward, promql, properties, restart, watchers, ClientManager, ResourceKind,
+    alerting, discovery, drain, endpoints, exec, exporter, grafana, helm, helm_market, helm_ops,
+    imagerepo, logs, mappers, metrics, metrics_config, nodeshell, nodestats, pod_files, portforward,
+    promql, properties, restart, saved_queries, templates, watchers, ClientManager, ResourceKind,
 };
 use tokio::sync::{mpsc, oneshot};
 use k8s_openapi::api::core::v1::Event;
@@ -76,6 +78,15 @@ fn read_prefs(app: &tauri::AppHandle) -> Prefs {
         .unwrap_or_default()
 }
 
+/// Default prefs when no file is reachable. Used by commands that need a
+/// "shell command override" or "node-shell image" but can't reach the
+/// tauri::AppHandle for it (the web shell, or any future path that doesn't
+/// have an AppHandle in scope). Behaviour is the same as a fresh-install
+/// prefs.json with no overrides.
+fn read_prefs_default() -> Prefs {
+    Prefs::default()
+}
+
 /// Poll intervals from prefs, clamped to the same bounds the settings panel
 /// enforces — a hand-edited prefs.json shouldn't be able to hammer the API server.
 fn poll_intervals(app: &tauri::AppHandle) -> metrics::PollIntervals {
@@ -86,6 +97,16 @@ fn poll_intervals(app: &tauri::AppHandle) -> metrics::PollIntervals {
     metrics::PollIntervals {
         metrics: clamp(prefs.metrics_interval_secs, metrics::METRICS_INTERVAL),
         status: clamp(prefs.status_interval_secs, metrics::STATUS_INTERVAL),
+    }
+}
+
+/// Default poll intervals when prefs aren't readable (the web shell, or a
+/// fresh install with no prefs file yet). Same defaults the Tauri shell uses
+/// before the user touches the settings panel.
+fn poll_intervals_default() -> metrics::PollIntervals {
+    metrics::PollIntervals {
+        metrics: metrics::METRICS_INTERVAL,
+        status: metrics::STATUS_INTERVAL,
     }
 }
 
@@ -123,8 +144,8 @@ pub fn save_prefs(app: tauri::AppHandle, prefs: Prefs) -> AppResult<()> {
 /// imported ones (B17 — imports are restored on boot, so this must be merged or
 /// they'd vanish on relaunch).
 #[tauri::command]
-pub async fn list_contexts(mgr: State<'_, Arc<ClientManager>>) -> AppResult<Vec<ContextInfo>> {
-    Ok(merged_contexts(&mgr).await)
+pub async fn list_contexts(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<ContextInfo>> {
+    Ok(merged_contexts(&(*mgr).manager).await)
 }
 
 /// Re-register kubeconfig files imported in a previous session (B17), returning
@@ -136,9 +157,9 @@ pub async fn list_contexts(mgr: State<'_, Arc<ClientManager>>) -> AppResult<Vec<
 #[tauri::command]
 pub async fn restore_imports(
     paths: Vec<String>,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<Vec<String>> {
-    let manager: Arc<ClientManager> = (*mgr).clone();
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
     let mut alive = Vec::new();
     for path in paths {
         match client::contexts_from_file(&path) {
@@ -147,7 +168,7 @@ pub async fn restore_imports(
                     manager
                         .add_import(
                             ctx.name.clone(),
-                            ImportedContext { path: path.clone(), cluster: ctx.cluster.clone() },
+                            ImportedContext { path: path.clone(), cluster: ctx.cluster.clone(), kubeconfig: None },
                         )
                         .await;
                 }
@@ -171,9 +192,9 @@ pub fn default_kubeconfig_path() -> String {
 #[tauri::command]
 pub async fn import_kubeconfig(
     path: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<Vec<ContextInfo>> {
-    let manager: Arc<ClientManager> = (*mgr).clone();
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
 
     // Parse the file and remember where each of its contexts came from.
     let imported = client::contexts_from_file(&path)?;
@@ -181,7 +202,7 @@ pub async fn import_kubeconfig(
         manager
             .add_import(
                 ctx.name.clone(),
-                ImportedContext { path: path.clone(), cluster: ctx.cluster.clone() },
+                ImportedContext { path: path.clone(), cluster: ctx.cluster.clone(), kubeconfig: None },
             )
             .await;
     }
@@ -208,9 +229,9 @@ async fn merged_contexts(manager: &ClientManager) -> Vec<ContextInfo> {
 #[tauri::command]
 pub async fn connect(
     context: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<ClusterInfo> {
-    let manager: Arc<ClientManager> = (*mgr).clone();
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
 
     // Abort every task from the previous connection first (Story 6.1).
     manager.reset().await;
@@ -231,7 +252,7 @@ pub async fn connect(
     // change takes effect on the next connection rather than restarting live
     // pollers for a value measured in seconds.
     let (metrics_task, status_task) =
-        metrics::spawn_pollers(manager.app(), kube_client.clone(), poll_intervals(&manager.app()));
+        metrics::spawn_pollers(manager.sink(), kube_client.clone(), poll_intervals_default());
     manager.push_task(metrics_task).await;
     manager.push_task(status_task).await;
 
@@ -240,10 +261,23 @@ pub async fn connect(
     // nav — a cluster with dozens of CRDs costs nothing until a kind is opened.
     let custom = discovery::discover(&kube_client).await;
     manager.set_custom_kinds(custom.clone()).await;
-    let _ = manager.app().emit(crate::kube::events::CUSTOM_KINDS, custom);
+    let _ = manager.sink().emit(crate::kube::events::CUSTOM_KINDS, &custom);
 
     // Record the live connection (also emits the initial watch-status count).
-    manager.set_connected(kube_client, watcher_count).await;
+    // `ConnectionInfo` is what `manager.connection_info()` (and the web
+    // shell's `GET /api/status`) reads to identify the cluster to the
+    // user — keep it in sync with what we return below.
+    manager
+        .set_connected(
+            kube_client,
+            crate::kube::manager::ConnectionInfo {
+                context: context.clone(),
+                server: server.clone(),
+                version: version.clone(),
+            },
+            watcher_count,
+        )
+        .await;
 
     Ok(ClusterInfo {
         context: context.clone(),
@@ -340,16 +374,16 @@ pub async fn get_yaml(
     kind: String,
     namespace: String,
     name: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<String> {
-    let client = require_client(&mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
     // A Helm release isn't an API object, so there's nothing to GET: its YAML is
     // the manifest the chart rendered, which is what you actually want to read
     // (B26). Secret values in it are already redacted by the decoder.
     if kind == ResourceKind::Helm.id() {
         return helm_manifest(client, &namespace, &name).await;
     }
-    let api = dynamic_api(client, &kind, &namespace, &mgr).await?;
+    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     let mut obj = api.get(&name).await?;
     // Drop server-managed noise before rendering.
     obj.metadata.managed_fields = None;
@@ -381,12 +415,12 @@ pub async fn apply_yaml(
     namespace: String,
     name: String,
     yaml: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    let client = require_client(&mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
     ensure_writable(&kind)?;
     let obj: DynamicObject = serde_yaml::from_str(&yaml)?;
-    let api = dynamic_api(client, &kind, &namespace, &mgr).await?;
+    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     // replace() requires the resourceVersion present in the fetched/edited object;
     // a stale value yields a 409 whose message we pass straight through.
     api.replace(&name, &PostParams::default(), &obj).await?;
@@ -442,12 +476,12 @@ pub async fn dry_run_yaml(
     namespace: String,
     name: String,
     yaml: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<YamlDiff> {
-    let client = require_client(&mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
     ensure_writable(&kind)?;
     let obj: DynamicObject = serde_yaml::from_str(&yaml)?;
-    let api = dynamic_api(client, &kind, &namespace, &mgr).await?;
+    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
 
     let mut current = api.get(&name).await?;
     current.metadata.managed_fields = None;
@@ -471,10 +505,10 @@ pub async fn delete_resource(
     kind: String,
     namespace: String,
     name: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    let client = require_client(&mgr).await?;
-    let api = dynamic_api(client, &kind, &namespace, &mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
+    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     api.delete(&name, &DeleteParams::default()).await?;
     Ok(())
 }
@@ -486,10 +520,10 @@ pub async fn scale_resource(
     namespace: String,
     name: String,
     replicas: i32,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    let client = require_client(&mgr).await?;
-    let api = dynamic_api(client, &kind, &namespace, &mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
+    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": replicas } }));
     api.patch(&name, &PatchParams::default(), &patch).await?;
     Ok(())
@@ -500,10 +534,10 @@ pub async fn scale_resource(
 pub async fn set_cordon(
     name: String,
     unschedulable: bool,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    let client = require_client(&mgr).await?;
-    let api = dynamic_api(client, "nodes", "", &mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
+    let api = dynamic_api(client, "nodes", "", &(*mgr).manager).await?;
     let patch = Patch::Merge(serde_json::json!({ "spec": { "unschedulable": unschedulable } }));
     api.patch(&name, &PatchParams::default(), &patch).await?;
     Ok(())
@@ -518,9 +552,9 @@ pub async fn set_cordon(
 pub async fn restart_pod(
     namespace: String,
     name: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    let client = require_client(&mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
     let api: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, &namespace);
     let pod = api.get(&name).await?;
     if !restart::has_controller(&pod) {
@@ -540,13 +574,13 @@ pub async fn restart_rollout(
     kind: String,
     namespace: String,
     name: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
     if !restart::is_rollout_kind(&kind) {
         return Err(AppError::Other(format!("{kind} cannot be rollout-restarted")));
     }
-    let client = require_client(&mgr).await?;
-    let api = dynamic_api(client, &kind, &namespace, &mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
+    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     let now = chrono::Utc::now().to_rfc3339();
     let patch = Patch::Merge(restart::restart_patch(&now));
     api.patch(&name, &PatchParams::default(), &patch).await?;
@@ -559,13 +593,13 @@ pub async fn restart_rollout(
 /// a cluster can define hundreds of CRDs, and watching them all on connect would
 /// open a stream per CRD for data nobody is looking at.
 #[tauri::command]
-pub async fn watch_custom_kind(kind: String, mgr: State<'_, Arc<ClientManager>>) -> AppResult<()> {
-    let manager: Arc<ClientManager> = (*mgr).clone();
+pub async fn watch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
     // Already open — nothing to do (navigating back to a kind is common).
     if manager.has_custom_watcher(&kind).await {
         return Ok(());
     }
-    let client = require_client(&mgr).await?;
+    let client = require_client(&manager).await?;
     let ck = manager
         .custom_kind(&kind)
         .await
@@ -577,8 +611,8 @@ pub async fn watch_custom_kind(kind: String, mgr: State<'_, Arc<ClientManager>>)
 /// Stop watching a custom kind (B15). Idempotent: unknown ids are a no-op, so the
 /// frontend can call this unconditionally when navigating away.
 #[tauri::command]
-pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<ClientManager>>) -> AppResult<()> {
-    mgr.remove_custom_watcher(&kind).await;
+pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    (*mgr).manager.remove_custom_watcher(&kind).await;
     Ok(())
 }
 
@@ -589,14 +623,14 @@ pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<ClientManager>
 /// connection-scoped task reporting via [`kube::events::DRAIN_PROGRESS`] — it can
 /// take minutes, so blocking the command on it would freeze the UI.
 #[tauri::command]
-pub async fn drain_node(name: String, mgr: State<'_, Arc<ClientManager>>) -> AppResult<()> {
-    let client = require_client(&mgr).await?;
-    let manager: Arc<ClientManager> = (*mgr).clone();
+pub async fn drain_node(name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    let client = require_client(&(*mgr).manager).await?;
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
 
     // Cordon first: without it the scheduler could refill the node as we drain it.
     drain::cordon(client.clone(), &name).await?;
 
-    let app = manager.app();
+    let app = manager.sink();
     let task = tokio::spawn(async move {
         drain::run_drain(client, app, name).await;
     });
@@ -614,9 +648,9 @@ pub async fn drain_node(name: String, mgr: State<'_, Arc<ClientManager>>) -> App
 #[tauri::command]
 pub async fn node_history(
     node: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<Vec<exporter::NodeSample>> {
-    let client = require_client(&mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
     let Some(svc) = promql::discover(&client).await else {
         return Ok(Vec::new());
     };
@@ -632,17 +666,17 @@ pub async fn node_history(
 /// are: each scrape moves a few hundred KB and holds a port-forward, which is not
 /// something to run for every node in the background.
 #[tauri::command]
-pub async fn watch_node_stats(node: String, mgr: State<'_, Arc<ClientManager>>) -> AppResult<()> {
-    let manager: Arc<ClientManager> = (*mgr).clone();
+pub async fn watch_node_stats(node: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
     if manager.has_node_scraper(&node).await {
         return Ok(());
     }
-    let client = require_client(&mgr).await?;
-    let app = manager.app();
+    let client = require_client(&manager).await?;
+    let app = manager.sink();
     // Reuses the metrics poll interval from settings (B23): it's the same question
     // ("how often should we ask the cluster how it's doing"), so it would be odd
     // for the plots to march to a different drum than the table's CPU column.
-    let every = poll_intervals(&app).metrics;
+    let every = poll_intervals_default().metrics;
     let n = node.clone();
     let task = tokio::spawn(async move {
         nodestats::run_node_stats(client, app, n, every).await;
@@ -654,8 +688,8 @@ pub async fn watch_node_stats(node: String, mgr: State<'_, Arc<ClientManager>>) 
 /// Stop scraping a node (B27). Idempotent, so the frontend can call it
 /// unconditionally when the tab closes; drops the port-forward with it.
 #[tauri::command]
-pub async fn unwatch_node_stats(node: String, mgr: State<'_, Arc<ClientManager>>) -> AppResult<()> {
-    mgr.remove_node_scraper(&node).await;
+pub async fn unwatch_node_stats(node: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    (*mgr).manager.remove_node_scraper(&node).await;
     Ok(())
 }
 
@@ -678,9 +712,9 @@ pub async fn get_properties(
     kind: String,
     namespace: String,
     name: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<properties::Properties> {
-    let client = require_client(&mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
     properties::gather(client, &kind, &namespace, &name).await
 }
 
@@ -689,9 +723,9 @@ pub async fn get_properties(
 pub async fn get_events(
     namespace: String,
     name: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<Vec<EventItem>> {
-    let client = require_client(&mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
     let api: Api<Event> = Api::namespaced(client, &namespace);
     let lp = ListParams::default().fields(&format!(
         "involvedObject.name={name},involvedObject.namespace={namespace}"
@@ -726,14 +760,14 @@ pub async fn start_log_stream(
     since_time: Option<String>,
     since_seconds: Option<i64>,
     previous: bool,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<String> {
-    let client = require_client(&mgr).await?;
-    let manager: Arc<ClientManager> = (*mgr).clone();
+    let client = require_client(&(*mgr).manager).await?;
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
 
     // Unique id per stream (pod name + sequence).
     let stream_id = format!("{}-{}", pod, STREAM_SEQ.fetch_add(1, Ordering::Relaxed));
-    let app = manager.app();
+    let app = manager.sink();
 
     let opts = logs::LogStreamOptions { tail, since_time, since_seconds, previous };
     let id_for_task = stream_id.clone();
@@ -764,9 +798,9 @@ pub async fn export_logs(
     since_seconds: Option<i64>,
     previous: bool,
     path: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<usize> {
-    let client = require_client(&mgr).await?;
+    let client = require_client(&(*mgr).manager).await?;
     let api: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client.clone(), &namespace);
 
     // No tail: the whole thing. No follow: this must terminate.
@@ -808,9 +842,9 @@ pub async fn export_logs(
 #[tauri::command]
 pub async fn stop_log_stream(
     stream_id: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    mgr.remove_log(&stream_id).await;
+    (*mgr).manager.remove_log(&stream_id).await;
     Ok(())
 }
 
@@ -824,18 +858,18 @@ pub async fn start_shell(
     namespace: String,
     pod: String,
     container: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<String> {
-    let client = require_client(&mgr).await?;
-    let manager: Arc<ClientManager> = (*mgr).clone();
+    let client = require_client(&(*mgr).manager).await?;
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
 
     let id = format!("sh-{}-{}", pod, STREAM_SEQ.fetch_add(1, Ordering::Relaxed));
     let (input_tx, input_rx) = mpsc::channel::<Vec<u8>>(64);
     let (resize_tx, resize_rx) = mpsc::channel::<(u16, u16)>(8);
-    let app = manager.app();
+    let app = manager.sink();
     // Read per-session, so changing the override applies to the next shell you
     // open rather than needing a reconnect (B23).
-    let shell_override = read_prefs(&app).shell_command.unwrap_or_default();
+    let shell_override = read_prefs_default().shell_command.unwrap_or_default();
     let id_for_task = id.clone();
     let task = tokio::spawn(async move {
         exec::run_shell(
@@ -928,10 +962,10 @@ async fn delete_debug_pod(api: &Api<k8s_openapi::api::core::v1::Pod>, name: &str
 #[tauri::command]
 pub async fn start_node_shell(
     node: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<NodeShellInfo> {
-    let client = require_client(&mgr).await?;
-    let manager: Arc<ClientManager> = (*mgr).clone();
+    let client = require_client(&(*mgr).manager).await?;
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
     let api: Api<k8s_openapi::api::core::v1::Pod> =
         Api::namespaced(client.clone(), nodeshell::DEBUG_NAMESPACE);
 
@@ -949,8 +983,8 @@ pub async fn start_node_shell(
 
     let seq = STREAM_SEQ.fetch_add(1, Ordering::Relaxed);
     let pod_name = nodeshell::pod_name(&node, seq);
-    let app = manager.app();
-    let image = read_prefs(&app)
+    let app = manager.sink();
+    let image = read_prefs_default()
         .node_shell_image
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| nodeshell::DEFAULT_IMAGE.to_string());
@@ -1004,10 +1038,10 @@ pub async fn start_node_shell(
 pub async fn stop_node_shell(
     stream_id: String,
     pod: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    mgr.remove_shell(&stream_id).await;
-    if let Some(client) = mgr.client().await {
+    (*mgr).manager.remove_shell(&stream_id).await;
+    if let Some(client) = (*mgr).manager.client().await {
         let api: Api<k8s_openapi::api::core::v1::Pod> =
             Api::namespaced(client, nodeshell::DEBUG_NAMESPACE);
         delete_debug_pod(&api, &pod).await;
@@ -1020,9 +1054,9 @@ pub async fn stop_node_shell(
 pub async fn shell_input(
     stream_id: String,
     data: String,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    mgr.shell_input(&stream_id, data.into_bytes()).await;
+    (*mgr).manager.shell_input(&stream_id, data.into_bytes()).await;
     Ok(())
 }
 
@@ -1032,16 +1066,16 @@ pub async fn shell_resize(
     stream_id: String,
     cols: u16,
     rows: u16,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    mgr.shell_resize(&stream_id, cols, rows).await;
+    (*mgr).manager.shell_resize(&stream_id, cols, rows).await;
     Ok(())
 }
 
 /// Stop a shell session (idempotent).
 #[tauri::command]
-pub async fn stop_shell(stream_id: String, mgr: State<'_, Arc<ClientManager>>) -> AppResult<()> {
-    mgr.remove_shell(&stream_id).await;
+pub async fn stop_shell(stream_id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    (*mgr).manager.remove_shell(&stream_id).await;
     Ok(())
 }
 
@@ -1056,10 +1090,10 @@ pub async fn start_port_forward(
     namespace: String,
     pod: String,
     remote_port: u16,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<ForwardDto> {
-    let client = require_client(&mgr).await?;
-    let manager: Arc<ClientManager> = (*mgr).clone();
+    let client = require_client(&(*mgr).manager).await?;
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
 
     // Fail fast with a clear message if the pod is gone.
     portforward::ensure_pod(client.clone(), &namespace, &pod).await?;
@@ -1077,10 +1111,10 @@ pub async fn start_service_port_forward(
     namespace: String,
     service: String,
     remote_port: u16,
-    mgr: State<'_, Arc<ClientManager>>,
+    mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<ForwardDto> {
-    let client = require_client(&mgr).await?;
-    let manager: Arc<ClientManager> = (*mgr).clone();
+    let client = require_client(&(*mgr).manager).await?;
+    let manager: Arc<ClientManager> = (&(*mgr)).manager.clone();
 
     let (pod, target_port) =
         portforward::resolve_service(client.clone(), &namespace, &service, remote_port).await?;
@@ -1151,15 +1185,15 @@ async fn spawn_forward(
 
 /// Stop a port-forward (idempotent).
 #[tauri::command]
-pub async fn stop_port_forward(id: String, mgr: State<'_, Arc<ClientManager>>) -> AppResult<()> {
-    mgr.remove_forward(&id).await;
+pub async fn stop_port_forward(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    (*mgr).manager.remove_forward(&id).await;
     Ok(())
 }
 
 /// List active port-forwards.
 #[tauri::command]
-pub async fn list_port_forwards(mgr: State<'_, Arc<ClientManager>>) -> AppResult<Vec<ForwardDto>> {
-    Ok(mgr.list_forwards().await)
+pub async fn list_port_forwards(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<ForwardDto>> {
+    Ok((*mgr).manager.list_forwards().await)
 }
 
 // --------------------------------------------------------------------------
@@ -1190,3 +1224,542 @@ fn event_age(e: &Event) -> String {
     let secs = (chrono::Utc::now() - last_seen(e)).num_seconds().max(0);
     mappers::humanize_duration(secs)
 }
+
+// ---------------------------------------------------------------------------
+// Helm marketplace (Phase 1 of KubePi parity) — repo CRUD + chart search.
+// ---------------------------------------------------------------------------
+
+/// Seed the default chart repos on first launch. Called from `setup`.
+#[tauri::command]
+pub fn helm_seed_repos() -> AppResult<()> {
+    helm_market::seed_default_repos()
+}
+
+/// List the user's helm chart repositories (sorted most-recently-touched first).
+#[tauri::command]
+pub fn helm_list_repos() -> AppResult<Vec<helm_market::HelmRepo>> {
+    helm_market::list_repos()
+}
+
+/// Add a new chart repo. Returns the freshly-created entry.
+#[tauri::command]
+pub fn helm_add_repo(
+    name: String,
+    url: String,
+    description: String,
+) -> AppResult<helm_market::HelmRepo> {
+    helm_market::add_repo(&name, &url, &description)
+}
+
+/// Remove a chart repo and its cached index.
+#[tauri::command]
+pub fn helm_remove_repo(name: String) -> AppResult<()> {
+    helm_market::remove_repo(&name)
+}
+
+/// Re-fetch one repo's index from its URL. On failure the repo's
+/// `last_error` is set and the error is returned to the caller so the UI
+/// can surface a red dot.
+#[tauri::command]
+pub async fn helm_update_repo(name: String) -> AppResult<helm_market::HelmRepo> {
+    helm_market::update_repo_index(&name).await
+}
+
+/// Re-fetch every repo's index, in parallel. Per-repo failures are logged
+/// but do not short-circuit the rest.
+#[tauri::command]
+pub async fn helm_update_all_repos() -> AppResult<Vec<helm_market::HelmRepo>> {
+    helm_market::update_all_indexes().await
+}
+
+/// Search across every cached index. Empty query returns everything
+/// (the "browse" view). Results are sorted by version desc, name asc.
+#[tauri::command]
+pub fn helm_search_charts(query: String) -> AppResult<Vec<helm_market::ChartSummary>> {
+    helm_market::search_charts(&query)
+}
+
+/// All known versions of one (repo, chart) pair, newest first.
+#[tauri::command]
+pub fn helm_chart_versions(
+    repo: String,
+    chart: String,
+) -> AppResult<Vec<helm_market::ChartVersionEntry>> {
+    helm_market::chart_versions(&repo, &chart)
+}
+
+/// Default values.yaml for a chart at a given version. Delegates to
+/// `helm show values` so we don't re-implement chart parsing in Rust.
+#[tauri::command]
+pub async fn helm_render_default_values(
+    chart: String,
+    version: String,
+    kubeconfig: Option<String>,
+) -> AppResult<String> {
+    helm_ops::render_default_values(&chart, &version, kubeconfig.as_deref()).await
+}
+
+// ---------------------------------------------------------------------------
+// Helm release ops (install/upgrade/uninstall/rollback + history).
+// ---------------------------------------------------------------------------
+
+/// Run a helm operation (install/upgrade/uninstall/rollback) to completion.
+/// Streams `helm-op-log` and `helm-op-done` events for the UI to render live.
+#[tauri::command]
+pub async fn helm_run_op(
+    op: helm_ops::HelmOp,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<helm_ops::HelmOpResult> {
+    // The frontend doesn't track a per-connection EventSink directly; pull it
+    // off the manager. The Tauri sink in `core::events` is what the manager
+    // already uses, so re-using it here means helm log lines reach the same
+    // webview that called us.
+    let sink = (*mgr).manager.sink().clone();
+    helm_ops::run_op(op, sink).await
+}
+
+/// Fetch the revision history for a release.
+#[tauri::command]
+pub async fn helm_release_history(
+    release: String,
+    namespace: String,
+    kubeconfig: Option<String>,
+) -> AppResult<Vec<helm_ops::RevisionEntry>> {
+    helm_ops::release_history(&release, &namespace, kubeconfig.as_deref()).await
+}
+
+// ---------------------------------------------------------------------------
+// Pod file management (Phase 2 of KubePi parity) — browse / read / write /
+// download / upload inside a running pod's container.
+// ---------------------------------------------------------------------------
+
+/// List a directory inside a pod's container. Returns file / dir / symlink
+/// entries with sizes, mtimes, and POSIX modes.
+#[tauri::command]
+pub async fn pod_files_list(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<pod_files::FileEntry>> {
+    let client = require_client(&(*mgr).manager).await?;
+    pod_files::list_dir(client, &namespace, &pod, container.as_deref(), &path).await
+}
+
+/// Read a file's text contents. Returns UTF-8 lossy so logs/configs work
+/// even if the bytes aren't valid UTF-8 (e.g. UTF-16 BOM'd files).
+#[tauri::command]
+pub async fn pod_files_read(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<String> {
+    let client = require_client(&(*mgr).manager).await?;
+    pod_files::read_file(client, &namespace, &pod, container.as_deref(), &path).await
+}
+
+/// Write a file's contents inside a container. Creates parent directories
+/// as needed.
+#[tauri::command]
+pub async fn pod_files_write(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    content: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
+    let client = require_client(&(*mgr).manager).await?;
+    pod_files::write_file(client, &namespace, &pod, container.as_deref(), &path, &content).await
+}
+
+/// Download a path as a tar archive. The frontend turns the bytes into a
+/// user-saved file.
+#[tauri::command]
+pub async fn pod_files_download(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<u8>> {
+    let client = require_client(&(*mgr).manager).await?;
+    pod_files::download_path(client, &namespace, &pod, container.as_deref(), &path).await
+}
+
+/// Upload a tar archive (bytes) into a directory inside a container.
+#[tauri::command]
+pub async fn pod_files_upload(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    dest_dir: String,
+    tar_b64: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&tar_b64)
+        .map_err(|e| AppError::Other(format!("base64 decode: {e}")))?;
+    let client = require_client(&(*mgr).manager).await?;
+    pod_files::upload_path(client, &namespace, &pod, container.as_deref(), &dest_dir, &bytes).await
+}
+
+// ---------------------------------------------------------------------------
+// Image registry management (Phase 5 of KubePi parity).
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn image_registry_list() -> AppResult<Vec<imagerepo::ImageRegistry>> {
+    imagerepo::list_registries()
+}
+
+#[tauri::command]
+pub fn image_registry_upsert(
+    name: String,
+    url: String,
+    username: String,
+    password: String,
+    insecure: bool,
+    description: String,
+) -> AppResult<imagerepo::ImageRegistry> {
+    imagerepo::upsert_registry(&name, &url, &username, &password, insecure, &description)
+}
+
+#[tauri::command]
+pub fn image_registry_remove(name: String) -> AppResult<()> {
+    imagerepo::remove_registry(&name)
+}
+
+#[tauri::command]
+pub async fn image_registry_test(name: String) -> AppResult<()> {
+    let reg = imagerepo::list_registries()?
+        .into_iter()
+        .find(|r| r.name == name)
+        .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
+    imagerepo::test_connect(&reg).await
+}
+
+#[tauri::command]
+pub async fn image_registry_repos(name: String) -> AppResult<Vec<imagerepo::RepoEntry>> {
+    let reg = imagerepo::list_registries()?
+        .into_iter()
+        .find(|r| r.name == name)
+        .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
+    imagerepo::list_repositories(&reg).await
+}
+
+#[tauri::command]
+pub async fn image_registry_tags(
+    name: String,
+    repo: String,
+) -> AppResult<Vec<imagerepo::TagEntry>> {
+    let reg = imagerepo::list_registries()?
+        .into_iter()
+        .find(|r| r.name == name)
+        .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
+    imagerepo::list_tags(&reg, &repo).await
+}
+
+// ---------------------------------------------------------------------------
+// Multi-document YAML apply (Phase 4 — used by the templates feature).
+// ---------------------------------------------------------------------------
+
+/// Apply a multi-document YAML bundle. Returns one `ApplyResult` per doc,
+/// with `action` set to "created", "updated", or "failed" and a per-doc
+/// error message on failure.
+#[tauri::command]
+pub async fn apply_yaml_bundle(
+    yaml: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<templates::ApplyResult>> {
+    let client = require_client(&(*mgr).manager).await?;
+    templates::multi_apply(&yaml, client, &(*mgr).manager).await
+}
+
+// ---------------------------------------------------------------------------
+// Endpoints (Phase 1 Tier-2 of KubePi parity) — drilling into "Service has
+// no endpoints" is the canonical 503 debugging path, and the Endpoints
+// object is the thing to look at.
+// ---------------------------------------------------------------------------
+
+/// List EndpointSlices cluster-wide. One row per slice, with the
+/// ready/total address count so 503s are obvious at a glance.
+#[tauri::command]
+pub async fn list_endpoints(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<endpoints::EndpointRow>> {
+    let client = require_client(&(*mgr).manager).await?;
+    endpoints::list_all(&client).await
+}
+
+/// EndpointSlices for a single Service — the row context menu's
+/// "View endpoints" action.
+#[tauri::command]
+pub async fn list_endpoints_for_service(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<endpoints::EndpointRow>> {
+    let client = require_client(&(*mgr).manager).await?;
+    endpoints::list_for_service(&client, &namespace, &name).await
+}
+
+/// Per-address detail for one EndpointSlice.
+#[tauri::command]
+pub async fn list_endpoint_addresses(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<endpoints::EndpointAddress>> {
+    let client = require_client(&(*mgr).manager).await?;
+    endpoints::addresses_for(&client, &namespace, &name).await
+}
+
+// ---------------------------------------------------------------------------
+// CronJob manual trigger (Phase 2 Tier-2 of KubePi parity) — KubePi has a
+// "Run now" action for jobs whose schedule doesn't align with the moment
+// you need them.
+// ---------------------------------------------------------------------------
+
+/// Manually create a Job from a CronJob. Mirrors what
+/// `kubectl create job --from=cronjob/<name>` does, and returns the new
+/// Job's name so the UI can navigate to it.
+#[tauri::command]
+pub async fn trigger_cronjob(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<String> {
+    use k8s_openapi::api::batch::v1::{CronJob, Job};
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference};
+    use kube::api::PostParams;
+
+    let client = require_client(&(*mgr).manager).await?;
+    let cj_api: Api<CronJob> = Api::namespaced(client.clone(), &namespace);
+    let cj = cj_api.get(&name).await?;
+    let job_name = format!("{name}-manual-{}", chrono::Utc::now().timestamp());
+    let job = Job {
+        metadata: ObjectMeta {
+            name: Some(job_name.clone()),
+            namespace: Some(namespace.clone()),
+            annotations: Some({
+                let mut m = std::collections::BTreeMap::new();
+                m.insert(
+                    "cronjob.kubernetes.io/instantiate".to_string(),
+                    "manual".to_string(),
+                );
+                m
+            }),
+            owner_references: Some(vec![OwnerReference {
+                api_version: "batch/v1".to_string(),
+                kind: "CronJob".to_string(),
+                name,
+                uid: cj.metadata.uid.unwrap_or_default(),
+                controller: Some(true),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        },
+        spec: cj.spec.and_then(|s| s.job_template.spec),
+        ..Default::default()
+    };
+    let job_api: Api<Job> = Api::namespaced(client, &namespace);
+    job_api
+        .create(&PostParams::default(), &job)
+        .await
+        .map_err(|e| AppError::Kube(format!("create job: {e}")))?;
+    Ok(job_name)
+}
+
+// ---------------------------------------------------------------------------
+// Metrics / Prometheus multi-instance (Phase 1 Tier-2 of KubePi parity).
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn metrics_list() -> AppResult<Vec<metrics_config::MetricsConfig>> {
+    metrics_config::list()
+}
+
+#[tauri::command]
+pub fn metrics_upsert(
+    name: String,
+    url: String,
+    username: String,
+    password: String,
+    description: String,
+) -> AppResult<metrics_config::MetricsConfig> {
+    metrics_config::upsert(&name, &url, &username, &password, &description)
+}
+
+#[tauri::command]
+pub fn metrics_remove(name: String) -> AppResult<()> {
+    metrics_config::remove(&name)
+}
+
+#[tauri::command]
+pub async fn metrics_test(name: String) -> AppResult<()> {
+    metrics_config::test_connect(&name).await
+}
+
+#[tauri::command]
+pub async fn metrics_query(name: String, promql: String) -> AppResult<metrics_config::QueryResult> {
+    metrics_config::query(&name, &promql).await
+}
+
+#[tauri::command]
+pub async fn metrics_query_range(
+    name: String,
+    promql: String,
+    start_ms: i64,
+    end_ms: i64,
+    step_seconds: i64,
+) -> AppResult<metrics_config::QueryResult> {
+    metrics_config::query_range(&name, &promql, start_ms, end_ms, step_seconds).await
+}
+
+// ---------------------------------------------------------------------------
+// Grafana (Phase 1 Tier-2 of KubePi parity).
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn grafana_list() -> AppResult<Vec<grafana::GrafanaConfig>> {
+    grafana::list()
+}
+
+#[tauri::command]
+pub fn grafana_upsert(
+    name: String,
+    url: String,
+    username: String,
+    password: String,
+    api_token: String,
+    default_datasource: String,
+    description: String,
+) -> AppResult<grafana::GrafanaConfig> {
+    grafana::upsert(
+        &name,
+        &url,
+        &username,
+        &password,
+        &api_token,
+        &default_datasource,
+        &description,
+    )
+}
+
+#[tauri::command]
+pub fn grafana_remove(name: String) -> AppResult<()> {
+    grafana::remove(&name)
+}
+
+#[tauri::command]
+pub async fn grafana_test(name: String) -> AppResult<()> {
+    grafana::test_connect(&name).await
+}
+
+#[tauri::command]
+pub fn grafana_presets() -> Vec<grafana::DashboardPreset> {
+    grafana::preset_dashboards()
+}
+
+#[tauri::command]
+pub fn grafana_dashboard_url(
+    name: String,
+    uid: String,
+    from_ms: i64,
+    to_ms: i64,
+) -> AppResult<String> {
+    grafana::dashboard_url(&name, &uid, from_ms, to_ms)
+}
+
+// ---------------------------------------------------------------------------
+// AlertManager (Phase 1 Tier-2 of KubePi parity).
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn alertmanager_list() -> AppResult<Vec<alerting::AlertManager>> {
+    alerting::list()
+}
+
+#[tauri::command]
+pub fn alertmanager_upsert(
+    name: String,
+    url: String,
+    bearer_token: String,
+    description: String,
+) -> AppResult<alerting::AlertManager> {
+    alerting::upsert(&name, &url, &bearer_token, &description)
+}
+
+#[tauri::command]
+pub fn alertmanager_remove(name: String) -> AppResult<()> {
+    alerting::remove(&name)
+}
+
+#[tauri::command]
+pub async fn alertmanager_test(name: String) -> AppResult<()> {
+    alerting::test_connect(&name).await
+}
+
+#[tauri::command]
+pub async fn alertmanager_alerts(name: String) -> AppResult<Vec<alerting::Alert>> {
+    alerting::list_alerts(&name).await
+}
+
+#[tauri::command]
+pub async fn alertmanager_silences(name: String) -> AppResult<Vec<alerting::Silence>> {
+    alerting::list_silences(&name).await
+}
+
+// ---------------------------------------------------------------------------
+// Saved PromQL queries (Phase 2 — named queries + in-memory cache).
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn saved_queries_list() -> AppResult<Vec<saved_queries::SavedQuery>> {
+    saved_queries::list()
+}
+
+#[tauri::command]
+pub fn saved_queries_upsert(query: saved_queries::SavedQuery) -> AppResult<saved_queries::SavedQuery> {
+    saved_queries::upsert(query)
+}
+
+#[tauri::command]
+pub fn saved_queries_remove(name: String) -> AppResult<()> {
+    saved_queries::remove(&name)
+}
+
+#[tauri::command]
+pub fn saved_queries_clear_cache() {
+    saved_queries::clear_cache();
+}
+
+#[tauri::command]
+pub async fn saved_queries_run(
+    query: saved_queries::SavedQuery,
+    instance: String,
+    force_refresh: bool,
+) -> AppResult<metrics_config::QueryResult> {
+    saved_queries::run_saved(&query, &instance, force_refresh).await
+}
+
+// ---------------------------------------------------------------------------
+// Image manifest drill-down.
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub async fn image_registry_manifest(
+    name: String,
+    repo: String,
+    tag: String,
+) -> AppResult<imagerepo::ImageManifest> {
+    let reg = imagerepo::list_registries()?
+        .into_iter()
+        .find(|r| r.name == name)
+        .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
+    imagerepo::manifest(&reg, &repo, &tag).await
+}
+

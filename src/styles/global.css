@@ -1,7 +1,9 @@
 /*
  * Global base styles: reset, root background/typography, custom scrollbars, and
- * the single allowed animation (the 2s "live" pulse). All values come from the
- * design handoff (design/README.md § App shell + the prototype's <style> block).
+ * the live-pulse animation. All values come from the design tokens in
+ * tokens.css; this file only composes them and adds the bits no component owns
+ * (e.g. the scrollbar chrome and the keyframes that more than one component
+ * needs to share).
  */
 
 /* Local, offline font bundling — no network fetch at runtime (desktop requirement).
@@ -9,6 +11,7 @@
 @import "@fontsource/ibm-plex-sans/400.css";
 @import "@fontsource/ibm-plex-sans/500.css";
 @import "@fontsource/ibm-plex-sans/600.css";
+@import "@fontsource/ibm-plex-sans/700.css";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/jetbrains-mono/600.css";
@@ -31,9 +34,15 @@ body {
   background: var(--bg-app);
   color: var(--text-body);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 13.5px;
   /* The app is a fixed single-window shell; internal regions scroll, not the page. */
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Tabular numerals for any mono text in the app — a small typographic
+     improvement that costs nothing. */
+  font-variant-numeric: tabular-nums;
 }
 
 #root {
@@ -41,10 +50,18 @@ body {
   height: 100vh;
 }
 
-/* Links (used sparingly, e.g. error hints) use the accent blue. */
+/* Layered background: a faint accent wash over the solid surface. The wash is
+   defined as --grad-bg in tokens.css so the wash tracks the theme. */
+#root > * {
+  background: var(--grad-bg), var(--bg-app);
+  background-attachment: fixed;
+}
+
+/* Links (used sparingly, e.g. error hints) use the accent. */
 a {
   color: var(--accent);
   text-decoration: none;
+  transition: color 0.12s ease;
 }
 a:hover {
   color: var(--accent-hover);
@@ -55,34 +72,53 @@ a:hover {
 input,
 textarea {
   outline: none;
+  font-family: inherit;
 }
 
 /* Custom scrollbars matching the prototype: thin, track-transparent, thumb the
-   default border color with a 2px app-background inset, brighter on hover. */
+   control-border color, brighter on hover. v2 — slightly larger hit area (10→12
+   inner) and a 3px gutter inset so the thumb never sits flush against content. */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-default);
-  border-radius: var(--radius-sm);
-  border: 2px solid var(--bg-app);
+  background: var(--border-control);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.12s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-linenum);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
-/* The ONLY animation in the app (per design): a 2s opacity pulse used on the
-   "live"/watch dots. */
+/* Firefox scrollbar (kept thin and accent-tinted). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-control) transparent;
+}
+
+/* The two animations the app uses (Design §1 / v2):
+   - livePulse: the 2s opacity pulse on the "live"/watch dots and the
+     status-err halos. The variant for status alerts also nudges the box-shadow
+     outwards so the eye is drawn to the failing pod, not the green one.
+   - statusAlert: a 1.4s breath, used by .statusFailed in the table. */
 @keyframes livePulse {
-  0%,
-  100% {
+  0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.25;
+    opacity: 0.45;
+    transform: scale(0.9);
   }
 }
