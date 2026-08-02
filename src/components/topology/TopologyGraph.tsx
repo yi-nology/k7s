@@ -29,6 +29,8 @@ import {
   forceLink,
   forceManyBody,
   forceSimulation,
+  forceX,
+  forceY,
   type Simulation,
   type SimulationLinkDatum,
   type SimulationNodeDatum,
@@ -63,8 +65,14 @@ interface GraphNode extends SimulationNodeDatum {
 }
 
 interface GraphLink extends Link {
-  source: string;
-  target: string;
+  // d3-force mutates source/target from string ids to node references after
+  // the simulation initializes, so the type is whatever Link allows
+  // (NodeDatum | string | number). We narrow at the call site instead of
+  // overriding the property types here — the Link type already covers both
+  // shapes, and re-declaring it as `string` makes the d3-mutated branch
+  // untypable.
+  source: Link["source"];
+  target: Link["target"];
 }
 
 interface ClusterGraph {
@@ -201,6 +209,8 @@ export function TopologyGraph() {
     }
     const nodes: GraphNode[] = graph.nodes.map((n) => ({ ...n }));
     const links: GraphLink[] = graph.links.map((l) => ({ ...l }));
+    const cx = size.w / 2;
+    const cy = size.h / 2;
     const sim: Simulation<GraphNode, GraphLink> = forceSimulation<GraphNode>(nodes)
       .force("charge", forceManyBody().strength(-180))
       .force(
@@ -210,7 +220,17 @@ export function TopologyGraph() {
           .distance(60)
           .strength(0.6),
       )
-      .force("center", forceCenter(size.w / 2, size.h / 2))
+      // forceCenter only moves the *mean* to (cx, cy). With a small graph
+      // (≤ ~10 nodes) the link+charge forces can park the cluster against
+      // a corner and forceCenter then translates the whole corner-cluster,
+      // which still reads as "off-center" because the cluster itself isn't
+      // centered on the mean. forceX/forceY apply a per-node attraction to
+      // the target, so each node is pulled toward the middle of the canvas
+      // — combined with the small strength the layout stays stable but the
+      // cluster lands squarely in the middle of the SVG viewBox.
+      .force("center", forceCenter(cx, cy))
+      .force("x", forceX(cx).strength(0.08))
+      .force("y", forceY(cy).strength(0.08))
       .stop();
     // Run 300 ticks synchronously; d3 docs recommend ~300 for stable
     // layout. Each tick is a single O(n) pass.
@@ -218,8 +238,8 @@ export function TopologyGraph() {
     const map = new Map<string, { x: number; y: number }>();
     for (const n of nodes) {
       map.set(n.id, {
-        x: clamp(n.x ?? size.w / 2, 20, size.w - 20),
-        y: clamp(n.y ?? size.h / 2, 20, size.h - 20),
+        x: clamp(n.x ?? cx, 20, size.w - 20),
+        y: clamp(n.y ?? cy, 20, size.h - 20),
       });
     }
     return map;
@@ -256,12 +276,28 @@ export function TopologyGraph() {
           viewBox={`0 0 ${size.w} ${size.h}`}
         >
           {graph.links.map((l, i) => {
-            const s = positions.get(l.source as string);
-            const t = positions.get(l.target as string);
+            // l.source / l.target may have been resolved to a GraphNode
+            // reference by d3-force in a previous render (d3 mutates the
+            // links array in-place). Accept either the string id or the
+            // node's id so the edge renders either way.
+            const sourceId =
+              typeof l.source === "string"
+                ? l.source
+                : typeof l.source === "object" && l.source
+                ? l.source.id
+                : undefined;
+            const targetId =
+              typeof l.target === "string"
+                ? l.target
+                : typeof l.target === "object" && l.target
+                ? l.target.id
+                : undefined;
+            const s = sourceId ? positions.get(sourceId) : undefined;
+            const t = targetId ? positions.get(targetId) : undefined;
             if (!s || !t) return null;
             const isHot =
               hover !== null &&
-              (l.source === hover || l.target === hover);
+              (sourceId === hover || targetId === hover);
             return (
               <line
                 key={i}

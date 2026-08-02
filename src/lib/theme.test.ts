@@ -149,7 +149,14 @@ describe("tokens.css palettes", () => {
 
   /** A copy-paste that left a dark value behind would defeat the point. */
   it("gives the two palettes genuinely different values", () => {
-    const same = [...light].filter(([k, v]) => dark.get(k) === v);
+    // Token aliases (e.g. --border: var(--border-default)) intentionally
+    // share the same `var(...)` reference in both palettes — that's the
+    // whole point of the alias. Only flag tokens whose *literal* value
+    // is identical, which is what would actually render the same colour
+    // on both themes by accident.
+    const same = [...light].filter(
+      ([k, v]) => dark.get(k) === v && !v.startsWith("var("),
+    );
     expect(same).toEqual([]);
   });
 

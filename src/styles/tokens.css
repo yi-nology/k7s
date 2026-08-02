@@ -46,6 +46,14 @@
   --border-blue-action: #2a4a75; /* outline of the ghost "Edit" button */
   --border-row:     #1B1B23; /* table row bottom border, toolbar dividers */
   --border-ring:    rgba(123, 133, 245, 0.20); /* subtle inner ring on active */
+  /* --border is the short alias used by ~30 components (panel/card/btn
+   * borders, table separators, inspector outlines). Without it, every
+   * `border: 1px solid var(--border)` becomes `border: 1px solid <empty>`
+   * which the browser drops, so panels, table rows, and buttons render
+   * without their separator lines. Default to --border-default; switch
+   * the alias to a heavier role if a specific surface needs a stronger
+   * line. */
+  --border:         var(--border-default);
 
   /* ================ Text ================ */
   --text-primary:   #F2F2F8; /* names, active labels, headings */
@@ -161,6 +169,7 @@
   --border-blue-action: #9DC3F0;
   --border-row:     #ECECF1;
   --border-ring:    rgba(94, 106, 210, 0.18);
+  --border:         var(--border-default);
 
   /* ---- Text ---- */
   --text-primary:   #0E0E1A;
@@ -255,6 +264,7 @@
   --border-blue-action: #2a4a75;
   --border-row:     #1B1B23;
   --border-ring:    rgba(123, 133, 245, 0.20);
+  --border:         var(--border-default);
 
   --text-primary:   #F2F2F8;
   --text-body:      #D6D6E0;
