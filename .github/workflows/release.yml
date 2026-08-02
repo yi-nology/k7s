@@ -36,12 +36,11 @@ jobs:
   # ────────────────────────────────────────────────────────────────
   lint-test:
     name: lint & test (ubuntu)
-    if: github.event_name != 'push' || github.ref != 'refs/tags/v*'
-    # ↑ the if above keeps this out of tag pushes (where the
-    # release / docker jobs take over and would otherwise duplicate
-    # the work). Equivalent to:
-    #   on: push (branch main), pull_request, workflow_dispatch
-    # but expressed inline so the trigger list can stay a single block.
+    if: github.ref_type != 'tag'
+    # ↑ skip on tag pushes / workflow_dispatch on a tag.
+    # `github.ref_type` is "branch" for branch refs and "tag" for
+    # tag refs; this is more direct than poking at github.event_name
+    # × github.ref and works the same for `gh workflow run --ref`.
     runs-on: ubuntu-22.04
     steps:
       - name: checkout
