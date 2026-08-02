@@ -21,10 +21,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-      - name: cache Rust build
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
       - name: install Node
         uses: actions/setup-node@v4
         with:
