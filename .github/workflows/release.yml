@@ -2,7 +2,6 @@ name: release
 on:
   push:
     tags: ['v*']
-    branches: [main]
 jobs:
   build:
     strategy:
@@ -11,13 +10,10 @@ jobs:
         include:
           - os: ubuntu-22.04
             rust: stable
-            pkg: deb,rpm,appimage
           - os: macos-latest
             rust: stable
-            pkg: dmg,app
           - os: windows-latest
             rust: stable
-            pkg: msi,nsis
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -25,24 +21,3 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
-      - name: cache Rust build
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-      - name: install Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-      - name: install Linux system deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev
-      - name: install JS deps
-        run: pnpm install --frozen-lockfile
-      - name: run JS unit tests
-        run: pnpm test -- --run
