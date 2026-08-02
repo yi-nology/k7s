@@ -145,6 +145,21 @@ describe("kindLabel", () => {
   });
 });
 
+/** Both locales must ship every key the table reads; the empty-state
+ *  differentiation (empty vs emptyNone) is rendered, not "looked up elsewhere",
+ *  so a missing key would render the raw dotted path in production. */
+describe("table empty-state keys", () => {
+  it("ships table.empty in both locales", () => {
+    expect(translate("en", "table.empty")).toBe("no resources match filter");
+    expect(translate("zh", "table.empty")).toBe("无匹配资源");
+  });
+
+  it("ships table.emptyNone in both locales (no-filter empty state)", () => {
+    expect(translate("en", "table.emptyNone")).toBe("no resources");
+    expect(translate("zh", "table.emptyNone")).toBe("无资源");
+  });
+});
+
 describe("tabLabel", () => {
   it("returns the English name for English", () => {
     expect(tabLabel("logs", "en")).toBe("Logs");

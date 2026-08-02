@@ -153,7 +153,20 @@ export interface Dictionary {
   /** Resource table chrome. */
   table: {
     filterPlaceholder: string;
+    /**
+     * Shown when the rendered row set is empty AND the user typed a filter.
+     * The "filter" here means the text input — the namespace picker in the
+     * topbar is the user's other filter, but it's always visible so the empty
+     * state doesn't need to repeat it.
+     */
     empty: string;
+    /**
+     * Shown when the rendered row set is empty AND the filter input is empty.
+     * Either the kind has no resources on this cluster, or the namespace
+     * picker is filtering them all out. Either way, no filter was typed —
+     * saying "no resources match filter" would be a lie.
+     */
+    emptyNone: string;
     /** "N selected" chip shown when multi-select has > 1 row picked. */
     selected: string;
   };
@@ -588,6 +601,7 @@ export const en: Dictionary = {
   table: {
     filterPlaceholder: "filter…",
     empty: "no resources match filter",
+    emptyNone: "no resources",
     selected: "selected",
   },
 
@@ -1047,6 +1061,7 @@ export const zh: Dictionary = {
   table: {
     filterPlaceholder: "过滤…",
     empty: "无匹配资源",
+    emptyNone: "无资源",
     selected: "已选",
   },
 

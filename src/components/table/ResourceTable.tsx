@@ -336,7 +336,17 @@ export function ResourceTable() {
           {win.padBottom > 0 && <tr style={{ height: win.padBottom }} />}
         </tbody>
         </table>
-        {rows.length === 0 && <div className={styles.empty}>{t("table.empty")}</div>}
+        {rows.length === 0 && (
+          <div className={styles.empty}>
+            {/* Differentiate the message by cause: "no resources match filter"
+                only when the user typed a filter; otherwise the cause is the
+                namespace picker (or an empty kind) and we don't claim a filter
+                was at fault. */}
+            {tableFilter.trim() === ""
+              ? t("table.emptyNone", "no resources")
+              : t("table.empty", "no resources match filter")}
+          </div>
+        )}
       </div>
 
       {/* Bulk-action failures (B39). In the table rather than the detail panel,
