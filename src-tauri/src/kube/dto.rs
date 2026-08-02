@@ -1,160 +1,44 @@
-//! Data transfer objects — the contract between the backend and the React UI.
+//! Row/Cell data-transfer types emitted to the frontend.
 //!
-//! Every value that crosses the Tauri command / event boundary is one of
-//! these. The frontend (`src/providers/types.ts`) mirrors this file's shapes
-//! 1:1 — when adding a field here, add it there too.
-//!
-//! Design principles:
-//!   - **Tone** is the only color channel exposed to the UI. The backend
-//!     decides semantics ("this pod is in CrashLoopBackOff"); the frontend
-//!     just maps `Tone` to a CSS variable. One source of truth for status
-//!     semantics — drift between backend and UI is impossible.
-//!   - `Cell` is the unit of display. Columns are sequences of cells.
-//!   - `Row` carries a stable `uid` for React keys and selection.
-//!   - `PodMeta` is the only per-kind extension; everything else fits `Row`.
+//! These serialize to exactly the shape the TypeScript `Row`/`Cell` types expect
+//! (see src/providers/types.ts). The backend owns all status *semantics*: it picks
+//! a `Tone` per cell (e.g. CrashLoopBackOff → Err), and the frontend only maps
+//! tone → a token color. This keeps coloring rules in one place.
 
-use chrono::{DateTime, Utc};
 use serde::Serialize;
+use std::collections::BTreeMap;
 
-// ---------------------------------------------------------------------------
-// Tone: the single coloring channel
-// ---------------------------------------------------------------------------
-
-/// One of six tonal buckets. The frontend maps this to a CSS variable:
-///   - `primary`   → primary text (typically the name column)
-///   - `secondary` → secondary text (data values like CPU/MEM)
-///   - `muted`     → de-emphasised (namespace, age)
-///   - `ok`        → green / healthy
-///   - `warn`      → amber / transient
-///   - `err`       → red / failure
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+/// The single coloring channel. Serializes to the lowercase strings the frontend
+/// maps to token colors: "primary", "secondary", "muted", "ok", "warn", "err".
+#[derive(Serialize, Clone, Copy, PartialEq, Eq, Debug)]
 #[serde(rename_all = "lowercase")]
 pub enum Tone {
+    /// Names / primary emphasis (--text-primary).
     Primary,
+    /// Metrics and general data (--text-secondary).
     Secondary,
+    /// Namespace / age / de-emphasized (--text-muted).
     Muted,
-    Ok,
+    /// Healthy status (green). Renamed to "ok" for the frontend.
+    #[serde(rename = "ok")]
+    Good,
+    /// Degraded / warning status (amber).
     Warn,
-    Err,
+    /// Failed / error status (red). Renamed to "err" for the frontend.
+    #[serde(rename = "err")]
+    Bad,
 }
 
-impl Tone {
-    pub fn from_bool(healthy: bool) -> Self {
-        if healthy {
-            Tone::Ok
-        } else {
-            Tone::Err
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Cell: the unit of display
-// ---------------------------------------------------------------------------
-
-/// A single table cell. `text` is the display string; the rest shape how
-/// it's rendered (color, sort key, navigation target, ...).
-#[derive(Debug, Clone, Serialize)]
-pub struct Cell {
-    pub text: String,
-    pub tone: Tone,
-    /// If true, render a leading "● " status dot in the tone color.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dot: Option<bool>,
-    /// When `"age"`, the UI treats `text` as an RFC3339 timestamp and
-    /// reformats into "4d2h" form, ticking every 30s.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub format: Option<CellFormat>,
-    /// Optional numeric sort key (for columns like "3.2Gi" / "486Mi" that
-    /// don't order lexically).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub sort: Option<f64>,
-    /// Navigation target — when present, the cell is rendered as a link
-    /// that jumps to another object.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub nav: Option<NavTarget>,
-}
-
-impl Cell {
-    pub fn new(text: impl Into<String>, tone: Tone) -> Self {
-        Self {
-            text: text.into(),
-            tone,
-            dot: None,
-            format: None,
-            sort: None,
-            nav: None,
-        }
-    }
-
-    pub fn primary(text: impl Into<String>) -> Self {
-        Self::new(text, Tone::Primary)
-    }
-
-    pub fn secondary(text: impl Into<String>) -> Self {
-        Self::new(text, Tone::Secondary)
-    }
-
-    pub fn muted(text: impl Into<String>) -> Self {
-        Self::new(text, Tone::Muted)
-    }
-
-    pub fn ok(text: impl Into<String>) -> Self {
-        Self::new(text, Tone::Ok)
-    }
-
-    pub fn warn(text: impl Into<String>) -> Self {
-        Self::new(text, Tone::Warn)
-    }
-
-    pub fn err(text: impl Into<String>) -> Self {
-        Self::new(text, Tone::Err)
-    }
-
-    pub fn age(ts: DateTime<Utc>) -> Self {
-        Self {
-            text: ts.to_rfc3339(),
-            tone: Tone::Muted,
-            dot: None,
-            format: Some(CellFormat::Age),
-            sort: Some(ts.timestamp() as f64),
-            nav: None,
-        }
-    }
-
-    pub fn with_dot(mut self) -> Self {
-        self.dot = Some(true);
-        self
-    }
-
-    pub fn with_sort(mut self, n: f64) -> Self {
-        self.sort = Some(n);
-        self
-    }
-
-    pub fn with_nav(mut self, nav: NavTarget) -> Self {
-        self.nav = Some(nav);
-        self
-    }
-}
-
-/// Cell display hints.
-#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum CellFormat {
-    /// Reformat text as a k8s-style age string ("4d2h"), ticking.
-    Age,
-}
-
-// ---------------------------------------------------------------------------
-// Nav: click-through to another object
-// ---------------------------------------------------------------------------
-
-/// Points to another object the table can navigate to (e.g. a pod's
-/// owning ReplicaSet, a claim's volume).
-#[derive(Debug, Clone, Serialize)]
+/// A navigable target: the nav id plus the object's namespace/name, enough for
+/// the frontend's `jumpTo` (B33). `kind` is a resolved nav id — a built-in plural
+/// ("deployments") or a CRD "group/plural" — not a raw Kubernetes Kind.
+///
+/// Lives here rather than in `properties` because both a properties [`Field`] and
+/// a table [`Cell`] can carry one: most references to another object show up in a
+/// table (a pod's volumes, a Deployment's ReplicaSets), not in a field grid.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct NavTarget {
-    /// Built-in plural ("deployments") or a CRD "group/plural".
     pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub namespace: Option<String>,
@@ -162,218 +46,170 @@ pub struct NavTarget {
 }
 
 impl NavTarget {
-    pub fn new(kind: impl Into<String>, name: impl Into<String>) -> Self {
-        Self {
-            kind: kind.into(),
-            namespace: None,
-            name: name.into(),
-        }
+    /// A target in `namespace`.
+    pub fn namespaced(kind: &str, namespace: impl Into<String>, name: impl Into<String>) -> Self {
+        NavTarget { kind: kind.into(), namespace: Some(namespace.into()), name: name.into() }
     }
 
-    pub fn in_ns(mut self, ns: impl Into<String>) -> Self {
-        self.namespace = Some(ns.into());
-        self
+    /// A cluster-scoped target (Nodes, PVs, StorageClasses).
+    pub fn cluster(kind: &str, name: impl Into<String>) -> Self {
+        NavTarget { kind: kind.into(), namespace: None, name: name.into() }
     }
 }
 
-// ---------------------------------------------------------------------------
-// PodMeta: the only per-kind row extension
-// ---------------------------------------------------------------------------
+/// A single table cell.
+#[derive(Serialize, Clone, Debug)]
+pub struct Cell {
+    /// Display text, or an RFC3339 timestamp when `format == Some("age")`.
+    pub text: String,
+    pub tone: Tone,
+    /// Render a leading "● " status dot in the tone color when true.
+    /// Skipped in JSON when false to keep payloads small.
+    #[serde(skip_serializing_if = "is_false")]
+    pub dot: bool,
+    /// When Some("age"), the frontend formats `text` (an ISO timestamp) as a
+    /// k8s-style age and re-renders it on a tick.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format: Option<&'static str>,
+    /// Optional numeric sort key for columns whose text isn't comparable
+    /// (mirrors the frontend `Cell.sort`). Also used for backend-side default
+    /// ordering, e.g. the Events feed sorts by last-seen epoch.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort: Option<f64>,
+    /// When set, this cell names another object and renders as a click-through
+    /// link to it (B33/B40). Only the properties tables act on this; a list-table
+    /// row already navigates by being clicked.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nav: Option<NavTarget>,
+}
 
-/// Pod-only fields the detail panel needs (node, containers, restarts...).
-#[derive(Debug, Clone, Serialize)]
+/// serde skip helper (serialize `dot` only when true).
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn is_false(b: &bool) -> bool {
+    !*b
+}
+
+impl Cell {
+    /// A plain text cell with a tone.
+    pub fn new(text: impl Into<String>, tone: Tone) -> Self {
+        Cell { text: text.into(), tone, dot: false, format: None, sort: None, nav: None }
+    }
+
+    /// A status cell: tone + a leading colored dot.
+    pub fn status(text: impl Into<String>, tone: Tone) -> Self {
+        Cell { text: text.into(), tone, dot: true, format: None, sort: None, nav: None }
+    }
+
+    /// An age cell carrying an RFC3339 timestamp for the frontend to format.
+    /// Empty timestamp → em dash (e.g. a resource with no creation time).
+    pub fn age(creation_ts: Option<String>) -> Self {
+        match creation_ts {
+            Some(ts) if !ts.is_empty() => Cell {
+                text: ts,
+                tone: Tone::Muted,
+                dot: false,
+                format: Some("age"),
+                sort: None,
+                nav: None,
+            },
+            _ => Cell::new("—", Tone::Muted),
+        }
+    }
+
+    /// Attach a numeric sort key (builder style).
+    pub fn with_sort(mut self, key: f64) -> Self {
+        self.sort = Some(key);
+        self
+    }
+
+    /// Make this cell a link to another object (builder style).
+    pub fn with_nav(mut self, target: NavTarget) -> Self {
+        self.nav = Some(target);
+        self
+    }
+
+    /// Link to `target` only when `name` is a real reference — an em dash or empty
+    /// string means "nothing here", and a link to nothing is worse than plain text.
+    pub fn link(text: impl Into<String>, tone: Tone, target: Option<NavTarget>) -> Self {
+        let cell = Cell::new(text, tone);
+        match target {
+            Some(t) if cell.text != "—" && !cell.text.is_empty() => cell.with_nav(t),
+            _ => cell,
+        }
+    }
+}
+
+/// The object an Event refers to (its `involvedObject`), threaded onto the event
+/// row so the frontend can navigate to it (B33). `kind` + the group from
+/// `api_version` resolve to a nav id — including CRDs, where the kind alone can
+/// be ambiguous across groups.
+#[derive(Serialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct InvolvedRef {
+    /// Kubernetes Kind, e.g. "Pod", "Deployment", "Application".
+    pub kind: String,
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
+    /// apiVersion, e.g. "argoproj.io/v1alpha1". The group part disambiguates CRDs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_version: Option<String>,
+}
+
+/// Extra fields carried only by pod rows, used to drive the detail panel.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct PodMeta {
     pub node: String,
     pub containers: Vec<String>,
     pub status: String,
     pub ready: String,
     pub restarts: i32,
-    /// RFC3339 creation timestamp.
+    /// RFC3339 creation timestamp (formatted into an age in the detail header).
     pub creation_ts: String,
     pub status_tone: Tone,
+    /// Aggregate CPU/memory requests and limits, for the Metrics tab's overlay.
+    pub resources: PodResources,
 }
 
-// ---------------------------------------------------------------------------
-// Row: one table row
-// ---------------------------------------------------------------------------
+/// A pod's total CPU/memory requests and limits, summed across its regular
+/// containers so the totals line up with the usage the metrics feed reports
+/// (which is likewise summed over the running containers, init excluded).
+///
+/// Units are millicores (CPU) and bytes (memory). `None` means unset — and for a
+/// limit specifically, that at least one container is uncapped, so the pod has no
+/// true ceiling to draw. Requests default to 0 for scheduling when omitted, so a
+/// request total is emitted whenever any container sets one.
+#[derive(Serialize, Clone, Debug, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PodResources {
+    pub cpu_request_millis: Option<i64>,
+    pub cpu_limit_millis: Option<i64>,
+    pub mem_request_bytes: Option<i64>,
+    pub mem_limit_bytes: Option<i64>,
+}
 
-/// One row in a resource table.
-#[derive(Debug, Clone, Serialize)]
+/// One row of a resource table. `cells` align 1:1 with the kind's column set
+/// (see src/lib/kinds.ts — the column contract shared with the frontend).
+#[derive(Serialize, Clone, Debug, Default)]
 pub struct Row {
-    /// Stable id (k8s uid, or a synthetic id for non-namespaced objects).
+    /// Stable identity (k8s uid, falling back to namespace/name) for React keys
+    /// and selection.
     pub uid: String,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub namespace: Option<String>,
-    /// Cells, in the same order as the kind's columns.
     pub cells: Vec<Cell>,
-    /// Present only for pods.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pod: Option<PodMeta>,
-    /// Labels, for label-selector filtering.
+    /// Labels, for label-selector filtering (B33). Emitted for pods.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub labels: Option<std::collections::BTreeMap<String, String>>,
-    /// Workload's pod selector (for "view pods" jumps).
+    pub labels: Option<BTreeMap<String, String>>,
+    /// A workload's pod selector (`matchLabels`), for the "view pods" jump (B33).
+    /// Emitted for Deployments/StatefulSets/DaemonSets.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub selector: Option<std::collections::BTreeMap<String, String>>,
-}
-
-// ---------------------------------------------------------------------------
-// Resource snapshot: the wire shape emitted on `resource-update` events
-// ---------------------------------------------------------------------------
-
-/// A complete snapshot of one resource kind's rows. Emitted by watchers
-/// (debounced) and replaces whatever the frontend has.
-#[derive(Debug, Clone, Serialize)]
-pub struct ResourceSnapshot {
-    pub kind: String,
-    pub rows: Vec<Row>,
-}
-
-// ---------------------------------------------------------------------------
-// Cluster-level DTOs
-// ---------------------------------------------------------------------------
-
-/// A kubeconfig context for the cluster switcher.
-#[derive(Debug, Clone, Serialize)]
-pub struct ContextInfo {
-    pub name: String,
-    pub cluster: String,
-    pub user: String,
+    pub selector: Option<BTreeMap<String, String>>,
+    /// For an Event row: the object it's about, for click-through (B33).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub namespace: Option<String>,
-    pub is_current: bool,
-}
-
-/// Result of a successful `connect`.
-#[derive(Debug, Clone, Serialize)]
-pub struct ClusterInfo {
-    pub context: String,
-    pub cluster_name: String,
-    pub server: String,
-    pub version: String,
-}
-
-/// Cluster-wide status (status bar / cluster switcher).
-#[derive(Debug, Clone, Serialize)]
-pub struct ClusterStatus {
-    pub connected: bool,
-    pub version: String,
-    pub api_latency_ms: u64,
-    pub nodes_ready: u32,
-    pub nodes_total: u32,
-    /// null when metrics-server is absent.
-    pub cpu_percent: Option<f64>,
-    pub mem_percent: Option<f64>,
-}
-
-impl Default for ClusterStatus {
-    fn default() -> Self {
-        Self {
-            connected: false,
-            version: String::new(),
-            api_latency_ms: 0,
-            nodes_ready: 0,
-            nodes_total: 0,
-            cpu_percent: None,
-            mem_percent: None,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Resource kinds
-// ---------------------------------------------------------------------------
-
-/// Canonical string id for a resource kind, used everywhere (commands,
-/// events, navigation, frontend). Keep in sync with `src/providers/types.ts`
-/// (`ResourceKind`).
-pub const KIND_PODS: &str = "pods";
-pub const KIND_DEPLOYMENTS: &str = "deployments";
-pub const KIND_STATEFULSETS: &str = "statefulsets";
-pub const KIND_DAEMONSETS: &str = "daemonsets";
-pub const KIND_REPLICASETS: &str = "replicasets";
-pub const KIND_JOBS: &str = "jobs";
-pub const KIND_CRONJOBS: &str = "cronjobs";
-pub const KIND_SERVICES: &str = "services";
-pub const KIND_INGRESSES: &str = "ingresses";
-pub const KIND_INGRESSCLASSES: &str = "ingressclasses";
-pub const KIND_CONFIGMAPS: &str = "configmaps";
-pub const KIND_SECRETS: &str = "secrets";
-pub const KIND_SERVICEACCOUNTS: &str = "serviceaccounts";
-pub const KIND_PERSISTENTVOLUMECLAIMS: &str = "persistentvolumeclaims";
-pub const KIND_PERSISTENTVOLUMES: &str = "persistentvolumes";
-pub const KIND_STORAGECLASSES: &str = "storageclasses";
-pub const KIND_NODES: &str = "nodes";
-pub const KIND_NAMESPACES: &str = "namespaces";
-pub const KIND_EVENTS: &str = "events";
-pub const KIND_HELM: &str = "helm";
-pub const KIND_HPA: &str = "hpa";
-
-/// Built-in kinds listed in the sidebar nav, grouped by area.
-pub const NAV_WORKLOADS: &[&str] = &[
-    KIND_PODS,
-    KIND_DEPLOYMENTS,
-    KIND_STATEFULSETS,
-    KIND_DAEMONSETS,
-    KIND_REPLICASETS,
-    KIND_JOBS,
-    KIND_CRONJOBS,
-];
-
-pub const NAV_NETWORK: &[&str] = &[KIND_SERVICES, KIND_INGRESSES, KIND_INGRESSCLASSES];
-
-pub const NAV_CONFIG: &[&str] = &[
-    KIND_CONFIGMAPS,
-    KIND_SECRETS,
-    KIND_PERSISTENTVOLUMECLAIMS,
-    KIND_PERSISTENTVOLUMES,
-    KIND_STORAGECLASSES,
-    KIND_SERVICEACCOUNTS,
-];
-
-pub const NAV_CLUSTER: &[&str] = &[KIND_NODES, KIND_NAMESPACES];
-
-pub const NAV_METADATA: &[&str] = &[KIND_EVENTS, KIND_HPA, KIND_HELM];
-
-/// True if the kind is cluster-scoped (no namespace). Used to skip the
-/// namespace filter and to decide which `Api::xxx` to construct.
-pub fn is_cluster_scoped(kind: &str) -> bool {
-    matches!(
-        kind,
-        KIND_NODES | KIND_NAMESPACES | KIND_PERSISTENTVOLUMES | KIND_STORAGECLASSES
-    )
-}
-
-/// Pretty label for a kind id ("configmaps" → "ConfigMaps").
-pub fn kind_label(kind: &str) -> &'static str {
-    match kind {
-        KIND_PODS => "Pods",
-        KIND_DEPLOYMENTS => "Deployments",
-        KIND_STATEFULSETS => "StatefulSets",
-        KIND_DAEMONSETS => "DaemonSets",
-        KIND_REPLICASETS => "ReplicaSets",
-        KIND_JOBS => "Jobs",
-        KIND_CRONJOBS => "CronJobs",
-        KIND_SERVICES => "Services",
-        KIND_INGRESSES => "Ingresses",
-        KIND_INGRESSCLASSES => "IngressClasses",
-        KIND_CONFIGMAPS => "ConfigMaps",
-        KIND_SECRETS => "Secrets",
-        KIND_SERVICEACCOUNTS => "ServiceAccounts",
-        KIND_PERSISTENTVOLUMECLAIMS => "PVCs",
-        KIND_PERSISTENTVOLUMES => "PersistentVolumes",
-        KIND_STORAGECLASSES => "StorageClasses",
-        KIND_NODES => "Nodes",
-        KIND_NAMESPACES => "Namespaces",
-        KIND_EVENTS => "Events",
-        KIND_HELM => "Helm Releases",
-        KIND_HPA => "HPAs",
-        other => {
-            // Fallback: title-case the string, but keep the lifetime right.
-            // This leaks a bit of memory per call, but only in the fallback
-            // path — fine for now.
-            Box::leak(other.to_string().into_boxed_str())
-        }
-    }
+    pub involved: Option<InvolvedRef>,
 }

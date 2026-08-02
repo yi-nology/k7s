@@ -1,51 +1,43 @@
 /**
- * StatusBar — cluster health footer.
- *
- * Reads `ClusterStatus` and `WatchStatus` from the provider; renders
- * connected / disconnected, server latency, ready/total nodes, and the
- * "watch: N streams" counter.
- *
- * The values come from the `cluster-status` and `watch-status` events;
- * this component is purely presentational.
+ * Status bar (Design §5): connection indicator, API latency, nodes ready, cluster
+ * CPU/MEM %, and the active kubectl context. Values come from `cluster-status`;
+ * CPU/MEM show "—" when metrics are unavailable.
  */
 
-import type { ClusterStatus } from "../../providers/types";
+import styles from "./StatusBar.module.css";
+import { useStore } from "../../store";
+import { useTranslation } from "../../hooks/useI18n";
 
-interface StatusBarProps {
-  status: ClusterStatus;
-  activeWatchers: number;
-}
+export function StatusBar() {
+  const connection = useStore((s) => s.connection);
+  const status = useStore((s) => s.clusterStatus);
+  const { t } = useTranslation();
 
-export function StatusBar({ status, activeWatchers }: StatusBarProps) {
-  const conn = status.connected;
+  const connected = connection.phase === "connected";
+  const cluster = connection.clusterName ?? connection.context ?? "k7s";
+  const ctx = connection.context ?? null;
+
+  // Percent values render "—" when metrics are absent (null).
+  const cpu = status?.cpuPercent ?? null;
+  const mem = status?.memPercent ?? null;
+  const ready = status?.nodesReady ?? 0;
+  const total = status?.nodesTotal ?? 0;
+  const api = status ? status.apiLatencyMs : null;
+
   return (
-    <footer className="statusbar">
-      <span className={`statusbar-pill ${conn ? "is-on" : "is-off"}`}>
-        <span className="statusbar-dot" />
-        {conn ? "connected" : "disconnected"}
+    <div className={styles.statusbar}>
+      <span
+        className={styles.cluster}
+        style={{ color: connected ? "var(--status-ok)" : "var(--status-err)" }}
+      >
+        ● {cluster}
       </span>
-      <span className="statusbar-sep" />
-      <span className="statusbar-item">
-        <span className="statusbar-key">ver</span>
-        <span className="statusbar-val">{status.version || "—"}</span>
-      </span>
-      <span className="statusbar-sep" />
-      <span className="statusbar-item">
-        <span className="statusbar-key">nodes</span>
-        <span className="statusbar-val">
-          {status.nodesReady}/{status.nodesTotal}
-        </span>
-      </span>
-      <span className="statusbar-sep" />
-      <span className="statusbar-item">
-        <span className="statusbar-key">latency</span>
-        <span className="statusbar-val">{status.apiLatencyMs}ms</span>
-      </span>
-      <span className="statusbar-spacer" />
-      <span className="statusbar-item">
-        <span className="statusbar-key">watch</span>
-        <span className="statusbar-val">{activeWatchers}</span>
-      </span>
-    </footer>
+      <span>{t("chrome.statusbar.api", api)}</span>
+      <span>{t("chrome.statusbar.nodes", ready, total)}</span>
+      <span>{t("chrome.statusbar.cpu", cpu)}</span>
+      <span>{t("chrome.statusbar.mem", mem)}</span>
+      <div className={styles.spacer} />
+      <span>{t("chrome.statusbar.kubectlCtx", ctx)}</span>
+    </div>
   );
 }

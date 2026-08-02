@@ -1,323 +1,223 @@
-//! Container exec — both one-shot (`exec_pod`) and interactive shell.
+//! Interactive shell (exec) into a pod container (B4).
 //!
-//! ## One-shot
+//! Each session runs `exec` with a TTY and pumps three channels:
+//!   - container stdout  → emitted as `shell-out:{id}` (text chunks)
+//!   - frontend stdin    → written to the container (via `shell_input`)
+//!   - terminal resize   → forwarded to the container (via `shell_resize`)
 //!
-//! `exec_pod` runs a single command and returns stdout/stderr/exit_code.
-//! Implemented via `kubectl exec` because that's the only fully-reliable
-//! way to read exit codes; kube-rs's `AttachedProcess` is geared at
-//! streaming rather than one-shot.
-//!
-//! ## Interactive shell (P4)
-//!
-//! `start_shell` opens a `kube::api::AttachedProcess` with `tty=true`,
-//! `stdin=true`, `stdout=true`, `stderr=false`. We then:
-//!   - read bytes from `stdout` and emit them as `shell-chunk:{id}`
-//!     events (Tauri pushes the chunks to the React xterm.js renderer),
-//!   - forward bytes received on a `mpsc` channel from the UI to the
-//!     process's stdin writer,
-//!   - forward terminal resize from a `mpsc` channel to the
-//!     process's resize sender.
-//!
-//! The `CancelTx` from the manager aborts the underlying task on stop.
+//! On exit/error it emits `shell-closed:{id}`. The pump task owns the
+//! AttachedProcess, so aborting the task (on stop / disconnect) tears down the
+//! exec connection.
 
-use std::sync::Arc;
-
-use futures::channel::mpsc as futures_mpsc;
-use futures::SinkExt;
+use crate::error::AppError;
 use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, AttachParams};
+use kube::api::{AttachParams, Api, TerminalSize};
+use kube::Client;
+use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::Notify;
+use tokio::sync::mpsc;
 
-use crate::error::{AppError, AppResult};
-use crate::kube::manager::{ClientManager, ShellHandle};
+/// Prefix for stdout chunk events (`shell-out:{stream_id}`).
+pub const SHELL_OUT_PREFIX: &str = "shell-out:";
+/// Prefix for session-closed events (`shell-closed:{stream_id}`).
+pub const SHELL_CLOSED_PREFIX: &str = "shell-closed:";
 
-/// A one-shot exec result.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct ExecResult {
-    pub stdout: String,
-    pub stderr: String,
-    pub exit_code: i32,
-    pub duration_ms: u128,
-}
-
-// ---------------------------------------------------------------------------
-// One-shot exec — keep the kubectl subprocess path. It's simpler and
-// gives us a clean exit code; AttachedProcess is for streaming.
-// ---------------------------------------------------------------------------
-
-pub async fn exec_pod(
-    _mgr: Arc<ClientManager>,
-    name: String,
-    namespace: String,
-    _container: Option<String>,
-    command: Vec<String>,
-) -> AppResult<ExecResult> {
-    if command.is_empty() {
-        return Err(AppError::Invalid(
-            "exec_pod: command must not be empty".into(),
-        ));
-    }
-
-    let ctx = _mgr.current_context().await.unwrap_or_default();
-
-    let mut args: Vec<String> = vec!["exec".into(), name, "-n".into(), namespace];
-    if !ctx.is_empty() {
-        args.push("--context".into());
-        args.push(ctx);
-    }
-    args.push("--".into());
-    for c in &command {
-        args.push(c.clone());
-    }
-
-    let start = std::time::Instant::now();
-    let output = tokio::process::Command::new("kubectl")
-        .args(&args)
-        .output()
-        .await
-        .map_err(|e| {
-            AppError::msg(format!("kubectl not in PATH or failed to spawn: {e}"))
-        })?;
-    Ok(ExecResult {
-        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        exit_code: output.status.code().unwrap_or(-1),
-        duration_ms: start.elapsed().as_millis(),
-    })
-}
-
-// ---------------------------------------------------------------------------
-// Interactive shell
-// ---------------------------------------------------------------------------
-
-/// Reason a shell session ended.
-#[derive(Debug, Clone, serde::Serialize)]
-struct ShellClosed {
-    reason: String,
-    /// "Success" or "Failure" — k8s Status.status, not a numeric exit
-    /// code. (TTY exec doesn't surface a real exit code via the
-    /// websocket protocol.)
-    status: String,
-}
-
-/// A single output chunk from the shell. The frontend's xterm.js
-/// renderer treats this as raw bytes (it understands ANSI escapes
-/// on its own).
-#[derive(Debug, Clone, serde::Serialize)]
-struct ShellChunk {
-    /// Base64-encoded raw bytes.
+/// A stdout chunk sent to the frontend.
+#[derive(Serialize, Clone)]
+struct ShellOut {
     data: String,
 }
 
-/// Spawn an interactive shell session. Returns nothing — the caller
-/// already generated the id. The shell id is the lookup key the UI
-/// uses to subscribe to events and to send input/resize.
-pub async fn start_shell(
-    app: AppHandle,
-    mgr: Arc<ClientManager>,
-    id: String,
-    pod: String,
-    namespace: String,
-    container: Option<String>,
-) -> AppResult<()> {
-    let client = mgr.client().await?;
-    let api: Api<Pod> = Api::namespaced(client, &namespace);
+/// Try bash, fall back to sh — gives a nicer prompt where bash exists. We probe
+/// with `command -v` first: a *failed* `exec` would terminate the POSIX shell
+/// before any `||` fallback could run, so we must only exec a binary we know
+/// exists (many images, e.g. redis, have no /bin/bash).
+const SHELL_CMD: [&str; 3] = [
+    "/bin/sh",
+    "-c",
+    "if command -v bash >/dev/null 2>&1; then exec bash; else exec sh; fi",
+];
 
-    // Build AttachParams: TTY on, stdin on, stdout on, stderr off
-    // (TTY merges stderr into stdout in the kubelet protocol).
-    // AttachParams: TTY on, stdin on, stdout on, stderr off
-    // (TTY merges stderr into stdout in the kubelet protocol).
-    // `container` is a public field — use struct-update syntax.
-    let ap = AttachParams {
-        container: container.clone(),
-        stdin: true,
-        stdout: true,
-        stderr: false,
-        tty: true,
-        max_stdin_buf_size: None,
-        max_stdout_buf_size: None,
-        max_stderr_buf_size: None,
-    };
-
-    // Try /bin/sh first; fall back to /bin/bash if sh is missing.
-    let mut proc = match api.exec(&pod, ["/bin/sh", "-i"], &ap).await {
-        Ok(p) => p,
-        Err(_) => api
-            .exec(&pod, ["/bin/bash", "-i"], &ap)
-            .await
-            .map_err(|e| AppError::msg(format!("shell exec: {e}")))?,
-    };
-
-    // Take the streams.
-    let mut stdout = proc
-        .stdout()
-        .ok_or_else(|| AppError::msg("shell exec: stdout not enabled"))?;
-    let stdin = proc
-        .stdin()
-        .ok_or_else(|| AppError::msg("shell exec: stdin not enabled"))?;
-    let resize_kube_tx = proc
-        .terminal_size()
-        .ok_or_else(|| AppError::msg("shell exec: terminal_size not available"))?;
-    let status_fut = proc
-        .take_status()
-        .ok_or_else(|| AppError::msg("shell exec: status not available"))?;
-
-    // Register the handle in the manager.
-    //
-    // `cancel` is a `Notify` (broadcast-style): a single `notify_one`
-    // wakes every task that holds a clone, so both the stdout reader
-    // and the status watcher can observe the same cancel signal.
-    let cancel = Arc::new(Notify::new());
-    let (input_tx, mut input_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(64);
-    let (resize_tx_mpsc, mut resize_rx) =
-        tokio::sync::mpsc::channel::<kube_client::api::TerminalSize>(16);
-
-    mgr.insert_shell(ShellHandle {
-        id: id.clone(),
-        pod: pod.clone(),
-        namespace: namespace.clone(),
-        container: container.unwrap_or_default(),
-        cancel: Some(cancel.clone()),
-        stdin_tx: input_tx,
-        resize_tx: resize_tx_mpsc,
-    })
-    .await;
-
-    // ---- stdin forwarder ----
-    // input_rx → stdin writer
-    let stdin_task = tokio::spawn(async move {
-        let mut stdin = stdin;
-        while let Some(data) = input_rx.recv().await {
-            if stdin.write_all(&data).await.is_err() {
-                break;
-            }
-            let _ = stdin.flush().await;
-        }
-    });
-
-    // ---- resize forwarder ----
-    // resize_rx → kubelet resize sender (futures mpsc, unbounded, try_send)
-    let mut resize_kube_tx = resize_kube_tx;
-    let resize_task = tokio::spawn(async move {
-        while let Some(size) = resize_rx.recv().await {
-            if resize_kube_tx.send(size).await.is_err() {
-                break;
-            }
-        }
-    });
-
-    // ---- stdout reader ----
-    let id_for_emit = id.clone();
-    let app_for_emit = app.clone();
-    let cancel_stdout = cancel.clone();
-    let stdout_task = tokio::spawn(async move {
-        let mut buf = [0u8; 4096];
-        loop {
-            let read = tokio::select! {
-                _ = cancel_stdout.notified() => return,
-                read = stdout.read(&mut buf) => read,
-            };
-            match read {
-                Ok(0) => break,
-                Ok(n) => {
-                    let b64 = base64_encode(&buf[..n]);
-                    let _ = app_for_emit.emit(
-                        &format!("shell-chunk:{id_for_emit}"),
-                        ShellChunk { data: b64 },
-                    );
-                }
-                Err(_) => break,
-            }
-        }
-    });
-
-    // ---- status watcher ----
-    let id_for_status = id.clone();
-    let app_for_status = app.clone();
-    let status_task = tokio::spawn(async move {
-        let mut status_fut = status_fut;
-        let status_str: String = tokio::select! {
-            _ = cancel.notified() => "Cancelled".into(),
-            res = &mut status_fut => {
-                match res {
-                    Some(s) => s.status.unwrap_or_else(|| "Unknown".into()),
-                    None => "Closed".into(),
-                }
-            }
-        };
-        let _ = app_for_status.emit(
-            &format!("shell-closed:{id_for_status}"),
-            ShellClosed {
-                reason: "exit".into(),
-                status: status_str,
-            },
-        );
-    });
-
-    // Tasks are detached; they self-clean when cancel fires or the
-    // process ends. The AttachedProcess stays alive via the still-
-    // pending futures we hold in the spawn tasks.
-    let _ = (stdin_task, resize_task, stdout_task, status_task);
-
-    Ok(())
+/// The command to exec, honouring the user's override (B23).
+///
+/// An override still runs through `/bin/sh -c` rather than being exec'd directly:
+/// people type things like `env TERM=xterm bash -l`, and running that as a bare
+/// argv would look for a binary with spaces in its name. It also keeps the same
+/// shape as the default, whose whole job is to be a shell snippet.
+pub fn shell_cmd(override_cmd: &str) -> Vec<String> {
+    let trimmed = override_cmd.trim();
+    if trimmed.is_empty() {
+        return SHELL_CMD.iter().map(|s| s.to_string()).collect();
+    }
+    vec!["/bin/sh".into(), "-c".into(), format!("exec {trimmed}")]
 }
 
-/// Stop a shell session by id. The notify wakes the loops.
-pub async fn stop_shell(mgr: Arc<ClientManager>, id: &str) -> AppResult<()> {
-    if let Some(mut h) = mgr.take_shell(id).await {
-        if let Some(notify) = h.cancel.take() {
-            notify.notify_one();
+/// Run a shell session until the process exits or the task is aborted.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_shell(
+    client: Client,
+    app: AppHandle,
+    stream_id: String,
+    namespace: String,
+    pod: String,
+    container: String,
+    // The user's shell override, or empty for the default probe (B23).
+    command: String,
+    input_rx: mpsc::Receiver<Vec<u8>>,
+    resize_rx: mpsc::Receiver<(u16, u16)>,
+) {
+    run_argv(
+        client,
+        app,
+        stream_id,
+        namespace,
+        pod,
+        container,
+        shell_cmd(&command),
+        input_rx,
+        resize_rx,
+    )
+    .await
+}
+
+/// Run an explicit argv until it exits or the task is aborted.
+///
+/// Split out from `run_shell` for the node debug shell (B53), whose command is an
+/// `nsenter` invocation rather than a shell snippet. Wrapping that in `sh -c`
+/// the way `shell_cmd` does would mean quoting a command line that itself ends in
+/// a quoted shell snippet — so it passes argv straight through instead.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_argv(
+    client: Client,
+    app: AppHandle,
+    stream_id: String,
+    namespace: String,
+    pod: String,
+    container: String,
+    argv: Vec<String>,
+    mut input_rx: mpsc::Receiver<Vec<u8>>,
+    mut resize_rx: mpsc::Receiver<(u16, u16)>,
+) {
+    let closed_event = format!("{}{}", SHELL_CLOSED_PREFIX, stream_id);
+    let reason = match exec_pump(
+        client,
+        &app,
+        &stream_id,
+        &namespace,
+        &pod,
+        &container,
+        argv,
+        &mut input_rx,
+        &mut resize_rx,
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => e.to_string(),
+    };
+    let _ = app.emit(&closed_event, reason);
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn exec_pump(
+    client: Client,
+    app: &AppHandle,
+    stream_id: &str,
+    namespace: &str,
+    pod: &str,
+    container: &str,
+    argv: Vec<String>,
+    input_rx: &mut mpsc::Receiver<Vec<u8>>,
+    resize_rx: &mut mpsc::Receiver<(u16, u16)>,
+) -> Result<String, AppError> {
+    let api: Api<Pod> = Api::namespaced(client, namespace);
+    let ap = AttachParams::default()
+        .stdin(true)
+        .stdout(true)
+        .stderr(false) // tty merges stderr into stdout
+        .tty(true)
+        .container(container.to_string());
+
+    let mut proc = api
+        .exec(pod, argv, &ap)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+
+    let mut stdout = proc.stdout().ok_or_else(|| AppError::Other("no stdout".into()))?;
+    let mut stdin = proc.stdin().ok_or_else(|| AppError::Other("no stdin".into()))?;
+    // terminal_size() is a futures mpsc Sender (bounded); use try_send (non-async).
+    let mut ts_tx = proc.terminal_size();
+
+    let out_event = format!("{}{}", SHELL_OUT_PREFIX, stream_id);
+    let mut buf = [0u8; 8192];
+
+    loop {
+        tokio::select! {
+            // Container output → frontend.
+            read = stdout.read(&mut buf) => match read {
+                Ok(0) => return Ok("session ended".into()),
+                Ok(n) => {
+                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                    let _ = app.emit(&out_event, ShellOut { data });
+                }
+                Err(e) => return Err(AppError::Other(e.to_string())),
+            },
+            // Frontend keystrokes → container stdin.
+            input = input_rx.recv() => match input {
+                Some(bytes) => {
+                    if stdin.write_all(&bytes).await.is_err() || stdin.flush().await.is_err() {
+                        return Ok("stdin closed".into());
+                    }
+                }
+                None => return Ok("input closed".into()),
+            },
+            // Terminal resize → container.
+            size = resize_rx.recv() => {
+                if let Some((cols, rows)) = size {
+                    if let Some(tx) = ts_tx.as_mut() {
+                        let _ = tx.try_send(TerminalSize { width: cols, height: rows });
+                    }
+                }
+            }
         }
-        Ok(())
-    } else {
-        Err(AppError::NotFound(format!("shell {id}")))
     }
 }
 
-/// Send raw bytes (typed by the user) to a shell's stdin.
-pub async fn shell_input(
-    mgr: Arc<ClientManager>,
-    id: &str,
-    data: Vec<u8>,
-) -> AppResult<()> {
-    let (stdin_tx, _) = mgr
-        .get_shell_io(id)
-        .await
-        .ok_or_else(|| AppError::NotFound(format!("shell {id}")))?;
-    stdin_tx
-        .send(data)
-        .await
-        .map_err(|_| AppError::msg("shell stdin closed"))?;
-    Ok(())
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-/// Resize the terminal.
-pub async fn shell_resize(
-    mgr: Arc<ClientManager>,
-    id: &str,
-    cols: u16,
-    rows: u16,
-) -> AppResult<()> {
-    let (_, resize_tx) = mgr
-        .get_shell_io(id)
-        .await
-        .ok_or_else(|| AppError::NotFound(format!("shell {id}")))?;
-    resize_tx
-        .send(kube_client::api::TerminalSize { width: cols, height: rows })
-        .await
-        .map_err(|_| AppError::msg("shell resize channel closed"))?;
-    Ok(())
-}
+    /// No override → the bash-or-sh probe, unchanged.
+    #[test]
+    fn empty_override_uses_the_default_probe() {
+        assert_eq!(shell_cmd(""), SHELL_CMD.to_vec());
+        assert_eq!(shell_cmd("   "), SHELL_CMD.to_vec());
+    }
 
-// Small base64 helper — no need to pull in a crate for the encode side.
-fn base64_encode(input: &[u8]) -> String {
-    use base64::Engine;
-    base64::engine::general_purpose::STANDARD.encode(input)
-}
+    /// An override runs through `sh -c`, not as a bare argv: people type command
+    /// lines ("env TERM=xterm bash -l"), and exec'ing that directly would look for
+    /// a binary whose name contains spaces.
+    #[test]
+    fn override_runs_through_a_shell() {
+        assert_eq!(shell_cmd("/bin/zsh"), vec!["/bin/sh", "-c", "exec /bin/zsh"]);
+        assert_eq!(
+            shell_cmd("env TERM=xterm bash -l"),
+            vec!["/bin/sh", "-c", "exec env TERM=xterm bash -l"]
+        );
+    }
 
-// Tiny shim to keep imports tidy: futures_mpsc is needed for the
-// type alias but SinkExt covers the send() call.
-#[allow(unused_imports)]
-use futures_mpsc as _mpsc;
+    /// `exec` replaces the shell, so the session ends when the command does —
+    /// without it, an extra /bin/sh would linger between the user and their shell.
+    #[test]
+    fn override_is_exec_ed() {
+        let cmd = shell_cmd("bash");
+        assert!(cmd[2].starts_with("exec "), "override must replace the wrapping shell");
+    }
+
+    /// Surrounding whitespace from the settings field doesn't reach the container.
+    #[test]
+    fn override_is_trimmed() {
+        assert_eq!(shell_cmd("  bash  "), vec!["/bin/sh", "-c", "exec bash"]);
+    }
+}
