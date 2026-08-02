@@ -365,6 +365,37 @@ describe("settings panel keys", () => {
       expect(translate("zh", `settings.mcp.${key}.title`).length, `settings.mcp.${key}.title zh`).toBeGreaterThan(0);
     }
   });
+
+  it("ships all three MCP card configPath values in both locales", () => {
+    // Pass-23 closed a hardcoded English configPath on the Claude Code
+    // card (McpPanel.tsx:113 used to render
+    // `"~/.claude.json  (or .mcp.json in a project)"` directly, leaking
+    // English into the zh panel). Pin all three so the leak can't come
+    // back, and so any future translation of the file-path line lands
+    // in the dictionary rather than in a JSX literal.
+    for (const key of ["claudeDesktop", "claudeCode", "cursor"]) {
+      const en = translate("en", `settings.mcp.${key}.configPath`);
+      const zh = translate("zh", `settings.mcp.${key}.configPath`);
+      expect(en.length, `settings.mcp.${key}.configPath en`).toBeGreaterThan(0);
+      expect(zh.length, `settings.mcp.${key}.configPath zh`).toBeGreaterThan(0);
+    }
+    // And pin the canonical en value the McpPanel used to hardcode, so a
+    // refactor that drifts the string is flagged.
+    expect(translate("en", "settings.mcp.claudeCode.configPath")).toBe(
+      "~/.claude.json  (or .mcp.json in a project)",
+    );
+  });
+
+  it("uses 深色/浅色 for the theme option labels in zh, not 黑色/白色", () => {
+    // Pass-23's i18n polish: "黑色/白色" read as raw colour names rather
+    // than theme names. "深色/浅色" is the standard pair for dark/light
+    // UI modes in zh (matches macOS / Windows / most native apps). Pin
+    // so a future re-translation doesn't drift back to literal colours.
+    expect(translate("zh", "settings.theme.dark")).toBe("深色");
+    expect(translate("zh", "settings.theme.light")).toBe("浅色");
+    expect(translate("zh", "settings.theme.dark")).not.toBe("黑色");
+    expect(translate("zh", "settings.theme.light")).not.toBe("白色");
+  });
 });
 
 /** The Metrics Explorer overlay (B14) hosts the PromQL bar plus a "saved

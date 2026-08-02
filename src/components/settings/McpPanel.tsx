@@ -110,7 +110,7 @@ export function McpPanel() {
         <McpCard
           title={t("settings.mcp.claudeCode.title")}
           hint={t("settings.mcp.claudeCode.hint")}
-          configPath="~/.claude.json  (or .mcp.json in a project)"
+          configPath={t("settings.mcp.claudeCode.configPath")}
           code={configs.claudeCodeJson}
           copyLabel={t("chrome.copy")}
           copiedLabel={t("chrome.copied")}

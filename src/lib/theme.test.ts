@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   asTheme,
   buildTheme,
+  cacheTheme,
+  cachedTheme,
   PLOT_TOKENS,
   resolveTheme,
   TERM_TOKENS,
@@ -181,5 +183,78 @@ describe("tokens.css palettes", () => {
     // Every light colour token must be re-set, or light text/bg leaks into the panel.
     const missing = [...light.keys()].filter((k) => !panel.has(k));
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * The paint-time cache (B52). The boot script in `index.html` reads
+ * `localStorage["k7s.theme"]` synchronously *before* the bundle loads, so the
+ * user's last pick survives a reload with no flash. The store's
+ * `cachedTheme()` re-reads the same key on boot, and `useTheme` writes it
+ * back via `cacheTheme(theme)` whenever the Settings panel changes the
+ * theme. The pair is the contract — pin it here the way
+ * `cacheLocale` / `cachedLocale` are pinned in i18n.test.ts, so a future
+ * refactor that renames the storage key (or accidentally pushes to
+ * `k7s.theme/` instead of `k7s.theme`) trips a test before the next
+ * launch flashes the wrong palette.
+ */
+describe("cacheTheme / cachedTheme", () => {
+  beforeEach(() => {
+    // Some vitest environments don't ship a working localStorage (the Node
+    // one throws without `--localstorage-file`); the production helpers
+    // catch that, but we want to test the round-trip, so install a tiny
+    // in-memory stub.
+    const store = new Map<string, string>();
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get: () => ({
+        getItem: (k: string) => (store.has(k) ? store.get(k)! : null),
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+        clear: () => store.clear(),
+        key: () => null,
+        length: 0,
+      }),
+    });
+  });
+
+  afterEach(() => {
+    // Restore the (possibly missing) original localStorage so the next
+    // describe block in this file starts from the same state as its
+    // neighbours expect.
+    Object.defineProperty(window, "localStorage", { configurable: true, value: undefined });
+  });
+
+  it("round-trips a known theme", () => {
+    cacheTheme("dark");
+    expect(cachedTheme()).toBe("dark");
+    cacheTheme("light");
+    expect(cachedTheme()).toBe("light");
+  });
+
+  it("round-trips 'system' as 'system', not as the OS resolution", () => {
+    // The cache holds the *choice*. If a user picked "system" on a dark
+    // desktop, the cache must say "system" — not "dark" — otherwise the
+    // next launch pins dark and the OS flip at sunset is silently lost.
+    cacheTheme("system");
+    expect(cachedTheme()).toBe("system");
+  });
+
+  it("returns 'system' when nothing has been cached", () => {
+    expect(cachedTheme()).toBe("system");
+  });
+
+  it("treats an unrecognised cached value as 'system'", () => {
+    window.localStorage.setItem("k7s.theme", "solarized");
+    expect(cachedTheme()).toBe("system");
+  });
+
+  it("uses the same storage key the boot script in index.html reads", () => {
+    // The boot script does `localStorage.getItem("k7s.theme")` inline. If
+    // this drifts (e.g. a "v2" prefix), the inline script and the bundle
+    // disagree and the user gets a flash of the wrong palette on every
+    // reload. The test pins the literal key string.
+    cacheTheme("dark");
+    expect(window.localStorage.getItem("k7s.theme")).toBe("dark");
   });
 });

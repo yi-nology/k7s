@@ -139,6 +139,7 @@ export interface Dictionary {
       claudeCode: {
         title: string;
         hint: string;
+        configPath: string;
         cliHint: string;
       };
       cursor: {
@@ -711,6 +712,7 @@ export const en: Dictionary = {
       claudeCode: {
         title: "Claude Code",
         hint: "Either edit ~/.claude.json or use the CLI below.",
+        configPath: "~/.claude.json  (or .mcp.json in a project)",
         cliHint: "CLI",
       },
       cursor: {
@@ -1202,8 +1204,8 @@ export const zh: Dictionary = {
       label: "颜色",
       hint: "「跟随系统」会跟随你系统的明暗设置",
       system: "跟随系统",
-      dark: "黑色",
-      light: "白色",
+      dark: "深色",
+      light: "浅色",
     },
     language: {
       label: "语言",
@@ -1254,6 +1256,7 @@ export const zh: Dictionary = {
       claudeCode: {
         title: "Claude Code",
         hint: "可以编辑 ~/.claude.json,也可以用下面的 CLI。",
+        configPath: "~/.claude.json(或项目里的 .mcp.json)",
         cliHint: "命令行",
       },
       cursor: {
