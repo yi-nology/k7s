@@ -199,6 +199,54 @@ describe("alerts panel keys", () => {
   });
 });
 
+/** The Settings panel (B23) is a single overlay with eight rows plus a footer
+ *  note + reset, all routed through `t()`. Pass-9's manual walk-through found
+ *  the panel renders correctly in both locales with no leaks; this describe
+ *  pins the keys so a future refactor can't drop one the way the
+ *  `chrome.palette.actions.*` / `topology.*` keys were dropped in earlier
+ *  passes. */
+describe("settings panel keys", () => {
+  it("ships chrome.settings.{title, footerNote, reset} in both locales", () => {
+    expect(translate("en", "chrome.settings.title")).toBe("Settings");
+    expect(translate("zh", "chrome.settings.title")).toBe("设置");
+    expect(translate("en", "chrome.settings.footerNote")).toBe("changes save automatically");
+    expect(translate("zh", "chrome.settings.footerNote")).toBe("修改自动保存");
+    expect(translate("en", "chrome.settings.reset")).toBe("reset to defaults");
+    expect(translate("zh", "chrome.settings.reset")).toBe("恢复默认");
+  });
+
+  it("ships chrome.copy / chrome.copied / chrome.copyFailed in both locales", () => {
+    // Used by the MCP card copy buttons in SettingsPanel.McpPanel.
+    expect(translate("en", "chrome.copy")).toBe("copy");
+    expect(translate("zh", "chrome.copy")).toBe("复制");
+    expect(translate("en", "chrome.copied")).toBe("copied");
+    expect(translate("zh", "chrome.copied")).toBe("已复制");
+    expect(translate("en", "chrome.copyFailed")).toBe("copy failed");
+    expect(translate("zh", "chrome.copyFailed")).toBe("复制失败");
+  });
+
+  it("ships the eight settings row labels in both locales", () => {
+    for (const key of ["theme", "language", "logBuffer", "metricsPoll", "statusPoll", "defaultNamespace", "shellCommand", "nodeShellImage"]) {
+      const en = translate("en", `settings.${key}.label`);
+      const zh = translate("zh", `settings.${key}.label`);
+      expect(en.length, `settings.${key}.label en`).toBeGreaterThan(0);
+      expect(zh.length, `settings.${key}.label zh`).toBeGreaterThan(0);
+      expect(en, `settings.${key}.label en !== zh`).not.toBe(zh);
+    }
+  });
+
+  it("ships settings.mcp.sectionTitle, tools, and the three card titles in both locales", () => {
+    expect(translate("en", "settings.mcp.sectionTitle")).toBe("AI integration (MCP)");
+    expect(translate("zh", "settings.mcp.sectionTitle")).toBe("AI 集成 (MCP)");
+    // The three card titles are brand names (Claude Desktop / Claude Code /
+    // Cursor) so they ship identical in both locales. Just pin presence.
+    for (const key of ["claudeDesktop", "claudeCode", "cursor"]) {
+      expect(translate("en", `settings.mcp.${key}.title`).length, `settings.mcp.${key}.title en`).toBeGreaterThan(0);
+      expect(translate("zh", `settings.mcp.${key}.title`).length, `settings.mcp.${key}.title zh`).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("tabLabel", () => {
   it("returns the English name for English", () => {
     expect(tabLabel("logs", "en")).toBe("Logs");
