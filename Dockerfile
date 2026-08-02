@@ -44,7 +44,7 @@ RUN pnpm build
 # graph (rmcp 1.x, etc.) and bails with "Consider trying a newer
 # version of Cargo". 1.85 stabilised edition-2024. 1.86-bookworm
 # is the current stable bookworm tag.
-FROM rust:1.86-bookworm AS backend
+FROM rust:1.97-bookworm AS backend
 
 # System deps the build needs (libssl for reqwest HTTPS, libgit2 for
 # kube git source, etc.). Bookworm's base image already has gcc/make/cmake.

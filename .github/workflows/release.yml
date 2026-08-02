@@ -61,7 +61,7 @@ jobs:
       - name: install Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "26"
 
       - name: install pnpm
         # No `with:` block on purpose — pnpm/action-setup reads
@@ -130,7 +130,7 @@ jobs:
       - name: install Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "26"
 
       - name: install pnpm
         uses: pnpm/action-setup@v4
