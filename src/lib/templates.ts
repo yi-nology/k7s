@@ -54,6 +54,14 @@ export interface TemplateParam {
 export interface Template {
   id: string;
   /**
+   * The k7s `KindId` this template creates. The picker uses it to pre-select
+   * the template that matches the user's current page (e.g. landing on the
+   * StatefulSets view opens the StatefulSet template). Optional: a template
+   * without a `kind` (e.g. an Ingress that fronts a Service on any kind) is
+   * still listed but never auto-selected.
+   */
+  kind?: string;
+  /**
    * Title shown in the picker. The English canonical name (also the YAML
    * `kind:` for the rendered resource) and the i18n fallback for the
    * `tpl.titles.<id>` dictionary key — the picker passes it as the second
@@ -78,6 +86,7 @@ export interface Template {
 const TEMPLATES: Template[] = [
   {
     id: "deployment",
+    kind: "deployments",
     title: "Deployment",
     description: "Single-container Deployment with a Service (ClusterIP).",
     params: [
@@ -159,6 +168,7 @@ const TEMPLATES: Template[] = [
   },
   {
     id: "ingress",
+    kind: "ingresses",
     title: "Ingress (Nginx)",
     description: "Ingress that routes a host to an existing Service.",
     params: [
@@ -228,6 +238,7 @@ const TEMPLATES: Template[] = [
   },
   {
     id: "configmap",
+    kind: "configmaps",
     title: "ConfigMap",
     description: "ConfigMap with two key-value pairs.",
     params: [
@@ -264,6 +275,467 @@ const TEMPLATES: Template[] = [
         `data:`,
         `  ${k1}: ${v1}`,
         `  ${k2}: ${v2}`,
+      ].join("\n");
+    },
+  },
+  // ---- Bxx: full KubePi parity — every kind the sidebar lists gets a template
+  // for one-click create. Each template's `kind` is the k7s KindId of the
+  // resource it creates, which the picker uses to pre-select the matching
+  // entry on the corresponding list page (see TemplatePicker.tsx). ----
+  {
+    id: "statefulset",
+    kind: "statefulsets",
+    title: "StatefulSet",
+    description: "Single-container StatefulSet with a headless Service.",
+    params: [
+      { key: "name", label: "Name", default: "my-app", kind: "text" },
+      {
+        key: "image",
+        label: "Image",
+        default: "nginx:1.25",
+        kind: "text",
+        help: "registry/repo:tag",
+      },
+      {
+        key: "replicas",
+        label: "Replicas",
+        default: "3",
+        kind: "number",
+        min: 1,
+        max: 100,
+      },
+      {
+        key: "port",
+        label: "Container port",
+        default: "80",
+        kind: "number",
+        min: 1,
+        max: 65535,
+      },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-app";
+      const image = v.image || "nginx:1.25";
+      const replicas = clampInt(v.replicas, 1, 100, 3);
+      const port = clampInt(v.port, 1, 65535, 80);
+      const ns = v.namespace || "default";
+      // A StatefulSet without `serviceName` has no stable network identity — the
+      // headless Service in this template is the per-pod DNS, and the two have
+      // to agree. `volumeClaimTemplates` is omitted on purpose: PVs are a topic
+      // of their own, and a follow-up that needs them should layer on top
+      // rather than the template silently allocating default storage.
+      return [
+        `apiVersion: v1`,
+        `kind: Service`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  clusterIP: None`,
+        `  selector:`,
+        `    app: ${name}`,
+        `  ports:`,
+        `  - port: ${port}`,
+        `    targetPort: ${port}`,
+        `---`,
+        `apiVersion: apps/v1`,
+        `kind: StatefulSet`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  serviceName: ${name}`,
+        `  replicas: ${replicas}`,
+        `  selector:`,
+        `    matchLabels:`,
+        `      app: ${name}`,
+        `  template:`,
+        `    metadata:`,
+        `      labels:`,
+        `        app: ${name}`,
+        `    spec:`,
+        `      containers:`,
+        `      - name: ${name}`,
+        `        image: ${image}`,
+        `        ports:`,
+        `        - containerPort: ${port}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "daemonset",
+    kind: "daemonsets",
+    title: "DaemonSet",
+    description: "One pod per node, e.g. a node-level log shipper.",
+    params: [
+      { key: "name", label: "Name", default: "my-agent", kind: "text" },
+      {
+        key: "image",
+        label: "Image",
+        default: "fluentd:1.16",
+        kind: "text",
+        help: "registry/repo:tag",
+      },
+      {
+        key: "port",
+        label: "Container port",
+        default: "24224",
+        kind: "number",
+        min: 1,
+        max: 65535,
+      },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "kube-system",
+        kind: "text",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-agent";
+      const image = v.image || "fluentd:1.16";
+      const port = clampInt(v.port, 1, 65535, 24224);
+      const ns = v.namespace || "kube-system";
+      // Default namespace is `kube-system` because that's where node-level
+      // agents actually live in real clusters — a user picking this template
+      // is almost always provisioning infra, not an app.
+      return [
+        `apiVersion: apps/v1`,
+        `kind: DaemonSet`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `  labels:`,
+        `    app: ${name}`,
+        `spec:`,
+        `  selector:`,
+        `    matchLabels:`,
+        `      app: ${name}`,
+        `  template:`,
+        `    metadata:`,
+        `      labels:`,
+        `        app: ${name}`,
+        `    spec:`,
+        `      containers:`,
+        `      - name: ${name}`,
+        `        image: ${image}`,
+        `        ports:`,
+        `        - containerPort: ${port}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "job",
+    kind: "jobs",
+    title: "Job",
+    description: "Run-to-completion workload, e.g. a one-shot batch task.",
+    params: [
+      { key: "name", label: "Name", default: "my-job", kind: "text" },
+      {
+        key: "image",
+        label: "Image",
+        default: "busybox:1.36",
+        kind: "text",
+        help: "registry/repo:tag",
+      },
+      {
+        key: "completions",
+        label: "Completions",
+        default: "1",
+        kind: "number",
+        min: 1,
+        max: 1000,
+      },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-job";
+      const image = v.image || "busybox:1.36";
+      const completions = clampInt(v.completions, 1, 1000, 1);
+      const ns = v.namespace || "default";
+      // `restartPolicy: OnFailure` is the only sensible default for a Job
+      // pod — the alternative (Never) would silently swallow transient
+      // failures and leave a job wedged at "0/1" with no record of why.
+      return [
+        `apiVersion: batch/v1`,
+        `kind: Job`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  completions: ${completions}`,
+        `  template:`,
+        `    spec:`,
+        `      restartPolicy: OnFailure`,
+        `      containers:`,
+        `      - name: ${name}`,
+        `        image: ${image}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "cronjob",
+    kind: "cronjobs",
+    title: "CronJob",
+    description: "Scheduled Job, e.g. a nightly cleanup.",
+    params: [
+      { key: "name", label: "Name", default: "my-cron", kind: "text" },
+      {
+        key: "image",
+        label: "Image",
+        default: "busybox:1.36",
+        kind: "text",
+        help: "registry/repo:tag",
+      },
+      {
+        key: "schedule",
+        label: "Schedule",
+        default: "0 * * * *",
+        kind: "text",
+        help: "Standard 5-field cron expression (minute hour day month dow).",
+        pattern: "^\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+$",
+      },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-cron";
+      const image = v.image || "busybox:1.36";
+      const schedule = v.schedule || "0 * * * *";
+      const ns = v.namespace || "default";
+      return [
+        `apiVersion: batch/v1`,
+        `kind: CronJob`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  schedule: "${schedule}"`,
+        `  jobTemplate:`,
+        `    spec:`,
+        `      template:`,
+        `        spec:`,
+        `          restartPolicy: OnFailure`,
+        `          containers:`,
+        `          - name: ${name}`,
+        `            image: ${image}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "service",
+    kind: "services",
+    title: "Service",
+    description: "ClusterIP Service that fronts a workload.",
+    params: [
+      { key: "name", label: "Name", default: "my-svc", kind: "text" },
+      {
+        key: "selector",
+        label: "Selector (app=…)",
+        default: "my-app",
+        kind: "text",
+        help: "The pod label this Service routes to. Match the workload's template labels.",
+      },
+      {
+        key: "port",
+        label: "Port",
+        default: "80",
+        kind: "number",
+        min: 1,
+        max: 65535,
+      },
+      {
+        key: "targetPort",
+        label: "Target port",
+        default: "80",
+        kind: "number",
+        min: 1,
+        max: 65535,
+      },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-svc";
+      const selector = v.selector || "my-app";
+      const port = clampInt(v.port, 1, 65535, 80);
+      const targetPort = clampInt(v.targetPort, 1, 65535, 80);
+      const ns = v.namespace || "default";
+      // ClusterIP-only by default — NodePort/LoadBalancer expose the cluster
+      // to the world, and a user who wants that should reach for the YAML
+      // editor, not a checkbox on a one-off template.
+      return [
+        `apiVersion: v1`,
+        `kind: Service`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  type: ClusterIP`,
+        `  selector:`,
+        `    app: ${selector}`,
+        `  ports:`,
+        `  - port: ${port}`,
+        `    targetPort: ${targetPort}`,
+        `    protocol: TCP`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "secret",
+    kind: "secrets",
+    title: "Secret (Opaque)",
+    description: "Opaque Secret with two key/value pairs.",
+    params: [
+      { key: "name", label: "Name", default: "my-secret", kind: "text" },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "key1",
+        label: "Key 1",
+        default: "username",
+        kind: "text",
+      },
+      {
+        key: "value1",
+        label: "Value 1",
+        default: "admin",
+        kind: "text",
+        help: "Stored verbatim — this template is for non-sensitive test data. Production secrets should be set via the YAML editor or an external operator.",
+      },
+      {
+        key: "key2",
+        label: "Key 2",
+        default: "password",
+        kind: "text",
+      },
+      {
+        key: "value2",
+        label: "Value 2",
+        default: "changeme",
+        kind: "text",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-secret";
+      const ns = v.namespace || "default";
+      const k1 = v.key1 || "username";
+      const v1 = v.value1 || "admin";
+      const k2 = v.key2 || "password";
+      const v2 = v.value2 || "changeme";
+      // Opaque is the catch-all type; the YAML editor is the right tool for
+      // kubernetes.io/tls, dockerconfigjson, and the rest. The form's help
+      // text steers users away from treating the rendered YAML as production
+      // credentials.
+      return [
+        `apiVersion: v1`,
+        `kind: Secret`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `type: Opaque`,
+        `stringData:`,
+        `  ${k1}: ${v1}`,
+        `  ${k2}: ${v2}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "pvc",
+    kind: "persistentvolumeclaims",
+    title: "PersistentVolumeClaim",
+    description: "ReadWriteOnce claim bound to a StorageClass.",
+    params: [
+      { key: "name", label: "Name", default: "my-pvc", kind: "text" },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "storageClass",
+        label: "StorageClass",
+        default: "standard",
+        kind: "text",
+        help: "Must exist in the cluster, otherwise the claim stays Pending.",
+      },
+      {
+        key: "capacity",
+        label: "Capacity (Gi)",
+        default: "10",
+        kind: "number",
+        min: 1,
+        max: 100000,
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-pvc";
+      const ns = v.namespace || "default";
+      const sc = v.storageClass || "standard";
+      const capacity = clampInt(v.capacity, 1, 100000, 10);
+      // RWO is the safest default — most clusters don't have multi-node
+      // ReadWriteMany provisioners, and a "pending forever" PVC is a worse
+      // outcome than a slightly-stricter default.
+      return [
+        `apiVersion: v1`,
+        `kind: PersistentVolumeClaim`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  accessModes:`,
+        `  - ReadWriteOnce`,
+        `  storageClassName: ${sc}`,
+        `  resources:`,
+        `    requests:`,
+        `      storage: ${capacity}Gi`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "namespace",
+    kind: "namespaces",
+    title: "Namespace",
+    description: "Cluster-scoped namespace for isolating workloads.",
+    params: [
+      { key: "name", label: "Name", default: "my-namespace", kind: "text" },
+    ],
+    render: (v) => {
+      const name = v.name || "my-namespace";
+      // `kube-system`, `default`, and `kube-public` are the three namespaces
+      // every cluster has — recreating them under a new name is a real footgun.
+      // The picker doesn't enforce it, but the form's help text on `name`
+      // (added in the i18n entry) is the place to mention this; the renderer
+      // keeps the default simple and lets the YAML editor handle the edge.
+      return [
+        `apiVersion: v1`,
+        `kind: Namespace`,
+        `metadata:`,
+        `  name: ${name}`,
       ].join("\n");
     },
   },

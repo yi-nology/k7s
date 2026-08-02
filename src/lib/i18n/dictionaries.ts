@@ -186,6 +186,13 @@ export interface Dictionary {
     emptyNone: string;
     /** "N selected" chip shown when multi-select has > 1 row picked. */
     selected: string;
+    /**
+     * Label on the "+ New" button that opens the create-from-template overlay
+     * from any kind page. Mirrors the sidebar Tools → Templates entry.
+     */
+    new: string;
+    /** Hover/tooltip for the same button — explains what the icon does. */
+    newTitle: string;
   };
 
   /** The shared action list and its confirmation wording. */
@@ -200,6 +207,9 @@ export interface Dictionary {
       uncordon: string;
       drain: string;
       delete: string;
+      /** "Download YAML" — fetches the resource's YAML and saves it locally.
+       *  Works for every kind (Bxx — KubePi parity). */
+      downloadYaml: string;
     };
     confirm: {
       delete: (what: string, names: string) => string;
@@ -753,6 +763,8 @@ export const en: Dictionary = {
     empty: "no resources match filter",
     emptyNone: "no resources",
     selected: "selected",
+    new: "New",
+    newTitle: "Create a resource from a YAML template",
   },
 
   actions: {
@@ -766,6 +778,7 @@ export const en: Dictionary = {
       uncordon: "Uncordon",
       drain: "Drain…",
       delete: "Delete…",
+      downloadYaml: "Download YAML",
     },
     confirm: {
       delete: (what, names) => `Delete ${what}?${names}`,
@@ -1298,6 +1311,8 @@ export const zh: Dictionary = {
     empty: "无匹配资源",
     emptyNone: "无资源",
     selected: "已选",
+    new: "新建",
+    newTitle: "从 YAML 模板创建资源",
   },
 
   actions: {
@@ -1311,6 +1326,7 @@ export const zh: Dictionary = {
       uncordon: "允许调度",
       drain: "驱逐…",
       delete: "删除…",
+      downloadYaml: "下载 YAML",
     },
     confirm: {
       delete: (what, names) => `删除 ${what}?${names}`,

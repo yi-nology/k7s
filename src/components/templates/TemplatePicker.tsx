@@ -5,7 +5,7 @@
  * preview. Submitting calls `applyYamlBundle` (created/updated per doc),
  * then surfaces the per-document result.
  */
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { getProvider } from "../../providers";
 import type { ApplyResult } from "../../providers/types";
 import {
@@ -15,16 +15,49 @@ import {
   type Template,
 } from "../../lib/templates";
 import { useTranslation } from "../../hooks/useI18n";
+import { useStore } from "../../store";
 import styles from "./TemplatePicker.module.css";
 
 export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const templates = useMemo(() => listTemplates(), []);
+  // The current nav kind drives auto-selection: a user landing on the
+  // StatefulSets page and clicking "+ New" shouldn't have to scroll the
+  // template list to find the StatefulSet entry. Read on every render so a
+  // nav change while the overlay is open (rare, but possible — the sidebar
+  // is still visible) updates the highlight.
+  const currentKind = useStore((s) => s.nav);
   const [selected, setSelected] = useState<Template | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState<ApplyResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  /** Pick the first template whose `kind` matches the current nav. Falls
+   *  back to `null` (the empty hint) when the nav is something we don't
+   *  have a template for — e.g. Pods, Nodes, ReplicaSets. */
+  const initialSelection = useMemo(
+    () => templates.find((tt) => tt.kind === currentKind) ?? null,
+    [templates, currentKind],
+  );
+
+  // Seed the picker once on mount with the nav-matching template. Without the
+  // effect, the user would see the empty hint for one frame before clicking —
+  // and any prior state from a previous overlay would leak through.
+  useEffect(() => {
+    if (initialSelection) {
+      setSelected(initialSelection);
+      setValues(defaultValuesFor(initialSelection));
+    } else {
+      setSelected(null);
+      setValues({});
+    }
+    setResult([]);
+    setError(null);
+    // initialSelection is a stable ref per (templates, currentKind); we only
+    // want this to run when *one of those inputs* changes, not on every
+    // re-render of the picker itself.
+  }, [initialSelection]);
 
   const yamlPreview = useMemo(() => {
     if (!selected) return "";

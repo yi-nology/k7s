@@ -23,6 +23,37 @@ describe("template registry", () => {
     );
   });
 
+  it("exposes the full set of KubePi-parity templates (Bxx)", () => {
+    // Eight new templates added so the create picker covers every kind the
+    // sidebar lists (other than synthetic ones like events/helm). Each
+    // template's id below is also the k7s `KindId` mapping the picker uses
+    // for auto-selection; if a future refactor drops one, the picker would
+    // silently stop pre-selecting the matching template on that kind page.
+    expect(allTemplateIds).toEqual(
+      expect.arrayContaining([
+        "statefulset",
+        "daemonset",
+        "job",
+        "cronjob",
+        "service",
+        "secret",
+        "pvc",
+        "namespace",
+      ]),
+    );
+  });
+
+  it("every template with a `kind` field maps to a real k7s kind", () => {
+    // The TemplatePicker's auto-select uses `template.kind` as the lookup
+    // key against `useStore(s => s.nav)`. A typo would silently leave the
+    // picker empty on the wrong kind page; this test catches that.
+    for (const t of listTemplates()) {
+      if (t.kind === undefined) continue;
+      const tpl = getTemplate(t.id)!;
+      expect(tpl.kind, `${t.id} should keep its kind mapping`).toBe(t.kind);
+    }
+  });
+
   it("getTemplate() round-trips every listed template", () => {
     for (const id of allTemplateIds) {
       const t = getTemplate(id);
@@ -230,5 +261,124 @@ describe("renderTemplate() ingress and configmap variants", () => {
       value1: "postgres.local",
     });
     expect(yaml).toMatch(/^  db\.host: postgres\.local$/m);
+  });
+});
+
+/**
+ * Bxx — KubePi parity: every kind in the sidebar has a working create template.
+ * Each test below renders the template with its default values and pins the
+ * shape that `applyYamlBundle` is going to ship to the cluster. The fixtures
+ * here are deliberately tight: if a renderer forgets to emit `apiVersion` /
+ * `kind`, the api server will reject the document and the user gets a
+ * confusing "no kind is set" error instead of "you didn't add a StatefulSet".
+ */
+describe("renderTemplate() — Bxx parity templates", () => {
+  // Helper: render a template with defaults, return the YAML.
+  const renderDefault = (id: string): string =>
+    renderTemplate(id, defaultValuesFor(getTemplate(id)!));
+
+  it("statefulset renders a headless Service + a StatefulSet with the matching serviceName", () => {
+    const yaml = renderDefault("statefulset");
+    // Two documents joined by `---`. The Service is the headless one
+    // (`clusterIP: None`), and its name + the StatefulSet's `serviceName`
+    // must agree — that's how StatefulSet gives pods a stable DNS identity.
+    expect(yaml).toMatch(/^kind: Service$/m);
+    expect(yaml).toMatch(/^  clusterIP: None$/m);
+    expect(yaml).toMatch(/^kind: StatefulSet$/m);
+    expect(yaml).toMatch(/^  serviceName: my-app$/m);
+    expect(yaml).toMatch(/^  replicas: 3$/m);
+  });
+
+  it("daemonset renders a single DaemonSet document (no Service)", () => {
+    // DaemonSets don't have a stable per-pod DNS the way StatefulSets do, so
+    // there's no Service paired with the template. Pinning the absence of
+    // `kind: Service` keeps a future refactor from silently doubling the
+    // resource count.
+    const yaml = renderDefault("daemonset");
+    expect(yaml).toMatch(/^kind: DaemonSet$/m);
+    expect(yaml).not.toMatch(/^kind: Service$/m);
+    expect(yaml).toMatch(/^  namespace: kube-system$/m);
+  });
+
+  it("job renders a Job with OnFailure restartPolicy (the only sensible default)", () => {
+    // `Never` would silently swallow transient failures and leave a Job at
+    // 0/1 forever. `OnFailure` lets the Job retry until the work actually
+    // completes.
+    const yaml = renderDefault("job");
+    expect(yaml).toMatch(/^kind: Job$/m);
+    expect(yaml).toMatch(/^apiVersion: batch\/v1$/m);
+    expect(yaml).toMatch(/^      restartPolicy: OnFailure$/m);
+    expect(yaml).toMatch(/^  completions: 1$/m);
+  });
+
+  it("cronjob renders a CronJob with the schedule quoted", () => {
+    // An unquoted schedule with `*` would round-trip through a future YAML
+    // parse-then-dump and silently lose the asterisks. The renderer
+    // deliberately quotes the value.
+    const yaml = renderDefault("cronjob");
+    expect(yaml).toMatch(/^kind: CronJob$/m);
+    expect(yaml).toMatch(/^  schedule: "0 \* \* \* \*"$/m);
+  });
+
+  it("service renders a ClusterIP Service with the user's selector", () => {
+    const yaml = renderDefault("service");
+    expect(yaml).toMatch(/^kind: Service$/m);
+    expect(yaml).toMatch(/^  type: ClusterIP$/m);
+    // The default selector is `my-app` (not `my-svc`) — the form's help text
+    // makes clear the selector is the *workload's* pod label, not the
+    // Service's name. Pinning `my-app` catches a future refactor that
+    // accidentally inlines `name` here.
+    expect(yaml).toMatch(/^    app: my-app$/m);
+  });
+
+  it("secret renders an Opaque secret with stringData (not base64-encoded data)", () => {
+    // `stringData` is the readable form — the api server base64-encodes it
+    // on admission. Using `data` directly would force the form to
+    // base64-encode the user input, which is a footgun nobody asked for.
+    const yaml = renderDefault("secret");
+    expect(yaml).toMatch(/^kind: Secret$/m);
+    expect(yaml).toMatch(/^type: Opaque$/m);
+    expect(yaml).toMatch(/^stringData:$/m);
+  });
+
+  it("pvc renders a ReadWriteOnce claim with the chosen StorageClass", () => {
+    const yaml = renderDefault("pvc");
+    expect(yaml).toMatch(/^kind: PersistentVolumeClaim$/m);
+    expect(yaml).toMatch(/^  - ReadWriteOnce$/m);
+    expect(yaml).toMatch(/^  storageClassName: standard$/m);
+    expect(yaml).toMatch(/^      storage: 10Gi$/m);
+  });
+
+  it("namespace renders a minimal Namespace manifest", () => {
+    // No labels, no annotations — the form only collects `name`. A user
+    // wanting `istio-injection: enabled` or quota labels can layer them on
+    // in the YAML editor.
+    const yaml = renderDefault("namespace");
+    expect(yaml).toMatch(/^kind: Namespace$/m);
+    expect(yaml).toMatch(/^  name: my-namespace$/m);
+    expect(yaml).not.toMatch(/^spec:$/m);
+  });
+
+  it("every Bxx template renders valid YAML on default values (no template-string holes)", () => {
+    // The simplest invariant: a `{{key}}` that wasn't substituted would land
+    // in the output verbatim. That's the bug we're guarding against — the
+    // template registry has a single renderer that all new templates share,
+    // and a regression would surface as a literal `{{name}}` in the preview.
+    const ids = [
+      "statefulset",
+      "daemonset",
+      "job",
+      "cronjob",
+      "service",
+      "secret",
+      "pvc",
+      "namespace",
+    ];
+    for (const id of ids) {
+      const yaml = renderDefault(id);
+      expect(yaml, `${id} should render without template holes`).not.toMatch(
+        /\{\{[a-zA-Z0-9_]+\}\}/,
+      );
+    }
   });
 });

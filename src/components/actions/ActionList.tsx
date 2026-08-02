@@ -79,6 +79,37 @@ async function copyToClipboard(text: string): Promise<void> {
   }
 }
 
+/**
+ * Trigger a browser download of `text` as `filename`. The pod-files panel does
+ * the same dance with `URL.createObjectURL` + a synthetic `<a download>` click
+ * (B47) — the only client-side save path that works in both the Tauri webview
+ * and the `k7s-web` server build without a backend round-trip.
+ *
+ * Revokes the object URL on the next tick so the click has time to register
+ * but the URL doesn't leak. Synchronous click because `URL.revokeObjectURL`
+ * is permitted to invalidate the URL immediately after the click handler
+ * returns — the browser has already snapshotted the blob reference.
+ */
+function downloadText(filename: string, text: string): void {
+  const blob = new Blob([text], { type: "application/x-yaml" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** Filename for a single resource: `kind-namespace-name.yaml` for namespaced
+ *  kinds, `kind-name.yaml` for cluster-scoped ones. Mirrors the path scheme
+ *  YamlTab uses (kinds.ts), so the file a user downloads matches the path
+ *  they see in the Yaml editor. */
+function yamlFilename(kind: KindId, row: Row): string {
+  return row.namespace
+    ? `${kind}/${row.namespace}/${row.name}.yaml`
+    : `${kind}/${row.name}.yaml`;
+}
+
 export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListProps) {
   const setPortForwards = useStore((s) => s.setPortForwards);
   const viewPods = useStore((s) => s.viewPods);
@@ -139,6 +170,19 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
         // editable text rather than a hidden mode the user can't get out of.
         viewPods(single.namespace, selectorFilter(single.selector ?? {}));
         onClose();
+        break;
+      case "download-yaml":
+        // Read-only: the action's `gone` is false because nothing is mutated
+        // and the provider call doesn't make the row disappear. A failure
+        // surfaces through `execute`'s bulk error banner (e.g. RBAC denying
+        // get on a Secret the user happens to be able to list).
+        void execute(
+          async (row) => {
+            const text = await getProvider().getYaml(refOf(row));
+            downloadText(yamlFilename(kind, row), text);
+          },
+          false,
+        );
         break;
     }
   }
@@ -433,6 +477,7 @@ function confirmLabel(id: ActionId, locale: import("../../lib/i18n").Locale): st
     uncordon: "actions.labels.uncordon",
     drain: "actions.labels.drain",
     delete: "actions.labels.delete",
+    "download-yaml": "actions.labels.downloadYaml",
   };
   return translate(locale, dict[id]).replace(/…$/, "").trim();
 }

@@ -92,7 +92,6 @@ describe("translate", () => {
     expect(translate("en", "chrome.sidebar.watch", 3)).toBe("watch: 3 streams active");
     expect(translate("zh", "chrome.sidebar.watch", 3)).toBe("监听: 3 路活跃");
   });
-
   /** The watch count drops to 0 during disconnect (B11 lifecycle). The text
    *  must render as a coherent sentence in both locales — "0 streams active"
    *  in EN and "0 路活跃" in ZH, not the English fallback. WatchFooter now
@@ -129,6 +128,26 @@ describe("translate", () => {
     // is missing in Chinese — built-in dictionaries are symmetrical today, so
     // the easy test is just "English works".
     expect(translate("zh", "chrome.settings.title")).toBe("设置");
+  });
+
+  /** The "+ New" toolbar button on every kind page (Bxx) — its label and hover
+   *  title both need to resolve in both locales. A missing key here would
+   *  leave the user looking at the raw dotted path in their chrome. */
+  it("resolves table.new and table.newTitle in both locales", () => {
+    expect(translate("en", "table.new")).toBe("New");
+    expect(translate("en", "table.newTitle")).toBe(
+      "Create a resource from a YAML template",
+    );
+    expect(translate("zh", "table.new")).toBe("新建");
+    expect(translate("zh", "table.newTitle")).toBe("从 YAML 模板创建资源");
+  });
+
+  /** The new "Download YAML" row action (Bxx) — present in every kind's
+   *  context menu, so a missing key would show the dotted path in EN and
+   *  ZH alike. */
+  it("resolves actions.labels.downloadYaml in both locales", () => {
+    expect(translate("en", "actions.labels.downloadYaml")).toBe("Download YAML");
+    expect(translate("zh", "actions.labels.downloadYaml")).toBe("下载 YAML");
   });
 });
 

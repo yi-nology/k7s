@@ -53,11 +53,66 @@ describe("actionsFor — single row", () => {
   });
 
   it("offers no actions for a kind with none", () => {
-    expect(actionsFor("namespaces", [row("ns")])).toEqual([]);
+    // Namespaces can't be deleted from here (the cluster manages their
+    // lifecycle), and they have no pods, no selector, no replicas to scale —
+    // but `download-yaml` is universal and applies (Bxx). The test pins the
+    // "nothing else" half of that: delete / scale / restart / etc. must
+    // remain absent.
+    const ids = actionsFor("namespaces", [row("ns")]).map((a) => a.id);
+    expect(ids).toContain("download-yaml");
+    expect(ids).not.toContain("delete");
+    expect(ids).not.toContain("scale");
+    expect(ids).not.toContain("restart");
+    expect(ids).not.toContain("view-pods");
+    expect(ids).not.toContain("forward");
   });
 
   it("offers nothing for an empty selection", () => {
     expect(actionsFor("pods", [])).toEqual([]);
+  });
+});
+
+/**
+ * The `download-yaml` action is universal: every row whose provider can fetch
+ * its YAML is fair game (Bxx). The selector picks this up by returning true
+ * for any kind, including synthetic ones like `helm` and `events`. We pin
+ * that here across the full KindId set, because the alternative — an
+ * `applies()` switch listing every kind — is a maintenance trap and would
+ * have to be touched every time a new kind is added to the sidebar.
+ */
+describe("actionsFor — download-yaml (Bxx)", () => {
+  const allKinds: Array<Parameters<typeof actionsFor>[0]> = [
+    "pods",
+    "deployments",
+    "statefulsets",
+    "daemonsets",
+    "jobs",
+    "cronjobs",
+    "services",
+    "ingresses",
+    "configmaps",
+    "secrets",
+    "persistentvolumeclaims",
+    "nodes",
+    "namespaces",
+    "helm",
+    "events",
+  ];
+
+  for (const kind of allKinds) {
+    it(`includes download-yaml for kind="${kind}"`, () => {
+      // Events live in a synthetic store row with no namespace; pass
+      // `namespace: undefined` to match that shape so the test stays
+      // representative rather than filtering events out.
+      const r: Row = { uid: `u-${kind}`, name: "x", cells: [] };
+      const got = actionsFor(kind, [r]);
+      expect(got.map((a) => a.id)).toContain("download-yaml");
+    });
+  }
+
+  it("download-yaml is bulk-capable (multi-row selection)", () => {
+    const got = actionsFor("pods", [row("a"), row("b")]);
+    expect(got.map((a) => a.id)).toContain("download-yaml");
   });
 });
 

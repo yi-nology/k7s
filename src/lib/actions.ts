@@ -34,7 +34,8 @@ export type ActionId =
   | "cordon"
   | "uncordon"
   | "drain"
-  | "delete";
+  | "delete"
+  | "download-yaml";
 
 export interface ActionDef {
   id: ActionId;
@@ -71,6 +72,7 @@ const LABEL_KEYS: Record<ActionId, string> = {
   uncordon: "actions.labels.uncordon",
   drain: "actions.labels.drain",
   delete: "actions.labels.delete",
+  "download-yaml": "actions.labels.downloadYaml",
 };
 
 /** The mode/danger/bulk metadata, in menu order. Order is display order: safe things first. */
@@ -86,6 +88,10 @@ const META: Record<ActionId, Omit<ActionDef, "id" | "label">> = {
   // nowhere left to reschedule it.
   drain: { mode: "confirm", bulk: false, danger: true },
   delete: { mode: "confirm", bulk: true, danger: true },
+  // Download is read-only and works for any kind, including synthetic rows
+  // (events). Safe + bulk so the user can grab a hundred pods' YAML in one
+  // zip-less flow.
+  "download-yaml": { mode: "immediate", bulk: true },
 };
 
 /** Every action id, in menu order. The metadata + label key together define the action. */
@@ -97,6 +103,7 @@ const ORDER: ActionId[] = [
   "cordon",
   "uncordon",
   "drain",
+  "download-yaml",
   "delete",
 ];
 
@@ -131,6 +138,12 @@ function applies(id: ActionId, kind: KindId, row: Row): boolean {
       return isRolloutKind(kind) && !!row.selector && Object.keys(row.selector).length > 0;
     case "forward":
       return kind === "pods" || kind === "services";
+    case "download-yaml":
+      // Any row whose provider can fetch its YAML is fair game. Events and the
+      // Helm synthetic rows both expose `getYaml`, so we let them through
+      // here; the provider does the actual work and the file picker still
+      // comes out as a sensible `kind-name.yaml`.
+      return true;
   }
 }
 
