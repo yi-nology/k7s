@@ -815,24 +815,43 @@ export class MockProvider implements DataProvider {
   }
   async listEndpointAddresses(
     _ns: string,
-    _name: string,
+    name: string,
   ): Promise<EndpointAddress[]> {
-    return [
-      {
-        address: "10.1.0.5:80",
-        ready: true,
-        nodeName: "node-1",
-        targetRefKind: "Pod",
-        targetRefName: "nginx-1",
-      },
-      {
-        address: "10.1.0.6:80",
-        ready: true,
-        nodeName: "node-2",
-        targetRefKind: "Pod",
-        targetRefName: "nginx-2",
-      },
-    ];
+    // Branch on the slice's parent service so the topology demo shows the
+    // right Pod targets for each EndpointSlice, not just nginx addresses
+    // for every slice. Without this branch the Service Topology overlay
+    // wires the redis service to nginx-1/nginx-2 pods, which makes the
+    // graph nonsensical.
+    if (name.startsWith("redis")) {
+      return [
+        {
+          address: "10.1.0.10:6379",
+          ready: true,
+          nodeName: "node-1",
+          targetRefKind: "Pod",
+          targetRefName: "redis-0",
+        },
+      ];
+    }
+    if (name.startsWith("nginx")) {
+      return [
+        {
+          address: "10.1.0.5:80",
+          ready: true,
+          nodeName: "node-1",
+          targetRefKind: "Pod",
+          targetRefName: "nginx-1",
+        },
+        {
+          address: "10.1.0.6:80",
+          ready: true,
+          nodeName: "node-2",
+          targetRefKind: "Pod",
+          targetRefName: "nginx-2",
+        },
+      ];
+    }
+    return [];
   }
   async triggerCronjob(_ns: string, _name: string): Promise<string> {
     return "demo-job-1";

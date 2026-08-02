@@ -86,7 +86,7 @@ export function TopologyGraph() {
   const [hover, setHover] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
+  const svgRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 500 });
 
   // Build the graph from cluster data: walk EndpointSlices, group by
@@ -231,10 +231,12 @@ export function TopologyGraph() {
   useEffect(() => {
     if (!svgRef.current) return;
     const el = svgRef.current;
-    const ro = new ResizeObserver(() => {
+    const updateSize = () => {
       const r = el.getBoundingClientRect();
-      setSize({ w: r.width || 800, h: r.height || 500 });
-    });
+      setSize({ w: Math.round(r.width) || 800, h: Math.round(r.height) || 500 });
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -247,16 +249,15 @@ export function TopologyGraph() {
   return (
     <div className={styles.wrap}>
       {error && <div className={styles.error}>{error}</div>}
-      <div className={styles.canvas} ref={svgRef as never}>
+      <div className={styles.canvas} ref={svgRef}>
         <svg
-          ref={svgRef}
           width="100%"
           height="100%"
           viewBox={`0 0 ${size.w} ${size.h}`}
         >
           {graph.links.map((l, i) => {
-            const s = positions.get(l.source);
-            const t = positions.get(l.target);
+            const s = positions.get(l.source as string);
+            const t = positions.get(l.target as string);
             if (!s || !t) return null;
             const isHot =
               hover !== null &&
@@ -312,7 +313,9 @@ export function TopologyGraph() {
         </svg>
       </div>
       <div className={styles.legend}>
-        {(Object.keys(KIND_COLORS) as NodeKind[]).map((k) => (
+        {(
+          Object.keys(KIND_COLORS).filter((k) => k !== "container") as NodeKind[]
+        ).map((k) => (
           <span key={k} className={styles.legendItem}>
             <span
               className={styles.dot}
