@@ -80,15 +80,31 @@ export function DetailPanel() {
             {row.name}
           </div>
           <ActionsMenu kind={nav} row={row} onError={setActionError} onDeleted={closeDetail} />
-          <div className={styles.close} onClick={closeDetail} title={t("detail.header.closeTitle")}>
+          {/* Close button. Was a <div onClick> before pass-30 — a real <button>
+              is keyboard-focusable, responds to Enter/Space, and announces as a
+              button to assistive tech. */}
+          <button
+            type="button"
+            className={styles.close}
+            onClick={closeDetail}
+            title={t("detail.header.closeTitle")}
+            aria-label={t("detail.header.closeTitle")}
+          >
             ×
-          </div>
+          </button>
         </div>
 
         {actionError && (
-          <div className={styles.actionError} onClick={() => setActionError(null)}>
+          /* Click-to-dismiss banner. Same class as the close button — <div onClick>
+             wasn't keyboard-reachable; <button> is. */
+          <button
+            type="button"
+            className={styles.actionError}
+            onClick={() => setActionError(null)}
+            aria-label={t("detail.header.dismissError", "Dismiss error")}
+          >
             {actionError}
-          </div>
+          </button>
         )}
 
         {/* Drain progress for this node (B20) — a drain runs for minutes, so it
@@ -121,15 +137,23 @@ export function DetailPanel() {
           </div>
         )}
 
-        <div className={styles.tabs}>
+        <div className={styles.tabs} role="tablist">
           {tabs.map((tt) => (
-            <div
+            /* Tab strip item. Was a <div onClick> before pass-30 — not focusable
+               and not announced as a tab. The keyboard `[/]` cycle keys work
+               globally, but a user tabbing through the panel would have to skip
+               the strip entirely. Real <button role="tab"> with aria-selected
+               matches the WAI-ARIA tabs pattern. */
+            <button
               key={tt.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tt.id}
               className={`${styles.tab} ${activeTab === tt.id ? styles.tabActive : ""}`}
               onClick={() => setActiveTab(tt.id)}
             >
               {tabLabel(tt.id, locale)}
-            </div>
+            </button>
           ))}
         </div>
       </div>

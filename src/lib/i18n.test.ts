@@ -911,6 +911,27 @@ describe("detail-panel tab + dashboard i18n (pass-15 sweep)", () => {
     expect(enBody).toContain("metrics-server");
     expect(zhBody).toContain("metrics-server");
   });
+
+  it("ships detail.header.dismissError in both locales (pass-30)", () => {
+    // Pass-30 converted the action error banner in DetailPanel.tsx from
+    // a <div onClick> to a real <button>, which now carries an
+    // aria-label. The label routes through `detail.header.dismissError`
+    // (a new key — previously the banner had no accessible name at all,
+    // since <div onClick> announces nothing useful to a screen reader).
+    // Pin both locales so a future refactor that drops the key trips
+    // before the banner's accessible name falls back to the literal
+    // banner copy in zh.
+    expect(translate("en", "detail.header.dismissError")).toBe("Dismiss error");
+    expect(translate("zh", "detail.header.dismissError")).toBe("关闭错误提示");
+    // And the existing closeTitle / actionsTitle keys must still resolve
+    // (pass-30 added aria-label={t("…")} to both buttons; the
+    // closeTitle and actionsTitle keys are the same as the title= attrs
+    // they already had, so the canonical values don't change).
+    expect(translate("en", "detail.header.closeTitle")).toBe("close");
+    expect(translate("zh", "detail.header.closeTitle")).toBe("关闭");
+    expect(translate("en", "detail.header.actionsTitle")).toBe("actions");
+    expect(translate("zh", "detail.header.actionsTitle")).toBe("操作");
+  });
 });
 
 /**

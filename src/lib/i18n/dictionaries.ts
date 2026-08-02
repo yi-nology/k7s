@@ -160,6 +160,7 @@ export interface Dictionary {
       age: string;
       closeTitle: string;
       actionsTitle: string;
+      dismissError: string;
     };
     drain: {
       pdbBlocked: (n: number, names: string) => string;
@@ -739,6 +740,7 @@ export const en: Dictionary = {
       age: "age",
       closeTitle: "close",
       actionsTitle: "actions",
+      dismissError: "Dismiss error",
     },
     drain: {
       pdbBlocked: (n, names) =>
@@ -1283,6 +1285,7 @@ export const zh: Dictionary = {
       age: "存活",
       closeTitle: "关闭",
       actionsTitle: "操作",
+      dismissError: "关闭错误提示",
     },
     drain: {
       pdbBlocked: (n, names) =>

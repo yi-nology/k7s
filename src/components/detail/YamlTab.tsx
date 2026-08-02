@@ -164,20 +164,26 @@ export function YamlTab() {
         {yamlEditing ? (
           review ? (
             <>
-              <div className={styles.cancelBtn} onClick={() => setReview(null)}>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={() => setReview(null)}
+              >
                 {t("yaml.backToEditing")}
-              </div>
-              <div
+              </button>
+              <button
+                type="button"
                 className={styles.applyBtn}
-                aria-disabled={applying}
+                disabled={applying}
                 onClick={() => void onApply()}
               >
                 {t("yaml.applyForReal")}
-              </div>
+              </button>
             </>
           ) : (
             <>
-              <div
+              <button
+                type="button"
                 className={styles.cancelBtn}
                 onClick={() => {
                   setReview(null);
@@ -185,19 +191,21 @@ export function YamlTab() {
                 }}
               >
                 {t("yaml.cancel")}
-              </div>
-              <div
+              </button>
+              <button
+                type="button"
                 className={styles.applyBtn}
-                aria-disabled={applying}
+                disabled={applying}
                 onClick={() => void onPreview()}
               >
                 {applying ? t("yaml.checking") : t("yaml.preview")}
-              </div>
+              </button>
             </>
           )
         ) : (
           editable && (
-            <div
+            <button
+              type="button"
               className={styles.editBtn}
               onClick={() => {
                 setError(null);
@@ -205,7 +213,7 @@ export function YamlTab() {
               }}
             >
               {t("yaml.edit")}
-            </div>
+            </button>
           )
         )}
       </div>

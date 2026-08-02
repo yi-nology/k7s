@@ -43,9 +43,21 @@ export function ActionsMenu({ kind, row, onError, onDeleted }: ActionsMenuProps)
 
   return (
     <div className={styles.actionsWrap} ref={ref}>
-      <div className={styles.actionsButton} onClick={() => setOpen((o) => !o)} title={t("detail.header.actionsTitle")}>
+      {/* Trigger for the actions menu. Was a <div onClick> before pass-30 —
+          a real <button> is keyboard-focusable and announces as a button.
+          aria-haspopup="menu" tells assistive tech what opening the trigger
+          reveals. */}
+      <button
+        type="button"
+        className={styles.actionsButton}
+        onClick={() => setOpen((o) => !o)}
+        title={t("detail.header.actionsTitle")}
+        aria-label={t("detail.header.actionsTitle")}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
         ⋯
-      </div>
+      </button>
       {open && (
         <div className={styles.actionsAnchor}>
           <ActionList
