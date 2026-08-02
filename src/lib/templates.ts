@@ -38,6 +38,17 @@ export interface TemplateParam {
    */
   min?: number;
   max?: number;
+  /**
+   * Whether the form should refuse submission with an empty value. Defaults
+   * to `true` for `kind: "text" | "number"` and `false` for `kind: "boolean"`
+   * (a checkbox's "empty" state is `false`, which is still a value). The form
+   * mirrors this as the native `required` attribute so the browser surfaces a
+   * "Please fill out this field" tooltip instead of silently falling through
+   * to the renderer's `||` default — the pass-13 follow-up noted that the
+   * silent fallback hides user intent (a user clearing a field expects a
+   * validation error, not a quietly-rendered "default" name).
+   */
+  required?: boolean;
 }
 
 export interface Template {

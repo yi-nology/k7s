@@ -115,6 +115,13 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
                       <input
                         type={p.kind === "number" ? "number" : "text"}
                         value={values[p.key] ?? p.default}
+                        // See `TemplateParam.required` — the boolean branch
+                        // above handles the `kind: "boolean"` case, so by the
+                        // time we reach here `p.kind` is `"text" | "number"`,
+                        // and the default is to require a value. A param that
+                        // explicitly opts out (e.g. an optional label key)
+                        // can set `required: false` on the `TemplateParam`.
+                        required={p.required ?? true}
                         pattern={p.pattern}
                         min={p.min}
                         max={p.max}

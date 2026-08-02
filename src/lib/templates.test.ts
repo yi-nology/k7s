@@ -98,6 +98,46 @@ describe("number param bounds mirror clampInt in the renderer", () => {
   });
 });
 
+describe("TemplateParam.required policy", () => {
+  // Every text/number param must be required so the form blocks submission
+  // with an empty field (the browser surfaces a "Please fill out this field"
+  // tooltip). Without `required`, the renderer's `||` fallback silently
+  // substitutes the default — a user clearing the "Name" field would see
+  // their apply go through with the default name, which is the bug pass-13
+  // explicitly flagged as a follow-up. The form mirrors `required` as the
+  // native `required` HTML5 attribute (see TemplatePicker.tsx).
+  it("every text/number param is required (no opt-out yet)", () => {
+    for (const t of listTemplates()) {
+      for (const p of t.params) {
+        if (p.kind === "boolean") continue;
+        expect(
+          p.required ?? true,
+          `${t.id}.${p.key} (${p.kind}) should be required by default`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("the form's default for `required` is `true` for text/number and `false` for boolean", () => {
+    // Documents the `required ?? kind !== "boolean"` default in
+    // TemplatePicker.tsx so a refactor that flips the default trips the
+    // test. Currently the only way a param is `kind: "boolean"` is
+    // explicitly, and the current registry has no boolean params — the
+    // assertion uses the same defaulting function the form does.
+    const effective = (p: { kind: "text" | "number" | "boolean"; required?: boolean }) =>
+      p.required ?? p.kind !== "boolean";
+    for (const t of listTemplates()) {
+      for (const p of t.params) {
+        if (p.kind === "text" || p.kind === "number") {
+          expect(effective(p), `${t.id}.${p.key}`).toBe(true);
+        } else {
+          expect(effective(p), `${t.id}.${p.key}`).toBe(false);
+        }
+      }
+    }
+  });
+});
+
 describe("renderTemplate() clampInt behaviour (number params)", () => {
   // These tests document the silent-clamp behaviour: a number outside the
   // param's bounds is replaced by the bound. The form's new `min` / `max`
