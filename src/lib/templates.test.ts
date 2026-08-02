@@ -10,7 +10,6 @@ import {
   getTemplate,
   listTemplates,
   renderTemplate,
-  type Template,
 } from "./templates";
 
 const allTemplateIds = listTemplates().map((t) => t.id);

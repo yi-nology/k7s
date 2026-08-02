@@ -264,7 +264,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
               <h3>{t("image.repos", "Repositories")}</h3>
               {repos.length === 0 ? (
                 <div className={styles.empty}>
-                  {t("image.repos.empty", "No repositories (or registry does not support /v2/_catalog)")}
+                  {t("image.reposEmpty", "No repositories (or registry does not support /v2/_catalog)")}
                 </div>
               ) : (
                 <ul className={styles.repos}>
@@ -274,7 +274,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                       className={styles.repo}
                       onClick={() => loadTags(r.name)}
                     >
-                      {r.name}
+                      <span className={styles.repoName}>{r.name}</span>
                     </li>
                   ))}
                 </ul>
@@ -296,7 +296,15 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                         onClick={() => loadManifest(tt.name)}
                         title="Inspect manifest"
                       >
-                        {tt.name}
+                        <span className={styles.tagName}>{tt.name}</span>
+                        {/* ImageTag.size / .created are nullable per providers/types.ts
+                            — show size + date only when both are known; otherwise
+                            render the row with just the tag name. */}
+                        {tt.size != null && tt.created != null && (
+                          <span className={styles.tagMeta}>
+                            {humanSize(tt.size)} · {tt.created.slice(0, 10)}
+                          </span>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -311,31 +319,31 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                   <table className={styles.manifestTable}>
                     <tbody>
                       <tr>
-                        <th>{t("image.manifest.mediaType", "Media type")}</th>
+                        <th>{t("image.mediaType", "Media type")}</th>
                         <td>{manifest.mediaType}</td>
                       </tr>
                       <tr>
-                        <th>{t("image.manifest.digest", "Digest")}</th>
+                        <th>{t("image.digest", "Digest")}</th>
                         <td className={styles.mono}>{manifest.digest}</td>
                       </tr>
                       <tr>
-                        <th>{t("image.manifest.schemaVersion", "Schema")}</th>
+                        <th>{t("image.schemaVersion", "Schema")}</th>
                         <td>{manifest.schemaVersion}</td>
                       </tr>
                       <tr>
-                        <th>{t("image.manifest.size", "Total size")}</th>
+                        <th>{t("image.size", "Total size")}</th>
                         <td>{humanSize(manifest.size)}</td>
                       </tr>
                     </tbody>
                   </table>
-                  <h4>{t("image.manifest.layers", "Layers")}</h4>
+                  <h4>{t("image.layers", "Layers")}</h4>
                   <table className={styles.manifestTable}>
                     <thead>
                       <tr>
                         <th>#</th>
-                        <th>{t("image.manifest.digest", "Digest")}</th>
-                        <th>{t("image.manifest.size", "Size")}</th>
-                        <th>{t("image.manifest.mediaType", "Media type")}</th>
+                        <th>{t("image.digest", "Digest")}</th>
+                        <th>{t("image.size", "Size")}</th>
+                        <th>{t("image.mediaType", "Media type")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -350,7 +358,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                     </tbody>
                   </table>
                   <details>
-                    <summary>{t("image.manifest.raw", "Raw JSON")}</summary>
+                    <summary>{t("image.raw", "Raw JSON")}</summary>
                     <pre className={styles.rawJson}>{manifest.raw}</pre>
                   </details>
                 </div>

@@ -526,6 +526,105 @@ describe("dashboard resource card labels (via kindLabelFor)", () => {
   });
 });
 
+/** The Image Registries overlay (B11) is a three-column drill-down: registry
+ *  list on the left, repos in the middle, tags + manifest on the right.
+ *  Pass-14's audit found two pre-existing i18n key-path bugs that silently
+ *  fell back to the inline English copy in zh:
+ *    1. `t("image.repos.empty", ...)` was used at the empty-repos state, but
+ *       the dictionary only has `image.reposEmpty` — a string leaf is not
+ *       walkable, so the dotted path resolved to undefined in both locales
+ *       and the English inline fallback always rendered.
+ *    2. The whole `image.manifest.*` subtree (mediaType / digest /
+ *       schemaVersion / size / layers / raw) was used in the TSX but the
+ *       dictionary defines them flat at `image.mediaType` / `image.digest` /
+ *       etc. — same class of leak: dotted path can't traverse a string leaf,
+ *       so the inline English copy always rendered, even in zh.
+ *  This describe pins every key the panel actually touches so a future
+ *  refactor can't reintroduce either of those key-path mismatches. */
+describe("image registries panel keys", () => {
+  it("ships image.* chrome (title, close, action buttons, prompts) in both locales", () => {
+    for (const key of [
+      "title",
+      "close",
+      "test",
+      "confirmRemove",
+      "remove",
+      "add",
+      "pick",
+      "repos",
+      "tags",
+      "manifest",
+    ]) {
+      const en = translate("en", `image.${key}`);
+      const zh = translate("zh", `image.${key}`);
+      expect(en.length, `image.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `image.${key} zh`).toBeGreaterThan(0);
+    }
+  });
+
+  it("ships image.reposEmpty at the documented path (not image.repos.empty)", () => {
+    // The TSX originally used the dotted path `image.repos.empty` even
+    // though the dictionary only ships the flat `image.reposEmpty` leaf.
+    // A string leaf can't be traversed, so the dotted lookup resolved to
+    // undefined in both locales and the inline English copy always
+    // rendered. Pin the flat key so a future refactor that reverts to the
+    // dotted path trips this test.
+    expect(translate("en", "image.reposEmpty")).toBe(
+      "No repositories (or registry does not support /v2/_catalog)",
+    );
+    expect(translate("zh", "image.reposEmpty")).toBe(
+      "无镜像(或仓库不支持 /v2/_catalog)",
+    );
+    // The dotted path must not resolve (i.e. it must NOT silently match).
+    // If a future refactor renames the key to a nested `image.repos.empty`
+    // object, the dotted path will start resolving — and this assertion
+    // will flip the test to pin that new shape.
+    expect(translate("en", "image.repos.empty")).not.toBe(
+      "No repositories (or registry does not support /v2/_catalog)",
+    );
+  });
+
+  it("ships the manifest-table keys at the flat image.* path (not image.manifest.*)", () => {
+    // The TSX originally called `t("image.manifest.mediaType", ...)`,
+    // `t("image.manifest.digest", ...)`, etc., but the dictionary defines
+    // them flat at `image.mediaType` / `image.digest` / etc. — a string
+    // leaf can't be traversed, so the dotted lookup resolved to undefined
+    // and the inline English copy always rendered (including in zh).
+    // Pin the flat path so a future refactor that reverts to the dotted
+    // path trips this test.
+    const FLAT_KEYS: Array<[string, string, string]> = [
+      ["mediaType", "Media type", "Media Type"],
+      ["digest", "Digest", "摘要"],
+      ["schemaVersion", "Schema", "Schema"],
+      ["size", "Size", "大小"],
+      ["layers", "Layers", "层"],
+      ["raw", "Raw JSON", "原始 JSON"],
+    ];
+    for (const [key, enLabel, zhLabel] of FLAT_KEYS) {
+      const en = translate("en", `image.${key}`);
+      const zh = translate("zh", `image.${key}`);
+      expect(en, `image.${key} en`).toBe(enLabel);
+      expect(zh, `image.${key} zh`).toBe(zhLabel);
+      // The dotted path must not resolve to the same value (it would
+      // either resolve to undefined or, after a future refactor, to a
+      // different string). Either way it must not equal the flat value.
+      expect(
+        translate("en", `image.manifest.${key}`),
+        `image.manifest.${key} en must not equal image.${key}`,
+      ).not.toBe(enLabel);
+    }
+  });
+
+  it("ships image.form.* sub-keys in both locales", () => {
+    for (const key of ["title", "name", "url", "username", "password", "description", "save", "cancel"]) {
+      const en = translate("en", `image.form.${key}`);
+      const zh = translate("zh", `image.form.${key}`);
+      expect(en.length, `image.form.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `image.form.${key} zh`).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("cacheLocale / cachedLocale", () => {
   beforeEach(() => {
     // Each test starts with a clean stub, so the round-trip assertion isn't
