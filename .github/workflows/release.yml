@@ -128,6 +128,10 @@ jobs:
         with:
           projectName: k7s
           tagName: ${{ github.ref_name }}
+          # releaseName is required by tauri-action when creating a
+          # non-draft release. Default it to "k7s <tag>" so the
+          # release page title reads cleanly.
+          releaseName: 'k7s ${{ github.ref_name }}'
           # First public release — publish immediately.
           releaseDraft: false
           prerelease: false
