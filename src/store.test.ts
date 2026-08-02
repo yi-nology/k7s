@@ -342,35 +342,35 @@ describe("seedNodeSamples (B38: Prometheus backfill)", () => {
 
   it("seeds an empty series with history, oldest first", () => {
     useStore.getState().seedNodeSamples("murphy-yi", [sample(1000), sample(2000)]);
-    expect(useStore.getState().nodeSamples.murphy-yi.map((s) => s.ts)).toEqual([1000, 2000]);
+    expect(useStore.getState().nodeSamples["murphy-yi"].map((s) => s.ts)).toEqual([1000, 2000]);
   });
 
   it("puts history before live points", () => {
-    useStore.setState({ nodeSamples: { murphy-yi: [sample(5000)] } });
+    useStore.setState({ nodeSamples: { "murphy-yi": [sample(5000)] } });
     useStore.getState().seedNodeSamples("murphy-yi", [sample(3000), sample(4000)]);
-    expect(useStore.getState().nodeSamples.murphy-yi.map((s) => s.ts)).toEqual([3000, 4000, 5000]);
+    expect(useStore.getState().nodeSamples["murphy-yi"].map((s) => s.ts)).toEqual([3000, 4000, 5000]);
   });
 
   // The two sources overlap in time; the live scrape measures the value directly
   // rather than re-deriving it from a rate over a wider window, so it wins.
   it("drops history that overlaps a live point, keeping the live reading", () => {
-    useStore.setState({ nodeSamples: { murphy-yi: [sample(4000, 99)] } });
+    useStore.setState({ nodeSamples: { "murphy-yi": [sample(4000, 99)] } });
     useStore.getState().seedNodeSamples("murphy-yi", [sample(3000, 1), sample(4000, 1), sample(5000, 1)]);
-    const got = useStore.getState().nodeSamples.murphy-yi;
+    const got = useStore.getState().nodeSamples["murphy-yi"];
     expect(got.map((s) => s.ts)).toEqual([3000, 4000]);
     expect(got[1].cpuPercent).toBe(99);
   });
 
   it("is a no-op when there's no history — the common no-Prometheus case", () => {
-    useStore.setState({ nodeSamples: { murphy-yi: [sample(1000)] } });
+    useStore.setState({ nodeSamples: { "murphy-yi": [sample(1000)] } });
     useStore.getState().seedNodeSamples("murphy-yi", []);
-    expect(useStore.getState().nodeSamples.murphy-yi.map((s) => s.ts)).toEqual([1000]);
+    expect(useStore.getState().nodeSamples["murphy-yi"].map((s) => s.ts)).toEqual([1000]);
   });
 
   it("caps the merged series so a long backfill can't grow it without bound", () => {
     const history = Array.from({ length: LOG_BUFFER_CAP * 3 }, (_, i) => sample(i));
     useStore.getState().seedNodeSamples("murphy-yi", history);
-    expect(useStore.getState().nodeSamples.murphy-yi.length).toBeLessThanOrEqual(240);
+    expect(useStore.getState().nodeSamples["murphy-yi"].length).toBeLessThanOrEqual(240);
   });
 });
 
