@@ -457,8 +457,25 @@ export interface Dictionary {
       namePlaceholder: string;
       notePlaceholder: string;
       saveAction: string;
+      /** Action-button text when the typed name matches an existing
+       *  saved query. The save bar swaps the label from `saveAction`
+       *  → `updateAction` so the user can see they're overwriting,
+       *  not creating. */
+      updateAction: string;
+      /** Inline hint rendered inside the save bar when the typed
+       *  name matches an existing saved query. */
+      overwriteHint: string;
+      /** In-flight text on the save action while the upsert is
+       *  in progress. The button is `disabled` during this state
+       *  so a double-click can't queue a second write. */
+      saving: string;
       clearCache: string;
       clearCacheBtn: string;
+      /** Transient feedback shown for ~1.5s after a successful
+       *  `savedQueriesClearCache()`. The button text reverts on
+       *  its own; no toast. Same `ok / err / idle` pattern as
+       *  the McpPanel CopyButton. */
+      clearCacheOk: string;
       refreshHint: string;
       removeHint: string;
       confirmRemove: (name: string) => string;
@@ -991,8 +1008,12 @@ export const en: Dictionary = {
       namePlaceholder: "Name",
       notePlaceholder: "Note (optional)",
       saveAction: "Save",
+      updateAction: "Update",
+      overwriteHint: "Will overwrite the existing query with this name.",
+      saving: "Saving…",
       clearCache: "Wipe the in-memory query cache",
       clearCacheBtn: "Clear cache",
+      clearCacheOk: "Cleared",
       refreshHint: "Run, ignoring the cache",
       removeHint: "Delete saved query",
       confirmRemove: (name) => `Delete saved query "${name}"?`,
@@ -1528,8 +1549,12 @@ export const zh: Dictionary = {
       namePlaceholder: "名称",
       notePlaceholder: "备注(可选)",
       saveAction: "保存",
+      updateAction: "更新",
+      overwriteHint: "将覆盖已存在的同名查询。",
+      saving: "保存中…",
       clearCache: "清空内存查询缓存",
       clearCacheBtn: "清空缓存",
+      clearCacheOk: "已清空",
       refreshHint: "运行,忽略缓存",
       removeHint: "删除已保存查询",
       confirmRemove: (name) => `删除已保存查询 "${name}"?`,

@@ -170,6 +170,21 @@
   margin-bottom: var(--space-2);
 }
 
+.saveBarWrap {
+  margin-bottom: var(--space-2);
+}
+
+.saveBarWrap .saveBar {
+  margin-bottom: 0;
+}
+
+.overwriteHint {
+  color: var(--status-warn, #c79b2b);
+  font-size: var(--text-xs);
+  margin-top: 2px;
+  padding: 2px var(--space-2);
+}
+
 .saveBar input {
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -179,6 +194,10 @@
   font: inherit;
   font-size: var(--text-sm);
   padding: var(--space-1) var(--space-2);
+}
+
+.saveBar input:disabled {
+  opacity: 0.6;
 }
 
 .savedList {
@@ -246,6 +265,14 @@
 
 .btnSmallDanger {
   color: var(--status-err);
+}
+
+/* Transient "Cleared" feedback for the cache-bust button — flips
+   the label to en/zh `clearCacheOk` for 1.5s. Same accent ring
+   the action menu uses for success. */
+.btnSmallOk {
+  color: var(--status-ok);
+  border-color: var(--status-ok);
 }
 
 .table {

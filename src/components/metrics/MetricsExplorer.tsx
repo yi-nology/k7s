@@ -46,6 +46,30 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   const [saveName, setSaveName] = useState("");
   const [saveNote, setSaveNote] = useState("");
   const [cacheBust, setCacheBust] = useState(0);
+  // "saving" guards the save action button during the in-flight
+  // `savedQueriesUpsert` so a double-click can't queue a second
+  // write. Pre-fix (pass-11), the button was always enabled
+  // once `saveName.trim()` was non-empty and had no in-flight
+  // text — the same defect class pass-18 fixed for HelmMarket
+  // add-repo and the ActionList scale / forward forms.
+  const [saving, setSaving] = useState(false);
+  // "idle" | "ok" — transient feedback after a successful
+  // `savedQueriesClearCache()`. The button text reverts on its
+  // own (1.5s). Same `ok / err / idle` pattern as the
+  // McpPanel CopyButton. Pre-fix (pass-11), the click handler
+  // fired the provider method with no state change, so the user
+  // had no idea whether anything happened.
+  const [cacheState, setCacheState] = useState<"idle" | "ok">("idle");
+
+  // The save bar's typed name matches an existing saved query
+  // (case-insensitive, trim-insensitive) → the action button
+  // labels itself "Update" / "更新" and a small inline hint
+  // surfaces the overwrite. Pre-fix (pass-11), the save bar
+  // gave no visual hint that a same-name save would overwrite
+  // a query the user might have forgotten they had.
+  const trimmedName = saveName.trim();
+  const isOverwrite = trimmedName.length > 0 &&
+    saved.some((q) => q.name.toLowerCase() === trimmedName.toLowerCase());
 
   // Load configured instances.
   useEffect(() => {
@@ -114,7 +138,8 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   };
 
   const saveCurrent = async () => {
-    if (!saveName.trim() || !promql.trim()) return;
+    if (!saveName.trim() || !promql.trim() || saving) return;
+    setSaving(true);
     try {
       await getProvider().savedQueriesUpsert({
         name: saveName.trim(),
@@ -128,6 +153,8 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       setCacheBust((c) => c + 1);
     } catch (e) {
       setError(String(e));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -137,6 +164,19 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
     }
     await getProvider().savedQueriesRemove(name);
     setCacheBust((c) => c + 1);
+  };
+
+  // Clear-cache handler. The button's text briefly flips to
+  // `clearCacheOk` (en: "Cleared", zh: "已清空") for 1.5s so the
+  // user gets feedback that the click landed. The provider's
+  // `savedQueriesClearCache()` is fire-and-forget here — even a
+  // slow backend gives the user a visible "yes, that worked"
+  // signal, and the timeout-based revert is the same pattern
+  // the McpPanel CopyButton uses.
+  const clearCache = () => {
+    void getProvider().savedQueriesClearCache();
+    setCacheState("ok");
+    setTimeout(() => setCacheState("idle"), 1500);
   };
 
   // Auto-run when the user switches instance or mode.
@@ -248,27 +288,41 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       </div>
 
       {showSave && (
-        <div className={styles.saveBar}>
-          <input
-            placeholder={t("metricsExplorer.saved.namePlaceholder", "Name")}
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void saveCurrent();
-            }}
-          />
-          <input
-            placeholder={t("metricsExplorer.saved.notePlaceholder", "Note (optional)")}
-            value={saveNote}
-            onChange={(e) => setSaveNote(e.target.value)}
-          />
-          <button
-            className={styles.primary}
-            onClick={saveCurrent}
-            disabled={!saveName.trim()}
-          >
-            {t("metricsExplorer.saved.saveAction", "Save")}
-          </button>
+        <div className={styles.saveBarWrap}>
+          <div className={styles.saveBar}>
+            <input
+              placeholder={t("metricsExplorer.saved.namePlaceholder", "Name")}
+              value={saveName}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void saveCurrent();
+              }}
+              disabled={saving}
+            />
+            <input
+              placeholder={t("metricsExplorer.saved.notePlaceholder", "Note (optional)")}
+              value={saveNote}
+              onChange={(e) => setSaveNote(e.target.value)}
+              disabled={saving}
+            />
+            <button
+              type="button"
+              className={styles.primary}
+              onClick={saveCurrent}
+              disabled={!saveName.trim() || saving}
+            >
+              {saving
+                ? t("metricsExplorer.saved.saving", "Saving…")
+                : isOverwrite
+                  ? t("metricsExplorer.saved.updateAction", "Update")
+                  : t("metricsExplorer.saved.saveAction", "Save")}
+            </button>
+          </div>
+          {isOverwrite && (
+            <div className={styles.overwriteHint}>
+              {t("metricsExplorer.saved.overwriteHint", "Will overwrite the existing query with this name.")}
+            </div>
+          )}
         </div>
       )}
 
@@ -277,13 +331,18 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
           <div className={styles.savedHeader}>
             {t("metricsExplorer.saved.title", "Saved queries")}
             <button
-              className={styles.btnSmall}
-              onClick={() => {
-                void getProvider().savedQueriesClearCache();
-              }}
+              type="button"
+              className={
+                cacheState === "ok"
+                  ? `${styles.btnSmall} ${styles.btnSmallOk}`
+                  : styles.btnSmall
+              }
+              onClick={clearCache}
               title={t("metricsExplorer.saved.clearCache", "Wipe the in-memory query cache")}
             >
-              {t("metricsExplorer.saved.clearCacheBtn", "Clear cache")}
+              {cacheState === "ok"
+                ? t("metricsExplorer.saved.clearCacheOk", "Cleared")
+                : t("metricsExplorer.saved.clearCacheBtn", "Clear cache")}
             </button>
           </div>
           {saved.map((q) => (

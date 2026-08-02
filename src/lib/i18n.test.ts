@@ -395,7 +395,9 @@ describe("metrics explorer saved-queries strings", () => {
 
   it("ships the metricsExplorer.saved.* sub-keys in both locales", () => {
     // CRUD chrome for the saved queries panel: title, save affordance,
-    // input placeholders, clear-cache hint, and the delete confirm.
+    // input placeholders, clear-cache hint, the overwrite-hint
+    // (pass-19), the in-flight "saving" text (pass-19), the
+    // transient "cleared" feedback (pass-19), and the delete confirm.
     // Pin the keys we touch in MetricsExplorer.tsx so a future
     // dictionary shrink doesn't drop one (same leak class as
     // chrome.palette.actions.* / topology.*).
@@ -406,8 +408,12 @@ describe("metrics explorer saved-queries strings", () => {
       "namePlaceholder",
       "notePlaceholder",
       "saveAction",
+      "updateAction",
+      "overwriteHint",
+      "saving",
       "clearCache",
       "clearCacheBtn",
+      "clearCacheOk",
       "refreshHint",
       "removeHint",
     ];
@@ -417,6 +423,50 @@ describe("metrics explorer saved-queries strings", () => {
       expect(en.length, `metricsExplorer.saved.${key} en`).toBeGreaterThan(0);
       expect(zh.length, `metricsExplorer.saved.${key} zh`).toBeGreaterThan(0);
     }
+  });
+
+  it("preserves the pass-19 overwrite-action / saving / clearCacheOk wording", () => {
+    // Pass-19 added three new affordances: an "Update" button label
+    // when the typed name matches an existing query, an in-flight
+    // "Saving…" text, and a transient "Cleared" feedback for the
+    // cache-bust button. Pin the canonical en/zh values so a
+    // future copy edit doesn't drift back to a leaky literal —
+    // same regression-guard pattern as the `refreshTitle` test
+    // above.
+    expect(translate("en", "metricsExplorer.saved.updateAction")).toBe("Update");
+    expect(translate("zh", "metricsExplorer.saved.updateAction")).toBe("更新");
+    expect(translate("en", "metricsExplorer.saved.saving")).toBe("Saving…");
+    expect(translate("zh", "metricsExplorer.saved.saving")).toBe("保存中…");
+    expect(translate("en", "metricsExplorer.saved.clearCacheOk")).toBe("Cleared");
+    expect(translate("zh", "metricsExplorer.saved.clearCacheOk")).toBe("已清空");
+    // overwriteHint is the inline "Will overwrite…" copy that
+    // surfaces in the save bar when the typed name matches an
+    // existing saved query. The English copy must mention
+    // "overwrite"; the Chinese copy must mention "覆盖" — both
+    // are the verb the user needs to make the right call. A
+    // future refactor that drops the verb (e.g. "Same name as
+    // existing") trips this assertion.
+    const enHint = translate("en", "metricsExplorer.saved.overwriteHint");
+    const zhHint = translate("zh", "metricsExplorer.saved.overwriteHint");
+    expect(enHint.toLowerCase()).toContain("overwrite");
+    expect(zhHint).toContain("覆盖");
+  });
+
+  it("distinguishes saveAction (Save) from updateAction (Update) — they must not collapse", () => {
+    // The save bar swaps its button label between `saveAction`
+    // ("Save" / "保存") and `updateAction` ("Update" / "更新")
+    // based on whether the typed name matches an existing saved
+    // query. A future refactor that collapsed them into one
+    // string (e.g. "save" with a `name` arg) would lose the
+    // affordance — the button would always say "Save" even when
+    // it's about to overwrite. Pin that the two values are
+    // distinct in both locales.
+    const enSave = translate("en", "metricsExplorer.saved.saveAction");
+    const enUpdate = translate("en", "metricsExplorer.saved.updateAction");
+    const zhSave = translate("zh", "metricsExplorer.saved.saveAction");
+    const zhUpdate = translate("zh", "metricsExplorer.saved.updateAction");
+    expect(enSave).not.toBe(enUpdate);
+    expect(zhSave).not.toBe(zhUpdate);
   });
 
   it("preserves confirmRemove's parameterised shape (it is a function, not a string)", () => {
