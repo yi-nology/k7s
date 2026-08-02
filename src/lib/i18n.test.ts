@@ -1082,6 +1082,101 @@ describe("chrome statusbar / clusterSwitcher / metricsExplorer.instantTable (pas
   });
 });
 
+/**
+ * The ForwardsBar (B6, B16) renders a strip of `localhost:PORT → target:REMOTE`
+ * pills above the status bar whenever there are live port-forwards. Every
+ * string the strip shows — the section label, the copy/stop tooltips, the
+ * resolved-target format — routes through `chrome.forwards.*` keys, and the
+ * two function-shaped targets (podTarget / serviceTarget) are interpolated
+ * with positional args. The strip predates the v0.2.4 i18n sweep (pass-1/8/9)
+ * and no test had pinned its keys, so a future refactor could drop
+ * `chrome.forwards.*` the way `chrome.palette.actions.*` / `topology.*` were
+ * dropped in earlier passes. Lock every key the strip reads.
+ */
+describe("chrome.forwards.* — ForwardsBar strip strings (pass-20)", () => {
+  it("ships chrome.forwards.{label, copyAddress, stopForward} in both locales", () => {
+    expect(translate("en", "chrome.forwards.label")).toBe("forwards:");
+    expect(translate("zh", "chrome.forwards.label")).toBe("端口转发:");
+    expect(translate("en", "chrome.forwards.copyAddress")).toBe("copy address");
+    expect(translate("zh", "chrome.forwards.copyAddress")).toBe("复制地址");
+    expect(translate("en", "chrome.forwards.stopForward")).toBe("stop forward");
+    expect(translate("zh", "chrome.forwards.stopForward")).toBe("停止转发");
+  });
+
+  it("ships chrome.forwards.podTarget (function) with the right shape in both locales", () => {
+    // The resolved-pod tooltip, e.g. for a forward to `default/pod nginx-0:80`.
+    // Pre-fix, the English copy was a positional template; this test pins
+    // the noun ("pod"), the separator (slash + space), and the colon before
+    // the port — the structure the user reads to debug a forward.
+    const en = translate("en", "chrome.forwards.podTarget", "default", "nginx-0", 80);
+    expect(en).toBe("default/pod nginx-0:80");
+    expect(en).toContain("pod");           // the noun the user looks for
+    expect(en).toContain("/");             // the namespace separator
+    expect(en).toContain("nginx-0");       // the pod name
+    expect(en).toContain(":80");           // the port colon
+
+    const zh = translate("zh", "chrome.forwards.podTarget", "default", "nginx-0", 80);
+    expect(zh).toBe("default/pod nginx-0:80");
+    // The Chinese string is a template-shaped same-template; pin the
+    // structure (ns + pod + port) but allow the connector copy to differ
+    // if a future refactor adds one. The current shape mirrors English,
+    // which matches the rest of the chrome (logs, alerts, etc.).
+    expect(zh).toContain("default");
+    expect(zh).toContain("nginx-0");
+    expect(zh).toContain("80");
+  });
+
+  it("ships chrome.forwards.serviceTarget (function) with the right shape in both locales", () => {
+    // A service forward shows the service name + the resolved pod. The
+    // arrow (`→`) is the visual separator — if a refactor drops it the
+    // service / pod distinction blurs.
+    const en = translate(
+      "en",
+      "chrome.forwards.serviceTarget",
+      "default",
+      "nginx",
+      80,
+      "nginx-0",
+      8080,
+    );
+    expect(en).toBe("default/service nginx:80 → pod nginx-0:8080");
+    expect(en).toContain("service");
+    expect(en).toContain("→");
+    expect(en).toContain("pod");
+    expect(en).toContain("nginx:80");       // the published port
+    expect(en).toContain("nginx-0:8080");   // the resolved targetPort
+
+    const zh = translate(
+      "zh",
+      "chrome.forwards.serviceTarget",
+      "default",
+      "nginx",
+      80,
+      "nginx-0",
+      8080,
+    );
+    expect(zh).toBe("default/service nginx:80 → pod nginx-0:8080");
+    expect(zh).toContain("→");
+  });
+
+  it("zh strings do not collapse to English (chrome.forwards.*)", () => {
+    // The two function-shaped targets are the same template in both locales
+    // (the chrome doesn't translate "pod" / "service" as standalone nouns
+    // because they're code-adjacent), but the three label / tooltip strings
+    // must be different — the pre-pass-20 zh UI rendered the English label
+    // "forwards:" above the status bar.
+    expect(translate("zh", "chrome.forwards.label")).not.toBe(
+      translate("en", "chrome.forwards.label"),
+    );
+    expect(translate("zh", "chrome.forwards.copyAddress")).not.toBe(
+      translate("en", "chrome.forwards.copyAddress"),
+    );
+    expect(translate("zh", "chrome.forwards.stopForward")).not.toBe(
+      translate("en", "chrome.forwards.stopForward"),
+    );
+  });
+});
+
 describe("cacheLocale / cachedLocale", () => {
   beforeEach(() => {
     // Each test starts with a clean stub, so the round-trip assertion isn't

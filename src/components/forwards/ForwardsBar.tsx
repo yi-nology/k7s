@@ -7,6 +7,12 @@
  * forward — with the pod it actually resolved to in the tooltip. A forward whose
  * connections are failing turns red but stays listed: its listener is still bound
  * and the pod may come back.
+ *
+ * v2 — the error tooltip joins with " — " instead of "\n": an HTML `title`
+ * attribute doesn't render newlines (browsers squash them to a space, so the
+ * resolved target and the failure string ended up glued together with no visual
+ * separator). The em-dash is the same pattern TemplatePicker.tsx uses for its
+ * per-row error join, so error copy reads consistently across the chrome.
  */
 
 import styles from "./ForwardsBar.module.css";
@@ -67,7 +73,10 @@ function tooltip(
   const base = f.service
     ? t("chrome.forwards.serviceTarget", f.namespace, f.service, f.servicePort ?? f.remotePort, f.pod, f.remotePort)
     : t("chrome.forwards.podTarget", f.namespace, f.pod, f.remotePort);
-  return f.error ? `${base}\n${f.error}` : base;
+  // Em-dash separator (not a newline): the `title` attribute collapses \n to a
+  // space, so the error would otherwise be glued onto the resolved target with
+  // no visual break.
+  return f.error ? `${base} — ${f.error}` : base;
 }
 
 /** Copy silently; the address stays visible either way. */
