@@ -1,9 +1,38 @@
 name: release
+
+# Triggered when you push a tag like v0.2.1. The version in
+# src-tauri/tauri.conf.json and src-tauri/Cargo.toml MUST match the
+# stripped tag (e.g. tag v0.2.1 → config says "0.2.1") or
+# tauri-action will refuse with "version mismatch".
+#
+# Pushes to main / PRs also run the build job as a sanity check.
+#
+# What this produces on each runner (Tauri's default bundle matrix
+# because src-tauri/tauri.conf.json has bundle.targets = "all"):
+#
+#   ubuntu-22.04 →  k7s_x.y.z_amd64.deb / .rpm / .AppImage
+#   macos-latest →  k7s_x.y.z_aarch64.dmg + k7s.app
+#   windows-latest → k7s_x.y.z_x64-setup.exe + k7s_x.y.z_x64_en-US.msi
+#
+# The `docker` job also pushes ghcr.io/zy84338719/k7s:v0.2.1 + 0.2.1 + 0.2 + latest.
+
 on:
   push:
-    tags: ['v*']
+    tags:
+      - "v*"
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   build:
+    name: build (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
@@ -16,14 +45,194 @@ jobs:
             rust: stable
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - name: checkout
+        uses: actions/checkout@v4
+
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.rust }}
+
+      - name: cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
       - name: install Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+
+      - name: install pnpm
+        # No `with:` block on purpose — pnpm/action-setup reads
+        # `packageManager` from package.json. An empty `with:` makes
+        # GitHub reject the workflow file with "workflow file issue".
+        uses: pnpm/action-setup@v4
+
+      - name: install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            file
+
+      - name: install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: run JS unit tests
+        run: pnpm test -- --run
+
+      # No `--bundles` so tauri-action uses the platform default
+      # (the "all" set in tauri.conf.json). `releaseTag: ""` skips
+      # the GitHub-release side-effect on push / PR.
+      - name: build
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          releaseTag: ""
+
+  release:
+    name: release (${{ matrix.os }})
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            rust: stable
+          - os: macos-latest
+            rust: stable
+          - os: windows-latest
+            rust: stable
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
       - name: install pnpm
         uses: pnpm/action-setup@v4
+
+      - name: install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            file
+
+      - name: install JS deps
+        run: pnpm install --frozen-lockfile
+
+      - name: run JS unit tests
+        run: pnpm test -- --run
+
+      - name: build & release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectName: k7s
+          tagName: ${{ github.ref_name }}
+          # First public release — publish immediately.
+          releaseDraft: false
+          prerelease: false
+          # ── code signing (uncomment + add secrets to enable) ──
+          # appleId: ${{ secrets.APPLE_ID }}
+          # applePassword: ${{ secrets.APPLE_PASSWORD }}
+          # appleTeamId: ${{ secrets.APPLE_TEAM_ID }}
+          # signingIdentity: ${{ secrets.WINDOWS_CERT }}
+
+  docker:
+    name: docker (${{ matrix.platform }})
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          - linux/arm64
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: free disk space
+        # ghcr runners are tight on /; recover a few GB before the
+        # multi-stage image build (QEMU + Rust + Node all want space).
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                       /opt/hostedtoolcache/CodeQL || true
+          docker image prune -af || true
+          docker builder prune -af --filter "until=24h" || true
+          df -h /
+
+      - name: set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: compute image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/zy84338719/k7s
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+          flavor: latest=auto
+
+      - name: build & push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ matrix.platform }}
+          # Job-level `if:` already gates this to refs/tags/v*,
+          # so push: <ref check> is sufficient.
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
