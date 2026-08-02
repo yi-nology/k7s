@@ -522,3 +522,40 @@ describe("yamlDraft lifecycle (pass-24)", () => {
     expect(useStore.getState().yamlDraft).toBe("fresh fetch");
   });
 });
+
+/**
+ * The "+ New" toolbar button on every kind page calls `openOverlay("templates")`
+ * to surface the create-from-template picker (Bxx). The store-level behavior
+ * we're locking down: opening a templates overlay must also close any open
+ * topbar dropdown (cluster / namespace / language), so the overlay doesn't
+ * stack on top of a still-open menu.
+ */
+describe("openOverlay (Bxx — table New button)", () => {
+  beforeEach(() => {
+    useStore.setState({
+      overlay: null,
+      overlayPodRef: null,
+      openMenu: null,
+    });
+  });
+
+  it("openOverlay('templates') sets the overlay key", () => {
+    useStore.getState().openOverlay("templates");
+    expect(useStore.getState().overlay).toBe("templates");
+  });
+
+  /** Without the openMenu reset, the cluster switcher or namespace menu
+   *  would remain on screen behind the overlay. */
+  it("openOverlay closes any open topbar dropdown", () => {
+    useStore.setState({ openMenu: "ns" });
+    useStore.getState().openOverlay("templates");
+    expect(useStore.getState().openMenu).toBeNull();
+  });
+
+  it("closeOverlay clears the overlay state", () => {
+    useStore.getState().openOverlay("templates");
+    useStore.getState().closeOverlay();
+    expect(useStore.getState().overlay).toBeNull();
+    expect(useStore.getState().overlayPodRef).toBeNull();
+  });
+});

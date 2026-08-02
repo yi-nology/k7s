@@ -45,6 +45,10 @@ export function ResourceTable() {
   const clearSelection = useStore((s) => s.clearSelection);
   const navigateTo = useStore((s) => s.navigateTo);
   const customKinds = useStore((s) => s.customKinds);
+  // Open the create-from-template overlay. Lives on the generic toolbar so any
+  // kind page (Deployments, Pods, Nodes, …) gets the affordance — the picker
+  // itself filters to the templates available for the cluster (Bxx).
+  const openOverlay = useStore((s) => s.openOverlay);
   const { t } = useTranslation();
 
   // Age columns re-render on a 30s tick.
@@ -261,6 +265,20 @@ export function ResourceTable() {
             </button>
           </div>
         )}
+        {/* "New" affordance. Mirrors the sidebar Tools → Templates entry so the
+            create path is reachable from any kind page, not only via the
+            sidebar. The icon matches the sidebar's `✚` so the two surfaces
+            feel like one feature, not two. */}
+        <button
+          type="button"
+          className={styles.newBtn}
+          onClick={() => openOverlay("templates")}
+          title={t("table.newTitle", "Create a resource from a YAML template")}
+          data-testid="new-resource"
+        >
+          <span className={styles.newIcon} aria-hidden="true">+</span>
+          <span>{t("table.new", "New")}</span>
+        </button>
       </div>
       <div className={styles.wrap} ref={scrollRef}>
         <table className={`${styles.table} ${virtual ? styles.tableFixed : ""}`}>

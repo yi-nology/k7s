@@ -90,6 +90,46 @@
   opacity: 1;
 }
 
+/* "New" affordance — opens the create-from-template overlay. Pushed to the
+   right edge of the toolbar so the search input keeps its left-anchored
+   position; the accent fill matches the action menu's Apply button so the
+   "this is the primary action" cue is the same on both surfaces. The
+   selection chip above can sit between the search and this button without
+   overlapping because margin-left: auto only claims the trailing space. */
+.newBtn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--bg-app);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+.newBtn:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.newBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.newIcon {
+  font-size: 14px;
+  line-height: 1;
+  /* Optical balance: a `+` glyph sits a touch above the cap height. Nudge it
+     down so it lines up with the label's x-height, not its ascender. */
+  transform: translateY(-0.5px);
+}
+
 .wrap {
   flex: 1;
   min-height: 0;
