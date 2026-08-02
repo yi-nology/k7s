@@ -80,7 +80,8 @@ the empty-state leak.
 |---|---|
 | `src/App.tsx` | Added `useTranslation` to the existing `useI18n` import line; bound `const { t } = useTranslation()` at the top of the component; routed the `pod-files` overlay's "no pod picked" empty state through `t("podFiles.noPod", "Open Pod Files from a Pod's row context menu.")`. |
 
-Commit: **`pending` — fix(i18n): route pod-files overlay empty state through useTranslation**
+Commit: **`50f20ad`** — *fix(i18n): route pod-files overlay empty state through useTranslation*
+Pushed to `origin/main`.
 
 ## Verification
 
