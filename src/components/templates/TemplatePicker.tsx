@@ -5,8 +5,9 @@
  * preview. Submitting calls `applyYamlBundle` (created/updated per doc),
  * then surfaces the per-document result.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { getProvider } from "../../providers";
+import type { ApplyResult } from "../../providers/types";
 import {
   defaultValuesFor,
   listTemplates,
@@ -21,9 +22,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   const templates = useMemo(() => listTemplates(), []);
   const [selected, setSelected] = useState<Template | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<
-    { name: string; kind: string; action: string; error: string | null }[]
-  >([]);
+  const [result, setResult] = useState<ApplyResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -57,6 +56,12 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
     }
   };
 
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    void apply();
+  };
+
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
@@ -85,7 +90,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
         </aside>
         <main className={styles.main}>
           {selected ? (
-            <>
+            <form onSubmit={onSubmit} className={styles.formRoot}>
               <h3>{selected.title}</h3>
               <div className={styles.form}>
                 {selected.params.map((p) => (
@@ -107,6 +112,9 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
                         type={p.kind === "number" ? "number" : "text"}
                         value={values[p.key] ?? p.default}
                         pattern={p.pattern}
+                        min={p.min}
+                        max={p.max}
+                        placeholder={p.default}
                         onChange={(e) =>
                           setValues({ ...values, [p.key]: e.target.value })
                         }
@@ -123,8 +131,8 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
               <div className={styles.actions}>
                 <button
                   className={styles.primary}
+                  type="submit"
                   disabled={busy}
-                  onClick={apply}
                 >
                   {busy
                     ? t("tpl.applying", "Applying…")
@@ -143,12 +151,13 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
                       }
                     >
                       {r.action} {r.kind}/{r.name}
+                      {r.namespace ? ` (${r.namespace})` : ""}
                       {r.error ? ` — ${r.error}` : ""}
                     </li>
                   ))}
                 </ul>
               )}
-            </>
+            </form>
           ) : (
             <div className={styles.empty}>
               {t("tpl.pick", "Pick a template on the left")}

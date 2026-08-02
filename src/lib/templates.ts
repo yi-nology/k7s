@@ -23,10 +23,21 @@ export interface TemplateParam {
   default: string;
   /** Input kind: text, number, or boolean. */
   kind: "text" | "number" | "boolean";
-  /** Optional validation regex. */
+  /**
+   * Optional validation regex. Only consulted for `kind: "text"` inputs; the
+   * browser applies it as a native `pattern` attribute.
+   */
   pattern?: string;
   /** One-line help text. */
   help?: string;
+  /**
+   * Optional lower / upper bound for `kind: "number"` inputs. The form mirrors
+   * these as the native `min` / `max` attributes so the browser surfaces
+   * out-of-range values to the user; the renderer in `clampInt` enforces the
+   * same bounds as a server-side safety net. Bounds are inclusive.
+   */
+  min?: number;
+  max?: number;
 }
 
 export interface Template {
@@ -59,8 +70,22 @@ const TEMPLATES: Template[] = [
         kind: "text",
         help: "registry/repo:tag",
       },
-      { key: "replicas", label: "Replicas", default: "1", kind: "number" },
-      { key: "port", label: "Container port", default: "80", kind: "number" },
+      {
+        key: "replicas",
+        label: "Replicas",
+        default: "1",
+        kind: "number",
+        min: 1,
+        max: 100,
+      },
+      {
+        key: "port",
+        label: "Container port",
+        default: "80",
+        kind: "number",
+        min: 1,
+        max: 65535,
+      },
       {
         key: "namespace",
         label: "Namespace",
@@ -131,7 +156,14 @@ const TEMPLATES: Template[] = [
         default: "my-app",
         kind: "text",
       },
-      { key: "port", label: "Service port", default: "80", kind: "number" },
+      {
+        key: "port",
+        label: "Service port",
+        default: "80",
+        kind: "number",
+        min: 1,
+        max: 65535,
+      },
       {
         key: "namespace",
         label: "Namespace",
