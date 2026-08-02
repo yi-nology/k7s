@@ -171,11 +171,39 @@ export function actionsFor(
 /** Names, truncated — a confirmation listing 200 pods is not a confirmation. */
 const MAX_LISTED = 8;
 
+/** A name disambiguated by its namespace when the selection spans them. */
+function formatName(r: Row): string {
+  return r.namespace ? `${r.namespace}/${r.name}` : r.name;
+}
+
+/**
+ * True if every row has the same namespace, treating "no namespace" (cluster-
+ * scoped kinds) as a value that has to match itself.
+ */
+function sameNamespace(rows: Row[]): boolean {
+  if (rows.length === 0) return true;
+  const first = rows[0].namespace ?? "";
+  return rows.every((r) => (r.namespace ?? "") === first);
+}
+
+/**
+ * Names, truncated — a confirmation listing 200 pods is not a confirmation.
+ *
+ * When the selection spans multiple namespaces, each name is prefixed with its
+ * namespace (`default/api, kube-system/worker`) so the confirmation reveals
+ * which objects the user is about to delete. The whole risk of a bulk action is
+ * that the selection isn't what the user thinks — two pods with the same name
+ * in different namespaces would otherwise look identical in the dialog, and
+ * "Delete 3 pods? (api, api, api)" gives the user no way to tell.
+ *
+ * When every row is in the same namespace (the common case), the bare names
+ * are returned unchanged so the existing UX doesn't shift.
+ */
 export function listNames(rows: Row[]): string {
-  const names = rows.map((r) => r.name);
-  if (names.length <= MAX_LISTED) return names.join(", ");
-  const rest = names.length - MAX_LISTED;
-  return `${names.slice(0, MAX_LISTED).join(", ")} and ${rest} more`;
+  const formatted = sameNamespace(rows) ? rows.map((r) => r.name) : rows.map(formatName);
+  if (formatted.length <= MAX_LISTED) return formatted.join(", ");
+  const rest = formatted.length - MAX_LISTED;
+  return `${formatted.slice(0, MAX_LISTED).join(", ")} and ${rest} more`;
 }
 
 /**
@@ -184,7 +212,9 @@ export function listNames(rows: Row[]): string {
  * It always enumerates what is about to happen — the count *and* the names.
  * "Delete 3 pods?" is not enough to act on safely: the whole risk of bulk
  * actions is that the selection isn't what you think it is, and the names are
- * the only thing that reveals that.
+ * the only thing that reveals that. When the selection spans namespaces, each
+ * name is prefixed with its namespace so the user can tell which objects they
+ * are about to delete (see `listNames`).
  */
 export function confirmText(
   id: ActionId,

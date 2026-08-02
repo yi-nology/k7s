@@ -133,6 +133,41 @@ describe("confirmText", () => {
     const text = confirmText("restart", "pods", [row("a"), row("b")]);
     expect(text).toContain("their controllers recreate them");
   });
+
+  /**
+   * The whole point of listing names in a confirmation is to reveal what the
+   * selection actually holds. Two pods named `api` in different namespaces
+   * would otherwise look identical in the dialog; prefixing the namespace
+   * makes the cross-namespace selection unambiguous.
+   */
+  it("prefixes each name with its namespace when the selection spans namespaces", () => {
+    const rows = [
+      row("api", { namespace: "default" }),
+      row("api", { namespace: "kube-system" }),
+      row("worker", { namespace: "monitoring" }),
+    ];
+    const text = confirmText("delete", "pods", rows);
+    expect(text).toContain("default/api, kube-system/api, monitoring/worker");
+    // And the count is still right — the namespace prefix doesn't change the
+    // shape, only the disambiguation.
+    expect(text).toContain("3 pods");
+  });
+
+  /**
+   * The single-namespace case is unchanged: a user selecting three pods in
+   * `prod` sees the same dialog they always have, and a refactor that
+   * accidentally introduced a namespace prefix here would be a UX regression.
+   */
+  it("keeps the bare names when every row is in the same namespace", () => {
+    const rows = [
+      row("a", { namespace: "prod" }),
+      row("b", { namespace: "prod" }),
+      row("c", { namespace: "prod" }),
+    ];
+    const text = confirmText("delete", "pods", rows);
+    expect(text).toContain("a, b, c");
+    expect(text).not.toContain("prod/");
+  });
 });
 
 describe("plural", () => {
@@ -156,6 +191,52 @@ describe("plural", () => {
 describe("listNames", () => {
   it("joins a short list in full", () => {
     expect(listNames([row("a"), row("b")])).toBe("a, b");
+  });
+
+  /**
+   * Two pods with the same name in different namespaces must not look
+   * identical in a confirmation — the namespace is the disambiguator.
+   */
+  it("prefixes each name with its namespace when the rows span namespaces", () => {
+    expect(
+      listNames([
+        row("api", { namespace: "default" }),
+        row("api", { namespace: "kube-system" }),
+      ]),
+    ).toBe("default/api, kube-system/api");
+  });
+
+  /**
+   * Truncation still works with the cross-namespace prefix — the limit applies
+   * to the row count, not the rendered string length.
+   */
+  it("truncates a long cross-namespace list and preserves the prefixes", () => {
+    const rows = Array.from({ length: 12 }, (_, i) =>
+      row(`p-${i}`, { namespace: i % 2 === 0 ? "default" : "kube-system" }),
+    );
+    const text = listNames(rows);
+    // Two of the first 8 share a name ("p-0") and would look identical in the
+    // dialog — the namespace prefix is the only thing that distinguishes them.
+    expect(text).toContain("default/p-0, kube-system/p-1, default/p-2");
+    expect(text).toContain("and 4 more");
+  });
+
+  /** Cluster-scoped kinds have no namespace; the bare name is enough. */
+  it("leaves cluster-scoped names unprefixed", () => {
+    const a = row("n1", { namespace: undefined });
+    const b = row("n2", { namespace: undefined });
+    expect(listNames([a, b])).toBe("n1, n2");
+  });
+
+  /**
+   * Cluster-scoped + namespaced in the same selection is degenerate (a table
+   * only shows one kind), but the helper stays consistent: the rows' namespaces
+   * differ, so namespaced rows get prefixed and the cluster-scoped one doesn't.
+   */
+  it("mixes prefixed and unprefixed names when the rows' namespaces differ", () => {
+    const a = row("node-1", { namespace: undefined });
+    const b = row("api", { namespace: "default" });
+    expect(listNames([a, b])).toBe("node-1, default/api");
   });
 });
 
