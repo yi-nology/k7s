@@ -46,7 +46,11 @@ docker-compose*.yml
 .github
 
 # Big test fixtures / mock data
-src-tauri/src/bin
+# ── CAREFUL with src-tauri/src/bin/ — that directory holds
+# k7s-web.rs and k7s-mcp.rs, the [[bin]] entry-points referenced
+# from Cargo.toml. Excluding it makes `cargo build --bin k7s-web`
+# fail with: "can't find bin `k7s-web` at path
+# /src/src-tauri/src/bin/k7s-web.rs".
 src-tauri/examples
 src-tauri/src/mcp
 src-tauri/src/web
