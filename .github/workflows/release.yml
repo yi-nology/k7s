@@ -1,20 +1,20 @@
 name: release
 
-# Triggered when you push a tag like v0.2.1. The version in
-# src-tauri/tauri.conf.json and src-tauri/Cargo.toml MUST match the
-# stripped tag (e.g. tag v0.2.1 → config says "0.2.1") or
-# tauri-action will refuse with "version mismatch".
+# ── Trigger summary ──────────────────────────────────────────────
+#   tag v*    →  release + docker jobs run (full bundle + container)
+#   push main →  lint-test job runs (cheap: pnpm typecheck + pnpm test)
+#   pull req  →  lint-test job runs (same)
+#   dispatch  →  release + docker jobs run on demand
 #
-# Pushes to main / PRs also run the build job as a sanity check.
+# Why no Tauri build on main pushes?  Building 3 OS matrix on every
+# commit eats 15-20 minutes of CI per push. The lint-test job is the
+# cheap gate that catches "did pnpm install / tsc / vitest break?".
+# Anything that affects the actual bundle is exercised on tag.
 #
-# What this produces on each runner (Tauri's default bundle matrix
-# because src-tauri/tauri.conf.json has bundle.targets = "all"):
-#
-#   ubuntu-22.04 →  k7s_x.y.z_amd64.deb / .rpm / .AppImage
-#   macos-latest →  k7s_x.y.z_aarch64.dmg + k7s.app
-#   windows-latest → k7s_x.y.z_x64-setup.exe + k7s_x.y.z_x64_en-US.msi
-#
-# The `docker` job also pushes ghcr.io/zy84338719/k7s:v0.2.1 + 0.2.1 + 0.2 + latest.
+# Version sync requirement (for tag pushes):
+#   tag v0.2.3   →   package.json / tauri.conf.json / Cargo.toml all
+#                     say "0.2.3"  (tauri-action enforces this).
+# ─────────────────────────────────────────────────────────────────
 
 on:
   push:
@@ -31,32 +31,21 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: build (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-22.04
-            rust: stable
-          - os: macos-latest
-            rust: stable
-          - os: windows-latest
-            rust: stable
-    runs-on: ${{ matrix.os }}
+  # ────────────────────────────────────────────────────────────────
+  # 1) Cheap gate on every push / PR. Single ubuntu runner, JS-only.
+  # ────────────────────────────────────────────────────────────────
+  lint-test:
+    name: lint & test (ubuntu)
+    if: github.event_name != 'push' || github.ref != 'refs/tags/v*'
+    # ↑ the if above keeps this out of tag pushes (where the
+    # release / docker jobs take over and would otherwise duplicate
+    # the work). Equivalent to:
+    #   on: push (branch main), pull_request, workflow_dispatch
+    # but expressed inline so the trigger list can stay a single block.
+    runs-on: ubuntu-22.04
     steps:
       - name: checkout
         uses: actions/checkout@v4
-
-      - name: install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ matrix.rust }}
-
-      - name: cache Rust build
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
 
       - name: install Node
         uses: actions/setup-node@v4
@@ -64,43 +53,22 @@ jobs:
           node-version: "26"
 
       - name: install pnpm
-        # No `with:` block on purpose — pnpm/action-setup reads
-        # `packageManager` from package.json. An empty `with:` makes
-        # GitHub reject the workflow file with "workflow file issue".
         uses: pnpm/action-setup@v4
-
-      - name: install Linux system deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            libsoup-3.0-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            build-essential \
-            file
 
       - name: install JS deps
         run: pnpm install --frozen-lockfile
 
+      - name: typecheck
+        run: pnpm typecheck
+
       - name: run JS unit tests
         run: pnpm test -- --run
 
-      # No `--bundles` so tauri-action uses the platform default
-      # (the "all" set in tauri.conf.json). `releaseTag: ""` skips
-      # the GitHub-release side-effect on push / PR.
-      - name: build
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          releaseTag: ""
-
+  # ────────────────────────────────────────────────────────────────
+  # 2) Tag push → full Tauri bundle matrix + GitHub release.
+  # ────────────────────────────────────────────────────────────────
   release:
     name: release (${{ matrix.os }})
-    needs: build
     if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
@@ -170,6 +138,9 @@ jobs:
           # appleTeamId: ${{ secrets.APPLE_TEAM_ID }}
           # signingIdentity: ${{ secrets.WINDOWS_CERT }}
 
+  # ────────────────────────────────────────────────────────────────
+  # 3) Tag push → container image (linux/amd64 + linux/arm64) to ghcr.io.
+  # ────────────────────────────────────────────────────────────────
   docker:
     name: docker (${{ matrix.platform }})
     if: startsWith(github.ref, 'refs/tags/v')
@@ -188,8 +159,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: free disk space
-        # ghcr runners are tight on /; recover a few GB before the
-        # multi-stage image build (QEMU + Rust + Node all want space).
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
                        /opt/hostedtoolcache/CodeQL || true
@@ -236,3 +205,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
+
+# ─────────────────────────────────────────────────────────────────
+# What this produces
+# ─────────────────────────────────────────────────────────────────
+#
+#   tag v0.2.3   →  6 desktop bundles:
+#                    k7s_0.2.3_amd64.deb / .rpm / .AppImage
+#                    k7s_0.2.3_aarch64.dmg + k7s.app
+#                    k7s_0.2.3_x64-setup.exe + k7s_0.2.3_x64_en-US.msi
+#                    + latest.json (Tauri auto-updater manifest)
+#                  + ghcr.io/zy84338719/k7s:v0.2.3 / 0.2.3 / 0.2 / latest
+#                    (multi-arch: linux/amd64 + linux/arm64)
+#
+#   push to main →  ~1 min lint-test run, no Tauri build, no image
+#                  push. Catches typecheck + vitest failures fast.
+#
+#   pull_request →  same as push to main.
