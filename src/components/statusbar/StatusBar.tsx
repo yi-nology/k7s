@@ -6,14 +6,23 @@
  * v2 — every fact is a labeled "key value" pair with the value in the strong
  * text color, separated by a faint middle dot. Reads as a single row of
  * cluster facts rather than a wall of labels.
+ *
+ * i18n — every label is `chrome.statusbar.<key>` (string leaf). The dict
+ * used to ship function-shaped keys (`api: (ms) => "api: ${ms}ms"`) that
+ * no call site ever used; the StatusBar rendered raw English "api" /
+ * "nodes" / "ready" / "cpu" / "mem" / "kubectl ctx:" labels. Pre-fix
+ * zh leaked the same English labels — the bottom strip of every zh
+ * session said "api 24ms  nodes 2/3 ready  cpu 12%  mem 38%  kubectl ctx: …".
  */
 
 import styles from "./StatusBar.module.css";
 import { useStore } from "../../store";
+import { useTranslation } from "../../hooks/useI18n";
 
 export function StatusBar() {
   const connection = useStore((s) => s.connection);
   const status = useStore((s) => s.clusterStatus);
+  const { t } = useTranslation();
 
   const connected = connection.phase === "connected";
   const cluster = connection.clusterName ?? connection.context ?? "k7s";
@@ -37,23 +46,23 @@ export function StatusBar() {
       </span>
       <Sep />
       <span className={styles.fact}>
-        api <b>{api == null ? "—" : `${api}ms`}</b>
+        {t("chrome.statusbar.api")} <b>{api == null ? "—" : `${api}ms`}</b>
       </span>
       <Sep />
       <span className={styles.fact}>
-        nodes <b>{ready}/{total}</b> ready
+        {t("chrome.statusbar.nodes")} <b>{ready}/{total}</b> {t("chrome.statusbar.ready")}
       </span>
       <Sep />
       <span className={styles.fact}>
-        cpu <b>{cpu == null ? "—" : `${cpu}%`}</b>
+        {t("chrome.statusbar.cpu")} <b>{cpu == null ? "—" : `${cpu}%`}</b>
       </span>
       <Sep />
       <span className={styles.fact}>
-        mem <b>{mem == null ? "—" : `${mem}%`}</b>
+        {t("chrome.statusbar.mem")} <b>{mem == null ? "—" : `${mem}%`}</b>
       </span>
       <div className={styles.spacer} />
       <span className={styles.ctx}>
-        kubectl ctx: <b>{ctx ?? "—"}</b>
+        {t("chrome.statusbar.kubectlCtx")} <b>{ctx ?? "—"}</b>
       </span>
     </div>
   );

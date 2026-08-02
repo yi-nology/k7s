@@ -860,6 +860,129 @@ describe("template picker title/description i18n (pass-16 sweep)", () => {
   });
 });
 
+/**
+ * Pass-17 sweep: chrome that's still hardcoded English in zh.
+ *
+ *  - `StatusBar` rendered the literal "api" / "nodes" / "ready" / "cpu" /
+ *    "mem" / "kubectl ctx:" labels — every fact in the always-visible
+ *    bottom strip leaked English to zh users. The dict had function-shaped
+ *    `chrome.statusbar.<key>` keys (full sentences like `"api: ${ms}ms"`)
+ *    that no call site ever read.
+ *  - `ClusterSwitcher` rendered the literal "connected · v1.28.0" /
+ *    "connecting…" / "disconnected" status text + a "no cluster" fallback
+ *    for when no context is connected. Right under the cluster name at the
+ *    top of the sidebar.
+ *  - `MetricsExplorer` InstantTable rendered literal "Series" / "Value"
+ *    column headers in the instant-query result table.
+ *
+ * Three call sites, all the same i18n leak class that pass-1 / 5 / 6 / 8 /
+ * 10 / 12 / 13 / 14 / 15 / 16 fixed for other panels.
+ */
+describe("chrome statusbar / clusterSwitcher / metricsExplorer.instantTable (pass-17 sweep)", () => {
+  it("ships chrome.statusbar.{api,nodes,ready,cpu,mem,kubectlCtx} as label-only leafs", () => {
+    // Pre-fix, the dict shipped these as function-shaped full sentences
+    // (`api: (ms) => "api: ${ms}ms"`) that nothing called. StatusBar
+    // rendered raw English labels. The refactor is to label-only leafs so
+    // the component owns the formatting and the value can stay in a `<b>`.
+    expect(translate("en", "chrome.statusbar.api")).toBe("api");
+    expect(translate("en", "chrome.statusbar.nodes")).toBe("nodes");
+    expect(translate("en", "chrome.statusbar.ready")).toBe("ready");
+    expect(translate("en", "chrome.statusbar.cpu")).toBe("cpu");
+    expect(translate("en", "chrome.statusbar.mem")).toBe("mem");
+    expect(translate("en", "chrome.statusbar.kubectlCtx")).toBe("kubectl ctx:");
+  });
+
+  it("ships the zh statusbar labels with 节点 / 就绪 and CLI-abbrev preservation", () => {
+    // The zh dict's pre-refactor full-sentence form was
+    // `节点 ${ready}/${total} 就绪` — split it into a label + a suffix
+    // here. The other 4 stay English because `api` / `cpu` / `mem` /
+    // `kubectl` are common abbreviations in Chinese tech docs and don't
+    // gain anything from translation.
+    expect(translate("zh", "chrome.statusbar.api")).toBe("api");
+    expect(translate("zh", "chrome.statusbar.nodes")).toBe("节点");
+    expect(translate("zh", "chrome.statusbar.ready")).toBe("就绪");
+    expect(translate("zh", "chrome.statusbar.cpu")).toBe("cpu");
+    expect(translate("zh", "chrome.statusbar.mem")).toBe("mem");
+    expect(translate("zh", "chrome.statusbar.kubectlCtx")).toBe("kubectl 上下文:");
+
+    // Regression: the old full-sentence function form is GONE — the path
+    // `chrome.statusbar.api` is now a string leaf, not callable.
+    // `translate()`'s `args[0]` fallback for a string fallback applies
+    // here, so `translate("zh", "chrome.statusbar.api", "fallback")` would
+    // still return the dict string and only `"fallback"` if the key were
+    // missing. Pin the actual call site behaviour.
+    expect(translate("zh", "chrome.statusbar.api")).not.toContain("ms");
+    expect(translate("zh", "chrome.statusbar.api")).not.toContain("—");
+  });
+
+  it("ships chrome.clusterSwitcher.{connected,connecting,disconnected,noCluster} in both locales", () => {
+    // The status line is right under the cluster name at the top of the
+    // sidebar — every zh session saw "connected · v1.28.0" / "connecting…"
+    // / "disconnected" / "no cluster" before this fix.
+    expect(translate("en", "chrome.clusterSwitcher.connected", "v1.28.0")).toBe(
+      "connected · v1.28.0",
+    );
+    expect(translate("en", "chrome.clusterSwitcher.connecting")).toBe(
+      "connecting…",
+    );
+    expect(translate("en", "chrome.clusterSwitcher.disconnected")).toBe(
+      "disconnected",
+    );
+    expect(translate("en", "chrome.clusterSwitcher.noCluster")).toBe(
+      "no cluster",
+    );
+
+    // The connected function falls back to plain "connected" when no
+    // version is provided (defensive — the cluster-status object can
+    // have `version: undefined` during the first connect frame).
+    expect(translate("en", "chrome.clusterSwitcher.connected", undefined)).toBe(
+      "connected",
+    );
+  });
+
+  it("ships zh cluster-switcher status with 已连接 / 连接中… / 已断开 / 未选择集群", () => {
+    expect(translate("zh", "chrome.clusterSwitcher.connected", "v1.28.0")).toBe(
+      "已连接 · v1.28.0",
+    );
+    expect(translate("zh", "chrome.clusterSwitcher.connecting")).toBe(
+      "连接中…",
+    );
+    expect(translate("zh", "chrome.clusterSwitcher.disconnected")).toBe(
+      "已断开",
+    );
+    expect(translate("zh", "chrome.clusterSwitcher.noCluster")).toBe(
+      "未选择集群",
+    );
+    // Same undefined-version fallback in zh.
+    expect(translate("zh", "chrome.clusterSwitcher.connected", undefined)).toBe(
+      "已连接",
+    );
+
+    // Regression: zh does NOT render the English verbs.
+    expect(translate("zh", "chrome.clusterSwitcher.connecting")).not.toContain(
+      "connecting",
+    );
+    expect(translate("zh", "chrome.clusterSwitcher.disconnected")).not.toContain(
+      "disconnected",
+    );
+  });
+
+  it("ships metricsExplorer.instantTable.{series,value} in both locales", () => {
+    // The instant-query result table's two column headers were
+    // `<th>Series</th>` / `<th>Value</th>` literals.
+    expect(translate("en", "metricsExplorer.instantTable.series")).toBe(
+      "Series",
+    );
+    expect(translate("en", "metricsExplorer.instantTable.value")).toBe(
+      "Value",
+    );
+    expect(translate("zh", "metricsExplorer.instantTable.series")).toBe(
+      "序列",
+    );
+    expect(translate("zh", "metricsExplorer.instantTable.value")).toBe("值");
+  });
+});
+
 describe("cacheLocale / cachedLocale", () => {
   beforeEach(() => {
     // Each test starts with a clean stub, so the round-trip assertion isn't

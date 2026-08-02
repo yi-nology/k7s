@@ -66,12 +66,13 @@ export function ClusterSwitcher() {
   };
 
   // Display name: the connected cluster, else the selected context, else a stub.
-  const name = connection.clusterName ?? connection.context ?? "no cluster";
+  const name = connection.clusterName ?? connection.context ?? t("chrome.clusterSwitcher.noCluster");
 
   // Status line: dot color + text reflect the connection lifecycle.
   const { dotColor, statusText } = statusDisplay(
     connection.phase,
     clusterStatus?.version,
+    t,
   );
 
   return (
@@ -158,17 +159,18 @@ export function ClusterSwitcher() {
 /** Map connection phase → status dot color + text (with version when connected). */
 function statusDisplay(
   phase: "idle" | "connecting" | "connected" | "error",
-  version?: string,
+  version: string | undefined,
+  t: (key: string, ...args: unknown[]) => string,
 ): { dotColor: string; statusText: string } {
   switch (phase) {
     case "connected":
       return {
         dotColor: "var(--status-ok)",
-        statusText: `connected · ${version ?? ""}`.trim(),
+        statusText: t("chrome.clusterSwitcher.connected", version),
       };
     case "connecting":
-      return { dotColor: "var(--status-warn)", statusText: "connecting…" };
+      return { dotColor: "var(--status-warn)", statusText: t("chrome.clusterSwitcher.connecting") };
     default:
-      return { dotColor: "var(--status-err)", statusText: "disconnected" };
+      return { dotColor: "var(--status-err)", statusText: t("chrome.clusterSwitcher.disconnected") };
   }
 }

@@ -346,12 +346,13 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
 }
 
 function InstantTable({ series }: { series: PromQueryResult["series"] }) {
+  const { t } = useTranslation();
   return (
     <table className={styles.table}>
       <thead>
         <tr>
-          <th>Series</th>
-          <th>Value</th>
+          <th>{t("metricsExplorer.instantTable.series")}</th>
+          <th>{t("metricsExplorer.instantTable.value")}</th>
         </tr>
       </thead>
       <tbody>

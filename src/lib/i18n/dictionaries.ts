@@ -64,12 +64,27 @@ export interface Dictionary {
       nsPrefix: string;
       searchPlaceholder: string;
     };
+    /** Status bar (Design §5) — every fact is "label value" pair; the value is
+     *  rendered in a stronger colour by the StatusBar component. Keys here are
+     *  label-only (no units / values) so the component owns the formatting and
+     *  the value can stay in a `<b>`. Pre-fix, the dict shipped these as
+     *  full-sentence function leaves (`api: (ms) => "api: ${ms}ms"`) that
+     *  no call site ever used, and the StatusBar rendered raw English labels. */
     statusbar: {
-      api: (ms: number | null) => string;
-      nodes: (ready: number, total: number) => string;
-      cpu: (pct: number | null) => string;
-      mem: (pct: number | null) => string;
-      kubectlCtx: (ctx: string | null) => string;
+      api: string;
+      nodes: string;
+      ready: string;
+      cpu: string;
+      mem: string;
+      kubectlCtx: string;
+    };
+    /** Cluster switcher status line (the dot + "connected · v1.28.0" string
+     *  under the cluster name). "connected" interpolates the k8s version. */
+    clusterSwitcher: {
+      connected: (version: string | undefined) => string;
+      connecting: string;
+      disconnected: string;
+      noCluster: string;
     };
     forwards: {
       label: string;
@@ -423,6 +438,14 @@ export interface Dictionary {
       removeHint: string;
       confirmRemove: (name: string) => string;
     };
+    /** Column headers for the instant-query result table (a `{__name__, …}`
+     *  series label set + a single numeric value). Pre-fix, the TSX rendered
+     *  the literal English "Series" / "Value" — same i18n leak class as the
+     *  pass-8 Alerting column fix. */
+    instantTable: {
+      series: string;
+      value: string;
+    };
   };
   grafana: {
     title: string;
@@ -546,11 +569,21 @@ export const en: Dictionary = {
       searchPlaceholder: "Search anything…",
     },
     statusbar: {
-      api: (ms) => (ms == null ? "api: —" : `api: ${ms}ms`),
-      nodes: (ready, total) => `nodes ${ready}/${total} ready`,
-      cpu: (pct) => (pct == null ? "cpu —" : `cpu ${pct}%`),
-      mem: (pct) => (pct == null ? "mem —" : `mem ${pct}%`),
-      kubectlCtx: (ctx) => `kubectl ctx: ${ctx ?? "—"}`,
+      api: "api",
+      nodes: "nodes",
+      ready: "ready",
+      cpu: "cpu",
+      mem: "mem",
+      kubectlCtx: "kubectl ctx:",
+    },
+    clusterSwitcher: {
+      // "connected · v1.28.0" — the "·" is a mid-dot, matching the rest of
+      // the chrome (ForwardsBar, StatusBar). Falls back to plain "connected"
+      // when no version is reported.
+      connected: (version) => (version ? `connected · ${version}` : "connected"),
+      connecting: "connecting…",
+      disconnected: "disconnected",
+      noCluster: "no cluster",
     },
     forwards: {
       label: "forwards:",
@@ -926,6 +959,10 @@ export const en: Dictionary = {
       removeHint: "Delete saved query",
       confirmRemove: (name) => `Delete saved query "${name}"?`,
     },
+    instantTable: {
+      series: "Series",
+      value: "Value",
+    },
   },
   grafana: {
     title: "Grafana",
@@ -1054,11 +1091,26 @@ export const zh: Dictionary = {
       searchPlaceholder: "搜索任何内容…",
     },
     statusbar: {
-      api: (ms) => (ms == null ? "api: —" : `api: ${ms}ms`),
-      nodes: (ready, total) => `节点 ${ready}/${total} 就绪`,
-      cpu: (pct) => (pct == null ? "cpu —" : `cpu ${pct}%`),
-      mem: (pct) => (pct == null ? "mem —" : `mem ${pct}%`),
-      kubectlCtx: (ctx) => `kubectl ctx: ${ctx ?? "—"}`,
+      // zh statusbar labels — `cpu` / `mem` / `api` / `kubectl 上下文:` are
+      // common abbreviations in Chinese tech docs and stay English; only
+      // `nodes` → `节点` and `ready` → `就绪` get the zh noun, matching the
+      // pre-refactor full-sentence dict ("节点 2/3 就绪").
+      api: "api",
+      nodes: "节点",
+      ready: "就绪",
+      cpu: "cpu",
+      mem: "mem",
+      kubectlCtx: "kubectl 上下文:",
+    },
+    clusterSwitcher: {
+      // zh cluster-switcher status — `connecting…` keeps the ellipsis (zh
+      // punctuation uses "…" too); `connected` / `disconnected` get the
+      // natural zh verbs (已连接 / 已断开), with the version in parens
+      // matching the chrome's mid-dot style.
+      connected: (version) => (version ? `已连接 · ${version}` : "已连接"),
+      connecting: "连接中…",
+      disconnected: "已断开",
+      noCluster: "未选择集群",
     },
     forwards: {
       label: "端口转发:",
@@ -1430,6 +1482,11 @@ export const zh: Dictionary = {
       refreshHint: "运行,忽略缓存",
       removeHint: "删除已保存查询",
       confirmRemove: (name) => `删除已保存查询 "${name}"?`,
+    },
+    // zh: 序列 / 值 — the two columns of the instant-query result table.
+    instantTable: {
+      series: "序列",
+      value: "值",
     },
   },
   grafana: {
