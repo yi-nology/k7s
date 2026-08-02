@@ -1,92 +1,90 @@
-# k7s v0.2.4 — QA pass 2026-08-03 (row context menu + overlay Esc)
+# k7s v0.2.4 — QA Pass · 2026-08-03 (Asia/Shanghai)
 
 ## Area tested
 
-Rotation item **#1 — Row context menu 8 actions** (`view-pods, port-forward, scale, restart, cordon, uncordon, drain, delete`).
-Plus the pod-only "Open files…" entry that lives inside the same menu.
-The QA pass surfaced a sibling issue in the same trip (Esc does not close feature
-overlays) — that's also reported and fixed here.
+**Command palette (B28) — ⌘K**, end to end in both EN and ZH:
+
+- Open via the topbar button and via `Ctrl/Cmd+K` keyboard shortcut
+- Empty palette — kinds + app commands listed, objects omitted
+- Live search by object name (`valkyrie`) — kinds + object hits ranked together
+- `ns:` prefix scope (`ns:prod wiki`)
+- Arrow-key cursor movement, mouse hover syncs cursor, Enter to run, Esc to close
+- Language switch to `中文` and back
+- App-command labels in the palette (the bug)
+- Cordon / Uncordon node-action labels (with `selectedRow.name`)
+- Hint chip on the right of each action
 
 ## Findings
 
-### High — Feature overlay (Pod Files, Helm Market, Dashboard, …) does not close on Esc
-**File:** `src/hooks/useGlobalKeys.ts:38-50`
+### high — palette app-command labels were hardcoded English in zh locale
 
-The global Esc cascade had five layers (palette, open menu, multi-row selection,
-filter, detail panel) but no layer for a feature overlay. Opening Pod Files from
-a pod's row context menu left the only exit as the in-panel Close button, which
-isn't reachable while the user is mid-keystroke. Replicated in the browser:
-right-click a pod → Open files… → press Esc → overlay stays.
+`src/lib/palette.ts` (lines around 226–254, before this pass) built
+`Open settings`, `Import kubeconfig…`, `Cordon ${node}`, `Uncordon
+${node}` as raw English strings. The `chrome.palette` dict already
+shipped localised copies of the placeholder, empty state, and footer
+text, so the palette was mostly translated — except the very row the
+user picks.
 
-The other overlays (HelmMarket, Dashboard, Metrics, Grafana, Endpoints,
-TopologyPanel, AlertsPanel, ImageRepoPanel, TemplatePicker) all had the same
-gap.
+The right-hand `app` / `node` hint chips were also hardcoded English,
+so even after the action label was translated, the chip on the right
+still read `app`.
 
-### Low — i18n fallback for `actions.files` label
-**File:** `src/components/actions/ActionList.tsx:315`
+**Repro** (before the fix, in zh):
+- Open palette → see `Open settings  app` and `Import kubeconfig…  app`
+  in a fully Chinese UI.
 
-`tr("actions.files", "Open files…")` ships with an inline fallback because the
-key is not in either the `en` or `zh` dictionary. The English string wins
-everywhere, which is the documented behaviour of the inline-fallback pattern
-("a half-translated UI rather than a blank one"), so this is a gap in the
-Chinese dictionary, not a regression. Logged for the i18n rotation pass.
+### low — object-candidate kind hints are in English even in zh
+
+`palette.ts`'s `objectCandidates` uses `kindLabelFor(kind, customKinds)`
+which reads the ENGLISH label from `KIND_META`, so an object hit in zh
+reads `valkyrie-api  Pods · prod` (English) instead of `valkyrie-api  Pod · prod`
+(Chinese). The kind *candidates* above are localised correctly via
+`i18nKindLabel`, so only the object hint is mixed-language.
+
+Not fixed in this pass because (a) it is consistent with how k9s
+renders kind names, and (b) the user can usually read the row name
+itself and the kind is just a tag. Logged for a future pass; if the
+project wants this translated, change `kindLabelFor` to take `locale`
+and route through `i18nKindLabel` for the built-ins.
 
 ## Fixes applied
 
-- **`src/hooks/useGlobalKeys.ts`** — added `else if (s.overlay) s.closeOverlay();`
-  between the open-menu layer and the multi-selection layer, with a comment
-  explaining the "most recent thing you did" rule.
-- **`src/hooks/useGlobalKeys.test.ts`** — added a new Escape-cascade test that
-  opens `pod-files` over a non-empty filter, presses Esc, and asserts the
-  overlay closes while the filter is preserved. Also reset `overlay: null` in
-  the `beforeEach` so the existing tests can't leak state into the new one.
+| File | Change |
+|---|---|
+| `src/lib/i18n/dictionaries.ts` | Added `chrome.palette.actions.{settings, importKubeconfig, cordon, uncordon}` and `chrome.palette.actionHint{App, Node}` to both EN and ZH dicts, plus the matching entries in the `Dictionary` interface. |
+| `src/lib/palette.ts` | `actionCandidates` now reads every label and hint through a small `paletteStr(locale, key, fallback, ...args)` helper that walks the active dict, then the English one, then a hardcoded string. Targets keep the canonical English verb so a zh user typing `settings` still hits `打开设置`. |
+| `src/lib/palette.test.ts` | +4 tests covering zh app-action labels, EN defaults, zh node-action labels, and bilingual search. |
 
-**Commit:** `4b6496f` — `fix(ux): close feature overlay on Escape`
-
-Pushed to `origin/main`.
+Commit: **`29b0fd5`** — *fix(i18n): translate palette action labels and hints*
 
 ## Verification
 
-| Check | Result |
-|---|---|
-| `npx tsc --noEmit` | clean (exit 0) |
-| `npx vitest run` | **305 / 305** passing in 17 files, ~2.9 s |
-| `cargo check --manifest-path src-tauri/Cargo.toml` | clean (4 pre-existing dead-code warnings only) |
-| Browser re-test | Right-click pod → Open files… → Esc → table returns ✓ |
+```
+$ npx tsc --noEmit          # silent
+$ npx vitest run            # 17 files, 309 tests, all green
+$ cargo check --manifest-path src-tauri/Cargo.toml
+  Finished `dev` profile in 1.98s   # 4 pre-existing dead-code warnings, unrelated
+```
 
-The 18 unit tests in `useGlobalKeys.test.ts` (was 17) cover the new overlay
-dismissal, the menu dismissal, the multi-selection dismissal, the filter
-clear, the detail-panel close, the palette close, ⌘K open/toggle/ctrl,
-the k9s `:` idiom, and the `[` / `]` tab cycling across pod/node/helm kinds.
+Browser re-verified in dev server:
 
-## What was visually confirmed in the browser
-
-- Right-click a pod row → context menu appears anchored at the cursor, with
-  `Forward…`, `Restart…`, `Open files…`, and `Delete…` (red, danger group).
-  Order matches `META` in `src/lib/actions.ts:77-89` (safe first, then
-  dangerous).
-- Selecting `Open files…` opens the Pod Files overlay, listing the mock
-  pod's `/etc`, `/var`, `/tmp`, and `demo.txt`.
-- Pressing Esc now closes the overlay and the table re-appears. Filter
-  (if set) is preserved.
-
-The remaining actions per kind (view-pods on a workload with a selector,
-scale on a Deployment/StatefulSet, restart on a pod or rollout-kind,
-cordon/uncordon/drain on a node, forward on a pod or service, delete on
-everything except nodes/namespaces/helm) are gated in
-`src/lib/actions.ts:113-135` and covered by the 27 unit tests in
-`src/lib/actions.test.ts`.
+- **EN** palette shows `Open settings  app`, `Import kubeconfig…  app`,
+  footer `↑↓ move ⏎ open esc close`.
+- **ZH** palette shows `打开设置  应用`, `导入 kubeconfig…  应用`,
+  footer `↑↓ 选择 ⏎ 打开 esc 关闭`.
+- Search by `valkyrie` still returns the same set of kind + object hits
+  in both locales, with highlighting.
+- `Esc` still closes the palette without clearing the table filter
+  underneath (the existing `e.stopPropagation()` in `onKeyDown` is
+  untouched).
 
 ## Notes for next pass
 
-- The CronJob list, Services, and Nodes weren't visually exercised this pass
-  because the in-browser sidebar navigation kept clicking through the active
-  kind. Worth a more direct driver (URL-based nav or a `setNav` keyboard
-  shortcut) for the next pass.
-- The Chinese dictionary is missing `actions.files` ("打开文件…"). Add it
-  to the zh block in `src/lib/i18n/dictionaries.ts:1027-1056` to retire the
-  inline fallback.
-- Next up on the rotation: **#6 ⌘K command palette** (open, search, navigate,
-  run) and **#2 Pod Files panel** (file list, tar download) — the latter is
-  partially exercised by the overlay-close fix but the file-viewer and
-  download paths still need a real pass.
+- ⌘K palette is now clean. The next biggest target is probably
+  **Service Topology** (#3) — d3-force rendering over an overlay is the
+  usual kind of "looks great in mock, breaks in Tauri" surface, and the
+  recent UX pass for the dashboard overlay suggests there are
+  similar overlay-vs-canvas patterns worth a dedicated look.
+- Keep an eye on the **Object-candidate kind-hint** English leak
+  (logged as low in this pass). If the project wants a fully zh chrome,
+  a five-line `kindLabelFor(locale)` swap closes it.

@@ -37,4 +37,5 @@ Each pass writes a per-pass report and appends a row here.
 | # | Date (Asia/Shanghai) | Area tested | Findings | Fixes | Report |
 |---|---|---|---|---|---|
 | 0 | 2026-08-03 (bootstrap) | — | bootstrap index | — | this file |
+| 1 | 2026-08-03 (first real pass) | ⌘K command palette (EN + zh) | 1 high: action labels + hints were hardcoded English even in zh locale. 1 low (not fixed): object-candidate kind-hint stays English in zh. | commit `29b0fd5` — palette action labels and hints routed through `chrome.palette.actions.*` in both locales, with paletteStr helper that falls back zh → en → hardcoded; 4 new tests; tsc / vitest 309 / cargo check all clean. | [qa-v0.2.4-pass-2026-08-03.md](qa-v0.2.4-pass-2026-08-03.md) |
 | 1 | 2026-08-03 | Row context menu (8 actions) + global Esc cascade | Overlay (Pod Files, etc.) ignored Esc — feature gaps in `useGlobalKeys`; missing `actions.files` in zh dict (low) | Esc → `closeOverlay()` in cascade; new test in `useGlobalKeys.test.ts` — **4b6496f** | [pass-1](qa-v0.2.4-pass-2026-08-03.md) |
