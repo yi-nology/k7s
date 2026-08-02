@@ -625,6 +625,135 @@ describe("image registries panel keys", () => {
   });
 });
 
+/**
+ * Pass-15 audit sweep: the detail-panel tabs (Properties / Events / Logs /
+ * Metrics / PodMetrics / Shell / NodeShell) and the Dashboard all had small,
+ * in-place hardcoded English strings that survived every prior i18n pass.
+ * Same root cause as pass-1 / 5 / 6 / 8 / 10 / 12 / 13 / 14 — the dict had the
+ * translations, the call sites were already inside `useTranslation()` consumers,
+ * the strings were just hardcoded literals in the JSX (and a couple of `title=`
+ * attributes and a "session ended" `||` fallback).
+ *
+ * This describe pins the new keys in both locales so a future refactor can't
+ * drop them — the same regression test pattern pass-1 used for the ⌘K palette
+ * and pass-8 used for the Alerting panel.
+ */
+describe("detail-panel tab + dashboard i18n (pass-15 sweep)", () => {
+  it("ships dashboard.cpu and dashboard.mem in both locales", () => {
+    // The Dashboard's CPU / Memory bar labels were hardcoded English
+    // `<span>CPU</span>` / `<span>Memory</span>` at Dashboard.tsx:128 / 143
+    // — the first thing every user sees on the home view. The dictionary
+    // already had `dashboard.cpu` ("CPU") and `dashboard.mem` ("Memory" /
+    // "内存"), they just weren't being read. Pin the canonical values so a
+    // future refactor that drops them trips the test before zh renders
+    // "CPU" / "Memory" on a dashboard the rest of the chrome is in zh.
+    expect(translate("en", "dashboard.cpu")).toBe("CPU");
+    expect(translate("zh", "dashboard.cpu")).toBe("CPU");
+    expect(translate("en", "dashboard.mem")).toBe("Memory");
+    expect(translate("zh", "dashboard.mem")).toBe("内存");
+  });
+
+  it("ships events.empty in both locales", () => {
+    // EventsTab.tsx:45 used the hardcoded literal
+    // "no recent events — events expire after ~1h" instead of going through
+    // the dict. Pin the canonical en / zh.
+    expect(translate("en", "events.empty")).toBe(
+      "no recent events — events expire after ~1h",
+    );
+    expect(translate("zh", "events.empty")).toBe(
+      "无最近事件 — 事件约 1 小时后过期",
+    );
+    // And `events.hint` is still routed through t() — pin it for completeness
+    // so a future refactor that drops it trips this test the same way.
+    expect(translate("en", "events.hint").length).toBeGreaterThan(0);
+    expect(translate("zh", "events.hint").length).toBeGreaterThan(0);
+    expect(translate("en", "events.loading").length).toBeGreaterThan(0);
+    expect(translate("zh", "events.loading").length).toBeGreaterThan(0);
+  });
+
+  it("ships properties.navTitle in both locales", () => {
+    // PropertiesTab.tsx:147 used `title={\`Go to ${target.kind} ${target.name}\`}`
+    // — a cross-reference link's tooltip. Pin the function form so a future
+    // refactor that drops it doesn't silently leave the tooltip in English
+    // for zh users.
+    const enNavTitle = translate("en", "properties.navTitle", "Pod", "nginx-1");
+    const zhNavTitle = translate("zh", "properties.navTitle", "Pod", "nginx-1");
+    expect(enNavTitle).toBe("Go to Pod nginx-1");
+    expect(zhNavTitle).toBe("前往 Pod nginx-1");
+    // The fallback used to be the literal hardcoded English copy, so a
+    // regression that re-introduces a flat `properties.navTitle = "Go to …"`
+    // would surface here as a missing-function-call signature.
+    expect(typeof translate("en", "properties.navTitle", "Pod", "nginx-1")).toBe("string");
+  });
+
+  it("ships shell.reconnect + shell.endedFallback in both locales", () => {
+    // ShellTab.tsx:127 had the literal `↻ reconnect` and line 67 had the
+    // literal fallback `"session ended"`. Both now route through the dict.
+    expect(translate("en", "shell.reconnect")).toBe("↻ reconnect");
+    expect(translate("zh", "shell.reconnect")).toBe("↻ 重新连接");
+    expect(translate("en", "shell.endedFallback")).toBe("session ended");
+    expect(translate("zh", "shell.endedFallback")).toBe("会话已结束");
+    // The original `shell.reconnectTitle` (used as the button's `title=`
+    // tooltip) must still resolve — its dictionary entry was never the bug.
+    expect(translate("en", "shell.reconnectTitle").length).toBeGreaterThan(0);
+    expect(translate("zh", "shell.reconnectTitle").length).toBeGreaterThan(0);
+  });
+
+  it("ships nodeShell gate + session keys in both locales", () => {
+    // NodeShellTab had six hardcoded English strings (lines 71, 99, 113, 123,
+    // 131, 146) — gate button, header labels, end-session button, ended-bar
+    // start-again button, and two `||` fallbacks. They now route through the
+    // nodeShell.* keys. Pin the canonical values for each.
+    const KEYS: Array<[string, string, string]> = [
+      ["startBtn", "Start debug session", "开启调试会话"],
+      ["starting", "starting debug pod…", "调试 Pod 启动中…"],
+      ["nodeLabel", "node", "节点"],
+      ["endSession", "✕ end session", "✕ 结束会话"],
+      ["startAgain", "↻ start again", "↻ 重新开始"],
+      ["endedFallback", "session ended", "会话已结束"],
+      ["closedFallback", "session closed", "会话已关闭"],
+    ];
+    for (const [key, enLabel, zhLabel] of KEYS) {
+      expect(translate("en", `nodeShell.${key}`), `nodeShell.${key} en`).toBe(enLabel);
+      expect(translate("zh", `nodeShell.${key}`), `nodeShell.${key} zh`).toBe(zhLabel);
+    }
+    // The original `nodeShell.endTitle` / `backTitle` were never the bug —
+    // they already routed through t(). Pin for completeness.
+    expect(translate("en", "nodeShell.endTitle").length).toBeGreaterThan(0);
+    expect(translate("zh", "nodeShell.endTitle").length).toBeGreaterThan(0);
+    expect(translate("en", "nodeShell.backTitle").length).toBeGreaterThan(0);
+    expect(translate("zh", "nodeShell.backTitle").length).toBeGreaterThan(0);
+  });
+
+  it("ships logs.linesCount in both locales", () => {
+    // LogsTab.tsx:194 had `<span>{filtered.length} lines</span>` — the
+    // hardcoded "lines" suffix rendered as English even in zh. The function
+    // form is parameterised by count.
+    expect(translate("en", "logs.linesCount", 42)).toBe("42 lines");
+    expect(translate("zh", "logs.linesCount", 42)).toBe("42 行");
+    // Pin singular too (the function is plural-agnostic — it just appends
+    // the word, and the zh word 行 is the same in singular and plural).
+    expect(translate("en", "logs.linesCount", 1)).toBe("1 lines");
+    expect(translate("zh", "logs.linesCount", 1)).toBe("1 行");
+  });
+
+  it("ships podMetrics.waitingBody in both locales", () => {
+    // PodMetricsTab.tsx:44-46 had a three-line hardcoded English body
+    // explaining the metrics-server failure mode. The dict now ships the
+    // canonical copy; pin so a future refactor can't drop it.
+    const enBody = translate("en", "podMetrics.waitingBody");
+    const zhBody = translate("zh", "podMetrics.waitingBody");
+    expect(enBody.length).toBeGreaterThan(0);
+    expect(zhBody.length).toBeGreaterThan(0);
+    // The body mentions "metrics-server" in en (a real product name) and
+    // "metrics-server" in zh (same — kept in Latin script because there's
+    // no clean 中文 equivalent). Pin so a future refactor that drops the
+    // critical diagnostic word trips this test.
+    expect(enBody).toContain("metrics-server");
+    expect(zhBody).toContain("metrics-server");
+  });
+});
+
 describe("cacheLocale / cachedLocale", () => {
   beforeEach(() => {
     // Each test starts with a clean stub, so the round-trip assertion isn't

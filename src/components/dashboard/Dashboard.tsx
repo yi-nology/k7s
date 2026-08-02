@@ -125,7 +125,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
       <div className={styles.utilisation}>
         <div className={styles.meter}>
           <div className={styles.meterHeader}>
-            <span>CPU</span>
+            <span>{t("dashboard.cpu", "CPU")}</span>
             <span>{cpuPercent.toFixed(0)}%</span>
           </div>
           <div className={styles.barOuter}>
@@ -140,7 +140,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
         </div>
         <div className={styles.meter}>
           <div className={styles.meterHeader}>
-            <span>Memory</span>
+            <span>{t("dashboard.mem", "Memory")}</span>
             <span>{memPercent.toFixed(0)}%</span>
           </div>
           <div className={styles.barOuter}>

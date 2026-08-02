@@ -40,11 +40,7 @@ export function PodMetricsTab() {
       <div className={styles.wrap} ref={wrapRef}>
         <div className={styles.state}>
           <div className={styles.stateTitle}>{t("podMetrics.waitingSamples")}</div>
-          <div className={styles.stateBody}>
-            Usage is polled on an interval, so the first point takes a few seconds to arrive. If it
-            never does, this cluster likely has no metrics-server — the pod list would show CPU and
-            memory as “—” too.
-          </div>
+          <div className={styles.stateBody}>{t("podMetrics.waitingBody")}</div>
         </div>
       </div>
     );

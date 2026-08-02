@@ -224,9 +224,15 @@ export interface Dictionary {
     saved: (n: number) => string;
     saveFailed: (e: string) => string;
     containerAll: string;
+    /** Lines-in-buffer counter at the bottom of the log viewer. */
+    linesCount: (n: number) => string;
   };
-  properties: { loading: string };
-  events: { loading: string; hint: string };
+  properties: {
+    loading: string;
+    /** Tooltip on a cross-reference link (e.g. a pod's owner → its Deployment). */
+    navTitle: (kind: string, name: string) => string;
+  };
+  events: { loading: string; hint: string; empty: string };
   metrics: {
     waitingSamples: string;
     noMetrics: (name: string) => string;
@@ -238,6 +244,8 @@ export interface Dictionary {
   };
   podMetrics: {
     waitingSamples: string;
+    /** Body under the "waiting for first sample" state on a pod's metrics tab. */
+    waitingBody: string;
     cpuTitle: (cpu: string, suffix: string) => string;
     memTitle: (mem: string, suffix: string) => string;
     reqCpu: (v: string) => string;
@@ -248,6 +256,10 @@ export interface Dictionary {
   shell: {
     container: string;
     reconnectTitle: string;
+    /** Label on the reconnect button shown when the pod-exec session ends. */
+    reconnect: string;
+    /** Fallback reason when the backend reports an empty end reason. */
+    endedFallback: string;
   };
   nodeShell: {
     title: (node: string) => string;
@@ -257,6 +269,20 @@ export interface Dictionary {
     changesAreReal: string;
     endTitle: string;
     backTitle: string;
+    /** Button on the consent gate that starts a privileged debug pod. */
+    startBtn: string;
+    /** Header label while the debug pod is still starting up. */
+    starting: string;
+    /** Header label for the node name column once the session is running. */
+    nodeLabel: string;
+    /** Button on the live session header that ends the session and deletes the pod. */
+    endSession: string;
+    /** Button on the ended-bar that returns the user to the consent gate. */
+    startAgain: string;
+    /** Fallback reason when the backend reports an empty end reason. */
+    endedFallback: string;
+    /** Reason recorded when the user explicitly closes the session. */
+    closedFallback: string;
   };
   yaml: {
     edit: string;
@@ -676,9 +702,17 @@ export const en: Dictionary = {
     saved: (n) => `saved ${n} lines`,
     saveFailed: (e) => `save failed: ${e}`,
     containerAll: "(all)",
+    linesCount: (n) => `${n} lines`,
   },
-  properties: { loading: "loading properties…" },
-  events: { loading: "loading events…", hint: "see Cluster → Events for the live feed" },
+  properties: {
+    loading: "loading properties…",
+    navTitle: (kind, name) => `Go to ${kind} ${name}`,
+  },
+  events: {
+    loading: "loading events…",
+    hint: "see Cluster → Events for the live feed",
+    empty: "no recent events — events expire after ~1h",
+  },
   metrics: {
     waitingSamples: "waiting for the first samples…",
     noMetrics: (name) => `no metrics for ${name}`,
@@ -690,6 +724,8 @@ export const en: Dictionary = {
   },
   podMetrics: {
     waitingSamples: "waiting for the first samples…",
+    waitingBody:
+      'Usage is polled on an interval, so the first point takes a few seconds to arrive. If it never does, this cluster likely has no metrics-server — the pod list would show CPU and memory as "—" too.',
     cpuTitle: (cpu, suffix) => `CPU — ${cpu}${suffix}`,
     memTitle: (mem, suffix) => `Memory — ${mem}${suffix}`,
     reqCpu: (v) => `req ${v}`,
@@ -697,7 +733,12 @@ export const en: Dictionary = {
     reqMem: (v) => `req ${v}`,
     limitMem: (v) => `limit ${v}`,
   },
-  shell: { container: "container", reconnectTitle: "start a new session" },
+  shell: {
+    container: "container",
+    reconnectTitle: "start a new session",
+    reconnect: "↻ reconnect",
+    endedFallback: "session ended",
+  },
   nodeShell: {
     title: (node) => `Root shell on ${node}`,
     body: (node) =>
@@ -708,6 +749,13 @@ export const en: Dictionary = {
     changesAreReal: "Anything you change on the node is real and is not tracked by Kubernetes.",
     endTitle: "end the session and delete the pod",
     backTitle: "back to the start screen",
+    startBtn: "Start debug session",
+    starting: "starting debug pod…",
+    nodeLabel: "node",
+    endSession: "✕ end session",
+    startAgain: "↻ start again",
+    endedFallback: "session ended",
+    closedFallback: "session closed",
   },
   yaml: {
     edit: "✎ Edit",
@@ -1149,9 +1197,17 @@ export const zh: Dictionary = {
     saved: (n) => `已保存 ${n} 行`,
     saveFailed: (e) => `保存失败: ${e}`,
     containerAll: "(全部)",
+    linesCount: (n) => `${n} 行`,
   },
-  properties: { loading: "属性加载中…" },
-  events: { loading: "事件加载中…", hint: "查看 Cluster → Events 获取实时事件流" },
+  properties: {
+    loading: "属性加载中…",
+    navTitle: (kind, name) => `前往 ${kind} ${name}`,
+  },
+  events: {
+    loading: "事件加载中…",
+    hint: "查看 Cluster → Events 获取实时事件流",
+    empty: "无最近事件 — 事件约 1 小时后过期",
+  },
   metrics: {
     waitingSamples: "等待首批样本…",
     noMetrics: (name) => `${name} 无指标`,
@@ -1163,6 +1219,8 @@ export const zh: Dictionary = {
   },
   podMetrics: {
     waitingSamples: "等待首批样本…",
+    waitingBody:
+      "使用率按周期轮询,首个数据点需要数秒到达。若始终没有,可能是因为该集群未部署 metrics-server —— 此时 Pod 列表的 CPU 和内存也会显示为 \"—\"。",
     cpuTitle: (cpu, suffix) => `CPU — ${cpu}${suffix}`,
     memTitle: (mem, suffix) => `内存 — ${mem}${suffix}`,
     reqCpu: (v) => `请求 ${v}`,
@@ -1170,7 +1228,12 @@ export const zh: Dictionary = {
     reqMem: (v) => `请求 ${v}`,
     limitMem: (v) => `上限 ${v}`,
   },
-  shell: { container: "容器", reconnectTitle: "开启新会话" },
+  shell: {
+    container: "容器",
+    reconnectTitle: "开启新会话",
+    reconnect: "↻ 重新连接",
+    endedFallback: "会话已结束",
+  },
   nodeShell: {
     title: (node) => `${node} 上的 Root Shell`,
     body: (node) =>
@@ -1180,6 +1243,13 @@ export const zh: Dictionary = {
     changesAreReal: "在节点上的所有更改都是真实生效的,不会被 Kubernetes 追踪。",
     endTitle: "结束会话并删除 Pod",
     backTitle: "返回起始页",
+    startBtn: "开启调试会话",
+    starting: "调试 Pod 启动中…",
+    nodeLabel: "节点",
+    endSession: "✕ 结束会话",
+    startAgain: "↻ 重新开始",
+    endedFallback: "会话已结束",
+    closedFallback: "会话已关闭",
   },
   yaml: {
     edit: "✎ 编辑",

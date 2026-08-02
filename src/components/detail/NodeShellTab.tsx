@@ -68,7 +68,7 @@ export function NodeShellTab() {
         (reason) => {
           setPhase((p) => ({
             state: "ended",
-            reason: reason || "session ended",
+            reason: reason || t("nodeShell.endedFallback", "session ended"),
             pod: p.state === "running" ? p.pod : undefined,
           }));
         },
@@ -96,7 +96,7 @@ export function NodeShellTab() {
     handleRef.current?.stop();
     handleRef.current = null;
     sessionRef.current = null;
-    setPhase({ state: "ended", reason: "session closed" });
+    setPhase({ state: "ended", reason: t("nodeShell.closedFallback", "session closed") });
   };
 
   if (phase.state === "idle") {
@@ -110,7 +110,7 @@ export function NodeShellTab() {
           <li>{t("nodeShell.changesAreReal")}</li>
         </ul>
         <div className={nodeStyles.gateAction} onClick={() => void start()}>
-          Start debug session
+          {t("nodeShell.startBtn", "Start debug session")}
         </div>
       </div>
     );
@@ -120,7 +120,9 @@ export function NodeShellTab() {
     <div className={styles.wrap}>
       <div className={styles.header}>
         <span className={styles.headerLabel}>
-          {phase.state === "starting" ? "starting debug pod…" : "node"}
+          {phase.state === "starting"
+            ? t("nodeShell.starting", "starting debug pod…")
+            : t("nodeShell.nodeLabel", "node")}
         </span>
         <span className={nodeStyles.nodeName}>{node}</span>
         {/* The pod name is shown, not hidden: this feature made a privileged pod,
@@ -128,7 +130,7 @@ export function NodeShellTab() {
         {phase.state === "running" && <span className={nodeStyles.podName}>{phase.pod}</span>}
         {phase.state === "running" && (
           <span className={nodeStyles.close} onClick={stop} title={t("nodeShell.endTitle")}>
-            ✕ end session
+            {t("nodeShell.endSession", "✕ end session")}
           </span>
         )}
       </div>
@@ -143,7 +145,7 @@ export function NodeShellTab() {
             onClick={() => setPhase({ state: "idle" })}
             title={t("nodeShell.backTitle")}
           >
-            ↻ start again
+            {t("nodeShell.startAgain", "↻ start again")}
           </span>
         </div>
       )}

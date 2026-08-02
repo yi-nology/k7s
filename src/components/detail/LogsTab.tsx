@@ -191,7 +191,7 @@ export function LogsTab() {
       </div>
 
       <div className={styles.footer}>
-        <span>{filtered.length} lines</span>
+        <span>{t("logs.linesCount", filtered.length)}</span>
         <span>{t("logs.container")}: {containerLabel}</span>
         {saveNote && <span className={styles.saveNote}>{saveNote}</span>}
         {previous ? (

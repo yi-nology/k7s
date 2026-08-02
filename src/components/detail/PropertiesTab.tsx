@@ -140,11 +140,12 @@ function SectionView({ section, now }: { section: Section; now: number }) {
  */
 function NavLink({ target, children }: { target: NavTarget; children: React.ReactNode }) {
   const navigateTo = useStore((s) => s.navigateTo);
+  const { t } = useTranslation();
   return (
     <button
       type="button"
       className={styles.navLink}
-      title={`Go to ${target.kind} ${target.name}`}
+      title={t("properties.navTitle", target.kind, target.name)}
       onClick={() => navigateTo(target)}
     >
       {children}

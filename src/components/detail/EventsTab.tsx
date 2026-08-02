@@ -42,7 +42,7 @@ export function EventsTab() {
     // Say so, and point at the cluster feed which is where problems surface (B14).
     return (
       <div className={styles.empty}>
-        no recent events — events expire after ~1h
+        {t("events.empty", "no recent events — events expire after ~1h")}
         <div className={styles.emptyHint}>{t("events.hint")}</div>
       </div>
     );

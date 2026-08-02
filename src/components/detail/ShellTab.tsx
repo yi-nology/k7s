@@ -64,7 +64,7 @@ export function ShellTab() {
         container,
         (data) => term.write(data),
         (reason) => {
-          if (!cancelled) setEnded(reason || "session ended");
+          if (!cancelled) setEnded(reason || t("shell.endedFallback", "session ended"));
         },
       )
       .then((h) => {
@@ -124,7 +124,7 @@ export function ShellTab() {
         <div className={styles.endedBar}>
           <span className={styles.endedReason}>{ended}</span>
           <span className={styles.reconnect} onClick={reconnect} title={t("shell.reconnectTitle")}>
-            ↻ reconnect
+            {t("shell.reconnect", "↻ reconnect")}
           </span>
         </div>
       )}
