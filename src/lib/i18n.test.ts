@@ -90,6 +90,16 @@ describe("translate", () => {
     expect(translate("zh", "chrome.sidebar.watch", 3)).toBe("监听: 3 路活跃");
   });
 
+  /** The watch count drops to 0 during disconnect (B11 lifecycle). The text
+   *  must render as a coherent sentence in both locales — "0 streams active"
+   *  in EN and "0 路活跃" in ZH, not the English fallback. WatchFooter now
+   *  reads the connection.phase separately to drive the dot state, but the
+   *  text itself still shows the count verbatim. */
+  it("renders chrome.sidebar.watch(0) coherently in both locales", () => {
+    expect(translate("en", "chrome.sidebar.watch", 0)).toBe("watch: 0 streams active");
+    expect(translate("zh", "chrome.sidebar.watch", 0)).toBe("监听: 0 路活跃");
+  });
+
   /** A dotted path with no entry at all returns the key — visible, debuggable. */
   it("returns the key when no locale has it", () => {
     expect(translate("en", "no.such.key")).toBe("no.such.key");

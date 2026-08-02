@@ -80,10 +80,13 @@ export function ClusterSwitcher() {
       <div className={styles.switcherButton} onClick={() => toggleMenu("cluster")}>
         <div className={styles.badge}>{initials(name)}</div>
         <div className={styles.switcherText}>
-          <div className={styles.clusterName}>{name}</div>
+          <div className={styles.clusterName} title={name}>{name}</div>
           <div className={styles.statusLine}>
             <span className={styles.dot} style={{ background: dotColor }} />
-            {statusText}
+            {/* statusText can be long on real clusters (e.g. "connected · v1.30.0-alpha.1+abcdef").
+                Wrapped in a span so the flex child can shrink and ellipsis; the
+                full text is surfaced on hover so the version isn't lost. */}
+            <span className={styles.statusText} title={statusText}>{statusText}</span>
           </div>
         </div>
         <span className={styles.chevron}>▼</span>

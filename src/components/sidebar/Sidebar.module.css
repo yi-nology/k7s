@@ -139,6 +139,17 @@
   font-family: var(--font-mono);
   margin-top: 1px;
 }
+/* statusText can be "connected · v1.30.0-alpha.1+abcdef" on real clusters — the
+   flex child needs min-width: 0 (the default `auto` won't shrink past the text's
+   intrinsic width) + ellipsis so a long version doesn't push the chevron off the
+   button. The hover-to-see-full-text affordance is on the JSX side. */
+.statusText {
+  min-width: 0;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .dot {
   width: 6px;
   height: 6px;
@@ -414,12 +425,16 @@
   height: 7px;
   border-radius: 50%;
   flex: none;
-  background: var(--accent);
-  /* Halo (--accent-softer) + soft outer glow (--accent-soft) layered — the eye
-     reads it as a "live" indicator rather than a static dot. */
+  /* Colour is set inline by WatchFooter based on the connection phase
+     (accent / warn / err). Halo + outer glow stay tied to accent because
+     only the connected-state dot earns the "live" treatment — the eye
+     learns that pulsing = live, static = not connected. */
   box-shadow:
     0 0 0 3px var(--accent-softer),
     0 0 12px var(--accent-soft);
+}
+/* Only the connected dot animates — see WatchFooter.tsx v2 note. */
+.footerDotPulsing {
   animation: livePulse 2s ease-in-out infinite;
 }
 .footerText {
