@@ -137,10 +137,10 @@ function selectionPatch(row: Row) {
     // you set.
     logPrevious: false,
     logSince: "all" as SinceOption,
-    // Events time-range filter, shared by the Cluster → Events table and the
-    // detail-panel EventsTab. "all" = everything the API server still retains
-    // (it has already GC'd events past --event-ttl, so this is bounded upstream).
-    eventsSince: "all" as SinceOption,
+    // NOTE: eventsSince is intentionally NOT reset here. It is a cluster-wide
+    // filter shared by the Events table and the EventsTab — clicking a pod
+    // should not clear the user's time-range filter on the cluster events view.
+    // It is only reset in resetData() on disconnect.
   };
 }
 
@@ -621,7 +621,21 @@ export const useStore = create<AppState>((set) => ({
   // the Logs tab; other kinds have no Logs tab, so they open on YAML.
   // (The logs component re-seeds the stream in response to a pod selection.)
   selectRow: (row) => set(selectionPatch(row)),
-  closeDetail: () => set({ selectedRow: null }),
+  // Close the detail panel and clean up view state. Safe because DetailPanel
+  // returns null when selectedRow is null — all tab components are already
+  // unmounted, so no active hooks depend on this state.
+  closeDetail: () =>
+    set({
+      selectedRow: null,
+      logBuffer: [],
+      logSearch: "",
+      containerIndex: 0,
+      following: true,
+      logPrevious: false,
+      logSince: "all",
+      yamlEditing: false,
+      yamlDraft: "",
+    }),
   // Switching tabs cancels any in-progress YAML edit (design behavior) and
   // also drops the draft — see selectionPatch for why carrying it forward is
   // worse than discarding it.

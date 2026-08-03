@@ -37,7 +37,8 @@ export type ActionId =
   | "drain"
   | "delete"
   | "download-yaml"
-  | "modify-image";
+  | "modify-image"
+  | "files";
 
 export interface ActionDef {
   id: ActionId;
@@ -77,6 +78,7 @@ const LABEL_KEYS: Record<ActionId, string> = {
   delete: "actions.labels.delete",
   "download-yaml": "actions.labels.downloadYaml",
   "modify-image": "actions.labels.modifyImage",
+  files: "actions.labels.files",
 };
 
 /** The mode/danger/bulk metadata, in menu order. Order is display order: safe things first. */
@@ -105,10 +107,14 @@ const META: Record<ActionId, Omit<ActionDef, "id" | "label">> = {
   // selection would have to fetch+rewrite N manifests and show N dialogs,
   // and there's no real use case for that.
   "modify-image": { mode: "form", bulk: false },
+  // Pod Files: opens the file browser overlay for a single pod. Not bulk —
+  // browsing files from multiple pods simultaneously has no meaning.
+  files: { mode: "immediate", bulk: false },
 };
 
 /** Every action id, in menu order. The metadata + label key together define the action. */
 const ORDER: ActionId[] = [
+  "files",
   "view-pods",
   "forward",
   "scale",
@@ -163,6 +169,9 @@ function applies(id: ActionId, kind: KindId, row: Row): boolean {
       // here; the provider does the actual work and the file picker still
       // comes out as a sensible `kind-name.yaml`.
       return true;
+    case "files":
+      // Pod file browser — only meaningful for pods with a running filesystem.
+      return kind === "pods";
     case "modify-image":
       // Only meaningful for workloads that own a `spec.template.spec` with
       // `containers:` — a Service, ConfigMap, or PVC has nothing to swap.

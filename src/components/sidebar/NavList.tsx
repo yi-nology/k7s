@@ -1,7 +1,15 @@
 /**
- * Sidebar navigation (Design §1). Renders the built-in groups (Workloads, Network,
- * Config, Cluster) and their kind items with live row counts. Clicking a kind
- * switches the active resource and clears any pod selection.
+ * Sidebar navigation (Design §1). Renders the built-in resource groups and their
+ * kind items with live row counts. Clicking a kind switches the active resource
+ * and clears any pod selection.
+ *
+ * Some resource groups carry overlay entries alongside their kinds:
+ *   - Network: Endpoints, Service Topology (views that belong with networking)
+ *   - Helm: Helm Market (action wizard alongside releases)
+ *
+ * The bottom section holds the remaining overlays, split into collapsible groups:
+ *   - Views → Observability (Dashboard, Metrics, Alerting, Grafana)
+ *   - Tools → Images (Registries, Import), Pod Files, Templates
  *
  * The Custom section (B15) lists CRD-backed kinds discovered on connect, folded
  * under their API group the way Lens does — murphy-yi has 44 CRDs across 10 groups, so
@@ -14,7 +22,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import styles from "./Sidebar.module.css";
-import { useStore } from "../../store";
+import { useStore, type OverlayKey } from "../../store";
 import {
   GROUP_ORDER,
   KIND_META,
@@ -32,6 +40,9 @@ export function NavList() {
   const rows = useStore((s) => s.rows);
   const setNav = useStore((s) => s.setNav);
   const customKinds = useStore((s) => s.customKinds);
+  const overlay = useStore((s) => s.overlay);
+  const openOverlay = useStore((s) => s.openOverlay);
+  const closeOverlay = useStore((s) => s.closeOverlay);
   const { locale, t } = useTranslation();
 
   return (
@@ -56,11 +67,6 @@ export function NavList() {
             {kindsInGroup(group).map((kind) => {
               const active = nav === kind;
               const meta = kindMeta(kind, customKinds);
-              // Localised label (zh ships "Pod" not "Pods", "节点" not "Nodes");
-              // falls back to the static KIND_META label and finally to the
-              // raw id if neither resolves — same precedence as the topbar
-              // breadcrumb, so a Chinese UI reads "工作负载 / Pod" not
-              // "Workloads / Pods".
               const label = kindLabelFor(kind, customKinds, locale) ?? meta?.label ?? kind;
               return (
                 <div
@@ -70,86 +76,186 @@ export function NavList() {
                 >
                   <span className={styles.navIcon}>{meta?.icon}</span>
                   <span className={styles.navLabel}>{label}</span>
-                  {/* Live count = number of rows currently in the store for this kind. */}
                   <span className={styles.navCount}>{rows[kind].length}</span>
                 </div>
               );
             })}
+            {/* Network extras: Endpoints + Service Topology (overlay views
+                that belong with the networking resources). */}
+            {group === "network" && (
+              <>
+                <div className={styles.sectionDivider} />
+                <OverlayItem
+                  item={{ key: "endpoints", label: t("chrome.sidebar.tools.endpoints", "Endpoints"), icon: "⇆" }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t("chrome.sidebar.tools.close", "Click to close")}
+                />
+                <OverlayItem
+                  item={{ key: "topology", label: t("chrome.sidebar.tools.topology", "Service Topology"), icon: "◌" }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t("chrome.sidebar.tools.close", "Click to close")}
+                />
+              </>
+            )}
+            {/* Helm extras: Helm Market (action wizard that belongs with
+                the Helm releases resource). */}
+            {group === "helm" && (
+              <OverlayItem
+                item={{ key: "helm-market", label: t("chrome.sidebar.tools.helmMarket", "Helm Market"), icon: "⎈" }}
+                overlay={overlay}
+                openOverlay={openOverlay}
+                closeOverlay={closeOverlay}
+                titleClose={t("chrome.sidebar.tools.close", "Click to close")}
+              />
+            )}
           </div>
         ),
       )}
-      {/* Feature overlays — Phase 1/2/4/5 of KubePi parity. Each one opens
-          a full-width panel above the resource table; clicking the table
-          again (or pressing Esc) closes it. */}
+      {/* Divider between resource groups and the overlay section below. */}
+      <div className={styles.sectionDivider} />
       <OverlaySection t={t} />
     </div>
   );
 }
 
-/** Sidebar entries for the feature overlays, split into two groups by job:
+/** A single overlay sidebar entry — reusable across groups and sections. */
+type OverlayItemDef = { key: OverlayKey; label: string; icon: string };
+
+function OverlayItem({
+  item,
+  overlay,
+  openOverlay,
+  closeOverlay,
+  titleClose,
+  nested,
+}: {
+  item: OverlayItemDef;
+  overlay: OverlayKey | null;
+  openOverlay: (key: OverlayKey) => void;
+  closeOverlay: () => void;
+  titleClose?: string;
+  /** When true, indent the item (for entries inside a collapsible group). */
+  nested?: boolean;
+}) {
+  const active = overlay === item.key;
+  return (
+    <div
+      className={`${styles.navItem} ${nested ? styles.navItemNested : ""} ${active ? styles.navItemActive : ""}`}
+      onClick={() => (active ? closeOverlay() : openOverlay(item.key))}
+      title={active ? titleClose : item.label}
+    >
+      <span className={styles.navIcon}>{item.icon}</span>
+      <span className={styles.navLabel}>{item.label}</span>
+    </div>
+  );
+}
+
+/** A collapsible group of overlay entries (e.g. Observability, Images). */
+function CollapsibleOverlayGroup({
+  header,
+  items,
+  overlay,
+  openOverlay,
+  closeOverlay,
+  titleClose,
+}: {
+  header: string;
+  items: OverlayItemDef[];
+  overlay: OverlayKey | null;
+  openOverlay: (key: OverlayKey) => void;
+  closeOverlay: () => void;
+  titleClose?: string;
+}) {
+  // Auto-expand when one of the group's items is active.
+  const groupActive = items.some((it) => it.key === overlay);
+  const [open, setOpen] = useState(groupActive);
+  useEffect(() => {
+    if (groupActive) setOpen(true);
+  }, [groupActive]);
+
+  return (
+    <div>
+      <button type="button" className={`${styles.navGroup} ${styles.navGroupOverlay}`} onClick={() => setOpen((v) => !v)}>
+        <span className={styles.navGroupChevron}>{open ? "⌄" : "›"}</span>
+        <span className={styles.navGroupLabel}>{header}</span>
+      </button>
+      {open &&
+        items.map((it) => (
+          <OverlayItem
+            key={it.key}
+            item={it}
+            overlay={overlay}
+            openOverlay={openOverlay}
+            closeOverlay={closeOverlay}
+            titleClose={titleClose}
+            nested
+          />
+        ))}
+    </div>
+  );
+}
+
+/** Remaining sidebar overlay entries not absorbed by resource groups.
  *
- *   - Views: panels that show a different cut of the cluster (Dashboard,
- *     Metrics, Endpoints, …). These read like extra resource groups, so they
- *     sit at the same level as Workloads/Network.
- *   - Tools: action wizards (Helm Market, Pod Files, Image …, Templates).
- *     These do something rather than show something, so they live under a
- *     separate header below a divider.
- *
- * Nothing is hidden — every feature stays one click away. The split is about
- * scannability: a sidebar that flattens 11 heterogeneous entries into one
- * list buries both the views and the tools. */
+ *  Items absorbed by resource groups (Endpoints/Topology → Network, Helm Market → Helm)
+ *  are rendered inline in the main loop above. What remains here:
+ *  - Observability (collapsible): Dashboard, Metrics, Alerting, Grafana
+ *  - Images (collapsible): Image Registries, Image Import
+ *  - Pod Files, Templates (flat) */
 function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
   const overlay = useStore((s) => s.overlay);
   const openOverlay = useStore((s) => s.openOverlay);
   const closeOverlay = useStore((s) => s.closeOverlay);
+  const titleClose = t("chrome.sidebar.tools.close", "Click to close");
 
-  type Item = { key: import("../../store").OverlayKey; label: string; icon: string };
-
-  // Cluster views — read-only cuts of the cluster, peer to the resource groups.
-  const views: Item[] = [
+  const observabilityItems: OverlayItemDef[] = [
     { key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: "◐" },
     { key: "metrics", label: t("chrome.sidebar.tools.metrics", "Metrics"), icon: "≋" },
-    { key: "endpoints", label: t("chrome.sidebar.tools.endpoints", "Endpoints"), icon: "⇆" },
-    { key: "topology", label: t("chrome.sidebar.tools.topology", "Service Topology"), icon: "◌" },
     { key: "alerting", label: t("chrome.sidebar.tools.alerting", "Alerting"), icon: "△" },
     { key: "grafana", label: t("chrome.sidebar.tools.grafana", "Grafana"), icon: "▣" },
   ];
 
-  // Action wizards — do something to the cluster rather than show a view.
-  const tools: Item[] = [
-    { key: "helm-market", label: t("chrome.sidebar.tools.helmMarket", "Helm Market"), icon: "⎈" },
-    { key: "pod-files", label: t("chrome.sidebar.tools.podFiles", "Pod Files"), icon: "▤" },
+  const imageItems: OverlayItemDef[] = [
     { key: "image-repos", label: t("chrome.sidebar.tools.imageRepos", "Image Registries"), icon: "⬚" },
     { key: "image-import", label: t("chrome.sidebar.tools.imageImport", "Image Import"), icon: "⬆" },
-    { key: "templates", label: t("chrome.sidebar.tools.templates", "Templates"), icon: "✚" },
   ];
-
-  const render = (it: Item) => {
-    const active = overlay === it.key;
-    return (
-      <div
-        key={it.key}
-        className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
-        onClick={() => (active ? closeOverlay() : openOverlay(it.key))}
-        title={active ? t("chrome.sidebar.tools.close", "Click to close") : it.label}
-      >
-        <span className={styles.navIcon}>{it.icon}</span>
-        <span className={styles.navLabel}>{it.label}</span>
-      </div>
-    );
-  };
 
   return (
     <div>
-      <div className={styles.sectionHeader}>
-        {t("chrome.sidebar.tools.viewsHeader", "Views")}
-      </div>
-      {views.map(render)}
-      <div className={styles.sectionDivider} />
-      <div className={styles.sectionHeader}>
-        {t("chrome.sidebar.tools.toolsHeader", "Tools")}
-      </div>
-      {tools.map(render)}
+      <CollapsibleOverlayGroup
+        header={t("chrome.sidebar.tools.observability", "Observability")}
+        items={observabilityItems}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      <CollapsibleOverlayGroup
+        header={t("chrome.sidebar.tools.images", "Images")}
+        items={imageItems}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      <OverlayItem
+        item={{ key: "pod-files", label: t("chrome.sidebar.tools.podFiles", "Pod Files"), icon: "▤" }}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      <OverlayItem
+        item={{ key: "templates", label: t("chrome.sidebar.tools.templates", "Templates"), icon: "✚" }}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
     </div>
   );
 }
@@ -231,11 +337,11 @@ function CustomSection({
         const open = filtering || expanded.has(group);
         return (
           <div key={group}>
-            <div className={styles.navGroup} onClick={() => toggle(group)} title={group}>
+            <button type="button" className={styles.navGroup} onClick={() => toggle(group)} title={group}>
               <span className={styles.navGroupChevron}>{open ? "⌄" : "›"}</span>
               <span className={styles.navGroupLabel}>{group}</span>
               <span className={styles.navCount}>{groupKinds.length}</span>
-            </div>
+            </button>
             {open &&
               groupKinds.map((ck) => {
                 const active = nav === ck.id;

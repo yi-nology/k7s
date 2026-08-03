@@ -55,7 +55,7 @@
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 .brandName {
@@ -250,8 +250,9 @@
   gap: 6px;
 }
 
-/* Thin separator between the Views and Tools overlay groups — distinguishes
-   "show a cut of the cluster" from "do something to it" without hiding either. */
+/* Thin separator — used between resource kinds and overlay entries within a
+   group (e.g. Network → Endpoints), and between the resource section and the
+   overlay collapsible groups at the bottom of the sidebar. */
 .sectionDivider {
   flex: none;
   height: 1px;
@@ -300,6 +301,16 @@
 
 /* A foldable API group ("argoproj.io"). Sits between a section header and a nav
    item in weight: it's clickable like an item, but names a group, not a kind. */
+/* Modifier for overlay collapsible groups (Observability, Images) — these use
+   human-readable labels, not technical identifiers, so drop the mono font. */
+.navGroupOverlay .navGroupLabel {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text-nav-inactive);
+}
+.navGroupOverlay:hover .navGroupLabel {
+  color: var(--text-primary);
+}
 .navGroup {
   display: flex;
   align-items: center;

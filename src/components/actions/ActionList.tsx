@@ -114,6 +114,7 @@ function yamlFilename(kind: KindId, row: Row): string {
 export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListProps) {
   const setPortForwards = useStore((s) => s.setPortForwards);
   const viewPods = useStore((s) => s.viewPods);
+  const openOverlay = useStore((s) => s.openOverlay);
   const { locale, t: tr } = useTranslation();
 
   // One translator shape that the i18n module and the actions module both
@@ -185,6 +186,14 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
           false,
         );
         break;
+      case "files":
+        openOverlay("pod-files", {
+          namespace: single.namespace ?? "",
+          name: single.name,
+          container: null,
+        });
+        onClose();
+        break;
     }
   }
 
@@ -228,26 +237,28 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
             {confirmText(mode.id, kind, rows, locale, tx)}
           </div>
           <div className={styles.confirmRow}>
-            <div
+            <button
+              type="button"
               className={styles.cancelBtn}
-              aria-disabled={busy}
+              disabled={busy}
               onClick={() => {
                 if (busy) return;
                 setMode({ kind: "menu" });
               }}
             >
               {tr("chrome.common.cancel")}
-            </div>
-            <div
+            </button>
+            <button
+              type="button"
               className={danger ? styles.dangerBtn : styles.applyBtn}
-              aria-disabled={busy}
+              disabled={busy}
               onClick={() => {
                 if (busy) return;
                 confirmed(mode.id);
               }}
             >
               {busy ? tr("actions.confirming", "…") : confirmLabel(mode.id, locale)}
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -268,16 +279,17 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
           <div className={styles.confirm}>
             <div className={styles.confirmText}>{tr("actions.scaleForm.title", single.name)}</div>
             <div className={styles.confirmRow} style={{ justifyContent: "center", gap: 10 }}>
-              <div
+              <button
+                type="button"
                 className={styles.cancelBtn}
-                aria-disabled={busy || replicas <= 0}
+                disabled={busy || replicas <= 0}
                 onClick={() => {
                   if (busy) return;
                   setReplicas((n) => Math.max(0, n - 1));
                 }}
               >
                 −
-              </div>
+              </button>
               <input
                 type="number"
                 min={0}
@@ -302,31 +314,33 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
                   textAlign: "center",
                 }}
               />
-              <div
+              <button
+                type="button"
                 className={styles.cancelBtn}
-                aria-disabled={busy}
+                disabled={busy}
                 onClick={() => {
                   if (busy) return;
                   setReplicas((n) => n + 1);
                 }}
               >
                 +
-              </div>
+              </button>
               <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
                 {tr("actions.scaleForm.replicasLabel", "replicas")}
               </span>
             </div>
             <div className={styles.confirmRow}>
-              <div
+              <button
+                type="button"
                 className={styles.cancelBtn}
-                aria-disabled={busy}
+                disabled={busy}
                 onClick={() => {
                   if (busy) return;
                   setMode({ kind: "menu" });
                 }}
               >
                 {tr("chrome.common.cancel")}
-              </div>
+              </button>
               <button
                 type="submit"
                 className={styles.applyBtn}
@@ -398,16 +412,17 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
               </span>
             </div>
             <div className={styles.confirmRow}>
-              <div
+              <button
+                type="button"
                 className={styles.cancelBtn}
-                aria-disabled={busy}
+                disabled={busy}
                 onClick={() => {
                   if (busy) return;
                   setMode({ kind: "menu" });
                 }}
               >
                 {tr("chrome.common.cancel")}
-              </div>
+              </button>
               <button
                 type="submit"
                 className={styles.applyBtn}
@@ -442,7 +457,6 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   // ---- the menu ----
   const safe = actions.filter((a) => !a.danger);
   const dangerous = actions.filter((a) => a.danger);
-  const openOverlay = useStore((s) => s.openOverlay);
 
   return (
     <div className={styles.menu}>
@@ -452,37 +466,15 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
         </div>
       )}
       {safe.map((a) => (
-        <div key={a.id} className={styles.row} onClick={() => pick(a)}>
+        <button key={a.id} type="button" className={styles.row} onClick={() => pick(a)}>
           {a.label}
-        </div>
+        </button>
       ))}
-      {/* Pod-only entry: open the Files overlay pointing at the first row's
-          container. Multi-row selection would be ambiguous (different pods),
-          so only show this when exactly one pod is selected. */}
-      {kind === "pods" && rows.length === 1 && (
-        <div
-          className={styles.row}
-          onClick={() => {
-            const r = rows[0];
-            openOverlay("pod-files", {
-              namespace: r.namespace ?? "",
-              name: r.name,
-              // Container is stored on the row as a chip; default to the
-              // first one if the backend didn't surface it. The panel can
-              // switch containers through its own UI once open.
-              container: null,
-            });
-            onClose();
-          }}
-        >
-          {tr("actions.labels.files")}
-        </div>
-      )}
       {safe.length > 0 && dangerous.length > 0 && <div className={styles.separator} />}
       {dangerous.map((a) => (
-        <div key={a.id} className={`${styles.row} ${styles.danger}`} onClick={() => pick(a)}>
+        <button key={a.id} type="button" className={`${styles.row} ${styles.danger}`} onClick={() => pick(a)}>
           {a.label}
-        </div>
+        </button>
       ))}
     </div>
   );
@@ -502,6 +494,7 @@ function confirmLabel(id: ActionId, locale: import("../../lib/i18n").Locale): st
     delete: "actions.labels.delete",
     "download-yaml": "actions.labels.downloadYaml",
     "modify-image": "actions.labels.modifyImage",
+    files: "actions.labels.files",
   };
   return translate(locale, dict[id]).replace(/…$/, "").trim();
 }

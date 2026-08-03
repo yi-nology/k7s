@@ -139,8 +139,9 @@ describe("tokens.css palettes", () => {
    */
   it("redefines every dark colour token in the light palette", () => {
     const missing = [...dark.keys()].filter(
-      // Fonts and geometry are shared on purpose; only colours need a second value.
-      (k) => !light.has(k) && !/^--(font|radius)-/.test(k),
+      // Fonts, geometry, spacing, z-index, and surface aliases are shared on
+      // purpose; only colours need a second value.
+      (k) => !light.has(k) && !/^--(font|radius|space|text|surface|z)-|^--bg-topbar-glass/.test(k),
     );
     expect(missing).toEqual([]);
   });

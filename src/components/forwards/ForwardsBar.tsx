@@ -42,21 +42,22 @@ export function ForwardsBar() {
           className={`${styles.item} ${f.error ? styles.itemError : ""}`}
           title={tooltip(f, t)}
         >
-          <span
+          <button
+            type="button"
             className={styles.local}
             title={t("chrome.forwards.copyAddress")}
             onClick={() => void copy(`localhost:${f.localPort}`)}
           >
             localhost:{f.localPort}
-          </span>
+          </button>
           <span className={styles.arrow}>→</span>
           <span className={styles.target}>
             {f.service ?? f.pod}:{f.servicePort ?? f.remotePort}
           </span>
           {f.error && <span className={styles.errorMark}>!</span>}
-          <span className={styles.stop} title={t("chrome.forwards.stopForward")} onClick={() => void stop(f.id)}>
+          <button type="button" className={styles.stop} title={t("chrome.forwards.stopForward")} onClick={() => void stop(f.id)}>
             ✕
-          </span>
+          </button>
         </span>
       ))}
     </div>

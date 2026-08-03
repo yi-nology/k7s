@@ -123,9 +123,9 @@ export function ShellTab() {
       {ended !== null && (
         <div className={styles.endedBar}>
           <span className={styles.endedReason}>{ended}</span>
-          <span className={styles.reconnect} onClick={reconnect} title={t("shell.reconnectTitle")}>
+          <button type="button" className={styles.reconnect} onClick={reconnect} title={t("shell.reconnectTitle")}>
             {t("shell.reconnect", "↻ reconnect")}
-          </span>
+          </button>
         </div>
       )}
     </div>

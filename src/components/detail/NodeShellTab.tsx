@@ -109,9 +109,9 @@ export function NodeShellTab() {
           <li>{t("nodeShell.expiresAfterHour")}</li>
           <li>{t("nodeShell.changesAreReal")}</li>
         </ul>
-        <div className={nodeStyles.gateAction} onClick={() => void start()}>
+        <button type="button" className={nodeStyles.gateAction} onClick={() => void start()}>
           {t("nodeShell.startBtn", "Start debug session")}
-        </div>
+        </button>
       </div>
     );
   }
@@ -129,9 +129,9 @@ export function NodeShellTab() {
             and the user should be able to see and delete it themselves. */}
         {phase.state === "running" && <span className={nodeStyles.podName}>{phase.pod}</span>}
         {phase.state === "running" && (
-          <span className={nodeStyles.close} onClick={stop} title={t("nodeShell.endTitle")}>
+          <button type="button" className={nodeStyles.close} onClick={stop} title={t("nodeShell.endTitle")}>
             {t("nodeShell.endSession", "✕ end session")}
-          </span>
+          </button>
         )}
       </div>
 

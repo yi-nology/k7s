@@ -77,7 +77,7 @@ export function ClusterSwitcher() {
 
   return (
     <div className={styles.switcher} ref={ref}>
-      <div className={styles.switcherButton} onClick={() => toggleMenu("cluster")}>
+      <button type="button" className={styles.switcherButton} onClick={() => toggleMenu("cluster")}>
         <div className={styles.badge}>{initials(name)}</div>
         <div className={styles.switcherText}>
           <div className={styles.clusterName} title={name}>{name}</div>
@@ -90,15 +90,16 @@ export function ClusterSwitcher() {
           </div>
         </div>
         <span className={styles.chevron}>▼</span>
-      </div>
+      </button>
 
       {open && (
         <div className={styles.menu}>
           {contexts.map((ctx) => {
             const isCurrent = ctx.name === connection.context;
             return (
-              <div
+              <button
                 key={ctx.name}
+                type="button"
                 className={`${styles.menuRow} ${isCurrent ? styles.menuRowActive : ""}`}
                 onClick={() => {
                   closeMenus();
@@ -112,7 +113,7 @@ export function ClusterSwitcher() {
                 />
                 <span className={styles.menuName}>{ctx.name}</span>
                 <span className={styles.menuEnv}>{ctx.cluster}</span>
-              </div>
+              </button>
             );
           })}
           {contexts.length === 0 && (
@@ -125,10 +126,10 @@ export function ClusterSwitcher() {
 
           {/* Import action, separated from the context list. */}
           <div className={styles.menuDivider} />
-          <div className={styles.menuRow} onClick={() => void onImport()}>
+          <button type="button" className={styles.menuRow} onClick={() => void onImport()}>
             <span className={styles.importIcon}>＋</span>
             <span className={styles.menuName}>{t("chrome.sidebar.importKubeconfig")}</span>
-          </div>
+          </button>
         </div>
       )}
 

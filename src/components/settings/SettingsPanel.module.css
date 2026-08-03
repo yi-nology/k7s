@@ -306,8 +306,8 @@
 }
 
 .mcpCopyErr {
-  color: #ff6b6b;
-  border-color: #ff6b6b;
+  color: var(--status-err);
+  border-color: var(--status-err);
 }
 
 .mcpExtraLabel {

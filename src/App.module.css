@@ -21,6 +21,15 @@
   display: flex;
 }
 
+/* Wrapper for table + detail panel — stays mounted when an overlay opens so
+   scroll position and selections survive. display: flex/none toggled inline. */
+.tableArea {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
 /* Feature overlay — Phase 1/2/4/5 entry points fill the content area. */
 .overlay {
   flex: 1;

@@ -126,19 +126,20 @@ export function LogsTab() {
         </div>
 
         {/* Container cycler (cycles through the pod's containers, plus "all"). */}
-        <div className={styles.button} onClick={cycleContainer} title={t("logs.container")}>
+        <button type="button" className={styles.button} onClick={cycleContainer} title={t("logs.container")}>
           <span className={styles.buttonGlyph}>▣</span>
           {containerLabel}
           {options.length > 1 && <span className={styles.buttonChevron}>▼</span>}
-        </div>
+        </button>
 
         {/* Timestamp toggle. */}
-        <div
+        <button
+          type="button"
           className={`${styles.toggle} ${showTimestamps ? styles.toggleActive : ""}`}
           onClick={toggleTimestamps}
         >
           {t("logs.ts")}
-        </div>
+        </button>
 
         {/* How far back to read. */}
         <select
@@ -158,29 +159,31 @@ export function LogsTab() {
             A pod that has never restarted has no previous generation, and asking
             for one is a 400. */}
         {showPrevious && (
-          <div
+          <button
+            type="button"
             className={`${styles.toggle} ${previous ? styles.toggleActive : ""}`}
             onClick={() => setLogPrevious(!previous)}
             title={t("logs.previousTitle")}
           >
             {t("logs.previous")}
-          </div>
+          </button>
         )}
 
-        <div className={styles.button} onClick={() => void save()} title={t("logs.saveTitle")}>
+        <button type="button" className={styles.button} onClick={() => void save()} title={t("logs.saveTitle")}>
           <span className={styles.buttonGlyph}>⇩</span>
           {t("logs.save")}
-        </div>
+        </button>
 
         {/* Follow / pause. Meaningless for a previous read: that container is
             dead, so there is nothing to follow. */}
         {!previous && (
-          <div
+          <button
+            type="button"
             className={`${styles.follow} ${following ? styles.following : styles.paused}`}
             onClick={toggleFollow}
           >
             {following ? t("logs.pause") : t("logs.follow")}
-          </div>
+          </button>
         )}
       </div>
 

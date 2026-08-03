@@ -28,6 +28,7 @@ export function TopBar() {
   const namespace = useStore((s) => s.namespace);
   const connection = useStore((s) => s.connection);
   const nsRows = useStore((s) => s.rows.namespaces);
+  const setPaletteOpen = useStore((s) => s.setPaletteOpen);
   const open = useStore((s) => s.openMenu === "ns");
   const toggleMenu = useStore((s) => s.toggleMenu);
   const closeMenus = useStore((s) => s.closeMenus);
@@ -79,8 +80,9 @@ export function TopBar() {
       <div
         className={styles.cmdBar}
         role="button"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setPaletteOpen(true); }}
         tabIndex={0}
-        onClick={() => useStore.getState().setPaletteOpen(true)}
+        onClick={() => setPaletteOpen(true)}
       >
         <span className={styles.cmdIcon} aria-hidden="true">⌕</span>
         <span className={styles.cmdPlaceholder}>{t("chrome.topbar.searchPlaceholder")}</span>
@@ -95,31 +97,32 @@ export function TopBar() {
         ref={langRef}
         current={locale}
         onPick={(l) => {
-          useStore.getState().closeMenus();
+          closeMenus();
           setSettings({ language: l });
         }}
       />
 
       <div className={styles.nsWrap} ref={nsRef}>
-        <div className={styles.nsButton} onClick={() => toggleMenu("ns")}>
+        <button type="button" className={styles.nsButton} onClick={() => toggleMenu("ns")}>
           <span className={styles.nsPrefix}>{t("chrome.topbar.nsPrefix")}</span>
           <span className={styles.nsValue}>{namespace}</span>
           <span className={styles.nsChevron}>▼</span>
-        </div>
+        </button>
 
         {open && (
           <div className={styles.nsMenu}>
             {namespaces.map((ns) => {
               const selected = ns === namespace;
               return (
-                <div
+                <button
                   key={ns}
+                  type="button"
                   className={`${styles.nsRow} ${selected ? styles.nsRowSelected : ""}`}
                   onClick={() => setNamespace(ns)}
                 >
                   <span className={styles.nsCheck}>{selected ? "✓" : ""}</span>
                   {ns}
-                </div>
+                </button>
               );
             })}
           </div>
@@ -147,22 +150,23 @@ function LanguageSwitcher({
 
   return (
     <div className={styles.langWrap} ref={ref}>
-      <div className={styles.langButton} onClick={() => toggleMenu("lang")} title={LOCALE_LABELS[current]}>
+      <button type="button" className={styles.langButton} onClick={() => toggleMenu("lang")} title={LOCALE_LABELS[current]}>
         <span className={styles.langGlyph}>{shortLabel(current)}</span>
-      </div>
+      </button>
       {open && (
         <div className={styles.langMenu}>
           {LOCALES.map((l) => {
             const selected = l === current;
             return (
-              <div
+              <button
                 key={l}
+                type="button"
                 className={`${styles.langRow} ${selected ? styles.langRowSelected : ""}`}
                 onClick={() => onPick(l)}
               >
                 <span className={styles.langCheck}>{selected ? "✓" : ""}</span>
                 {LOCALE_LABELS[l]}
-              </div>
+              </button>
             );
           })}
         </div>

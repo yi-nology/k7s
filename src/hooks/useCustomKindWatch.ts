@@ -10,7 +10,7 @@
  * Mounted once at the app root, alongside useBootstrap.
  */
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { getProvider } from "../providers";
 import { useStore } from "../store";
 import { isCustomKind } from "../lib/kinds";
@@ -19,6 +19,10 @@ export function useCustomKindWatch(): void {
   const nav = useStore((s) => s.nav);
   const customKinds = useStore((s) => s.customKinds);
   const phase = useStore((s) => s.connection.phase);
+  // Track whether a watch was actually started so cleanup only unwatches when
+  // necessary. Without this, a customKinds reference change (same content)
+  // triggers an unwatch/watch cycle for the currently-viewed kind.
+  const watching = useRef(false);
 
   useEffect(() => {
     // Built-in kinds are watched eagerly by the backend on connect.
@@ -32,6 +36,7 @@ export function useCustomKindWatch(): void {
 
     const provider = getProvider();
     let cancelled = false;
+    watching.current = true;
     void provider.watchCustomKind(nav).catch((e) => {
       // Non-fatal: an RBAC-forbidden CRD simply shows an empty table, matching
       // how built-in kinds degrade.
@@ -40,9 +45,13 @@ export function useCustomKindWatch(): void {
 
     return () => {
       cancelled = true;
-      void provider.unwatchCustomKind(nav).catch(() => {
-        // Teardown is best-effort; the backend also drops these on reset.
-      });
+      // Only tear down the watcher if we actually started one.
+      if (watching.current) {
+        watching.current = false;
+        void provider.unwatchCustomKind(nav).catch(() => {
+          // Teardown is best-effort; the backend also drops these on reset.
+        });
+      }
     };
   }, [nav, customKinds, phase]);
 }

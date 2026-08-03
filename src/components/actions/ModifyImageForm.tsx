@@ -124,9 +124,9 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
       <div className={styles.menu}>
         <div className={styles.error}>{fetchError}</div>
         <div className={styles.confirmRow}>
-          <div className={styles.cancelBtn} onClick={onClose}>
+          <button type="button" className={styles.cancelBtn} onClick={onClose}>
             {t("chrome.common.cancel")}
-          </div>
+          </button>
         </div>
       </div>
     );

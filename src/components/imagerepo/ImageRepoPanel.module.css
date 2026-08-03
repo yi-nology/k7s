@@ -155,7 +155,7 @@
 .repoName,
 .tagName {
   flex: 0 0 auto;
-  font: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 .tagMeta {
@@ -171,7 +171,7 @@
 }
 
 .mono {
-  font: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   word-break: break-all;
 }
@@ -219,7 +219,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-secondary);
-  font: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   max-height: 240px;
   overflow: auto;

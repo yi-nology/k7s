@@ -12,6 +12,7 @@ import { useCustomKindWatch } from "./hooks/useCustomKindWatch";
 import { useGlobalKeys } from "./hooks/useGlobalKeys";
 import { useTheme } from "./hooks/useTheme";
 import { useLocaleSync, useTranslation } from "./hooks/useI18n";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Sidebar } from "./components/sidebar/Sidebar";
 import { TopBar } from "./components/topbar/TopBar";
 import { StatusBar } from "./components/statusbar/StatusBar";
@@ -53,95 +54,97 @@ export default function App() {
   const { t } = useTranslation();
 
   return (
-    <div className={styles.app}>
-      <Sidebar />
-      <div className={styles.main}>
-        <TopBar />
-        <div className={styles.content}>
-          {overlay === null && (
-            <>
+    <ErrorBoundary>
+      <div className={styles.app}>
+        <Sidebar />
+        <div className={styles.main}>
+          <TopBar />
+          <div className={styles.content}>
+            {/* Keep the table + detail panel mounted when an overlay opens —
+                scroll position, sort state, and selections survive the round-trip. */}
+            <div className={styles.tableArea} style={{ display: overlay === null ? "flex" : "none" }}>
               <ResourceTable />
               <DetailPanel />
-            </>
-          )}
-          {overlay === "helm-market" && (
-            <div className={styles.overlay}>
-              <HelmMarket onClose={closeOverlay} />
             </div>
-          )}
-          {overlay === "pod-files" && (
-            <div className={styles.overlay}>
-              {overlayPodRef ? (
-                <PodFilesPanel
-                  ref={{
-                    kind: "pods",
-                    namespace: overlayPodRef.namespace,
-                    name: overlayPodRef.name,
-                  }}
-                  container={overlayPodRef.container}
-                  onClose={closeOverlay}
-                />
-              ) : (
-                // No pod picked yet — show a friendly empty state.
-                <div className={styles.overlayEmpty}>
-                  {t("podFiles.noPod", "Open Pod Files from a Pod's row context menu.")}
-                </div>
-              )}
-            </div>
-          )}
-          {overlay === "image-repos" && (
-            <div className={styles.overlay}>
-              <ImageRepoPanel onClose={closeOverlay} />
-            </div>
-          )}
-          {overlay === "image-import" && (
-            <div className={styles.overlay}>
-              <ImageImportPanel onClose={closeOverlay} />
-            </div>
-          )}
-          {overlay === "templates" && (
-            <div className={styles.overlay}>
-              <TemplatePicker onClose={closeOverlay} />
-            </div>
-          )}
-          {overlay === "dashboard" && (
-            <div className={styles.overlay}>
-              <Dashboard onClose={closeOverlay} />
-            </div>
-          )}
-          {overlay === "metrics" && (
-            <div className={styles.overlay}>
-              <MetricsExplorer onClose={closeOverlay} />
-            </div>
-          )}
-          {overlay === "grafana" && (
-            <div className={styles.overlay}>
-              <GrafanaPanel onClose={closeOverlay} />
-            </div>
-          )}
-          {overlay === "endpoints" && (
-            <div className={styles.overlay}>
-              <EndpointsPanel onClose={closeOverlay} />
-            </div>
-          )}
-          {overlay === "topology" && (
-            <div className={styles.overlay}>
-              <TopologyPanel onClose={closeOverlay} />
-            </div>
-          )}
-          {overlay === "alerting" && (
-            <div className={styles.overlay}>
-              <AlertsPanel onClose={closeOverlay} />
-            </div>
-          )}
+            {overlay === "helm-market" && (
+              <div className={styles.overlay}>
+                <HelmMarket onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "pod-files" && (
+              <div className={styles.overlay}>
+                {overlayPodRef ? (
+                  <PodFilesPanel
+                    ref={{
+                      kind: "pods",
+                      namespace: overlayPodRef.namespace,
+                      name: overlayPodRef.name,
+                    }}
+                    container={overlayPodRef.container}
+                    onClose={closeOverlay}
+                  />
+                ) : (
+                  // No pod picked yet — show a friendly empty state.
+                  <div className={styles.overlayEmpty}>
+                    {t("podFiles.noPod", "Open Pod Files from a Pod's row context menu.")}
+                  </div>
+                )}
+              </div>
+            )}
+            {overlay === "image-repos" && (
+              <div className={styles.overlay}>
+                <ImageRepoPanel onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "image-import" && (
+              <div className={styles.overlay}>
+                <ImageImportPanel onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "templates" && (
+              <div className={styles.overlay}>
+                <TemplatePicker onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "dashboard" && (
+              <div className={styles.overlay}>
+                <Dashboard onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "metrics" && (
+              <div className={styles.overlay}>
+                <MetricsExplorer onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "grafana" && (
+              <div className={styles.overlay}>
+                <GrafanaPanel onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "endpoints" && (
+              <div className={styles.overlay}>
+                <EndpointsPanel onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "topology" && (
+              <div className={styles.overlay}>
+                <TopologyPanel onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "alerting" && (
+              <div className={styles.overlay}>
+                <AlertsPanel onClose={closeOverlay} />
+              </div>
+            )}
+          </div>
+          <ForwardsBar />
+          <StatusBar />
         </div>
-        <ForwardsBar />
-        <StatusBar />
+        {/* Modals, outside the layout flow. The palette is last so it layers over
+            everything — ⌘K works from anywhere, including the settings panel. */}
+        <SettingsPanel />
+        <CommandPalette />
       </div>
-      {/* Modals, outside the layout flow. The palette is last so it layers over
-          everything — ⌘K works from anywhere, including the settings panel. */}
-      <SettingsPanel />
-      <CommandPalette />
-    </div>
+    </ErrorBoundary>
   );
 }

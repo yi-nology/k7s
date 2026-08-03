@@ -186,6 +186,10 @@ function runAction(id: ActionId) {
           .catch((e) => console.warn(`${id} failed:`, e));
       }
       break;
+    // Overlay views and tools — open the corresponding sidebar panel.
+    default:
+      s.openOverlay(id as import("../../store").OverlayKey);
+      break;
   }
 }
 

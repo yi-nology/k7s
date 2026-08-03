@@ -9,7 +9,7 @@
  * and node drain progress (B20).
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./DetailPanel.module.css";
 import { useStore } from "../../store";
 import { useNow } from "../../hooks/useNow";
@@ -35,6 +35,7 @@ import type { DrainProgress } from "../../providers/types";
 export function DetailPanel() {
   const row = useStore((s) => s.selectedRow);
   const nav = useStore((s) => s.nav);
+  const rows = useStore((s) => s.rows);
   const activeTab = useStore((s) => s.activeTab);
   const setActiveTab = useStore((s) => s.setActiveTab);
   const closeDetail = useStore((s) => s.closeDetail);
@@ -45,6 +46,17 @@ export function DetailPanel() {
 
   // Error from an action (delete/scale/cordon), shown as a header banner.
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Stale-row guard: if the selected row disappears from the live watcher data
+  // (deleted by an external actor, not by us), close the panel. Skips the check
+  // while the kind's rows are still empty (watch hasn't delivered yet).
+  const kindRows = rows[nav] ?? [];
+  useEffect(() => {
+    if (!row) return;
+    if (kindRows.length === 0) return; // still loading
+    if (kindRows.some((r) => r.uid === row.uid)) return;
+    closeDetail();
+  }, [kindRows, row, closeDetail]);
 
   // Panel is closed when nothing is selected.
   if (!row) return null;

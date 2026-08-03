@@ -79,7 +79,7 @@
 }
 
 .mono {
-  font: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
 

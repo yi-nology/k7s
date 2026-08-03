@@ -37,7 +37,10 @@ export function SettingsPanel() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        e.stopImmediatePropagation();
+        setOpen(false);
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -67,9 +70,9 @@ export function SettingsPanel() {
       <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <span className={styles.title}>{t("chrome.settings.title")}</span>
-          <span className={styles.close} title={t("chrome.common.close")} onClick={() => setOpen(false)}>
+          <button type="button" className={styles.close} title={t("chrome.common.close")} onClick={() => setOpen(false)}>
             ×
-          </span>
+          </button>
         </div>
 
         <div className={styles.body}>
@@ -196,9 +199,9 @@ export function SettingsPanel() {
 
         <div className={styles.footer}>
           <span className={styles.note}>{t("chrome.settings.footerNote")}</span>
-          <span className={styles.reset} onClick={() => setSettings(DEFAULT_SETTINGS)}>
+          <button type="button" className={styles.reset} onClick={() => setSettings(DEFAULT_SETTINGS)}>
             {t("chrome.settings.reset")}
-          </span>
+          </button>
         </div>
       </div>
     </div>

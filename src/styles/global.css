@@ -75,6 +75,23 @@ textarea {
   font-family: inherit;
 }
 
+/* Buttons reset — components style via CSS module classes, so strip the browser
+   defaults that would conflict with div-style layouts. */
+button {
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 /* Custom scrollbars matching the prototype: thin, track-transparent, thumb the
    control-border color, brighter on hover. v2 — slightly larger hit area (10→12
    inner) and a 3px gutter inset so the thumb never sits flush against content. */

@@ -225,7 +225,8 @@
   background: var(--bg-selected-row);
 }
 .rowSelected:hover {
-  background: #1F2D52;
+  background: var(--bg-selected-row);
+  filter: brightness(1.15);
 }
 /* Keyboard-highlighted row: a subtle inset accent bar + hover-like background. */
 .rowHighlight {

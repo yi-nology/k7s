@@ -42,13 +42,10 @@ export interface Dictionary {
       filterKinds: string;
       importKubeconfig: string;
       noContexts: string;
-      /** The "Tools" section in the sidebar — overlays for Helm Market,
-       *  Pod Files, Image Registries, Templates, and the Tier-2 features
-       *  (Dashboard, Metrics, Grafana, Endpoints, Topology, Alerting). */
+      /** Overlay entries in the sidebar — collapsible groups (Observability,
+       *  Images) and flat items (Pod Files, Templates). Some overlays live
+       *  inside their resource group instead (Helm Market → Helm, etc.). */
       tools: {
-        header: string;
-        viewsHeader: string;
-        toolsHeader: string;
         helmMarket: string;
         podFiles: string;
         imageRepos: string;
@@ -60,6 +57,8 @@ export interface Dictionary {
         endpoints: string;
         topology: string;
         alerting: string;
+        observability: string;
+        images: string;
         close: string;
       };
     };
@@ -108,11 +107,26 @@ export interface Dictionary {
         importKubeconfig: string;
         cordon: (node: string) => string;
         uncordon: (node: string) => string;
+        dashboard: string;
+        metrics: string;
+        grafana: string;
+        endpoints: string;
+        topology: string;
+        alerting: string;
+        helmMarket: string;
+        podFiles: string;
+        imageRepos: string;
+        imageImport: string;
+        templates: string;
       };
       /** Right-aligned hint for an app-level action (settings, import). */
       actionHintApp: string;
       /** Right-aligned hint for a per-node action (cordon/uncordon). */
       actionHintNode: string;
+      /** Right-aligned hint for an overlay view (Dashboard, PromQL, …). */
+      actionHintView: string;
+      /** Right-aligned hint for an overlay tool (Helm Market, Images, …). */
+      actionHintTool: string;
     };
   };
 
@@ -153,9 +167,8 @@ export interface Dictionary {
     };
   };
 
-  /** Detail panel — tabs, header meta, common buttons. */
+  /** Detail panel — header meta, common buttons. Tab labels use tabLabel(). */
   detail: {
-    tabs: { logs: string; properties: string; revisions: string; metrics: string; shell: string; yaml: string; events: string; pods: string };
     header: {
       kind: string;
       ns: string;
@@ -744,20 +757,19 @@ export const en: Dictionary = {
       importKubeconfig: "Import kubeconfig…",
       noContexts: "no contexts",
       tools: {
-        header: "Tools",
-        viewsHeader: "Views",
-        toolsHeader: "Tools",
         helmMarket: "Helm Market",
         podFiles: "Pod Files",
         imageRepos: "Image Registries",
         imageImport: "Image Import",
         templates: "Templates",
         dashboard: "Dashboard",
-        metrics: "Metrics",
+        metrics: "PromQL",
         grafana: "Grafana",
         endpoints: "Endpoints",
         topology: "Service Topology",
         alerting: "Alerting",
+        observability: "Observability",
+        images: "Images",
         close: "Click to close",
       },
     },
@@ -802,9 +814,22 @@ export const en: Dictionary = {
         importKubeconfig: "Import kubeconfig…",
         cordon: (node) => `Cordon ${node}`,
         uncordon: (node) => `Uncordon ${node}`,
+        dashboard: "Dashboard",
+        metrics: "PromQL",
+        grafana: "Grafana",
+        endpoints: "Endpoints",
+        topology: "Service Topology",
+        alerting: "Alerting",
+        helmMarket: "Helm Market",
+        podFiles: "Pod Files",
+        imageRepos: "Image Registries",
+        imageImport: "Image Import",
+        templates: "Templates",
       },
       actionHintApp: "app",
       actionHintNode: "node",
+      actionHintView: "view",
+      actionHintTool: "tool",
     },
   },
 
@@ -878,16 +903,6 @@ export const en: Dictionary = {
   },
 
   detail: {
-    tabs: {
-      logs: "Logs",
-      properties: "Properties",
-      revisions: "Revisions",
-      metrics: "Metrics",
-      shell: "Shell",
-      yaml: "YAML",
-      events: "Events",
-      pods: "Pods",
-    },
     header: {
       kind: "kind",
       ns: "ns",
@@ -1408,9 +1423,6 @@ export const zh: Dictionary = {
       importKubeconfig: "导入 kubeconfig…",
       noContexts: "无 context",
       tools: {
-        header: "工具",
-        viewsHeader: "视图",
-        toolsHeader: "工具",
         helmMarket: "Helm 市场",
         podFiles: "Pod 文件",
         imageRepos: "镜像仓库",
@@ -1422,6 +1434,8 @@ export const zh: Dictionary = {
         endpoints: "Endpoints",
         topology: "服务拓扑",
         alerting: "告警",
+        observability: "可观测性",
+        images: "镜像",
         close: "点击关闭",
       },
     },
@@ -1471,9 +1485,22 @@ export const zh: Dictionary = {
         importKubeconfig: "导入 kubeconfig…",
         cordon: (node) => `禁止调度 ${node}`,
         uncordon: (node) => `允许调度 ${node}`,
+        dashboard: "总览",
+        metrics: "指标查询",
+        grafana: "Grafana",
+        endpoints: "Endpoints",
+        topology: "服务拓扑",
+        alerting: "告警",
+        helmMarket: "Helm 市场",
+        podFiles: "Pod 文件",
+        imageRepos: "镜像仓库",
+        imageImport: "镜像导入",
+        templates: "模板",
       },
       actionHintApp: "应用",
       actionHintNode: "节点",
+      actionHintView: "视图",
+      actionHintTool: "工具",
     },
   },
 
@@ -1546,16 +1573,6 @@ export const zh: Dictionary = {
   },
 
   detail: {
-    tabs: {
-      logs: "日志",
-      properties: "属性",
-      revisions: "版本历史",
-      metrics: "指标",
-      shell: "终端",
-      yaml: "YAML",
-      events: "事件",
-      pods: "Pod 列表",
-    },
     header: {
       kind: "类型",
       ns: "命名空间",

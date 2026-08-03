@@ -403,9 +403,9 @@ export function ResourceTable() {
           because a bulk action can be run entirely from the row menu with no
           panel open — reporting into the panel would silently swallow it. */}
       {menuError && (
-        <div className={styles.actionError} onClick={() => setMenuError(null)} title={t("chrome.common.dismiss")}>
+        <button type="button" className={styles.actionError} onClick={() => setMenuError(null)} title={t("chrome.common.dismiss")}>
           {menuError}
-        </div>
+        </button>
       )}
 
       {menuAt && menuRows.length > 0 && (

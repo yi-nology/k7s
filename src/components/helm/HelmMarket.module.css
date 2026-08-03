@@ -350,7 +350,7 @@
   border-radius: var(--radius-1);
   color: var(--text-primary);
   flex: 1 1 auto;
-  font: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-sm);
   min-height: 200px;
   padding: var(--space-2);
@@ -369,12 +369,12 @@
 }
 
 .logs {
-  background: #000;
+  background: var(--bg-terminal);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
-  color: #d0d0d0;
+  color: var(--text-body);
   flex: 1 1 auto;
-  font: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   margin-top: var(--space-2);
   min-height: 120px;
@@ -384,11 +384,11 @@
 }
 
 .logLine {
-  color: #d0d0d0;
+  color: var(--text-body);
 }
 
 .logLineErr {
-  color: #ff8a80;
+  color: var(--status-err-msg);
 }
 
 .summaryOk {

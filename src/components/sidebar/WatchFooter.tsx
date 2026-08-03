@@ -41,14 +41,14 @@ export function WatchFooter() {
         style={{ background: dotColor }}
       />
       <span className={styles.footerText}>{t("chrome.sidebar.watch", watchCount)}</span>
-      <span
+      <button
+        type="button"
         className={styles.gear}
         title={t("chrome.sidebar.settings")}
-        role="button"
         onClick={() => setSettingsOpen(true)}
       >
         ⚙
-      </span>
+      </button>
     </div>
   );
 }

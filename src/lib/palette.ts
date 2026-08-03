@@ -16,8 +16,26 @@ import { isCustomKind, KIND_META, KIND_ORDER, type KindId } from "./kinds";
 import { dict, kindLabelFor as i18nKindLabel, type Locale } from "./i18n";
 import type { CustomKind, Row } from "../providers/types";
 
-/** Actions the palette can run. Data, not closures, so this stays testable. */
-export type ActionId = "settings" | "import-kubeconfig" | "cordon" | "uncordon";
+/** Actions the palette can run. Data, not closures, so this stays testable.
+ *  Includes app commands, node actions, and sidebar overlay views/tools. */
+export type ActionId =
+  | "settings"
+  | "import-kubeconfig"
+  | "cordon"
+  | "uncordon"
+  // Overlay views (read-only cluster panels)
+  | "dashboard"
+  | "metrics"
+  | "grafana"
+  | "endpoints"
+  | "topology"
+  | "alerting"
+  // Overlay tools (action wizards)
+  | "helm-market"
+  | "pod-files"
+  | "image-repos"
+  | "image-import"
+  | "templates";
 
 interface Scored {
   /** Ranking score; only comparable within one query. */
@@ -88,7 +106,7 @@ const UNSEARCHABLE_KINDS: ReadonlySet<string> = new Set(["events"]);
  */
 const MAX_KINDS = 8;
 const MAX_OBJECTS = 25;
-const MAX_ACTIONS = 6;
+const MAX_ACTIONS = 20;
 
 /**
  * Split a leading `ns:<name>` scope off a query.
@@ -278,6 +296,32 @@ function actionCandidates(ctx: PaletteContext) {
         targets: [uncordonLabel, `Uncordon ${node}`],
       },
     );
+  }
+
+  // Overlay views — always available.
+  const viewHint = paletteStr(locale, "chrome.palette.actionHintView", "view");
+  const toolHint = paletteStr(locale, "chrome.palette.actionHintTool", "tool");
+
+  const overlays: { id: ActionId; key: string; fallback: string; hint: string }[] = [
+    { id: "dashboard", key: "chrome.palette.actions.dashboard", fallback: "Dashboard", hint: viewHint },
+    { id: "metrics", key: "chrome.palette.actions.metrics", fallback: "PromQL", hint: viewHint },
+    { id: "grafana", key: "chrome.palette.actions.grafana", fallback: "Grafana", hint: viewHint },
+    { id: "endpoints", key: "chrome.palette.actions.endpoints", fallback: "Endpoints", hint: viewHint },
+    { id: "topology", key: "chrome.palette.actions.topology", fallback: "Service Topology", hint: viewHint },
+    { id: "alerting", key: "chrome.palette.actions.alerting", fallback: "Alerting", hint: viewHint },
+    { id: "helm-market", key: "chrome.palette.actions.helmMarket", fallback: "Helm Market", hint: toolHint },
+    { id: "pod-files", key: "chrome.palette.actions.podFiles", fallback: "Pod Files", hint: toolHint },
+    { id: "image-repos", key: "chrome.palette.actions.imageRepos", fallback: "Image Registries", hint: toolHint },
+    { id: "image-import", key: "chrome.palette.actions.imageImport", fallback: "Image Import", hint: toolHint },
+    { id: "templates", key: "chrome.palette.actions.templates", fallback: "Templates", hint: toolHint },
+  ];
+
+  for (const ov of overlays) {
+    const label = paletteStr(locale, ov.key, ov.fallback);
+    items.push({
+      item: { type: "action", id: ov.id, label, hint: ov.hint },
+      targets: [label, ov.fallback],
+    });
   }
 
   return items;
