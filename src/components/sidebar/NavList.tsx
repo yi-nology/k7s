@@ -86,47 +86,70 @@ export function NavList() {
   );
 }
 
-/** Sidebar entries for the feature overlays. Grouped under a single
- * "Tools" header so they don't pollute the regular kind nav. The Tier-1
- * entries (Helm Market, Pod Files, Image Registries, Templates) are
- * always shown; the Tier-2 entries (Dashboard, Metrics, Grafana,
- * Endpoints, Topology, Alerting) sit below a thin separator. */
+/** Sidebar entries for the feature overlays, split into two groups by job:
+ *
+ *   - Views: panels that show a different cut of the cluster (Dashboard,
+ *     Metrics, Endpoints, …). These read like extra resource groups, so they
+ *     sit at the same level as Workloads/Network.
+ *   - Tools: action wizards (Helm Market, Pod Files, Image …, Templates).
+ *     These do something rather than show something, so they live under a
+ *     separate header below a divider.
+ *
+ * Nothing is hidden — every feature stays one click away. The split is about
+ * scannability: a sidebar that flattens 11 heterogeneous entries into one
+ * list buries both the views and the tools. */
 function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
   const overlay = useStore((s) => s.overlay);
   const openOverlay = useStore((s) => s.openOverlay);
   const closeOverlay = useStore((s) => s.closeOverlay);
-  const items: Array<{ key: import("../../store").OverlayKey; label: string; icon: string }> = [
+
+  type Item = { key: import("../../store").OverlayKey; label: string; icon: string };
+
+  // Cluster views — read-only cuts of the cluster, peer to the resource groups.
+  const views: Item[] = [
+    { key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: "◐" },
+    { key: "metrics", label: t("chrome.sidebar.tools.metrics", "Metrics"), icon: "≋" },
+    { key: "endpoints", label: t("chrome.sidebar.tools.endpoints", "Endpoints"), icon: "⇆" },
+    { key: "topology", label: t("chrome.sidebar.tools.topology", "Service Topology"), icon: "◌" },
+    { key: "alerting", label: t("chrome.sidebar.tools.alerting", "Alerting"), icon: "△" },
+    { key: "grafana", label: t("chrome.sidebar.tools.grafana", "Grafana"), icon: "▣" },
+  ];
+
+  // Action wizards — do something to the cluster rather than show a view.
+  const tools: Item[] = [
     { key: "helm-market", label: t("chrome.sidebar.tools.helmMarket", "Helm Market"), icon: "⎈" },
     { key: "pod-files", label: t("chrome.sidebar.tools.podFiles", "Pod Files"), icon: "▤" },
     { key: "image-repos", label: t("chrome.sidebar.tools.imageRepos", "Image Registries"), icon: "⬚" },
     { key: "image-import", label: t("chrome.sidebar.tools.imageImport", "Image Import"), icon: "⬆" },
     { key: "templates", label: t("chrome.sidebar.tools.templates", "Templates"), icon: "✚" },
-    { key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: "◐" },
-    { key: "metrics", label: t("chrome.sidebar.tools.metrics", "Metrics"), icon: "≋" },
-    { key: "grafana", label: t("chrome.sidebar.tools.grafana", "Grafana"), icon: "▣" },
-    { key: "endpoints", label: t("chrome.sidebar.tools.endpoints", "Endpoints"), icon: "⇆" },
-    { key: "topology", label: t("chrome.sidebar.tools.topology", "Service Topology"), icon: "◌" },
-    { key: "alerting", label: t("chrome.sidebar.tools.alerting", "Alerting"), icon: "△" },
   ];
+
+  const render = (it: Item) => {
+    const active = overlay === it.key;
+    return (
+      <div
+        key={it.key}
+        className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
+        onClick={() => (active ? closeOverlay() : openOverlay(it.key))}
+        title={active ? t("chrome.sidebar.tools.close", "Click to close") : it.label}
+      >
+        <span className={styles.navIcon}>{it.icon}</span>
+        <span className={styles.navLabel}>{it.label}</span>
+      </div>
+    );
+  };
+
   return (
     <div>
       <div className={styles.sectionHeader}>
-        {t("chrome.sidebar.tools.header", "Tools")}
+        {t("chrome.sidebar.tools.viewsHeader", "Views")}
       </div>
-      {items.map((it) => {
-        const active = overlay === it.key;
-        return (
-          <div
-            key={it.key}
-            className={`${styles.navItem} ${active ? styles.navItemActive : ""}`}
-            onClick={() => (active ? closeOverlay() : openOverlay(it.key))}
-            title={active ? t("chrome.sidebar.tools.close", "Click to close") : it.label}
-          >
-            <span className={styles.navIcon}>{it.icon}</span>
-            <span className={styles.navLabel}>{it.label}</span>
-          </div>
-        );
-      })}
+      {views.map(render)}
+      <div className={styles.sectionDivider} />
+      <div className={styles.sectionHeader}>
+        {t("chrome.sidebar.tools.toolsHeader", "Tools")}
+      </div>
+      {tools.map(render)}
     </div>
   );
 }

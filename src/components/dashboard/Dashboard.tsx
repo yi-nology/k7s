@@ -15,9 +15,7 @@
  * Why a separate route rather than a sidebar entry: the dashboard
  * *is* the home view, set as the default `nav` when the app boots.
  */
-import { useEffect, useState } from "react";
-import { getProvider } from "../../providers";
-import type { EventItem } from "../../providers/types";
+import { useMemo, useState } from "react";
 import { useStore } from "../../store";
 import { useTranslation } from "../../hooks/useI18n";
 import { kindLabelFor } from "../../lib/i18n";
@@ -67,23 +65,28 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
   const nodeMetrics = useStore((s) => s.nodeMetrics);
   const setNav = useStore((s) => s.setNav);
   const closeOverlay = useStore((s) => s.closeOverlay);
-  const [events, setEvents] = useState<EventItem[]>([]);
 
-  // Pull a few recent events on mount. We don't subscribe — events arrive
-  // often, and a dashboard that re-renders on every change is more noise
-  // than signal here.
-  useEffect(() => {
-    getProvider()
-      .getEvents({
-        kind: "events",
-        namespace: "all",
-        name: "",
-      })
-      .then((es) => setEvents(es.slice(0, 12)))
-      .catch(() => {
-        // Service-unavailable in demo mode; ignore.
-      });
-  }, []);
+  // Recent events come straight from the live watcher snapshot in the store
+  // (the same feed the Cluster → Events table renders), not from a one-shot
+  // get_events fetch. The fetch path queried `involvedObject.name=""` which
+  // matches nothing, so the panel was always empty; the watcher already has
+  // the cluster-wide, newest-first, cap-500 list, so reusing it is both
+  // correct and real-time.
+  const events = rows.events ?? [];
+
+  // Pagination over the events list. The watcher caps at 500 and the panel
+  // showed only the first 12; paging lets you reach the rest without leaving
+  // the dashboard. State resets to 0 when the event count shrinks below the
+  // current page's window (events expire, a new watch snapshot arrives) so the
+  // viewport never points past the end.
+  const PAGE_SIZE = 12;
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(events.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageEvents = useMemo(
+    () => events.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [events, safePage],
+  );
 
   // Aggregate node CPU/MEM across all known nodes.
   const cpuPercent = aggregatePercent(
@@ -197,25 +200,58 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
         </h3>
         {events.length === 0 ? (
           <div className={styles.empty}>
-            {t("dashboard.events.empty", "No recent events")}
+            {t("dashboard.eventsEmpty", "No recent events")}
           </div>
         ) : (
-          <ul className={styles.eventList}>
-            {events.map((e, i) => (
-              <li
-                key={i}
-                className={
-                  e.type === "Warning"
-                    ? styles.eventWarn
-                    : styles.eventNormal
-                }
-              >
-                <span className={styles.eventReason}>{e.reason}</span>
-                <span className={styles.eventMessage}>{e.message}</span>
-                <span className={styles.eventTime}>{e.age}</span>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className={styles.eventList}>
+              {pageEvents.map((e) => {
+                // Row cells from map_event: [TYPE, REASON, OBJECT, NS, AGE, COUNT, MESSAGE].
+                const cells = e.cells;
+                const type = cells[0]?.text ?? "Normal";
+                const reason = cells[1]?.text ?? "";
+                const message = cells[6]?.text ?? "";
+                const age = cells[4]?.text ?? "";
+                return (
+                  <li
+                    key={e.uid ?? `${reason}-${message}`}
+                    className={
+                      type === "Warning"
+                        ? styles.eventWarn
+                        : styles.eventNormal
+                    }
+                  >
+                    <span className={styles.eventReason}>{reason}</span>
+                    <span className={styles.eventMessage}>{message}</span>
+                    <span className={styles.eventTime}>{age}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            {pageCount > 1 && (
+              <div className={styles.pager}>
+                <button
+                  type="button"
+                  className={styles.pagerBtn}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={safePage === 0}
+                >
+                  {t("dashboard.eventsPrev", "‹ Prev")}
+                </button>
+                <span className={styles.pagerInfo}>
+                  {safePage + 1} / {pageCount}
+                </span>
+                <button
+                  type="button"
+                  className={styles.pagerBtn}
+                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                  disabled={safePage === pageCount - 1}
+                >
+                  {t("dashboard.eventsNext", "Next ›")}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

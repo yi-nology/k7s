@@ -1,58 +1,71 @@
+/* Dashboard — the cluster overview page.
+ *
+ * Uses the project's native token vocabulary (--bg-*, --text-*, --radius-*,
+ * --status-*) rather than the flatter --space/--surface/--text-size aliases
+ * some sibling panels reference, because those aliases aren't defined in
+ * tokens.css and silently resolve to 0/empty. */
+
 .dashboard {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: 16px;
   overflow-y: auto;
-  padding: var(--space-4);
+  padding: 16px;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--surface-2);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-row);
 }
 
 .header h2 {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: 15px;
   font-weight: 600;
+  color: var(--text-primary);
 }
 
 .close {
-  background: var(--surface-2);
-  border: 1px solid var(--surface-3);
-  color: var(--text);
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  color: var(--text-body);
   padding: 4px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: var(--text-sm);
+  font-size: 12px;
+  font-family: var(--font-mono);
 }
 
 .close:hover {
-  background: var(--surface-3);
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
 }
 
 .infoCard {
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-md);
   display: grid;
-  gap: var(--space-4);
+  gap: 16px;
   grid-template-columns: repeat(3, 1fr);
-  padding: var(--space-4);
+  padding: 16px;
 }
 
 .infoLabel {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+  color: var(--text-faint);
+  font-size: 11px;
   margin-bottom: 4px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .infoValue {
   color: var(--text-primary);
-  font-size: var(--text-lg);
+  font-size: 15px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -60,13 +73,13 @@
 }
 
 .utilisation {
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4);
+  gap: 12px;
+  padding: 16px;
 }
 
 .meter {
@@ -78,35 +91,36 @@
 .meterHeader {
   color: var(--text-secondary);
   display: flex;
-  font-size: var(--text-sm);
+  font-size: 12px;
+  font-family: var(--font-mono);
   justify-content: space-between;
 }
 
 .barOuter {
-  background: var(--surface-2);
-  border-radius: var(--radius-1);
+  background: var(--bg-terminal);
+  border-radius: var(--radius-sm);
   height: 10px;
   overflow: hidden;
 }
 
 .barInner {
-  border-radius: var(--radius-1);
+  border-radius: var(--radius-sm);
   height: 100%;
   transition: width 0.4s ease;
 }
 
 .resourceGrid {
   display: grid;
-  gap: var(--space-3);
+  gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
 }
 
 .resourceCard {
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  padding: var(--space-3);
+  padding: 12px;
   transition: border-color 0.15s ease, transform 0.15s ease;
 }
 
@@ -117,27 +131,30 @@
 
 .resourceCount {
   color: var(--text-primary);
-  font-size: var(--text-2xl, 32px);
+  font-size: 28px;
   font-weight: 600;
   margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
 }
 
 .resourceLabel {
-  font-size: var(--text-sm);
+  font-size: 12px;
   font-weight: 500;
+  font-family: var(--font-mono);
 }
 
 .eventsPanel {
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius-2);
-  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  padding: 16px;
 }
 
 .panelTitle {
   color: var(--text-primary);
-  font-size: var(--text-md);
-  margin: 0 0 var(--space-2) 0;
+  font-size: 13px;
+  margin: 0 0 8px 0;
+  font-weight: 600;
 }
 
 .eventList {
@@ -149,12 +166,17 @@
 .eventWarn,
 .eventNormal {
   align-items: center;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-row);
   display: grid;
-  font-size: var(--text-sm);
-  gap: var(--space-2);
-  grid-template-columns: 120px 1fr 100px;
-  padding: var(--space-1) 0;
+  font-size: 12px;
+  gap: 8px;
+  grid-template-columns: 120px 1fr 80px;
+  padding: 6px 0;
+}
+
+.eventWarn:last-child,
+.eventNormal:last-child {
+  border-bottom: none;
 }
 
 .eventWarn {
@@ -180,13 +202,58 @@
 
 .eventTime {
   color: var(--text-muted);
-  font-size: var(--text-xs);
+  font-size: 11px;
   text-align: right;
+  font-family: var(--font-mono);
+}
+
+/* Pagination — shown only when events span more than one page. Mirrors the
+   table footer control pattern: prev/next buttons flanking a page counter. */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border-row);
+}
+
+.pagerBtn {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+.pagerBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.pagerBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagerInfo {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: center;
 }
 
 .empty {
   color: var(--text-muted);
-  font-size: var(--text-sm);
-  padding: var(--space-3);
+  font-size: 12px;
+  padding: 12px;
   text-align: center;
+  font-family: var(--font-mono);
 }

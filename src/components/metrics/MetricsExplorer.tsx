@@ -199,135 +199,148 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       </header>
       {error && <div className={styles.error}>{error}</div>}
 
-      <div className={styles.controls}>
-        <label className={styles.field}>
-          <span>{t("metricsExplorer.instance", "Prometheus")}</span>
-          <select
-            value={instance}
-            onChange={(e) => setInstance(e.target.value)}
-          >
-            {instances.length === 0 && (
-              <option value="">— none configured —</option>
-            )}
-            {instances.map((i) => (
-              <option key={i.name} value={i.name}>
-                {i.name} ({i.url})
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className={styles.modeToggle}>
-          <button
-            className={mode === "instant" ? styles.activeTab : styles.tab}
-            onClick={() => setMode("instant")}
-          >
-            {t("metricsExplorer.instant", "Instant")}
-          </button>
-          <button
-            className={mode === "range" ? styles.activeTab : styles.tab}
-            onClick={() => setMode("range")}
-          >
-            {t("metricsExplorer.range", "Range")}
-          </button>
+      {/* Source + time window — the "what to query" controls, grouped apart
+          from the query itself so the two read as separate concerns. */}
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          {t("metricsExplorer.source", "Source")}
         </div>
-        {mode === "range" && (
-          <div className={styles.rangePresets}>
-            {RANGE_PRESETS.map((p) => (
-              <button
-                key={p.label}
-                className={
-                  rangeMinutes === p.minutes
-                    ? styles.activeRange
-                    : styles.rangePreset
-                }
-                onClick={() => setRangeMinutes(p.minutes)}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className={styles.queryBar}>
-        <input
-          className={styles.queryInput}
-          spellCheck={false}
-          value={promql}
-          onChange={(e) => setPromql(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") void run();
-          }}
-          placeholder={t("metricsExplorer.placeholder", "PromQL expression…")}
-        />
-        <button
-          className={styles.primary}
-          onClick={run}
-          disabled={loading || !instance || !promql.trim()}
-        >
-          {loading
-            ? t("metricsExplorer.running", "Running…")
-            : t("metricsExplorer.run", "Run")}
-        </button>
-        <button
-          className={styles.btn}
-          onClick={() => setShowSave(!showSave)}
-          disabled={!promql.trim()}
-          title={t("metricsExplorer.saved.saveTitle", "Save this query")}
-        >
-          {t("metricsExplorer.saved.save", "Save")}
-        </button>
-        <button
-          className={styles.btn}
-          onClick={() => run()}
-          disabled={!result}
-          title={t("metricsExplorer.refreshTitle", "Re-run the current query")}
-        >
-          {t("metricsExplorer.refresh", "Refresh")}
-        </button>
-      </div>
-
-      {showSave && (
-        <div className={styles.saveBarWrap}>
-          <div className={styles.saveBar}>
-            <input
-              placeholder={t("metricsExplorer.saved.namePlaceholder", "Name")}
-              value={saveName}
-              onChange={(e) => setSaveName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void saveCurrent();
-              }}
-              disabled={saving}
-            />
-            <input
-              placeholder={t("metricsExplorer.saved.notePlaceholder", "Note (optional)")}
-              value={saveNote}
-              onChange={(e) => setSaveNote(e.target.value)}
-              disabled={saving}
-            />
-            <button
-              type="button"
-              className={styles.primary}
-              onClick={saveCurrent}
-              disabled={!saveName.trim() || saving}
+        <div className={styles.controls}>
+          <label className={styles.field}>
+            <span>{t("metricsExplorer.instance", "Prometheus")}</span>
+            <select
+              value={instance}
+              onChange={(e) => setInstance(e.target.value)}
             >
-              {saving
-                ? t("metricsExplorer.saved.saving", "Saving…")
-                : isOverwrite
-                  ? t("metricsExplorer.saved.updateAction", "Update")
-                  : t("metricsExplorer.saved.saveAction", "Save")}
+              {instances.length === 0 && (
+                <option value="">— none configured —</option>
+              )}
+              {instances.map((i) => (
+                <option key={i.name} value={i.name}>
+                  {i.name} ({i.url})
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className={styles.modeToggle}>
+            <button
+              className={mode === "instant" ? styles.activeTab : styles.tab}
+              onClick={() => setMode("instant")}
+            >
+              {t("metricsExplorer.instant", "Instant")}
+            </button>
+            <button
+              className={mode === "range" ? styles.activeTab : styles.tab}
+              onClick={() => setMode("range")}
+            >
+              {t("metricsExplorer.range", "Range")}
             </button>
           </div>
-          {isOverwrite && (
-            <div className={styles.overwriteHint}>
-              {t("metricsExplorer.saved.overwriteHint", "Will overwrite the existing query with this name.")}
+          {mode === "range" && (
+            <div className={styles.rangePresets}>
+              {RANGE_PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  className={
+                    rangeMinutes === p.minutes
+                      ? styles.activeRange
+                      : styles.rangePreset
+                  }
+                  onClick={() => setRangeMinutes(p.minutes)}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
           )}
         </div>
-      )}
+      </section>
+
+      {/* Query bar — the "what to ask" row. Save/Refresh are secondary to Run. */}
+      <section className={styles.section}>
+        <div className={styles.sectionHeader}>
+          {t("metricsExplorer.query", "Query")}
+        </div>
+        <div className={styles.queryBar}>
+          <input
+            className={styles.queryInput}
+            spellCheck={false}
+            value={promql}
+            onChange={(e) => setPromql(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void run();
+            }}
+            placeholder={t("metricsExplorer.placeholder", "PromQL expression…")}
+          />
+          <button
+            className={styles.primary}
+            onClick={run}
+            disabled={loading || !instance || !promql.trim()}
+          >
+            {loading
+              ? t("metricsExplorer.running", "Running…")
+              : t("metricsExplorer.run", "Run")}
+          </button>
+          <button
+            className={styles.btn}
+            onClick={() => setShowSave(!showSave)}
+            disabled={!promql.trim()}
+            title={t("metricsExplorer.saved.saveTitle", "Save this query")}
+          >
+            {t("metricsExplorer.saved.save", "Save")}
+          </button>
+          <button
+            className={styles.btn}
+            onClick={() => run()}
+            disabled={!result}
+            title={t("metricsExplorer.refreshTitle", "Re-run the current query")}
+          >
+            {t("metricsExplorer.refresh", "Refresh")}
+          </button>
+        </div>
+
+        {showSave && (
+          <div className={styles.saveBarWrap}>
+            <div className={styles.saveBar}>
+              <input
+                placeholder={t("metricsExplorer.saved.namePlaceholder", "Name")}
+                value={saveName}
+                onChange={(e) => setSaveName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void saveCurrent();
+                }}
+                disabled={saving}
+              />
+              <input
+                placeholder={t("metricsExplorer.saved.notePlaceholder", "Note (optional)")}
+                value={saveNote}
+                onChange={(e) => setSaveNote(e.target.value)}
+                disabled={saving}
+              />
+              <button
+                type="button"
+                className={styles.primary}
+                onClick={saveCurrent}
+                disabled={!saveName.trim() || saving}
+              >
+                {saving
+                  ? t("metricsExplorer.saved.saving", "Saving…")
+                  : isOverwrite
+                    ? t("metricsExplorer.saved.updateAction", "Update")
+                    : t("metricsExplorer.saved.saveAction", "Save")}
+              </button>
+            </div>
+            {isOverwrite && (
+              <div className={styles.overwriteHint}>
+                {t("metricsExplorer.saved.overwriteHint", "Will overwrite the existing query with this name.")}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {saved.length > 0 && (
-        <div className={styles.savedList}>
+        <section className={styles.section}>
           <div className={styles.savedHeader}>
             {t("metricsExplorer.saved.title", "Saved queries")}
             <button
@@ -371,35 +384,46 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
               </button>
             </div>
           ))}
-        </div>
+        </section>
       )}
 
-      <div className={styles.results}>
-        {result && result.series.length > 0 ? (
-          mode === "range" ? (
-            <Plot
-              title={promql}
-              data={result.series.map((s) => ({
-                x: s.samples.map((p) => new Date(p.ts)),
-                y: s.samples.map((p) => p.value),
-                type: "scatter" as const,
-                mode: "lines" as const,
-                name: Object.entries(s.metric)
-                  .filter(([k]) => k !== "__name__")
-                  .map(([k, v]) => `${k}=${v}`)
-                  .join(",") || s.metric.__name__ || "",
-              }))}
-              height={320}
-            />
+      {/* Result — chart (range) or table (instant). Bordered so it reads as
+          the output of the query above, distinct from the controls. */}
+      <section className={`${styles.section} ${styles.resultSection}`}>
+        <div className={styles.sectionHeader}>
+          {t("metricsExplorer.result", "Result")}
+        </div>
+        <div className={styles.results}>
+          {result && result.series.length > 0 ? (
+            mode === "range" ? (
+              <Plot
+                title={promql}
+                data={result.series.map((s) => ({
+                  x: s.samples.map((p) => new Date(p.ts)),
+                  y: s.samples.map((p) => p.value),
+                  type: "scatter" as const,
+                  mode: "lines" as const,
+                  name: Object.entries(s.metric)
+                    .filter(([k]) => k !== "__name__")
+                    .map(([k, v]) => `${k}=${v}`)
+                    .join(",") || s.metric.__name__ || "",
+                }))}
+                height={320}
+              />
+            ) : (
+              <InstantTable series={result.series} />
+            )
+          ) : result && result.series.length === 0 ? (
+            <div className={styles.empty}>
+              {t("metricsExplorer.empty", "No series returned.")}
+            </div>
           ) : (
-            <InstantTable series={result.series} />
-          )
-        ) : result && result.series.length === 0 ? (
-          <div className={styles.empty}>
-            {t("metricsExplorer.empty", "No series returned.")}
-          </div>
-        ) : null}
-      </div>
+            <div className={styles.empty}>
+              {t("metricsExplorer.placeholder", "Run a query to see results.")}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

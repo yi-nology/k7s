@@ -250,6 +250,15 @@
   gap: 6px;
 }
 
+/* Thin separator between the Views and Tools overlay groups — distinguishes
+   "show a cut of the cluster" from "do something to it" without hiding either. */
+.sectionDivider {
+  flex: none;
+  height: 1px;
+  margin: 6px 18px;
+  background: var(--border-row);
+}
+
 /* Count of discovered CRD kinds, beside the "Custom" header (B15). */
 .sectionCount {
   letter-spacing: 0;

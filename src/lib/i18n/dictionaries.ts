@@ -47,6 +47,8 @@ export interface Dictionary {
        *  (Dashboard, Metrics, Grafana, Endpoints, Topology, Alerting). */
       tools: {
         header: string;
+        viewsHeader: string;
+        toolsHeader: string;
         helmMarket: string;
         podFiles: string;
         imageRepos: string;
@@ -546,6 +548,9 @@ export interface Dictionary {
   metricsExplorer: {
     title: string;
     close: string;
+    source: string;
+    query: string;
+    result: string;
     instance: string;
     instant: string;
     range: string;
@@ -636,6 +641,8 @@ export interface Dictionary {
     mem: string;
     events: string;
     eventsEmpty: string;
+    eventsPrev: string;
+    eventsNext: string;
     noStatus: string;
   };
   endpoints: {
@@ -700,6 +707,8 @@ export const en: Dictionary = {
       noContexts: "no contexts",
       tools: {
         header: "Tools",
+        viewsHeader: "Views",
+        toolsHeader: "Tools",
         helmMarket: "Helm Market",
         podFiles: "Pod Files",
         imageRepos: "Image Registries",
@@ -1177,6 +1186,9 @@ export const en: Dictionary = {
   metricsExplorer: {
     title: "Metrics Explorer",
     close: "Close",
+    source: "Source",
+    query: "Query",
+    result: "Result",
     instance: "Prometheus",
     instant: "Instant",
     range: "Range",
@@ -1250,6 +1262,8 @@ export const en: Dictionary = {
     mem: "Memory",
     events: "Recent events",
     eventsEmpty: "No recent events",
+    eventsPrev: "‹ Prev",
+    eventsNext: "Next ›",
     noStatus: "Cluster status unavailable",
   },
   endpoints: {
@@ -1319,6 +1333,8 @@ export const zh: Dictionary = {
       noContexts: "无 context",
       tools: {
         header: "工具",
+        viewsHeader: "视图",
+        toolsHeader: "工具",
         helmMarket: "Helm 市场",
         podFiles: "Pod 文件",
         imageRepos: "镜像仓库",
@@ -1798,6 +1814,9 @@ export const zh: Dictionary = {
   metricsExplorer: {
     title: "指标查询",
     close: "关闭",
+    source: "数据源",
+    query: "查询",
+    result: "结果",
     instance: "Prometheus",
     instant: "瞬时",
     range: "范围",
@@ -1872,6 +1891,8 @@ export const zh: Dictionary = {
     mem: "内存",
     events: "最近事件",
     eventsEmpty: "无最近事件",
+    eventsPrev: "‹ 上一页",
+    eventsNext: "下一页 ›",
     noStatus: "集群状态不可用",
   },
   endpoints: {
