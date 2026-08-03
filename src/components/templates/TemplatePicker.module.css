@@ -1,3 +1,11 @@
+/* TemplatePicker — single-screen create form (Bxx wizard pass).
+   The layout is:
+     header (title + close)
+     kind bar (kind dropdown + description)
+     form body (scrollable) — sectioned cards: Basic, Labels, Resources, YAML
+     footer (sticky) — Cancel + Apply
+   The body is the only scrollable region; the rest stays put. */
+
 .panel {
   background: var(--surface-0);
   border: 1px solid var(--border);
@@ -6,174 +14,498 @@
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
+/* ---- Header ---- */
+
 .header {
-  align-items: center;
-  background: var(--surface-1);
-  border-bottom: 1px solid var(--border);
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+  flex: none;
 }
 
 .header h2 {
-  font-size: var(--text-lg);
+  font-size: 14px;
+  font-weight: 600;
   margin: 0;
+  letter-spacing: 0.01em;
 }
 
-.body {
-  display: grid;
-  flex: 1 1 auto;
-  grid-template-columns: 220px 1fr;
-  min-height: 0;
-}
-
-.side {
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  overflow-y: auto;
-  padding: var(--space-2);
-}
-
-.item,
-.itemActive {
-  border-radius: var(--radius-1);
+.closeBtn {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-faint);
   cursor: pointer;
-  padding: var(--space-2);
+  font-size: 18px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
 }
-
-.itemActive {
-  background: var(--surface-2);
-}
-
-.itemTitle {
+.closeBtn:hover {
   color: var(--text-primary);
-  font-weight: 500;
+  background: var(--bg-hover);
+  border-color: var(--border-control);
 }
 
-.itemDesc {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-}
+/* ---- Kind bar (dropdown + description) ----
+   Replaces the old 220px side list. A native <select> is consistent
+   with k7s's other dropdowns (cluster switcher, language) and
+   keyboard-accessible out of the box. */
 
-.main {
-  overflow-y: auto;
-  padding: var(--space-3);
-}
-
-.main h3 {
-  font-size: var(--text-md);
-  margin: 0 0 var(--space-2) 0;
-}
-
-.form {
+.kindBar {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: 480px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border-row);
+  background: var(--surface-0);
+  flex: none;
 }
+
+.kindLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  /* Don't let the label's nowrap steal space from the dropdown. */
+  white-space: nowrap;
+}
+
+.kindSelect {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 5px 10px;
+  min-width: 180px;
+  cursor: pointer;
+}
+
+.kindSelect:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.kindDesc {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  flex: 1;
+  /* The description can be long; let it wrap inside the bar rather
+     than pushing the kind dropdown off the right edge. */
+  line-height: 1.4;
+}
+
+/* ---- Form body (scrollable) ---- */
 
 .formRoot {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  min-width: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---- Sections (cards) ----
+   Each form section is a card with a faint top-border tint and a
+   small header. The dark UI needs stronger separation than bare
+   headings; the card boundary does that work without borders
+   stealing from the content inside. */
+
+.section {
+  background: var(--surface-1);
+  border: 1px solid var(--border-row);
+  border-radius: var(--radius-md);
+  padding: 14px 16px 16px;
+}
+
+.sectionTitle {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0 0 10px;
+  padding: 0;
+  border: 0;
+}
+
+/* ---- Form fields (2-column grid) ----
+   The grid auto-flows to 2 columns on the form's natural width
+   (560px in the overlay). Fields with help text span both columns
+   to keep the help message under one input rather than crammed. */
+
+.fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
+  min-width: 0;
 }
 
-.field span {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+.field[data-wide="true"] {
+  grid-column: 1 / -1;
 }
 
-.field input {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-1);
+.fieldLabel {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.field input[type="text"],
+.field input[type="number"] {
+  background: var(--bg-terminal);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  width: 100%;
+}
+.field input[type="text"]:focus,
+.field input[type="number"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.fieldHelp {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-top: 1px;
+}
+
+/* ---- Resource requests (2-column within Resources section) ---- */
+
+.resourcesRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+
+.resourceField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.resourceField input {
+  background: var(--bg-terminal);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.resourceField input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
+/* ---- Labels (chip list) ----
+   The chip pattern is what users expect from modern UI: each label
+   is a removable pill with a faint border that highlights on
+   hover. Below the chips, a single `key=value` input adds a new
+   row on Enter or + click. */
+
+.labelsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chipList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  /* Min height so a 0-chip state still shows the +input below at
+     the same offset the user expects. */
+  min-height: 28px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 4px 3px 10px;
+  max-width: 100%;
+  transition: border-color 0.1s ease;
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chipKey {
   color: var(--text-primary);
-  font: inherit;
-  font-size: var(--text-sm);
-  padding: var(--space-1) var(--space-2);
+  font-weight: 500;
+  /* Long keys (`app.kubernetes.io/instance`) need to fit. The
+     renderer sees the un-truncated value, so the truncation is
+     visual-only. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
 }
 
-.field small {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
+.chipSep {
+  color: var(--text-faint);
+}
+
+.chipVal {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+
+.chipX {
+  background: none;
+  border: 0;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chipX:hover {
+  color: var(--status-err);
+  background: var(--status-err-soft);
+}
+
+.labelAdd {
+  display: flex;
+  gap: 6px;
+}
+
+.labelAdd input {
+  flex: 1;
+  background: var(--bg-terminal);
+  border: 1px dashed var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 10px;
+}
+.labelAdd input:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+.labelAdd input::placeholder {
+  color: var(--text-faint);
+}
+
+.labelAddBtn {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  width: 32px;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  flex: none;
+  transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+}
+.labelAddBtn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.labelAddBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- YAML preview (collapsible) ---- */
+
+.yamlToggle {
+  background: none;
+  border: 0;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+}
+.yamlToggle:hover {
+  color: var(--text-secondary);
+}
+
+.yamlChevron {
+  display: inline-block;
+  /* The chevron points down when open (matches the ▾ glyph) and
+     rotates 90° to point right when closed. The data attribute is
+     on the element so the CSS is local to the rotation. */
+  transition: transform 0.12s ease;
+  font-size: 11px;
+}
+.yamlChevron[data-open="false"] {
+  transform: rotate(-90deg);
 }
 
 .preview {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-1);
-  color: var(--text-primary);
-  font: var(--font-mono, monospace);
-  font-size: var(--text-sm);
-  margin: 0;
-  max-height: 360px;
+  background: var(--bg-terminal);
+  border: 1px solid var(--border-row);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  max-height: 280px;
   overflow: auto;
-  padding: var(--space-2);
   white-space: pre;
+  tab-size: 2;
 }
 
-.actions {
-  margin-top: var(--space-2);
+/* ---- Footer (sticky) ----
+   The Apply button is the primary action; Cancel is the secondary.
+   Sticky so a tall YAML preview doesn't push it off-screen. */
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+  flex: none;
 }
 
-.btn,
-.primary {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-1);
-  color: var(--text-primary);
+.cancelBtn,
+.applyBtn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 18px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font: inherit;
-  font-size: var(--text-sm);
-  padding: var(--space-1) var(--space-2);
+  border: 1px solid;
+  line-height: 1.4;
 }
 
-.primary {
+.cancelBtn {
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border-control);
+  margin-right: auto;
+}
+.cancelBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+.cancelBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.applyBtn {
+  color: var(--bg-app);
   background: var(--accent);
   border-color: var(--accent);
-  color: var(--text-on-accent);
 }
+.applyBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.applyBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Error / results ---- */
 
 .error {
-  background: var(--surface-warn);
-  border-bottom: 1px solid var(--status-err);
+  padding: 10px 18px;
   color: var(--status-err);
-  font-size: var(--text-sm);
-  padding: var(--space-2) var(--space-3);
-}
-
-.empty {
-  color: var(--text-muted);
-  font-size: var(--text-sm);
-  padding: var(--space-4);
-  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--status-err-soft);
+  border-bottom: 1px solid var(--border-row);
+  flex: none;
 }
 
 .results {
   list-style: none;
-  margin: var(--space-2) 0 0 0;
-  padding: 0;
+  margin: 0;
+  padding: 8px 18px 14px;
+  flex: none;
 }
 
 .resultOk,
 .resultErr {
   background: var(--surface-1);
   border-left: 3px solid var(--status-ok);
-  font: var(--font-mono, monospace);
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
   margin-bottom: 2px;
-  padding: var(--space-1) var(--space-2);
+  padding: 6px 10px;
 }
 
 .resultErr {
@@ -181,141 +513,13 @@
   color: var(--status-err);
 }
 
-/* ---- Extras sections (Bxx) ----
-   Each `extras` block is a `<fieldset>` (semantic, keyboard-navigable
-   by default) with a `<legend>` header. The form puts two blocks side
-   by side via `flex-wrap` so a narrow panel stacks them. The labels
-   table is its own micro-component (see .labelsTable). */
-
-.extras {
+.empty {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  /* Full-bleed inside the form: the simple `params` fields have a
-     fixed-width label, but the extras blocks (with their own internal
-     grid) need the whole row width. */
-  grid-column: 1 / -1;
-  margin-top: var(--space-2);
-}
-
-.extrasBlock {
-  /* The native fieldset padding + border eat into the layout; reset
-     to the surrounding field rhythm. */
-  border: 1px solid var(--border-row);
-  border-radius: var(--radius-md);
-  padding: var(--space-2) var(--space-3) var(--space-2);
-  margin: 0;
-}
-
-.extrasBlock legend {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-faint);
-  padding: 0 var(--space-1);
-}
-
-.resourcesRow {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.resourceField {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  /* Two equal columns: CPU on the left, memory on the right. The
-     flex-wrap means a narrow window stacks them vertically. */
-  flex: 1 1 140px;
-  min-width: 140px;
-}
-
-.resourceField span {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-}
-
-.resourceField input {
-  background: var(--bg-control);
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-sm);
-  color: var(--text-body);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 5px 8px;
-}
-
-.labelsTable {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.labelsRow {
-  display: grid;
-  /* key | = | value | ×
-     The two text inputs grow, the equals and × stay fixed-width.
-     Using grid rather than flex here keeps the equals and × from
-     drifting when the value field grows. */
-  grid-template-columns: 1fr 12px 1fr 22px;
   align-items: center;
-  gap: 4px;
-}
-
-.labelsKey,
-.labelsValue {
-  background: var(--bg-control);
-  border: 1px solid var(--border-control);
-  border-radius: var(--radius-sm);
-  color: var(--text-body);
+  justify-content: center;
+  color: var(--text-faint);
   font-family: var(--font-mono);
   font-size: 12px;
-  padding: 4px 8px;
-  min-width: 0;
-  /* Long label keys (a URL-style `app.kubernetes.io/instance`) need
-     to fit — truncate in the middle so the user still sees both
-     ends. The renderer will only see the untruncated value. */
-  text-overflow: ellipsis;
-}
-
-.labelsEq {
-  text-align: center;
-  color: var(--text-faint);
-  font-family: var(--font-mono);
-}
-
-.labelsDel {
-  background: none;
-  border: 1px solid transparent;
-  color: var(--text-faint);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  height: 22px;
-  border-radius: var(--radius-sm);
-}
-.labelsDel:hover {
-  color: var(--status-err);
-  border-color: var(--status-err);
-}
-
-.labelsAdd {
-  align-self: flex-start;
-  background: none;
-  border: 1px dashed var(--border-control);
-  border-radius: var(--radius-sm);
-  color: var(--text-faint);
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  margin-top: 4px;
-  padding: 4px 10px;
-}
-.labelsAdd:hover {
-  color: var(--accent);
-  border-color: var(--accent);
+  padding: 40px;
 }

@@ -436,7 +436,12 @@ export interface Dictionary {
     preview: string;
     applying: string;
     apply: string;
+    cancel: string;
     pick: string;
+    /** "Kind" label on the kind-bar dropdown (Bxx wizard pass). */
+    kind: string;
+    /** Section title for the simple `params` block in the form. */
+    section: { basic: string };
     /**
      * The structured "extras" sections (Bxx form-wizard pass) — labels
      * and resource requests. The form renders these as field sets
@@ -452,6 +457,8 @@ export interface Dictionary {
       remove: string;
       keyPlaceholder: string;
       valuePlaceholder: string;
+      /** Placeholder for the chip-editor's `key=value` input. */
+      addPlaceholder: string;
     };
     /**
      * Per-template title translations keyed by the template id (`deployment`,
@@ -1012,7 +1019,10 @@ export const en: Dictionary = {
     preview: "YAML preview",
     applying: "Applying…",
     apply: "Apply",
+    cancel: "Cancel",
     pick: "Pick a template on the left",
+    kind: "Kind",
+    section: { basic: "Basic" },
     extras: {
       labels: "Labels",
       resources: "Resource requests",
@@ -1022,6 +1032,7 @@ export const en: Dictionary = {
       remove: "remove",
       keyPlaceholder: "key",
       valuePlaceholder: "value",
+      addPlaceholder: "key=value, then ⏎",
     },
     titles: {
       deployment: "Deployment",
@@ -1569,7 +1580,10 @@ export const zh: Dictionary = {
     preview: "YAML 预览",
     applying: "应用中…",
     apply: "应用",
+    cancel: "取消",
     pick: "在左侧选一个模板",
+    kind: "类型",
+    section: { basic: "基本" },
     extras: {
       labels: "标签",
       resources: "资源请求",
@@ -1579,6 +1593,7 @@ export const zh: Dictionary = {
       remove: "删除",
       keyPlaceholder: "键",
       valuePlaceholder: "值",
+      addPlaceholder: "key=value, 然后 ⏎",
     },
     titles: {
       deployment: "Deployment",

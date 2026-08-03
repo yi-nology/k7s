@@ -173,6 +173,25 @@ describe("translate", () => {
     expect(translate("zh", "tpl.extras.memory")).toBe("内存");
     expect(translate("zh", "tpl.extras.addLabel")).toBe("添加标签");
   });
+
+  /** The Bxx wizard UI pass replaces the side list with a kind-bar
+   *  dropdown + a sticky footer. New keys: `kind`, `section.basic`,
+   *  `cancel`, `extras.addPlaceholder` (the chip-editor's
+   *  `key=value` placeholder). Each must resolve in both locales. */
+  it("resolves the new wizard UI strings in both locales", () => {
+    expect(translate("en", "tpl.kind")).toBe("Kind");
+    expect(translate("en", "tpl.section.basic")).toBe("Basic");
+    expect(translate("en", "tpl.cancel")).toBe("Cancel");
+    expect(translate("en", "tpl.extras.addPlaceholder")).toBe(
+      "key=value, then ⏎",
+    );
+    expect(translate("zh", "tpl.kind")).toBe("类型");
+    expect(translate("zh", "tpl.section.basic")).toBe("基本");
+    expect(translate("zh", "tpl.cancel")).toBe("取消");
+    expect(translate("zh", "tpl.extras.addPlaceholder")).toBe(
+      "key=value, 然后 ⏎",
+    );
+  });
 });
 
 describe("groupLabel", () => {

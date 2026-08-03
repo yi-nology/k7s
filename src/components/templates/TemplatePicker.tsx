@@ -1,26 +1,49 @@
 /**
- * TemplatePicker — Phase 4 of KubePi parity.
+ * TemplatePicker — the create-from-template overlay (Bxx wizard pass).
  *
- * A two-pane picker: left = template list (each pinned to a k8s KindId
- * via `Template.kind`), right = the form + live YAML preview. Submitting
- * calls `applyYamlBundle` (created/updated per doc) and surfaces the
- * per-document result.
+ * The picker is a single-screen form, not a multi-step wizard. The shape:
  *
- * Form fields come from two sources:
- *   - `Template.params` — the original simple fields (text, number,
- *     boolean). Rendered one per label/input row.
- *   - `Template.extras` — optional structured fields (labels, resources)
- *     added in the Bxx form-wizard pass. Rendered as their own sections
- *     below the simple params.
+ *   ┌─ Header ─────────────────────────────────────────────┐
+ *   │  Create from template                          [×]   │
+ *   ├─ Kind bar ───────────────────────────────────────────┤
+ *   │  Kind: [Deployment ▼]   Single-container …          │
+ *   ├─ Form (scrollable) ─────────────────────────────────┤
+ *   │  ┌─ Basic ────────────────────────────────────────┐  │
+ *   │  │ Name     [___]   Image  [___]                 │  │
+ *   │  │ Replicas [_]     Port   [_]                  │  │
+ *   │  │ Namespace [___]                              │  │
+ *   │  └──────────────────────────────────────────────┘  │
+ *   │  ┌─ Labels ──[+ Add label]─────────────────────┐   │
+ *   │  │ [app: my-app ×] [tier: web ×]               │   │
+ *   │  │ [key=value                              ] [+] │   │
+ *   │  └──────────────────────────────────────────────┘  │
+ *   │  ┌─ Resource requests ─────────────────────────┐   │
+ *   │  │ CPU [___]  Memory [___]                    │   │
+ *   │  └──────────────────────────────────────────────┘  │
+ *   │  ▾ YAML preview                                    │
+ *   │  ┌────────────────────────────────────────────┐    │
+ *   │  │ apiVersion: apps/v1                       │    │
+ *   │  │ ...                                         │    │
+ *   │  └────────────────────────────────────────────┘    │
+ *   ├─ Footer (sticky) ───────────────────────────────────┤
+ *   │  [Cancel]                          [Apply →]       │
+ *   └────────────────────────────────────────────────────┘
  *
- * Why the values dict has three shapes living together (string,
- * Record, {cpu, memory}):
- *   - `params` produce string values (the form's <input> world).
- *   - `extras.labels` is a key→value map.
- *   - `extras.resources` is a small object.
- * The render function receives all three and embeds them at the right
- * YAML positions. The helpers `labelsBlock` and `resourcesRequestsBlock`
- * in `lib/templates.ts` do the actual YAML formatting.
+ * Design notes:
+ *  - The old side list of templates is gone — replaced by a single
+ *    `<select>` in the kind bar. With 11 templates, the side list was
+ *    a 220px column the user had to scroll to find the right entry.
+ *    A dropdown is the same UX with a tenth of the screen real estate.
+ *  - The description of the currently-selected kind lives next to the
+ *    dropdown, so the user still sees what each kind is for without
+ *    having to switch.
+ *  - Form sections are <fieldset> cards, not bare <h3> headers, so
+ *    each one has a visible boundary in the dark UI.
+ *  - The Apply button is in a sticky footer; long YAML previews don't
+ *    push it off-screen.
+ *  - Labels are a chip list (GitHub-style) instead of the old
+ *    `key = value [×]` rows, which read more like a single line of
+ *    text and were visually noisy.
  */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { getProvider } from "../../providers";
@@ -40,11 +63,9 @@ import styles from "./TemplatePicker.module.css";
  * The values dict the render function gets. The renderer's signature is
  * `Record<string, unknown>`, so this is the source of truth on what the
  * wizard actually feeds in. The `labels` and `resources` keys are
- * conventional — none of the templates' `params` use these names, so
- * the namespacing is unambiguous.
+ * conventional — none of the templates' `params` use these names.
  */
 interface TemplateValues {
-  /** Substituted into the template's `{{key}}` placeholders. */
   [key: string]: string | Record<string, string> | { cpu?: string; memory?: string } | undefined;
   labels?: Record<string, string>;
   resources?: { cpu?: string; memory?: string };
@@ -61,27 +82,51 @@ function initialValuesFor(t: Template): TemplateValues {
   } as TemplateValues;
 }
 
+/**
+ * Parse the chip-editor's `key=value` input. Returns `null` for an
+ * unparseable line (empty / key-only-after-trim), so the caller can
+ * decide whether to commit silently or surface a hint. Splitting the
+ * first `=` (not the last) matches `kubectl label` and the way every
+ * shell tool handles KEY=VAL — a value containing `=` is left intact.
+ */
+export function parseLabelDraft(
+  draft: string,
+): { key: string; value: string } | null {
+  const line = draft.trim();
+  if (!line) return null;
+  const eq = line.indexOf("=");
+  let key: string;
+  let value: string;
+  if (eq === -1) {
+    key = line;
+    value = "";
+  } else {
+    key = line.slice(0, eq).trim();
+    value = line.slice(eq + 1).trim();
+  }
+  if (!key) return null;
+  return { key, value };
+}
+
 export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const templates = useMemo(() => listTemplates(), []);
-  // The current nav kind drives auto-selection: a user landing on the
-  // StatefulSets page and clicking "+ New" shouldn't have to scroll the
-  // template list to find the StatefulSet entry.
   const currentKind = useStore((s) => s.nav);
   const [selected, setSelected] = useState<Template | null>(null);
   const [values, setValues] = useState<TemplateValues>({});
   const [result, setResult] = useState<ApplyResult[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Default the YAML preview to expanded so the user can verify before
+  // submit; the toggle is for the long-preview case where the form
+  // gets crowded.
+  const [yamlOpen, setYamlOpen] = useState(true);
 
   const initialSelection = useMemo(
     () => templates.find((tt) => tt.kind === currentKind) ?? null,
     [templates, currentKind],
   );
 
-  // Seed the picker on mount + when the user navigates to a different
-  // kind while the overlay is open. The effect clears prior `result` /
-  // `error` so a fresh kind starts with a clean slate.
   useEffect(() => {
     if (initialSelection) {
       setSelected(initialSelection);
@@ -135,146 +180,185 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
       <header className={styles.header}>
         <h2>{t("tpl.title", "Create from template")}</h2>
         {onClose && (
-          <button className={styles.btn} onClick={onClose}>
-            {t("tpl.close", "Close")}
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            aria-label={t("tpl.close", "Close")}
+          >
+            ×
           </button>
         )}
       </header>
+
       {error && <div className={styles.error}>{error}</div>}
-      <div className={styles.body}>
-        <aside className={styles.side}>
-          {templates.map((tt) => (
-            <div
-              key={tt.id}
-              className={
-                selected?.id === tt.id ? styles.itemActive : styles.item
-              }
-              onClick={() => pickTemplate(tt)}
+
+      <form onSubmit={onSubmit} className={styles.formRoot}>
+        <div className={styles.kindBar}>
+          <label className={styles.kindLabel}>
+            {t("tpl.kind", "Kind")}
+            <select
+              className={styles.kindSelect}
+              value={selected?.id ?? ""}
+              onChange={(e) => {
+                const next = templates.find((tt) => tt.id === e.target.value);
+                if (next) pickTemplate(next);
+              }}
             >
-              <div className={styles.itemTitle}>
-                {t(`tpl.titles.${tt.id}`, tt.title)}
-              </div>
-              <div className={styles.itemDesc}>
-                {t(`tpl.descs.${tt.id}`, tt.description)}
-              </div>
-            </div>
-          ))}
-        </aside>
-        <main className={styles.main}>
-          {selected ? (
-            <form onSubmit={onSubmit} className={styles.formRoot}>
-              <h3>{t(`tpl.titles.${selected.id}`, selected.title)}</h3>
-              <div className={styles.form}>
-                {selected.params.map((p) => {
-                  // The form's `value` attribute is `string | number` —
-                  // a strict subset of the values dict's index
-                  // signature. Narrow with a runtime type check so the
-                  // extras' `labels` / `resources` keys (which never
-                  // collide with a `param.key` but are wider types)
-                  // don't trip TS.
-                  const raw = values[p.key];
-                  const value = typeof raw === "string" ? raw : (p.default ?? "");
-                  return (
-                    <label key={p.key} className={styles.field}>
-                      <span>{p.label}</span>
-                      {p.kind === "boolean" ? (
-                        <input
-                          type="checkbox"
-                          checked={value === "true"}
-                          onChange={(e) =>
-                            setValues({
-                              ...values,
-                              [p.key]: e.target.checked ? "true" : "false",
-                            })
-                          }
-                        />
-                      ) : (
-                        <input
-                          type={p.kind === "number" ? "number" : "text"}
-                          value={value}
-                          required={p.required ?? true}
-                          pattern={p.pattern}
-                          min={p.min}
-                          max={p.max}
-                          placeholder={p.default}
-                          onChange={(e) =>
-                            setValues({ ...values, [p.key]: e.target.value })
-                          }
-                        />
-                      )}
-                      {p.help && <small>{p.help}</small>}
-                    </label>
-                  );
-                })}
-                {selected.extras && (
-                  <ExtrasSection
-                    extras={selected.extras}
-                    labels={values.labels ?? {}}
-                    resources={values.resources ?? {}}
-                    onLabelsChange={(labels) =>
-                      setValues({ ...values, labels })
-                    }
-                    onResourcesChange={(resources) =>
-                      setValues({ ...values, resources })
-                    }
-                  />
-                )}
-              </div>
-              <h3 style={{ marginTop: "var(--space-3)" }}>
-                {t("tpl.preview", "YAML preview")}
-              </h3>
-              <pre className={styles.preview}>{yamlPreview}</pre>
-              <div className={styles.actions}>
-                <button
-                  className={styles.primary}
-                  type="submit"
-                  disabled={busy}
-                >
-                  {busy
-                    ? t("tpl.applying", "Applying…")
-                    : t("tpl.apply", "Apply")}
-                </button>
-              </div>
-              {result.length > 0 && (
-                <ul className={styles.results}>
-                  {result.map((r, i) => (
-                    <li
-                      key={i}
-                      className={
-                        r.action === "failed"
-                          ? styles.resultErr
-                          : styles.resultOk
-                      }
-                    >
-                      {r.action} {r.kind}/{r.name}
-                      {r.namespace ? ` (${r.namespace})` : ""}
-                      {r.error ? ` — ${r.error}` : ""}
-                    </li>
-                  ))}
-                </ul>
+              {/* No template auto-selected: render a placeholder option
+                  so the dropdown isn't empty. The body below shows the
+                  "pick a kind" hint. */}
+              {!selected && (
+                <option value="" disabled>
+                  {t("tpl.pick", "Pick a template on the left")}
+                </option>
               )}
-            </form>
+              {templates.map((tt) => (
+                <option key={tt.id} value={tt.id}>
+                  {t(`tpl.titles.${tt.id}`, tt.title)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {selected && (
+            <p className={styles.kindDesc}>
+              {t(`tpl.descs.${selected.id}`, selected.description)}
+            </p>
+          )}
+        </div>
+
+        <div className={styles.body}>
+          {selected ? (
+            <>
+              <section className={styles.section}>
+                <h3 className={styles.sectionTitle}>
+                  {t("tpl.section.basic", "Basic")}
+                </h3>
+                <div className={styles.fields}>
+                  {selected.params.map((p) => {
+                    const raw = values[p.key];
+                    const value =
+                      typeof raw === "string" ? raw : (p.default ?? "");
+                    return (
+                      <label
+                        key={p.key}
+                        className={styles.field}
+                        data-wide={p.help ? "true" : "false"}
+                      >
+                        <span className={styles.fieldLabel}>{p.label}</span>
+                        {p.kind === "boolean" ? (
+                          <input
+                            type="checkbox"
+                            checked={value === "true"}
+                            onChange={(e) =>
+                              setValues({
+                                ...values,
+                                [p.key]: e.target.checked ? "true" : "false",
+                              })
+                            }
+                          />
+                        ) : (
+                          <input
+                            type={p.kind === "number" ? "number" : "text"}
+                            value={value}
+                            required={p.required ?? true}
+                            pattern={p.pattern}
+                            min={p.min}
+                            max={p.max}
+                            placeholder={p.default}
+                            onChange={(e) =>
+                              setValues({
+                                ...values,
+                                [p.key]: e.target.value,
+                              })
+                            }
+                          />
+                        )}
+                        {p.help && <small className={styles.fieldHelp}>{p.help}</small>}
+                      </label>
+                    );
+                  })}
+                </div>
+              </section>
+
+              {selected.extras && (
+                <ExtrasSection
+                  extras={selected.extras}
+                  labels={values.labels ?? {}}
+                  resources={values.resources ?? {}}
+                  onLabelsChange={(labels) => setValues({ ...values, labels })}
+                  onResourcesChange={(resources) =>
+                    setValues({ ...values, resources })
+                  }
+                />
+              )}
+
+              <section className={styles.section}>
+                <button
+                  type="button"
+                  className={styles.yamlToggle}
+                  onClick={() => setYamlOpen((o) => !o)}
+                  aria-expanded={yamlOpen}
+                >
+                  <span className={styles.yamlChevron} data-open={yamlOpen}>
+                    ▾
+                  </span>
+                  {t("tpl.preview", "YAML preview")}
+                </button>
+                {yamlOpen && (
+                  <pre className={styles.preview}>{yamlPreview}</pre>
+                )}
+              </section>
+            </>
           ) : (
             <div className={styles.empty}>
               {t("tpl.pick", "Pick a template on the left")}
             </div>
           )}
-        </main>
-      </div>
+        </div>
+
+        <footer className={styles.footer}>
+          <button
+            type="button"
+            className={styles.cancelBtn}
+            onClick={onClose}
+            disabled={busy}
+          >
+            {t("tpl.cancel", "Cancel")}
+          </button>
+          <button
+            type="submit"
+            className={styles.applyBtn}
+            disabled={busy || !selected}
+          >
+            {busy
+              ? t("tpl.applying", "Applying…")
+              : t("tpl.apply", "Apply")}
+          </button>
+        </footer>
+      </form>
+
+      {result.length > 0 && (
+        <ul className={styles.results}>
+          {result.map((r, i) => (
+            <li
+              key={i}
+              className={r.action === "failed" ? styles.resultErr : styles.resultOk}
+            >
+              {r.action} {r.kind}/{r.name}
+              {r.namespace ? ` (${r.namespace})` : ""}
+              {r.error ? ` — ${r.error}` : ""}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
 /**
- * The structured "extras" — labels (key-value table) and resource
- * requests (cpu + memory). Rendered as a single section below the
- * simple params, with sub-headers so the user can tell at a glance
- * which input belongs to which.
- *
- * The labels table is intentionally simple: a flat list of `<input>`
- * rows with `+` / `×` buttons. A `key:""` row is allowed (the
- * renderer drops empty keys) so the user can add a row, then fill in
- * the key. Removing a row deletes the entry immediately.
+ * The structured "extras" — labels (chip list) and resource requests
+ * (CPU + memory inputs). Rendered as their own section card.
  */
 function ExtrasSection({
   extras,
@@ -291,19 +375,25 @@ function ExtrasSection({
 }) {
   const { t } = useTranslation();
   return (
-    <div className={styles.extras}>
+    <>
       {extras.labels && (
-        <fieldset className={styles.extrasBlock}>
-          <legend>{t("tpl.extras.labels", "Labels")}</legend>
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>
+            {t("tpl.extras.labels", "Labels")}
+          </h3>
           <LabelsEditor labels={labels} onChange={onLabelsChange} />
-        </fieldset>
+        </section>
       )}
       {extras.resources && (
-        <fieldset className={styles.extrasBlock}>
-          <legend>{t("tpl.extras.resources", "Resource requests")}</legend>
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>
+            {t("tpl.extras.resources", "Resource requests")}
+          </h3>
           <div className={styles.resourcesRow}>
             <label className={styles.resourceField}>
-              <span>{t("tpl.extras.cpu", "CPU")}</span>
+              <span className={styles.fieldLabel}>
+                {t("tpl.extras.cpu", "CPU")}
+              </span>
               <input
                 type="text"
                 value={resources.cpu ?? ""}
@@ -314,7 +404,9 @@ function ExtrasSection({
               />
             </label>
             <label className={styles.resourceField}>
-              <span>{t("tpl.extras.memory", "Memory")}</span>
+              <span className={styles.fieldLabel}>
+                {t("tpl.extras.memory", "Memory")}
+              </span>
               <input
                 type="text"
                 value={resources.memory ?? ""}
@@ -325,12 +417,26 @@ function ExtrasSection({
               />
             </label>
           </div>
-        </fieldset>
+        </section>
       )}
-    </div>
+    </>
   );
 }
 
+/**
+ * Chip-style labels editor. Each label is a removable pill showing
+ * `key: value`; a single text input below accepts `key=value` (or
+ * just `key`) and adds it on Enter / `+`. An empty key is dropped
+ * silently so a half-typed line never produces invalid YAML.
+ *
+ * Why chip pattern over the prior `key = value [×]` rows:
+ *  - Reading "10 labels" at a glance is easier with chips than with
+ *    a 10-row table.
+ *  - Removal is one click on a single × (not "find the right row,
+ *    click the × at the end").
+ *  - The `key=value` input is the same shape kubectl users know,
+ *    and works with paste.
+ */
 function LabelsEditor({
   labels,
   onChange,
@@ -339,60 +445,73 @@ function LabelsEditor({
   onChange: (labels: Record<string, string>) => void;
 }) {
   const { t } = useTranslation();
-  // Render the dict as an ordered list of (key, value) pairs. Sorting
-  // keeps the YAML preview stable across re-renders, which would
-  // otherwise jiggle every time the user typed in a field.
-  const entries = useMemo(
-    () =>
-      Object.entries(labels).sort(([a], [b]) => a.localeCompare(b)),
-    [labels],
-  );
+  // Insertion order matters: chips appear in the order the user added
+  // them, not sorted alphabetically. Object key order in JS is
+  // insertion order for string keys, so we just iterate.
+  const entries = Object.entries(labels);
+  const [draft, setDraft] = useState("");
+
+  const commit = () => {
+    const parsed = parseLabelDraft(draft);
+    if (!parsed) return;
+    onChange({ ...labels, [parsed.key]: parsed.value });
+    setDraft("");
+  };
+
   return (
-    <div className={styles.labelsTable}>
-      {entries.map(([k, v], i) => (
-        <div key={`${i}-${k}`} className={styles.labelsRow}>
-          <input
-            type="text"
-            value={k}
-            placeholder={t("tpl.extras.keyPlaceholder", "key")}
-            className={styles.labelsKey}
-            onChange={(e) => {
-              const next = { ...labels };
-              const val = next[k];
-              delete next[k];
-              next[e.target.value] = val ?? "";
-              onChange(next);
-            }}
-          />
-          <span className={styles.labelsEq}>=</span>
-          <input
-            type="text"
-            value={v}
-            placeholder={t("tpl.extras.valuePlaceholder", "value")}
-            className={styles.labelsValue}
-            onChange={(e) => onChange({ ...labels, [k]: e.target.value })}
-          />
-          <button
-            type="button"
-            className={styles.labelsDel}
-            onClick={() => {
-              const next = { ...labels };
-              delete next[k];
-              onChange(next);
-            }}
-            title={t("tpl.extras.remove", "remove")}
-          >
-            ×
-          </button>
+    <div className={styles.labelsWrap}>
+      {entries.length > 0 && (
+        <div className={styles.chipList}>
+          {entries.map(([k, v]) => (
+            <span key={k} className={styles.chip}>
+              <span className={styles.chipKey}>{k}</span>
+              {v !== "" && (
+                <>
+                  <span className={styles.chipSep}>:</span>
+                  <span className={styles.chipVal}>{v}</span>
+                </>
+              )}
+              <button
+                type="button"
+                className={styles.chipX}
+                onClick={() => {
+                  const next = { ...labels };
+                  delete next[k];
+                  onChange(next);
+                }}
+                aria-label={t("tpl.extras.remove", "remove")}
+              >
+                ×
+              </button>
+            </span>
+          ))}
         </div>
-      ))}
-      <button
-        type="button"
-        className={styles.labelsAdd}
-        onClick={() => onChange({ ...labels, "": "" })}
-      >
-        + {t("tpl.extras.addLabel", "Add label")}
-      </button>
+      )}
+      <div className={styles.labelAdd}>
+        <input
+          type="text"
+          value={draft}
+          placeholder={t(
+            "tpl.extras.addPlaceholder",
+            "key=value, then ⏎",
+          )}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className={styles.labelAddBtn}
+          onClick={commit}
+          disabled={!draft.trim()}
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }
