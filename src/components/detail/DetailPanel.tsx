@@ -23,6 +23,7 @@ import { LogsTab } from "./LogsTab";
 import { PropertiesTab } from "./PropertiesTab";
 import { MetricsTab } from "./MetricsTab";
 import { PodMetricsTab } from "./PodMetricsTab";
+import { NodePodsTab } from "./NodePodsTab";
 import { ShellTab } from "./ShellTab";
 import { NodeShellTab } from "./NodeShellTab";
 import { YamlTab } from "./YamlTab";
@@ -165,6 +166,9 @@ export function DetailPanel() {
           node's Metrics come from its node-exporter; a pod's from metrics.k8s.io. */}
       {activeTab === "metrics" && nav === "nodes" && <MetricsTab />}
       {activeTab === "metrics" && isPod && <PodMetricsTab />}
+      {/* Node-only: the pods scheduled on this node + their live CPU/MEM, for
+          diagnosing "what's eating this node's resources". */}
+      {activeTab === "pods" && nav === "nodes" && <NodePodsTab />}
       {activeTab === "shell" && isPod && <ShellTab />}
       {/* A node's shell is a privileged debug pod rather than a container exec
           (B53), so it's a different component behind the same tab. */}

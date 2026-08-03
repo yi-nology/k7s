@@ -155,7 +155,7 @@ export interface Dictionary {
 
   /** Detail panel — tabs, header meta, common buttons. */
   detail: {
-    tabs: { logs: string; properties: string; metrics: string; shell: string; yaml: string; events: string };
+    tabs: { logs: string; properties: string; metrics: string; shell: string; yaml: string; events: string; pods: string };
     header: {
       kind: string;
       ns: string;
@@ -285,8 +285,23 @@ export interface Dictionary {
     sinceLast: (s: string) => string;
     howFarBack: string;
   };
+  nodePods: {
+    pods: string;
+    noNode: string;
+    empty: string;
+    col: {
+      namespace: string;
+      pod: string;
+      status: string;
+      cpu: string;
+      memory: string;
+      restarts: string;
+    };
+  };
   metrics: {
     waitingSamples: string;
+    waitingSamplesBody: string;
+    kubeMetricsFootnote: string;
     noMetrics: (name: string) => string;
     cpuTitle: (pct: string) => string;
     memTitle: (used: string, total: string, pct: string) => string;
@@ -847,6 +862,7 @@ export const en: Dictionary = {
       shell: "Shell",
       yaml: "YAML",
       events: "Events",
+      pods: "Pods",
     },
     header: {
       kind: "kind",
@@ -952,8 +968,23 @@ export const en: Dictionary = {
     sinceLast: (s) => `last ${s}`,
     howFarBack: "how far back to show",
   },
+  nodePods: {
+    pods: "pods",
+    noNode: "No node selected.",
+    empty: "No pods scheduled on this node.",
+    col: {
+      namespace: "Namespace",
+      pod: "Pod",
+      status: "Status",
+      cpu: "CPU",
+      memory: "Memory",
+      restarts: "Restarts",
+    },
+  },
   metrics: {
     waitingSamples: "waiting for the first samples…",
+    waitingSamplesBody: "Sampling CPU and memory from metrics.k8s.io — the first point arrives within one poll (~15s).",
+    kubeMetricsFootnote: "Network, load and filesystem charts require node-exporter.",
     noMetrics: (name) => `no metrics for ${name}`,
     cpuTitle: (pct) => `CPU — ${pct}% busy`,
     memTitle: (used, total, pct) => `Memory — ${used} of ${total} (${pct})`,
@@ -1477,6 +1508,7 @@ export const zh: Dictionary = {
       shell: "终端",
       yaml: "YAML",
       events: "事件",
+      pods: "Pod 列表",
     },
     header: {
       kind: "类型",
@@ -1581,8 +1613,23 @@ export const zh: Dictionary = {
     sinceLast: (s) => `最近 ${s}`,
     howFarBack: "时间范围",
   },
+  nodePods: {
+    pods: "个 Pod",
+    noNode: "未选择节点。",
+    empty: "该节点上没有调度的 Pod。",
+    col: {
+      namespace: "命名空间",
+      pod: "Pod",
+      status: "状态",
+      cpu: "CPU",
+      memory: "内存",
+      restarts: "重启",
+    },
+  },
   metrics: {
     waitingSamples: "等待首批样本…",
+    waitingSamplesBody: "正在从 metrics.k8s.io 采样 CPU 与内存,首个数据点约 15 秒内到达。",
+    kubeMetricsFootnote: "网络、负载与文件系统图表需要 node-exporter。",
     noMetrics: (name) => `${name} 无指标`,
     cpuTitle: (pct) => `CPU — ${pct}% 占用`,
     memTitle: (used, total, pct) => `内存 — ${used} / ${total} (${pct})`,

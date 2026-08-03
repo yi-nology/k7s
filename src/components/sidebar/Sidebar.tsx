@@ -18,7 +18,7 @@ export function Sidebar() {
         <div className={styles.brandMark} aria-hidden="true">k7</div>
         <div>
           <div className={styles.brandName}>k7s</div>
-          <div className={styles.brandSub}>kubernetes monitor</div>
+          <div className={styles.brandSub}>kubernetes manager</div>
         </div>
       </div>
       <ClusterSwitcher />

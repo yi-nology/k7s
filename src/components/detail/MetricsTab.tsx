@@ -1,26 +1,40 @@
 /**
- * Metrics tab (B27): live CPU / memory / network / load plots for a node, plus
- * current filesystem usage, read from the node's node-exporter.
+ * Metrics tab: live CPU / memory plots for a node.
  *
- * The series is **live-only** and starts empty. That isn't a shortcut: an exporter
- * serves counters ("CPU-seconds since boot"), not history, so there is nothing to
- * backfill from. Prometheus would have history — but only if it's actually
- * scraping the exporters, which can't be assumed (see kube/exporter.rs).
+ * Two data paths, picked by environment:
+ *   - Desktop (Tauri): the rich node-exporter series — CPU rates, network,
+ *     load, filesystems — scraped via a port-forward to the node's exporter
+ *     (B27). Needs node-exporter running on the cluster.
+ *   - Browser (web): a CPU/MEM series accumulated from the `nodeMetrics` store
+ *     slice (fed by metrics.k8s.io, which the Dashboard already uses). No
+ *     node-exporter required, at the cost of the network/load/filesystem panels
+ *     (metrics.k8s.io doesn't carry those).
  *
- * Scraping runs only while this tab is mounted; see useNodeStats.
+ * Both paths are live-only and start empty; the first point takes one poll.
  */
 
 import { useRef } from "react";
 import styles from "./MetricsTab.module.css";
 import { useStore } from "../../store";
 import { useNodeStats } from "../../hooks/useNodeStats";
+import { useNodeMetricsSeries } from "../../hooks/useNodeMetricsSeries";
 import { useTranslation } from "../../hooks/useI18n";
-import { humanBps, humanBytes, plotColors } from "./plot";
+import { IS_TAURI } from "../../providers";
+import { humanBytes, humanBps, plotColors } from "./plot";
 import { Plot, useHostPlotColors } from "./PlotChart";
 import { withAlpha } from "../../lib/theme";
 import type { NodeSample } from "../../providers/types";
 
 export function MetricsTab() {
+  // Desktop keeps the node-exporter path; the browser uses metrics.k8s.io.
+  // Splitting here (rather than in DetailPanel) keeps one component owning the
+  // tab's layout, so the two paths can share the Plot/theme helpers.
+  if (IS_TAURI) return <NodeExporterMetrics />;
+  return <KubeMetricsIoMetrics />;
+}
+
+/** Desktop path — the original node-exporter series (B27). Unchanged. */
+function NodeExporterMetrics() {
   const row = useStore((s) => s.selectedRow);
   const node = row?.name;
   const samples = useStore((s) => (node ? (s.nodeSamples[node] ?? EMPTY) : EMPTY));
@@ -29,7 +43,6 @@ export function MetricsTab() {
   const PLOT_COLORS = useHostPlotColors(wrapRef);
   const { t } = useTranslation();
 
-  // Scrape while this tab is open, and only while it's open.
   useNodeStats(node);
 
   if (!node) return null;
@@ -45,9 +58,6 @@ export function MetricsTab() {
     );
   }
 
-  // The first scrape only establishes a baseline for the counters, so the first
-  // point takes two polls to arrive. Say so, rather than showing an empty chart
-  // that looks broken.
   if (samples.length === 0) {
     return (
       <div className={styles.wrap} ref={wrapRef}>
@@ -81,7 +91,6 @@ export function MetricsTab() {
             hovertemplate: "%{y:.1f}%<extra></extra>",
           },
         ]}
-        // A CPU axis that rescales to the data makes 3% look like a crisis.
         layoutExtra={{ yaxis: { range: [0, 100], ticksuffix: "%", gridcolor: PLOT_COLORS.grid } }}
       />
 
@@ -99,38 +108,16 @@ export function MetricsTab() {
             hovertemplate: "%{y:.3s}B<extra></extra>",
           },
         ]}
-        // Against total, so the plot answers "how much room is left".
         layoutExtra={{
-          yaxis: {
-            range: [0, latest.memTotalBytes],
-            tickformat: ".3s",
-            ticksuffix: "B",
-            gridcolor: PLOT_COLORS.grid,
-          },
+          yaxis: { range: [0, latest.memTotalBytes], tickformat: ".3s", ticksuffix: "B", gridcolor: PLOT_COLORS.grid },
         }}
       />
 
       <Plot
         title={t("metrics.netTitle", humanBps(latest.netRxBps), humanBps(latest.netTxBps))}
         data={[
-          {
-            x: tArr,
-            y: samples.map((s) => s.netRxBps),
-            name: "rx",
-            type: "scatter",
-            mode: "lines",
-            line: { color: PLOT_COLORS.accent, width: 1.5 },
-            hovertemplate: "↓ %{y:.3s}B/s<extra></extra>",
-          },
-          {
-            x: tArr,
-            y: samples.map((s) => s.netTxBps),
-            name: "tx",
-            type: "scatter",
-            mode: "lines",
-            line: { color: PLOT_COLORS.warn, width: 1.5 },
-            hovertemplate: "↑ %{y:.3s}B/s<extra></extra>",
-          },
+          { x: tArr, y: samples.map((s) => s.netRxBps), name: "rx", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.accent, width: 1.5 }, hovertemplate: "↓ %{y:.3s}B/s<extra></extra>" },
+          { x: tArr, y: samples.map((s) => s.netTxBps), name: "tx", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.warn, width: 1.5 }, hovertemplate: "↑ %{y:.3s}B/s<extra></extra>" },
         ]}
         layoutExtra={{
           showlegend: true,
@@ -142,9 +129,9 @@ export function MetricsTab() {
       <Plot
         title={t("metrics.loadTitle", latest.load1.toFixed(2), latest.load5.toFixed(2), latest.load15.toFixed(2))}
         data={[
-          { x: t, y: samples.map((s) => s.load1), name: "1m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.accent, width: 1.5 } },
-          { x: t, y: samples.map((s) => s.load5), name: "5m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.accent2, width: 1.2 } },
-          { x: t, y: samples.map((s) => s.load15), name: "15m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.axis, width: 1, dash: "dot" } },
+          { x: tArr, y: samples.map((s) => s.load1), name: "1m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.accent, width: 1.5 } },
+          { x: tArr, y: samples.map((s) => s.load5), name: "5m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.accent2, width: 1.2 } },
+          { x: tArr, y: samples.map((s) => s.load15), name: "15m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.axis, width: 1, dash: "dot" } },
         ]}
         layoutExtra={{
           showlegend: true,
@@ -158,7 +145,80 @@ export function MetricsTab() {
   );
 }
 
-/** Current filesystem usage as a horizontal bar per mount. */
+/**
+ * Browser path — CPU/MEM from metrics.k8s.io, accumulated into a live series.
+ * Network/load/filesystem aren't available from this source; a footnote says
+ * so rather than silently omitting them.
+ */
+function KubeMetricsIoMetrics() {
+  const row = useStore((s) => s.selectedRow);
+  const node = row?.name;
+  const series = useNodeMetricsSeries(node);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const PLOT_COLORS = useHostPlotColors(wrapRef);
+  const { t } = useTranslation();
+
+  if (!node) return null;
+
+  if (series.length === 0) {
+    return (
+      <div className={styles.wrap} ref={wrapRef}>
+        <div className={styles.state}>
+          <div className={styles.stateTitle}>{t("metrics.waitingSamples")}</div>
+          <div className={styles.stateBody}>{t("metrics.waitingSamplesBody")}</div>
+        </div>
+      </div>
+    );
+  }
+
+  const tArr = series.map((s) => new Date(s.ts));
+  const latest = series[series.length - 1];
+  const memTotal = latest.memTotalBytes || 1;
+
+  return (
+    <div className={styles.wrap} ref={wrapRef}>
+      <Plot
+        title={t("metrics.cpuTitle", latest.cpuPercent.toFixed(1))}
+        data={[
+          {
+            x: tArr,
+            y: series.map((s) => s.cpuPercent),
+            type: "scatter",
+            mode: "lines",
+            line: { color: PLOT_COLORS.accent, width: 1.5, shape: "spline", smoothing: 0.4 },
+            fill: "tozeroy",
+            fillcolor: withAlpha(PLOT_COLORS.accent, 0.12),
+            hovertemplate: "%{y:.1f}%<extra></extra>",
+          },
+        ]}
+        layoutExtra={{ yaxis: { range: [0, 100], ticksuffix: "%", gridcolor: PLOT_COLORS.grid } }}
+      />
+
+      <Plot
+        title={t("metrics.memTitle", humanBytes(latest.memBytes), humanBytes(latest.memTotalBytes), pct(latest.memBytes, memTotal))}
+        data={[
+          {
+            x: tArr,
+            y: series.map((s) => s.memBytes),
+            type: "scatter",
+            mode: "lines",
+            line: { color: PLOT_COLORS.ok, width: 1.5 },
+            fill: "tozeroy",
+            fillcolor: withAlpha(PLOT_COLORS.ok, 0.12),
+            hovertemplate: "%{y:.3s}B<extra></extra>",
+          },
+        ]}
+        layoutExtra={{
+          yaxis: { range: [0, memTotal], tickformat: ".3s", ticksuffix: "B", gridcolor: PLOT_COLORS.grid },
+        }}
+      />
+
+      <div className={styles.footnote}>{t("metrics.kubeMetricsFootnote")}</div>
+    </div>
+  );
+}
+
+/** Current filesystem usage as a horizontal bar per mount. (Desktop path only.) */
 function Filesystems({
   sample,
   colors: PLOT_COLORS,
@@ -168,12 +228,8 @@ function Filesystems({
   colors: ReturnType<typeof plotColors>;
   title: string;
 }) {
-
   if (sample.filesystems.length === 0) return null;
 
-  // Fullest first: the one about to cause an incident belongs at the top, not
-  // wherever the alphabet puts it. Plotly's y axis draws bottom-up, so the array
-  // is reversed to put the largest at the top.
   const fs = [...sample.filesystems]
     .map((f) => ({ ...f, pct: (100 * f.usedBytes) / Math.max(f.sizeBytes, 1) }))
     .sort((a, b) => a.pct - b.pct);
@@ -184,7 +240,6 @@ function Filesystems({
   return (
     <Plot
       title={title}
-      // Enough room per bar to stay legible; murphy-yi has 21 mounts.
       height={Math.max(120, 26 * fs.length + 40)}
       data={[
         {

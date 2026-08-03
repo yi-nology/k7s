@@ -186,6 +186,7 @@ const TAB_LABELS_ZH: Record<DetailTabId, string> = {
   shell: "终端",
   yaml: "YAML",
   events: "事件",
+  pods: "Pod 列表",
 };
 
 /** Translated group header (or English on en/unknown). */

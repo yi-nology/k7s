@@ -58,6 +58,13 @@ struct PodUsage {
 struct NodeUsage {
     cpu_percent: f64,
     mem_percent: f64,
+    /// Absolute CPU usage (millicores) and memory (bytes), plus the node's
+    /// allocatable capacity. metrics.k8s.io gives both the usage and the Node
+    /// object gives the ceiling, so we surface them for the node Metrics tab to
+    /// plot "how much room is left" without needing node-exporter.
+    cpu_millis: i64,
+    mem_bytes: i64,
+    mem_total_bytes: i64,
 }
 
 /// Cluster-wide status for the status bar / switcher.
@@ -229,6 +236,9 @@ async fn fetch_node_metrics(
             NodeUsage {
                 cpu_percent: pct(cpu, acpu),
                 mem_percent: pct(mem, amem),
+                cpu_millis: cpu,
+                mem_bytes: mem,
+                mem_total_bytes: amem,
             },
         );
         used_cpu += cpu;

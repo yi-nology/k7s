@@ -262,13 +262,14 @@ export const KINDS_WITH_PROPERTIES: ReadonlySet<string> = new Set<string>([
 ]);
 
 /** Detail-panel tabs, in strip order. Mirrors DetailTab in the store. */
-export type DetailTabId = "logs" | "properties" | "metrics" | "shell" | "yaml" | "events";
+export type DetailTabId = "logs" | "properties" | "metrics" | "shell" | "yaml" | "events" | "pods";
 
 /** Tab id → label, in the order the strip renders them. */
 export const DETAIL_TABS: { id: DetailTabId; label: string }[] = [
   { id: "logs", label: "Logs" },
   { id: "properties", label: "Properties" },
   { id: "metrics", label: "Metrics" },
+  { id: "pods", label: "Pods" },
   { id: "shell", label: "Shell" },
   { id: "yaml", label: "YAML" },
   { id: "events", label: "Events" },
@@ -302,6 +303,10 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
         return KINDS_WITH_PROPERTIES.has(kind);
       case "metrics":
         return isPod || kind === "nodes";
+      case "pods":
+        // The "Pods on this node" tab — a node-resource breakdown view. Only
+        // nodes get it (a pod's own metrics live on its Metrics tab).
+        return kind === "nodes";
       case "events":
         return kind !== "helm";
       default:

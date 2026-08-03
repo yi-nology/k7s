@@ -32,3 +32,14 @@
   line-height: 1.5;
   color: var(--text-faint);
 }
+
+/* Footnote under the metrics.k8s.io charts — explains why there are fewer
+   panels than the desktop node-exporter view (network/load/filesystem need
+   node-exporter, which this data source can't provide). */
+.footnote {
+  padding: 8px 4px 4px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--text-faint);
+}

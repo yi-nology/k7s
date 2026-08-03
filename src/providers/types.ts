@@ -259,6 +259,11 @@ export interface PodSample {
 export interface NodeMetrics {
   cpuPercent: number;
   memPercent: number;
+  /** Absolute usage from metrics.k8s.io (added so the node Metrics tab can plot
+   *  "how much room is left" without node-exporter). */
+  cpuMillis: number;
+  memBytes: number;
+  memTotalBytes: number;
 }
 export type NodeMetricsMap = Record<string, NodeMetrics>;
 
