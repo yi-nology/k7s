@@ -155,7 +155,7 @@ export interface Dictionary {
 
   /** Detail panel — tabs, header meta, common buttons. */
   detail: {
-    tabs: { logs: string; properties: string; metrics: string; shell: string; yaml: string; events: string; pods: string };
+    tabs: { logs: string; properties: string; revisions: string; metrics: string; shell: string; yaml: string; events: string; pods: string };
     header: {
       kind: string;
       ns: string;
@@ -216,6 +216,8 @@ export interface Dictionary {
       /** "Modify image…" — opens a form that re-writes one or more
        *  containers' `image:` values and applies the result. */
       modifyImage: string;
+      /** "Rollback to last" — rolls a workload back to its previous revision. */
+      rollback: string;
     };
     confirm: {
       delete: (what: string, names: string) => string;
@@ -225,6 +227,8 @@ export interface Dictionary {
       cordon: (what: string, names: string) => string;
       uncordon: (what: string, names: string) => string;
       generic: (id: string, what: string, names: string) => string;
+      /** "Rollback <what> to its previous revision?" */
+      rollback: (what: string) => string;
     };
     scope: (n: number, what: string) => string;
     scaleForm: {
@@ -284,6 +288,25 @@ export interface Dictionary {
     sinceAll: string;
     sinceLast: (s: string) => string;
     howFarBack: string;
+  };
+  /** Revisions detail tab — history + current-image editing + rollback. */
+  revisions: {
+    noSelection: string;
+    loading: string;
+    currentImage: string;
+    editImage: string;
+    history: string;
+    current: string;
+    noCurrent: string;
+    empty: string;
+    rollbackTo: string;
+    rollingBack: string;
+    col: {
+      revision: string;
+      images: string;
+      ready: string;
+      age: string;
+    };
   };
   nodePods: {
     pods: string;
@@ -858,6 +881,7 @@ export const en: Dictionary = {
     tabs: {
       logs: "Logs",
       properties: "Properties",
+      revisions: "Revisions",
       metrics: "Metrics",
       shell: "Shell",
       yaml: "YAML",
@@ -901,6 +925,7 @@ export const en: Dictionary = {
       delete: "Delete…",
       downloadYaml: "Download YAML",
       modifyImage: "Modify image…",
+      rollback: "Rollback to last…",
     },
     confirm: {
       delete: (what, names) => `Delete ${what}?${names}`,
@@ -913,6 +938,8 @@ export const en: Dictionary = {
       cordon: (what, names) => `Cordon ${what}?${names}`,
       uncordon: (what, names) => `Uncordon ${what}?${names}`,
       generic: (id, what, names) => `${id} ${what}?${names}`,
+      rollback: (what) =>
+        `Roll ${what} back to its previous revision? The controller will roll through its normal update strategy.`,
     },
     scope: (n, what) => `${n} ${what} selected`,
     scaleForm: {
@@ -967,6 +994,24 @@ export const en: Dictionary = {
     sinceAll: "all",
     sinceLast: (s) => `last ${s}`,
     howFarBack: "how far back to show",
+  },
+  revisions: {
+    noSelection: "No workload selected.",
+    loading: "Loading history…",
+    currentImage: "Current image",
+    editImage: "Edit image",
+    history: "Revision history",
+    current: "current",
+    noCurrent: "No current revision.",
+    empty: "No revision history (or not readable with current RBAC).",
+    rollbackTo: "Rollback",
+    rollingBack: "Rolling back…",
+    col: {
+      revision: "Revision",
+      images: "Images",
+      ready: "Ready",
+      age: "Age",
+    },
   },
   nodePods: {
     pods: "pods",
@@ -1504,6 +1549,7 @@ export const zh: Dictionary = {
     tabs: {
       logs: "日志",
       properties: "属性",
+      revisions: "版本历史",
       metrics: "指标",
       shell: "终端",
       yaml: "YAML",
@@ -1547,6 +1593,7 @@ export const zh: Dictionary = {
       delete: "删除…",
       downloadYaml: "下载 YAML",
       modifyImage: "修改镜像…",
+      rollback: "回滚到上一版…",
     },
     confirm: {
       delete: (what, names) => `删除 ${what}?${names}`,
@@ -1558,6 +1605,7 @@ export const zh: Dictionary = {
       cordon: (what, names) => `禁止调度 ${what}?${names}`,
       uncordon: (what, names) => `允许调度 ${what}?${names}`,
       generic: (id, what, names) => `${id} ${what}?${names}`,
+      rollback: (what) => `回滚 ${what} 到上一修订版本?控制器将按正常更新策略滚动更新。`,
     },
     scope: (n, what) => `已选 ${n} 个 ${what}`,
     scaleForm: {
@@ -1612,6 +1660,24 @@ export const zh: Dictionary = {
     sinceAll: "全部",
     sinceLast: (s) => `最近 ${s}`,
     howFarBack: "时间范围",
+  },
+  revisions: {
+    noSelection: "未选择工作负载。",
+    loading: "加载历史…",
+    currentImage: "当前镜像",
+    editImage: "编辑镜像",
+    history: "修订历史",
+    current: "当前",
+    noCurrent: "无当前修订版本。",
+    empty: "无修订历史（或当前 RBAC 无权读取）。",
+    rollbackTo: "回滚",
+    rollingBack: "回滚中…",
+    col: {
+      revision: "版本",
+      images: "镜像",
+      ready: "就绪",
+      age: "存活",
+    },
   },
   nodePods: {
     pods: "个 Pod",

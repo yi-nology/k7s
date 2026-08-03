@@ -69,6 +69,7 @@ import type {
   Row,
   SavedLog,
   Unsub,
+  Revision,
   YamlDiff,
 } from "../types";
 
@@ -214,6 +215,23 @@ export class TauriProvider implements DataProvider {
       kind: ref.kind,
       namespace: ref.namespace ?? "",
       name: ref.name,
+    });
+  }
+
+  listRevisions(ref: ResourceRef): Promise<Revision[]> {
+    return invoke<Revision[]>("list_revisions", {
+      kind: ref.kind,
+      namespace: ref.namespace ?? "",
+      name: ref.name,
+    });
+  }
+
+  undoRollout(ref: ResourceRef, toRevision?: number): Promise<void> {
+    return invoke<void>("undo_rollout", {
+      kind: ref.kind,
+      namespace: ref.namespace ?? "",
+      name: ref.name,
+      toRevision: toRevision ?? null,
     });
   }
 

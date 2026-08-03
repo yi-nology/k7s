@@ -224,6 +224,24 @@ pub struct RestartRolloutArgs {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ListRevisionsArgs {
+    pub kind: String,
+    pub namespace: String,
+    pub name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UndoRolloutArgs {
+    pub kind: String,
+    pub namespace: String,
+    pub name: String,
+    /// None = roll back to the previous revision (kubectl rollout undo default).
+    pub to_revision: Option<i64>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DrainNodeArgs {
     pub name: String,
 }
@@ -848,6 +866,47 @@ pub async fn restart_rollout(
         api.patch(&args.name, &PatchParams::default(), &patch).await?;
         Ok(())
     })().await;
+    respond(result)
+}
+
+/// List the revision history of a Deployment/StatefulSet/DaemonSet — backs the
+/// Revisions detail tab in web mode. Mirrors the `list_revisions` Tauri command.
+pub async fn list_revisions(
+    State(state): State<WebState>,
+    Json(args): Json<ListRevisionsArgs>,
+) -> axum::response::Response {
+    let result: AppResult<Vec<crate::kube::rollout::Revision>> = async {
+        if !crate::kube::rollout::is_rollout_kind(&args.kind) {
+            return Err(AppError::Other(format!("{} has no revision history", args.kind)));
+        }
+        let client = core_client(&state.core).await?;
+        crate::kube::rollout::list_revisions(client, &args.kind, &args.namespace, &args.name).await
+    }
+    .await;
+    respond(result)
+}
+
+/// Roll a workload back to `to_revision`, or to the previous revision when
+/// `to_revision` is None. Mirrors the `undo_rollout` Tauri command.
+pub async fn undo_rollout(
+    State(state): State<WebState>,
+    Json(args): Json<UndoRolloutArgs>,
+) -> axum::response::Response {
+    let result: AppResult<()> = async {
+        if !crate::kube::rollout::is_rollout_kind(&args.kind) {
+            return Err(AppError::Other(format!("{} cannot be rolled back", args.kind)));
+        }
+        let client = core_client(&state.core).await?;
+        crate::kube::rollout::undo_to(
+            client,
+            &args.kind,
+            &args.namespace,
+            &args.name,
+            args.to_revision,
+        )
+        .await
+    }
+    .await;
     respond(result)
 }
 

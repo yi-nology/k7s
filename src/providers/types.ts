@@ -326,6 +326,38 @@ export interface YamlDiff {
   proposed: string;
 }
 
+/**
+ * One container's image in a workload pod template. Mirrors the Rust
+ * `rollout::ContainerImage` DTO. `init` distinguishes initContainers so the
+ * Revisions tab can badge them apart from the main containers.
+ */
+export interface ContainerImage {
+  name: string;
+  image: string;
+  init: boolean;
+}
+
+/**
+ * One row of a workload's revision history (Revisions detail tab). Mirrors the
+ * Rust `rollout::Revision` DTO. Works for both history storage shapes —
+ * Deployment ReplicaSets and StatefulSet/DaemonSet ControllerRevisions — so the
+ * frontend renders a single table regardless of kind.
+ */
+export interface Revision {
+  /** The numeric revision, or null when neither annotation nor name yields one. */
+  revision: number | null;
+  /** Each container's name:image from this revision's pod template, in order. */
+  images: ContainerImage[];
+  /** The replica count this revision was declared with (0 for STS/DS history). */
+  desired: number;
+  /** How many replicas of this revision are currently ready. */
+  ready: number;
+  /** RFC3339 creation timestamp, for the AGE column. */
+  age: string;
+  /** True for the revision the workload is currently rolling out. */
+  isCurrent: boolean;
+}
+
 export interface Properties {
   sections: Section[];
 }
@@ -544,6 +576,18 @@ export interface DataProvider {
    * rollout restart` template-annotation patch, rolled through the update strategy.
    */
   restartRollout(ref: ResourceRef): Promise<void>;
+  /**
+   * List the revision history of a Deployment/StatefulSet/DaemonSet — the data
+   * behind the Revisions detail tab. Newest revision first. RBAC denials degrade
+   * to an empty list rather than rejecting, so the tab still opens.
+   */
+  listRevisions(ref: ResourceRef): Promise<Revision[]>;
+  /**
+   * Roll a workload back to `toRevision`, or to the previous revision when
+   * `toRevision` is omitted — the `kubectl rollout undo` default. The controller
+   * rolls through its normal update strategy, respecting surge/MaxUnavailable.
+   */
+  undoRollout(ref: ResourceRef, toRevision?: number): Promise<void>;
   /** Cordon or uncordon a node. */
   setCordon(node: string, unschedulable: boolean): Promise<void>;
   /**

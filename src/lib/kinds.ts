@@ -262,12 +262,21 @@ export const KINDS_WITH_PROPERTIES: ReadonlySet<string> = new Set<string>([
 ]);
 
 /** Detail-panel tabs, in strip order. Mirrors DetailTab in the store. */
-export type DetailTabId = "logs" | "properties" | "metrics" | "shell" | "yaml" | "events" | "pods";
+export type DetailTabId =
+  | "logs"
+  | "properties"
+  | "revisions"
+  | "metrics"
+  | "shell"
+  | "yaml"
+  | "events"
+  | "pods";
 
 /** Tab id → label, in the order the strip renders them. */
 export const DETAIL_TABS: { id: DetailTabId; label: string }[] = [
   { id: "logs", label: "Logs" },
   { id: "properties", label: "Properties" },
+  { id: "revisions", label: "Revisions" },
   { id: "metrics", label: "Metrics" },
   { id: "pods", label: "Pods" },
   { id: "shell", label: "Shell" },
@@ -301,6 +310,12 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
         return isPod || kind === "nodes";
       case "properties":
         return KINDS_WITH_PROPERTIES.has(kind);
+      case "revisions":
+        // Revision history + rollback — only workloads that carry a pod
+        // template with retained history (Deployment/StatefulSet/DaemonSet).
+        return (
+          kind === "deployments" || kind === "statefulsets" || kind === "daemonsets"
+        );
       case "metrics":
         return isPod || kind === "nodes";
       case "pods":

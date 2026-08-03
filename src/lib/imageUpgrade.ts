@@ -69,6 +69,9 @@ export function extractContainerImages(yaml: string): ContainerImage[] {
   // The current container's name (set by `- name: <X>` and reset when
   // we leave the array).
   let currentName: string | null = null;
+  // Image value from `- image:` at the member indent, waiting for `name:`
+  // to appear at the field indent before we can emit the entry.
+  let pendingImage: string | null = null;
 
   for (const raw of lines) {
     // Stop on document boundary (CronJob bundles a Service + StatefulSet
@@ -77,6 +80,7 @@ export function extractContainerImages(yaml: string): ContainerImage[] {
       section = null;
       memberIndent = -1;
       currentName = null;
+      pendingImage = null;
       continue;
     }
 
@@ -103,6 +107,7 @@ export function extractContainerImages(yaml: string): ContainerImage[] {
         section = null;
         memberIndent = -1;
         currentName = null;
+        pendingImage = null;
       }
     }
 
@@ -124,24 +129,42 @@ export function extractContainerImages(yaml: string): ContainerImage[] {
         continue;
       }
     } else {
-      // Inside a container array. A `- name: <X>` line at the array's
-      // member indent starts a new container; otherwise it's a field
-      // on the current one. Container fields (`image:`, `ports:`,
-      // `env:`, …) sit one indent level deeper than the member.
-      if (leading === memberIndent && trimmed.startsWith("- name:")) {
-        currentName = trimmed.slice("- name:".length).trim();
+      // Inside a container array. A `- <field>:` line at the array's
+      // member indent starts a new container member. The field after `-`
+      // can be `name:`, `image:`, or any other container field — kubectl
+      // doesn't guarantee field order. A new member resets the current
+      // container name so it's picked up from the next `name:` field.
+      if (leading === memberIndent && /^-\s+\w/.test(trimmed)) {
+        // New container member — reset name for re-detection.
+        if (trimmed.startsWith("- name:")) {
+          currentName = trimmed.slice("- name:".length).trim();
+        } else {
+          currentName = null; // name will be set when we see `name:` below
+        }
+        // If the first field IS `image:` (e.g. `- image: foo/bar:v1`),
+        // save it — we need the name first, so we'll emit when `name:` appears.
+        if (trimmed.startsWith("- image:") && section) {
+          pendingImage = trimmed.slice("- image:".length).trim();
+        }
         continue;
       }
-      if (
-        currentName !== null &&
-        leading === memberIndent + 2 &&
-        trimmed.startsWith("image:")
-      ) {
-        const image = trimmed.slice("image:".length).trim();
-        out.push({ name: currentName, kind: section, image });
-        // Don't reset currentName here — `image:` is a per-container
-        // field, not a per-member one, and the next field at the same
-        // indent (e.g. `ports:`) belongs to the same container.
+      // Field-level: `name:` and `image:` at the container field indent.
+      if (leading === memberIndent + 2) {
+        if (trimmed.startsWith("name:") && currentName === null) {
+          // `name:` after another first field (e.g. `- image:` came first).
+          currentName = trimmed.slice("name:".length).trim();
+          // If we had a pending image from `- image:` at the member indent,
+          // emit it now that we know the name.
+          if (pendingImage && section) {
+            out.push({ name: currentName, kind: section, image: pendingImage });
+            pendingImage = null;
+          }
+        } else if (trimmed.startsWith("image:") && currentName !== null) {
+          const image = trimmed.slice("image:".length).trim();
+          out.push({ name: currentName, kind: section, image });
+          // Don't reset currentName — `image:` is a per-container field,
+          // and the next field at the same indent belongs to the same one.
+        }
       }
     }
   }
@@ -178,12 +201,16 @@ export function rewriteContainerImage(
   let section: "standard" | "init" | null = null;
   let memberIndent = -1;
   let currentName: string | null = null;
+  // Image value from `- image:` at the member indent, waiting for `name:`
+  // to appear at the field indent before we can emit the entry.
+  let pendingImage: string | null = null;
 
   for (const raw of lines) {
     if (/^---\s*$/.test(raw)) {
       section = null;
       memberIndent = -1;
       currentName = null;
+      pendingImage = null;
       out.push(raw);
       continue;
     }
@@ -205,6 +232,7 @@ export function rewriteContainerImage(
         section = null;
         memberIndent = -1;
         currentName = null;
+        pendingImage = null;
       }
     }
 
@@ -222,22 +250,56 @@ export function rewriteContainerImage(
         currentName = null;
       }
     } else {
-      if (leading === memberIndent && trimmed.startsWith("- name:")) {
-        currentName = trimmed.slice("- name:".length).trim();
-      } else if (
-        currentName === containerName &&
-        leading === memberIndent + 2 &&
-        trimmed.startsWith("image:")
-      ) {
-        // Preserve the leading whitespace and the `image:` token; only
-        // the value (and any inline trailing comment) is replaced.
-        const prefix = raw.slice(0, raw.indexOf("image:") + "image:".length);
-        out.push(`${prefix} ${newImage}`);
-        currentName = null; // image is unique per container; done
-        continue;
+      // New container member at the array indent. Handle field order: `- name:`
+      // may come first (canonical) or another field (e.g. `- image:`) may lead.
+      if (leading === memberIndent && /^-\s+\w/.test(trimmed)) {
+        // Flush any pending image line from the previous member (if we never
+        // saw a `name:` for it, it's not the target — emit unchanged).
+        if (pendingImage) { out.push(pendingImage); pendingImage = null; }
+        if (trimmed.startsWith("- name:")) {
+          currentName = trimmed.slice("- name:".length).trim();
+        } else if (trimmed.startsWith("- image:")) {
+          // `- image:` before `name:` — save the raw line; we'll rewrite it
+          // only once we confirm the name matches the target container.
+          pendingImage = raw;
+          currentName = null;
+          continue; // don't push to out yet
+        } else {
+          currentName = null; // picked up from `name:` at field indent below
+        }
+      } else if (leading === memberIndent + 2) {
+        // Field-level: `name:` after a non-name first field, or `image:` rewrite.
+        if (trimmed.startsWith("name:") && currentName === null) {
+          currentName = trimmed.slice("name:".length).trim();
+          if (pendingImage) {
+            // We had `- image:` before this `name:`. If this is the target
+            // container, rewrite the pending image line; otherwise emit unchanged.
+            if (currentName === containerName) {
+              const prefix = pendingImage.slice(0, pendingImage.indexOf("image:") + "image:".length);
+              out.push(`${prefix} ${newImage}`);
+              currentName = null; // done with this container
+            } else {
+              out.push(pendingImage);
+            }
+            pendingImage = null;
+          }
+        } else if (
+          currentName === containerName &&
+          trimmed.startsWith("image:")
+        ) {
+          // Preserve the leading whitespace and the `image:` token; only
+          // the value (and any inline trailing comment) is replaced.
+          const prefix = raw.slice(0, raw.indexOf("image:") + "image:".length);
+          out.push(`${prefix} ${newImage}`);
+          currentName = null; // image is unique per container; done
+          continue;
+        }
       }
     }
     out.push(raw);
   }
+  // Flush any pending image line from the last member (if it never got a
+  // `name:` match, emit it unchanged so the YAML stays complete).
+  if (pendingImage) out.push(pendingImage);
   return out.join("\n");
 }

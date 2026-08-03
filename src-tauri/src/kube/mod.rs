@@ -34,6 +34,7 @@ pub mod portforward;
 pub mod promql;
 pub mod properties;
 pub mod restart;
+pub mod rollout;
 pub mod watchers;
 
 use serde::{Deserialize, Serialize};
@@ -112,6 +113,84 @@ impl ResourceKind {
             ResourceKind::Events => "events",
             ResourceKind::Helm => "helm",
         }
+    }
+
+    /// The API group (e.g. "apps", "autoscaling", "" for core/v1).
+    pub fn group(&self) -> &'static str {
+        match self {
+            ResourceKind::Pods | ResourceKind::Services | ResourceKind::Configmaps
+            | ResourceKind::Secrets | ResourceKind::Serviceaccounts
+            | ResourceKind::Persistentvolumeclaims | ResourceKind::Persistentvolumes
+            | ResourceKind::Nodes | ResourceKind::Namespaces | ResourceKind::Events
+            | ResourceKind::Resourcequotas | ResourceKind::Limitranges => "",
+            ResourceKind::Deployments | ResourceKind::Replicasets
+            | ResourceKind::Statefulsets | ResourceKind::Daemonsets => "apps",
+            ResourceKind::Jobs | ResourceKind::Cronjobs => "batch",
+            ResourceKind::Ingresses | ResourceKind::Ingressclasses
+            | ResourceKind::Networkpolicies => "networking.k8s.io",
+            ResourceKind::Storageclasses => "storage.k8s.io",
+            ResourceKind::Horizontalpodautoscalers => "autoscaling",
+            ResourceKind::Helm => "",
+        }
+    }
+
+    /// The API version (e.g. "v1", "v1beta1").
+    pub fn version(&self) -> &'static str {
+        match self {
+            ResourceKind::Horizontalpodautoscalers => "v1",
+            _ => "v1",
+        }
+    }
+
+    /// The plural lowercase name (e.g. "horizontalpodautoscalers").
+    pub fn plural(&self) -> &'static str {
+        self.id()
+    }
+
+    /// The PascalCase kind name (e.g. "HorizontalPodAutoscaler").
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            ResourceKind::Pods => "Pod",
+            ResourceKind::Deployments => "Deployment",
+            ResourceKind::Replicasets => "ReplicaSet",
+            ResourceKind::Statefulsets => "StatefulSet",
+            ResourceKind::Daemonsets => "DaemonSet",
+            ResourceKind::Jobs => "Job",
+            ResourceKind::Cronjobs => "CronJob",
+            ResourceKind::Services => "Service",
+            ResourceKind::Ingresses => "Ingress",
+            ResourceKind::Ingressclasses => "IngressClass",
+            ResourceKind::Configmaps => "ConfigMap",
+            ResourceKind::Secrets => "Secret",
+            ResourceKind::Serviceaccounts => "ServiceAccount",
+            ResourceKind::Persistentvolumeclaims => "PersistentVolumeClaim",
+            ResourceKind::Persistentvolumes => "PersistentVolume",
+            ResourceKind::Storageclasses => "StorageClass",
+            ResourceKind::Networkpolicies => "NetworkPolicy",
+            ResourceKind::Horizontalpodautoscalers => "HorizontalPodAutoscaler",
+            ResourceKind::Resourcequotas => "ResourceQuota",
+            ResourceKind::Limitranges => "LimitRange",
+            ResourceKind::Nodes => "Node",
+            ResourceKind::Namespaces => "Namespace",
+            ResourceKind::Events => "Event",
+            ResourceKind::Helm => "HelmRelease",
+        }
+    }
+
+    /// Whether this kind is namespaced.
+    pub fn is_namespaced(&self) -> bool {
+        match self {
+            ResourceKind::Nodes | ResourceKind::Persistentvolumes
+            | ResourceKind::Storageclasses | ResourceKind::Namespaces
+            | ResourceKind::Events | ResourceKind::Helm => false,
+            _ => true,
+        }
+    }
+
+    /// Create an ApiResource for DynamicObject-based watchers.
+    pub fn api_resource(&self) -> kube::core::ApiResource {
+        let gvk = kube::core::GroupVersionKind::gvk(self.group(), self.version(), self.kind_name());
+        kube::core::ApiResource::from_gvk_with_plural(&gvk, self.plural())
     }
 }
 

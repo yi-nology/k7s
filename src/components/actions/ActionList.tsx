@@ -205,6 +205,12 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
           !isRolloutKind(kind),
         );
         break;
+      case "rollback":
+        // No `toRevision` = roll back to the previous revision, the
+        // `kubectl rollout undo` default. The workload keeps its identity, so
+        // `gone` is false — the row stays put while the controller rolls it.
+        void execute((row) => getProvider().undoRollout(refOf(row)), false);
+        break;
       case "drain":
         // Resolves once cordoned; the eviction progress streams to the banner.
         void execute((row) => getProvider().drainNode(row.name), false);
@@ -489,6 +495,7 @@ function confirmLabel(id: ActionId, locale: import("../../lib/i18n").Locale): st
     forward: "actions.labels.forward",
     scale: "actions.labels.scale",
     restart: "actions.labels.restart",
+    rollback: "actions.labels.rollback",
     cordon: "actions.labels.cordon",
     uncordon: "actions.labels.uncordon",
     drain: "actions.labels.drain",

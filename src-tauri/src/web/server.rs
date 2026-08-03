@@ -112,6 +112,8 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/invoke/set_cordon", post(handlers::set_cordon))
         .route("/api/invoke/restart_pod", post(handlers::restart_pod))
         .route("/api/invoke/restart_rollout", post(handlers::restart_rollout))
+        .route("/api/invoke/list_revisions", post(handlers::list_revisions))
+        .route("/api/invoke/undo_rollout", post(handlers::undo_rollout))
         .route("/api/invoke/drain_node", post(handlers::drain_node))
         // Log streaming — the headline feature the previous 501 broke. Lines
         // flow through the same `EventSink` → SSE path the watchers use.

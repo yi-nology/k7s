@@ -220,3 +220,45 @@ describe("extract + rewrite round-trip", () => {
     ]);
   });
 });
+
+// Regression: some workloads (and kubectl output) put `image:` before `name:`
+// inside a container. The state machine must handle any field order.
+const YAML_IMAGE_BEFORE_NAME = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kylin-insights-frontend
+  namespace: kylin-insights
+spec:
+  template:
+    spec:
+      containers:
+      - image: cr.kylinos.cn/kylin-insight/kylin-insights-frontend:main_v3-20260728-a3e77b36-gitlabci
+        imagePullPolicy: IfNotPresent
+        name: kylin-insights-frontend
+        ports:
+        - containerPort: 80
+`;
+
+describe("field order: image before name", () => {
+  it("extracts container when image appears before name", () => {
+    const out = extractContainerImages(YAML_IMAGE_BEFORE_NAME);
+    expect(out).toEqual([
+      {
+        name: "kylin-insights-frontend",
+        kind: "standard",
+        image: "cr.kylinos.cn/kylin-insight/kylin-insights-frontend:main_v3-20260728-a3e77b36-gitlabci",
+      },
+    ]);
+  });
+
+  it("rewrites the image even when name comes after image", () => {
+    const out = rewriteContainerImage(
+      YAML_IMAGE_BEFORE_NAME,
+      "kylin-insights-frontend",
+      "cr.kylinos.cn/kylin-insight/kylin-insights-frontend:v2.0.0",
+    );
+    expect(out).toMatch(/image: cr\.kylinos\.cn\/kylin-insight\/kylin-insights-frontend:v2\.0\.0/m);
+    // The name line is preserved verbatim.
+    expect(out).toMatch(/name: kylin-insights-frontend/m);
+  });
+});

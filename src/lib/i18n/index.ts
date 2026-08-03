@@ -182,6 +182,7 @@ const KIND_LABELS_ZH: Record<ResourceKind, string> = {
 const TAB_LABELS_ZH: Record<DetailTabId, string> = {
   logs: "日志",
   properties: "属性",
+  revisions: "版本历史",
   metrics: "指标",
   shell: "终端",
   yaml: "YAML",

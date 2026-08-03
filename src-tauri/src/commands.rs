@@ -10,7 +10,8 @@ use crate::kube::manager::{ForwardDto, ImportedContext, ShellSession};
 use crate::kube::{
     alerting, discovery, drain, endpoints, exec, exporter, grafana, helm, helm_market, helm_ops,
     image_archive, image_sync, imageimport, imagerepo, logs, mappers, metrics, metrics_config,
-    nodeshell, nodestats, pod_files, portforward, promql, properties, restart, saved_queries,
+    nodeshell, nodestats, pod_files, portforward, promql, properties, restart, rollout,
+    saved_queries,
     templates, watchers, ClientManager, ResourceKind,
 };
 use tokio::sync::{mpsc, oneshot};
@@ -586,6 +587,42 @@ pub async fn restart_rollout(
     let patch = Patch::Merge(restart::restart_patch(&now));
     api.patch(&name, &PatchParams::default(), &patch).await?;
     Ok(())
+}
+
+/// List the revision history of a Deployment/StatefulSet/DaemonSet — the data
+/// behind the Revisions detail tab. Newest revision first. RBAC denials degrade
+/// to an empty list rather than failing the tab (see `rollout::list_revisions`).
+#[tauri::command]
+pub async fn list_revisions(
+    kind: String,
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<rollout::Revision>> {
+    if !rollout::is_rollout_kind(&kind) {
+        return Err(AppError::Other(format!("{kind} has no revision history")));
+    }
+    let client = require_client(&(*mgr).manager).await?;
+    Ok(rollout::list_revisions(client, &kind, &namespace, &name).await?)
+}
+
+/// Roll a workload back to `to_revision`, or to the previous revision when
+/// `to_revision` is `None` — the `kubectl rollout undo` default. This is the
+/// engine behind the Revisions tab's "rollback to here" button and the row-menu
+/// "rollback to last" action.
+#[tauri::command]
+pub async fn undo_rollout(
+    kind: String,
+    namespace: String,
+    name: String,
+    to_revision: Option<i64>,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
+    if !rollout::is_rollout_kind(&kind) {
+        return Err(AppError::Other(format!("{kind} cannot be rolled back")));
+    }
+    let client = require_client(&(*mgr).manager).await?;
+    rollout::undo_to(client, &kind, &namespace, &name, to_revision).await
 }
 
 /// Start watching a custom (CRD-backed) kind (B15), if it isn't already watched.

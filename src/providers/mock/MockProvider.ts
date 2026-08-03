@@ -65,6 +65,7 @@ import type {
   Row,
   SavedLog,
   Unsub,
+  Revision,
   YamlDiff,
   NodeShellHandle,
 } from "../types";
@@ -229,6 +230,41 @@ export class MockProvider implements DataProvider {
   async scaleResource(_ref: ResourceRef, _replicas: number): Promise<void> {}
   async restartPod(_ref: ResourceRef): Promise<void> {}
   async restartRollout(_ref: ResourceRef): Promise<void> {}
+  async listRevisions(ref: ResourceRef): Promise<Revision[]> {
+    // A small fake history so the Revisions tab is demonstrable in demo mode.
+    // Three revisions, the newest current; images advance to show what a
+    // rollback would change to.
+    void ref;
+    const now = Date.now();
+    const age = (mins: number) => new Date(now - mins * 60_000).toISOString();
+    return [
+      {
+        revision: 3,
+        images: [{ name: "app", image: "nginx:1.25.3", init: false }],
+        desired: 3,
+        ready: 3,
+        age: age(2),
+        isCurrent: true,
+      },
+      {
+        revision: 2,
+        images: [{ name: "app", image: "nginx:1.25.2", init: false }],
+        desired: 0,
+        ready: 0,
+        age: age(63),
+        isCurrent: false,
+      },
+      {
+        revision: 1,
+        images: [{ name: "app", image: "nginx:1.25.1", init: false }],
+        desired: 0,
+        ready: 0,
+        age: age(60 * 25),
+        isCurrent: false,
+      },
+    ];
+  }
+  async undoRollout(_ref: ResourceRef, _toRevision?: number): Promise<void> {}
   async setCordon(_node: string, _unschedulable: boolean): Promise<void> {}
   /** No native window in demo mode — the browser tab owns its own chrome. */
   async setWindowTheme(_theme: "dark" | "light"): Promise<void> {}

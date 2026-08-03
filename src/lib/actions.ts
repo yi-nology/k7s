@@ -31,6 +31,7 @@ export type ActionId =
   | "forward"
   | "scale"
   | "restart"
+  | "rollback"
   | "cordon"
   | "uncordon"
   | "drain"
@@ -69,6 +70,7 @@ const LABEL_KEYS: Record<ActionId, string> = {
   forward: "actions.labels.forward",
   scale: "actions.labels.scale",
   restart: "actions.labels.restart",
+  rollback: "actions.labels.rollback",
   cordon: "actions.labels.cordon",
   uncordon: "actions.labels.uncordon",
   drain: "actions.labels.drain",
@@ -83,6 +85,10 @@ const META: Record<ActionId, Omit<ActionDef, "id" | "label">> = {
   forward: { mode: "form", bulk: false },
   scale: { mode: "form", bulk: false },
   restart: { mode: "confirm", bulk: true },
+  // Rollback is confirm-gated: it changes the running workload. Not bulk — a
+  // multi-row selection rolling every workload back at once has no real use
+  // case, and a one-shot "previous revision" is the action's whole meaning.
+  rollback: { mode: "confirm", bulk: false },
   cordon: { mode: "immediate", bulk: true },
   uncordon: { mode: "immediate", bulk: true },
   // Not bulk: a drain streams progress for one node and can take minutes, and
@@ -107,6 +113,7 @@ const ORDER: ActionId[] = [
   "forward",
   "scale",
   "restart",
+  "rollback",
   "modify-image",
   "cordon",
   "uncordon",
@@ -140,6 +147,10 @@ function applies(id: ActionId, kind: KindId, row: Row): boolean {
       return kind === "nodes";
     case "restart":
       return isRestartable(kind);
+    case "rollback":
+      // Only workloads with retained revision history can roll back — the same
+      // rollout-kind family restart uses, minus pods (a pod has no history).
+      return isRolloutKind(kind);
     case "view-pods":
       // Needs a selector to build the filter from; a workload without one would
       // navigate to an empty table.
@@ -268,6 +279,8 @@ export function confirmText(
       return kind === "pods"
         ? t(locale, "actions.confirm.restartPods", what, names)
         : t(locale, "actions.confirm.restartWorkload", what, names);
+    case "rollback":
+      return t(locale, "actions.confirm.rollback", what);
     case "drain":
       return t(locale, "actions.confirm.drain", what);
     case "cordon":

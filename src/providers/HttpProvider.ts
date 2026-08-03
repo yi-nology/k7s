@@ -84,6 +84,7 @@ import type {
   ShellHandle,
   Silence,
   Unsub,
+  Revision,
   YamlDiff,
 } from "./types";
 
@@ -292,6 +293,21 @@ export class HttpProvider implements DataProvider {
       kind: ref.kind,
       namespace: ref.namespace ?? "",
       name: ref.name,
+    });
+  }
+  listRevisions(ref: ResourceRef): Promise<Revision[]> {
+    return httpInvoke<Revision[]>("list_revisions", {
+      kind: ref.kind,
+      namespace: ref.namespace ?? "",
+      name: ref.name,
+    });
+  }
+  undoRollout(ref: ResourceRef, toRevision?: number): Promise<void> {
+    return httpInvoke<void>("undo_rollout", {
+      kind: ref.kind,
+      namespace: ref.namespace ?? "",
+      name: ref.name,
+      toRevision: toRevision ?? null,
     });
   }
   setCordon(node: string, unschedulable: boolean): Promise<void> {

@@ -1,0 +1,205 @@
+/* RevisionsTab — revision history + current image for Deployment/StatefulSet/
+ * DaemonSet. Native tokens only (mirrors NodePodsTab), since the flatter
+ * --space/--surface aliases aren't defined in tokens.css. */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.sectionTitle {
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+/* Current-image rows: name on the left, image on the right, one per line. */
+.imageList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.imageRow {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  padding: 4px 10px;
+}
+
+.imageName {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  min-width: 96px;
+}
+
+.imageValue {
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+.badge {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  margin-left: 6px;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+
+/* The history table — same column treatment as NodePodsTab for consistency. */
+.table {
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  width: 100%;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--border-row);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.table th {
+  background: var(--bg-panel);
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  position: sticky;
+  text-transform: uppercase;
+  top: 0;
+}
+
+.table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.currentRow {
+  background: var(--bg-panel);
+}
+
+.revisionCell {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.currentTag {
+  background: var(--accent-soft, rgba(80, 160, 240, 0.14));
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  text-transform: uppercase;
+}
+
+/* Each cell can list several container images; stack them and let the column
+ * wrap rather than overflow horizontally. */
+.cellImages {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: normal;
+}
+
+.cellImage {
+  color: var(--text-muted);
+}
+
+.cellImageValue {
+  color: var(--text-secondary);
+}
+
+/* Buttons — a quiet text-link for "Edit image", a bordered action for rollback. */
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 0;
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+.rollbackBtn {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.rollbackBtn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.rollbackBtn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.muted {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.empty {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.error {
+  background: var(--bg-panel);
+  border: 1px solid var(--status-err);
+  border-radius: var(--radius-sm);
+  color: var(--status-err);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 8px 10px;
+}

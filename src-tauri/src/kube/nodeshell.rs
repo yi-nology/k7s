@@ -163,6 +163,12 @@ pub fn debug_pod_spec(node: &str, image: &str, name: &str) -> Pod {
                 command: Some(vec!["sleep".into(), MAX_LIFETIME_SECS.to_string()]),
                 tty: Some(true),
                 stdin: Some(true),
+                // IfNotPresent (not the default Always for a :latest tag) so the pod
+                // reuses a pre-loaded image instead of re-pulling. Air-gapped clusters
+                // pre-load netshoot onto nodes; a forced pull there fails with
+                // ImagePullBackOff and the shell never starts. IfNotPresent still pulls
+                // when the image is absent, so connected clusters are unaffected.
+                image_pull_policy: Some("IfNotPresent".into()),
                 security_context: Some(SecurityContext {
                     privileged: Some(true),
                     ..Default::default()
@@ -216,7 +222,23 @@ pub async fn await_debug_pod(api: &kube::Api<Pod>, name: &str) -> crate::error::
     let deadline = tokio::time::Instant::now() + READY_TIMEOUT;
     let mut last = String::from("the pod was never observed");
     while tokio::time::Instant::now() < deadline {
-        let pod = api.get(name).await?;
+        let pod = match api.get(name).await {
+            Ok(p) => p,
+            // Transient 404 right after create is expected: the API server's
+            // read cache may lag behind etcd by a few hundred ms. Keep polling;
+            // any other error (auth, network) is real and should fail fast.
+            // kube-rs 0.99 wraps 404 differently across code paths — match
+            // on the status code broadly rather than assuming the Api variant.
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("404") || msg.contains("not found") || msg.contains("NotFound") {
+                    last = format!("pod {name} not yet visible (API cache lag)");
+                    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+                    continue;
+                }
+                return Err(e.into());
+            }
+        };
         let status = pod.status.unwrap_or_default();
         let phase = status.phase.clone().unwrap_or_default();
         if phase == "Running" {

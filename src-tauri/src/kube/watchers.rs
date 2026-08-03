@@ -71,13 +71,22 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
     spawn::<StorageClass>(mgr, &client, ResourceKind::Storageclasses, mappers::map_storageclass, identity).await;
     spawn::<Node>(mgr, &client, ResourceKind::Nodes, mappers::map_node, identity).await;
     spawn::<Namespace>(mgr, &client, ResourceKind::Namespaces, mappers::map_namespace, identity).await;
-    // Phase 2 Tier-2: NetworkPolicy / HPA / ResourceQuota / LimitRange.
-    // These four kinds are discoverable through the CRD-aware path that
-    // the user can open from a row's "View CRD" action; the dynamic-typed
-    // watcher needs a separate store integration that would balloon the
-    // scope of this commit. The mappers (map_networkpolicy, map_hpa, …)
-    // are wired up in `mappers.rs` and used by the lazy
-    // `watch_custom_kind` path when the user navigates to one of them.
+    // Phase 2 Tier-2: HPA (HorizontalPodAutoscaler) — namespaced, autoscaling/v1.
+    // Uses DynamicObject path because map_hpa expects DynamicObject (same as
+    // NetworkPolicy, ResourceQuota, LimitRange — their mappers are written
+    // against DynamicObject for consistency with the CRD discovery path).
+    {
+        let kind = ResourceKind::Horizontalpodautoscalers;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_hpa).await;
+        });
+        mgr.push_task(handle).await;
+    }
     // Cluster-wide events feed: ordered Warnings-first/newest and capped (B14).
     spawn::<Event>(mgr, &client, ResourceKind::Events, mappers::map_event, events_order).await;
     // Helm releases, decoded from their Secrets (B26).
@@ -218,7 +227,34 @@ async fn run_custom_watcher(
         .await;
 }
 
-/// The shared watch loop: coalesce watch events, then emit a full post-processed
+/// Drive a `DynamicObject` reflector for one built-in kind that uses
+/// DynamicObject mappers (HPA, NetworkPolicy, ResourceQuota, LimitRange).
+/// Similar to `run_custom_watcher` but accepts a custom mapper function.
+async fn run_dynamic_watcher(
+    client: Client,
+    sink: EventSink,
+    id: String,
+    ar: ApiResource,
+    namespaced: bool,
+    map_fn: fn(&DynamicObject) -> Row,
+) {
+    let api: Api<DynamicObject> = Api::all_with(client, &ar);
+
+    // DynamicObject's DynamicType is the ApiResource itself (it's what tells the
+    // store how to identify objects), so the store is built from `ar` rather than
+    // via reflector::store()'s Default-based path used for typed kinds.
+    let writer = reflector::store::Writer::<DynamicObject>::new(ar.clone());
+    let reader = writer.as_reader();
+
+    let stream = reflector(writer, watcher(api, watcher::Config::default()))
+        .default_backoff()
+        .boxed();
+
+    pump(reader, stream, sink, id, move |o| Some(map_fn(o)), identity)
+        .await;
+}
+
+/// The shared watch loop: coalesce watch events, and emit a full post-processed
 /// snapshot at most once per [`DEBOUNCE`]. Generic over the object type so typed
 /// and dynamic watchers share one implementation.
 async fn pump<K>(

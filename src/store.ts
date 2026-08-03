@@ -35,7 +35,15 @@ import type { SinceOption } from "./lib/logview";
 export const LOG_BUFFER_CAP = DEFAULT_SETTINGS.logBufferCap;
 
 /** Detail-panel tab identifiers. */
-export type DetailTab = "logs" | "properties" | "metrics" | "shell" | "yaml" | "events" | "pods";
+export type DetailTab =
+  | "logs"
+  | "properties"
+  | "revisions"
+  | "metrics"
+  | "shell"
+  | "yaml"
+  | "events"
+  | "pods";
 
 /** Which dropdown menu (if any) is currently open — only one at a time. */
 export type OpenMenu = "cluster" | "ns" | "lang" | null;
