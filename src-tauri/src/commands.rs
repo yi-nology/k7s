@@ -9,8 +9,9 @@ use crate::kube::client::{self, ClusterInfo, ContextInfo};
 use crate::kube::manager::{ForwardDto, ImportedContext, ShellSession};
 use crate::kube::{
     alerting, discovery, drain, endpoints, exec, exporter, grafana, helm, helm_market, helm_ops,
-    imagerepo, logs, mappers, metrics, metrics_config, nodeshell, nodestats, pod_files, portforward,
-    promql, properties, restart, saved_queries, templates, watchers, ClientManager, ResourceKind,
+    image_archive, image_sync, imageimport, imagerepo, logs, mappers, metrics, metrics_config,
+    nodeshell, nodestats, pod_files, portforward, promql, properties, restart, saved_queries,
+    templates, watchers, ClientManager, ResourceKind,
 };
 use tokio::sync::{mpsc, oneshot};
 use k8s_openapi::api::core::v1::Event;
@@ -912,48 +913,7 @@ pub struct NodeShellInfo {
 /// Generous, because the first run on a node pulls the image over whatever link
 /// the node has. Bounded, because a NotReady node will never start it at all and
 /// waiting forever just looks like a hang.
-const NODE_SHELL_READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(90);
-
-/// Wait for the debug pod to reach Running, or explain what it's stuck on.
-async fn await_debug_pod(api: &Api<k8s_openapi::api::core::v1::Pod>, name: &str) -> AppResult<()> {
-    let deadline = tokio::time::Instant::now() + NODE_SHELL_READY_TIMEOUT;
-    let mut last = String::from("the pod was never observed");
-    while tokio::time::Instant::now() < deadline {
-        let pod = api.get(name).await?;
-        let status = pod.status.unwrap_or_default();
-        let phase = status.phase.clone().unwrap_or_default();
-        if phase == "Running" {
-            return Ok(());
-        }
-        // A container waiting reason (ImagePullBackOff, CreateContainerError) is far
-        // more actionable than the phase, so prefer it when there is one.
-        let waiting = status
-            .container_statuses
-            .as_ref()
-            .and_then(|cs| cs.first())
-            .and_then(|c| c.state.as_ref())
-            .and_then(|s| s.waiting.as_ref())
-            .map(|w| {
-                (
-                    w.reason.clone().unwrap_or_default(),
-                    w.message.clone().unwrap_or_default(),
-                )
-            });
-        last = nodeshell::pending_reason(&phase, waiting.as_ref().map(|(r, m)| (r.as_str(), m.as_str())));
-        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
-    }
-    Err(AppError::Other(format!("timed out starting the debug pod: {last}")))
-}
-
-/// Delete a debug pod, best effort. Used by both the sweep and session teardown.
-async fn delete_debug_pod(api: &Api<k8s_openapi::api::core::v1::Pod>, name: &str) {
-    // Grace period 0: there is nothing to flush, and every second it lingers is a
-    // second a privileged pod is still on the node.
-    let dp = DeleteParams { grace_period_seconds: Some(0), ..Default::default() };
-    if let Err(e) = api.delete(name, &dp).await {
-        tracing::warn!("failed to delete debug pod {name}: {e}");
-    }
-}
+const NODE_SHELL_READY_TIMEOUT: std::time::Duration = nodeshell::READY_TIMEOUT;
 
 /// Open a root shell on a node's host OS (B53).
 ///
@@ -977,7 +937,7 @@ pub async fn start_node_shell(
         .await
     {
         for pod in old.items {
-            delete_debug_pod(&api, &pod.name_any()).await;
+            nodeshell::delete_debug_pod(&api, &pod.name_any()).await;
         }
     }
 
@@ -994,8 +954,8 @@ pub async fn start_node_shell(
 
     // From here on the pod exists, so any failure must clean up after itself rather
     // than leave a privileged pod behind on the strength of an error return.
-    if let Err(e) = await_debug_pod(&api, &pod_name).await {
-        delete_debug_pod(&api, &pod_name).await;
+    if let Err(e) = nodeshell::await_debug_pod(&api, &pod_name).await {
+        nodeshell::delete_debug_pod(&api, &pod_name).await;
         return Err(e);
     }
 
@@ -1044,7 +1004,7 @@ pub async fn stop_node_shell(
     if let Some(client) = (*mgr).manager.client().await {
         let api: Api<k8s_openapi::api::core::v1::Pod> =
             Api::namespaced(client, nodeshell::DEBUG_NAMESPACE);
-        delete_debug_pod(&api, &pod).await;
+        nodeshell::delete_debug_pod(&api, &pod).await;
     }
     Ok(())
 }
@@ -1478,6 +1438,112 @@ pub async fn apply_yaml_bundle(
 ) -> AppResult<Vec<templates::ApplyResult>> {
     let client = require_client(&(*mgr).manager).await?;
     templates::multi_apply(&yaml, client, &(*mgr).manager).await
+}
+
+/// Dry-run a multi-document YAML bundle without writing (YAML-import create
+/// mode's Preview step). The single-doc `dry_run_yaml` can't handle a
+/// multi-kind create bundle, so this reuses `templates::multi_dry_run`.
+#[tauri::command]
+pub async fn dry_run_yaml_bundle(
+    yaml: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<templates::DocDryRun>> {
+    let client = require_client(&(*mgr).manager).await?;
+    templates::multi_dry_run(&yaml, client).await
+}
+
+// ---------------------------------------------------------------------------
+// Image import (air-gapped clusters) — load a local .tar into a node's
+// container runtime via a temporary privileged pod. Desktop only (the file
+// path comes from the native picker); the web shell has no local-disk access.
+// ---------------------------------------------------------------------------
+
+/// Soft cap on a single import's tar size. Real images rarely exceed a few GB;
+/// this guards against a typo'd path to a disk image OOMing the app. Tunable
+/// later via prefs if real-world images are larger.
+const IMAGE_IMPORT_MAX_BYTES: u64 = 8 * 1024 * 1024 * 1024; // 8 GiB
+
+/// Import a local `.tar` image archive into a node's container runtime.
+///
+/// `path` is an absolute filesystem path from `tauri-plugin-dialog`'s native
+/// picker. The file is read server-side (not base64 over IPC) because a tar
+/// can be gigabytes; streaming one through the frontend would balloon memory.
+#[tauri::command]
+pub async fn import_image_to_node(
+    node: String,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<imageimport::ImportResult> {
+    let client = require_client(&(*mgr).manager).await?;
+    // Stat first so a path to a huge file fails fast with a clear message
+    // rather than reading 8 GiB into RAM before refusing.
+    let meta = std::fs::metadata(&path)
+        .map_err(|e| AppError::Other(format!("read file '{}': {e}", path)))?;
+    if meta.len() > IMAGE_IMPORT_MAX_BYTES {
+        return Err(AppError::Other(format!(
+            "file is {} bytes, exceeds the {} byte import cap",
+            meta.len(),
+            IMAGE_IMPORT_MAX_BYTES
+        )));
+    }
+    let tar_bytes = std::fs::read(&path)
+        .map_err(|e| AppError::Other(format!("read file '{}': {e}", path)))?;
+    imageimport::import_to_node(client, &node, &tar_bytes).await
+}
+
+// ---------------------------------------------------------------------------
+// Image sync (skopeo) — copy an image into a configured private registry.
+// Air-gapped clusters with an internal registry use this; the per-node
+// `import_image_to_node` above is for clusters with no registry at all. These
+// bridge the MCP-only `image_sync` module to the Tauri UI. Progress streams
+// over the shared event sink as `image-sync-log` / `image-sync-done` events.
+// ---------------------------------------------------------------------------
+
+/// Whether skopeo is installed and usable on this host. Cheap (`skopeo
+/// --version`), so the UI can call it on panel open to gate the To-Registry
+/// tab.
+#[tauri::command]
+pub async fn image_sync_status() -> AppResult<image_sync::SkopeoAvailability> {
+    Ok(image_sync::check_skopeo().await)
+}
+
+/// Copy an image into a configured destination registry via `skopeo copy`.
+/// `source` is any skopeo transport (`docker://nginx:1.25`,
+/// `docker-archive:/tmp/img.tar`, `oci:…`); the destination registry is
+/// resolved by name from the stored image-registries config (its credentials
+/// are used automatically). Streams each stdout/stderr line as an
+/// `image-sync-log` event so the UI can render a live progress log.
+#[tauri::command]
+pub async fn image_copy(
+    source: String,
+    dest_registry: String,
+    dest_repo: String,
+    dest_tag: String,
+    src_creds: Option<String>,
+    insecure_src: bool,
+    insecure_dest: bool,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<image_sync::ImageSyncResult> {
+    let sink = (*mgr).manager.sink();
+    image_sync::copy_image(
+        &source,
+        &dest_registry,
+        &dest_repo,
+        &dest_tag,
+        src_creds.as_deref(),
+        insecure_src,
+        insecure_dest,
+        sink,
+    )
+    .await
+}
+
+/// Inspect a local `docker save` tarball before copying it: returns the image
+/// name, tags, digest, architecture, os, and total size. Lets the user confirm
+/// a tar's contents (and that it's linux/amd64) before pushing.
+#[tauri::command]
+pub async fn image_inspect_archive(tar_path: String) -> AppResult<image_archive::ArchiveInfo> {
+    image_archive::inspect_archive(&tar_path).await
 }
 
 // ---------------------------------------------------------------------------

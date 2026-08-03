@@ -200,6 +200,68 @@ pub fn pending_reason(phase: &str, waiting: Option<(&str, &str)>) -> String {
     }
 }
 
+/// How long to wait for the debug pod to reach Running before giving up. Mirrors
+/// the worst-case scheduling + image-pull time observed in the field; long
+/// enough for a slow registry, short enough that a stuck pod doesn't hang the
+/// caller indefinitely. Shared by the interactive node shell and the one-shot
+/// image-import path, so it lives here alongside the pod spec.
+pub const READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(90);
+
+/// Wait for the debug pod to reach Running, or explain what it's stuck on.
+///
+/// Shared by `start_node_shell` (interactive) and `imageimport::import_to_node`
+/// (one-shot). Both need the same "wait, then surface the actionable reason"
+/// behaviour, so it lives with the pod spec rather than in either caller.
+pub async fn await_debug_pod(api: &kube::Api<Pod>, name: &str) -> crate::error::AppResult<()> {
+    let deadline = tokio::time::Instant::now() + READY_TIMEOUT;
+    let mut last = String::from("the pod was never observed");
+    while tokio::time::Instant::now() < deadline {
+        let pod = api.get(name).await?;
+        let status = pod.status.unwrap_or_default();
+        let phase = status.phase.clone().unwrap_or_default();
+        if phase == "Running" {
+            return Ok(());
+        }
+        // A container waiting reason (ImagePullBackOff, CreateContainerError) is far
+        // more actionable than the phase, so prefer it when there is one.
+        let waiting = status
+            .container_statuses
+            .as_ref()
+            .and_then(|cs| cs.first())
+            .and_then(|c| c.state.as_ref())
+            .and_then(|s| s.waiting.as_ref())
+            .map(|w| {
+                (
+                    w.reason.clone().unwrap_or_default(),
+                    w.message.clone().unwrap_or_default(),
+                )
+            });
+        last = pending_reason(
+            &phase,
+            waiting.as_ref().map(|(r, m)| (r.as_str(), m.as_str())),
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+    }
+    Err(crate::error::AppError::Other(format!(
+        "timed out starting the debug pod: {last}"
+    )))
+}
+
+/// Delete a debug pod, best effort. Used by both the orphan sweep and session
+/// teardown, and by image import's unconditional cleanup.
+pub async fn delete_debug_pod(api: &kube::Api<Pod>, name: &str) {
+    use kube::api::DeleteParams;
+    // Grace period 0: there is nothing to flush, and every second it lingers is a
+    // second a privileged pod is still on the node.
+    let dp = DeleteParams {
+        grace_period_seconds: Some(0),
+        ..Default::default()
+    };
+    if let Err(e) = api.delete(name, &dp).await {
+        tracing::warn!("failed to delete debug pod {name}: {e}");
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

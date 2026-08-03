@@ -99,6 +99,7 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
     { key: "helm-market", label: t("chrome.sidebar.tools.helmMarket", "Helm Market"), icon: "⎈" },
     { key: "pod-files", label: t("chrome.sidebar.tools.podFiles", "Pod Files"), icon: "▤" },
     { key: "image-repos", label: t("chrome.sidebar.tools.imageRepos", "Image Registries"), icon: "⬚" },
+    { key: "image-import", label: t("chrome.sidebar.tools.imageImport", "Image Import"), icon: "⬆" },
     { key: "templates", label: t("chrome.sidebar.tools.templates", "Templates"), icon: "✚" },
     { key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: "◐" },
     { key: "metrics", label: t("chrome.sidebar.tools.metrics", "Metrics"), icon: "≋" },

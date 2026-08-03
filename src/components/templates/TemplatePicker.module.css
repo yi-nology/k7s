@@ -523,3 +523,135 @@
   font-size: 12px;
   padding: 40px;
 }
+
+/* ---- Mode toggle (segmented control) ----
+   Sits under the header, above the kind bar / body. Two tabs: Form and YAML
+   import. The active tab takes the accent; the inactive one fades to faint. */
+
+.modeBar {
+  display: flex;
+  gap: 2px;
+  padding: 8px 18px 0;
+  flex: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.modeBtn {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 6px 14px 8px;
+  transition: color 0.1s ease, border-color 0.1s ease;
+}
+.modeBtn:hover {
+  color: var(--text-secondary);
+}
+.modeBtn[data-active="true"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ---- YAML-import mode ----
+   The editor fills the body; the per-doc review replaces it after Preview. */
+
+.yamlEditorWrap {
+  flex: 1;
+  min-height: 240px;
+  display: flex;
+  border: 1px solid var(--border-row);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.staleHint {
+  margin-top: 8px;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  background: var(--surface-1);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+/* Per-document dry-run review. Each doc is a collapsible row with a status
+   header and the proposed manifest (or the error) below. */
+
+.review {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reviewDoc {
+  background: var(--surface-1);
+  border: 1px solid var(--border-row);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.reviewDoc[data-ok="false"] {
+  border-left: 3px solid var(--status-err);
+}
+.reviewDoc[data-ok="true"] {
+  border-left: 3px solid var(--status-ok);
+}
+
+.reviewHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 8px 12px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+.reviewHead:hover {
+  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+}
+
+.reviewChevron {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.12s ease;
+  color: var(--text-faint);
+}
+.reviewChevron[data-open="false"] {
+  transform: rotate(-90deg);
+}
+
+.reviewOk {
+  color: var(--status-ok);
+  font-weight: 600;
+}
+.reviewErr {
+  color: var(--status-err);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.reviewBody {
+  background: var(--bg-terminal);
+  border-top: 1px solid var(--border-row);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 220px;
+  overflow: auto;
+  white-space: pre;
+  tab-size: 2;
+}

@@ -106,6 +106,7 @@ pub fn api_router(state: WebState) -> Router {
         // haven't bridged.
         .route("/api/invoke/apply_yaml", post(handlers::apply_yaml))
         .route("/api/invoke/dry_run_yaml", post(handlers::dry_run_yaml))
+        .route("/api/invoke/dry_run_yaml_bundle", post(handlers::dry_run_yaml_bundle))
         .route("/api/invoke/delete_resource", post(handlers::delete_resource))
         .route("/api/invoke/scale_resource", post(handlers::scale_resource))
         .route("/api/invoke/set_cordon", post(handlers::set_cordon))

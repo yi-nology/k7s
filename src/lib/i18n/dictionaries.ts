@@ -50,6 +50,7 @@ export interface Dictionary {
         helmMarket: string;
         podFiles: string;
         imageRepos: string;
+        imageImport: string;
         templates: string;
         dashboard: string;
         metrics: string;
@@ -274,7 +275,14 @@ export interface Dictionary {
     /** Tooltip on a cross-reference link (e.g. a pod's owner → its Deployment). */
     navTitle: (kind: string, name: string) => string;
   };
-  events: { loading: string; hint: string; empty: string };
+  events: {
+    loading: string;
+    hint: string;
+    empty: string;
+    sinceAll: string;
+    sinceLast: (s: string) => string;
+    howFarBack: string;
+  };
   metrics: {
     waitingSamples: string;
     noMetrics: (name: string) => string;
@@ -430,6 +438,51 @@ export interface Dictionary {
       cancel: string;
     };
   };
+  /** Image-import overlay (air-gapped clusters): load a local .tar into a
+   * node's container runtime via a temporary privileged pod. */
+  imageImport: {
+    title: string;
+    close: string;
+    whatTitle: string;
+    description: string;
+    node: string;
+    pickNode: string;
+    archive: string;
+    chooseFile: string;
+    import: string;
+    importing: string;
+    runtime: string;
+    loadedImages: string;
+    noImages: string;
+    rawOutput: string;
+    desktopOnly: string;
+    /** Two-mode tab labels + the To-Registry (skopeo) sub-flow. */
+    tabToNode: string;
+    tabToRegistry: string;
+    registry: {
+      whatTitle: string;
+      description: string;
+      registry: string;
+      pickRegistry: string;
+      noRegistries: string;
+      repo: string;
+      tag: string;
+      source: string;
+      srcCreds: string;
+      srcCredsHelp: string;
+      insecureSrc: string;
+      insecureDest: string;
+      inspect: string;
+      inspecting: string;
+      copy: string;
+      copying: string;
+      copied: string;
+      destination: string;
+      log: string;
+      archWarn: string;
+      skopeoMissing: string;
+    };
+  };
   tpl: {
     title: string;
     close: string;
@@ -440,6 +493,22 @@ export interface Dictionary {
     pick: string;
     /** "Kind" label on the kind-bar dropdown (Bxx wizard pass). */
     kind: string;
+    /** Create-overlay mode toggle (form vs. YAML import). */
+    mode: { form: string; yaml: string };
+    /** YAML-import mode strings (create overlay). */
+    yaml: {
+      placeholder: string;
+      preview: string;
+      checking: string;
+      apply: string;
+      applying: string;
+      /** Per-doc review row — valid doc. `{kind}/{name}` interpolated. */
+      docOk: string;
+      /** Per-doc review row — errored doc. `{kind}/{name} — {error}`. */
+      docErr: string;
+      /** Hint shown when the draft changed since the last Preview. */
+      stale: string;
+    };
     /** Section title for the simple `params` block in the form. */
     section: { basic: string };
     /**
@@ -634,6 +703,7 @@ export const en: Dictionary = {
         helmMarket: "Helm Market",
         podFiles: "Pod Files",
         imageRepos: "Image Registries",
+        imageImport: "Image Import",
         templates: "Templates",
         dashboard: "Dashboard",
         metrics: "Metrics",
@@ -869,6 +939,9 @@ export const en: Dictionary = {
     loading: "loading events…",
     hint: "see Cluster → Events for the live feed",
     empty: "no recent events — events expire after ~1h",
+    sinceAll: "all",
+    sinceLast: (s) => `last ${s}`,
+    howFarBack: "how far back to show",
   },
   metrics: {
     waitingSamples: "waiting for the first samples…",
@@ -1013,6 +1086,51 @@ export const en: Dictionary = {
       cancel: "Cancel",
     },
   },
+  imageImport: {
+    title: "Import Image",
+    close: "Close",
+    whatTitle: "What this does",
+    description:
+      "Imports a .tar image archive into the chosen node's container runtime via a temporary privileged pod. Use for air-gapped clusters that can't pull from public registries. The runtime (containerd / docker) is detected automatically.",
+    node: "Target node",
+    pickNode: "Select a node…",
+    archive: "Image archive",
+    chooseFile: "Choose .tar file…",
+    import: "Import",
+    importing: "Importing…",
+    runtime: "Runtime",
+    loadedImages: "Loaded images",
+    noImages: "(no image refs parsed from output)",
+    rawOutput: "Raw output",
+    desktopOnly:
+      "Image import is only available in the desktop app — the web shell can't read files from your disk.",
+    tabToNode: "To Node",
+    tabToRegistry: "To Registry",
+    registry: {
+      whatTitle: "What this does",
+      description:
+        "Copies an image into a configured private registry via skopeo. The source can be a local .tar (docker-archive:), a public registry (docker://), or an OCI layout. All nodes then pull from the registry. Requires skopeo on the host running k7s.",
+      registry: "Destination registry",
+      pickRegistry: "Select a registry…",
+      noRegistries: "No registries configured — add one in Image Registries first.",
+      repo: "Destination repo",
+      tag: "Destination tag",
+      source: "Source",
+      srcCreds: "Source credentials",
+      srcCredsHelp: "user:pass for a private source registry. Leave empty for public.",
+      insecureSrc: "Skip source TLS verify",
+      insecureDest: "Skip destination TLS verify",
+      inspect: "Inspect tar",
+      inspecting: "Inspecting…",
+      copy: "Copy to registry",
+      copying: "Copying…",
+      copied: "Copied",
+      destination: "Destination",
+      log: "Progress log",
+      archWarn: "Warning: this image is {arch}/{os}, not linux/amd64 — it may not run on your cluster.",
+      skopeoMissing: "skopeo is not installed on this host. Install it (brew install skopeo / apt install skopeo) to use this tab.",
+    },
+  },
   tpl: {
     title: "Create from template",
     close: "Close",
@@ -1022,6 +1140,17 @@ export const en: Dictionary = {
     cancel: "Cancel",
     pick: "Pick a template on the left",
     kind: "Kind",
+    mode: { form: "Form", yaml: "YAML import" },
+    yaml: {
+      placeholder: "# Paste one or more manifests, separated by ---",
+      preview: "Preview",
+      checking: "Checking…",
+      apply: "Apply",
+      applying: "Applying…",
+      docOk: "{kind}/{name}",
+      docErr: "{kind}/{name} — {error}",
+      stale: "Edit detected — click Preview again",
+    },
     section: { basic: "Basic" },
     extras: {
       labels: "Labels",
@@ -1193,6 +1322,7 @@ export const zh: Dictionary = {
         helmMarket: "Helm 市场",
         podFiles: "Pod 文件",
         imageRepos: "镜像仓库",
+        imageImport: "镜像导入",
         templates: "模板",
         dashboard: "总览",
         metrics: "指标查询",
@@ -1431,6 +1561,9 @@ export const zh: Dictionary = {
     loading: "事件加载中…",
     hint: "查看 Cluster → Events 获取实时事件流",
     empty: "无最近事件 — 事件约 1 小时后过期",
+    sinceAll: "全部",
+    sinceLast: (s) => `最近 ${s}`,
+    howFarBack: "时间范围",
   },
   metrics: {
     waitingSamples: "等待首批样本…",
@@ -1574,6 +1707,51 @@ export const zh: Dictionary = {
       cancel: "取消",
     },
   },
+  imageImport: {
+    title: "导入镜像",
+    close: "关闭",
+    whatTitle: "操作说明",
+    description:
+      "通过一个临时特权 Pod,把本地 .tar 镜像归档导入所选节点的容器运行时。用于无法从公网拉取镜像的内网(离线)集群。运行时(containerd / docker)会自动检测。",
+    node: "目标节点",
+    pickNode: "选择节点…",
+    archive: "镜像归档",
+    chooseFile: "选择 .tar 文件…",
+    import: "导入",
+    importing: "导入中…",
+    runtime: "运行时",
+    loadedImages: "已加载镜像",
+    noImages: "(未从输出中解析到镜像引用)",
+    rawOutput: "原始输出",
+    desktopOnly:
+      "镜像导入仅在桌面端可用 —— Web 模式无法读取你本机的文件。",
+    tabToNode: "导入到节点",
+    tabToRegistry: "推送到仓库",
+    registry: {
+      whatTitle: "操作说明",
+      description:
+        "通过 skopeo 把镜像复制到一个已配置的私有仓库。来源可以是本地 .tar(docker-archive:)、公网仓库(docker://)或 OCI 布局。之后所有节点从该仓库拉取即可。需要运行 k7s 的主机上装了 skopeo。",
+      registry: "目标仓库",
+      pickRegistry: "选择仓库…",
+      noRegistries: "尚未配置任何仓库 —— 请先在「镜像仓库」里添加一个。",
+      repo: "目标 repo",
+      tag: "目标 tag",
+      source: "来源",
+      srcCreds: "来源凭据",
+      srcCredsHelp: "私有来源仓库的 user:pass。公网镜像留空。",
+      insecureSrc: "跳过来源 TLS 校验",
+      insecureDest: "跳过目标 TLS 校验",
+      inspect: "检查 tar",
+      inspecting: "检查中…",
+      copy: "复制到仓库",
+      copying: "复制中…",
+      copied: "已复制",
+      destination: "目标",
+      log: "进度日志",
+      archWarn: "警告:此镜像为 {arch}/{os},不是 linux/amd64 —— 可能无法在你的集群上运行。",
+      skopeoMissing: "本机未安装 skopeo。安装后(brew install skopeo / apt install skopeo)才能使用此功能。",
+    },
+  },
   tpl: {
     title: "从模板创建",
     close: "关闭",
@@ -1583,6 +1761,17 @@ export const zh: Dictionary = {
     cancel: "取消",
     pick: "在左侧选一个模板",
     kind: "类型",
+    mode: { form: "表单", yaml: "YAML 导入" },
+    yaml: {
+      placeholder: "# 粘贴一个或多个清单,用 --- 分隔",
+      preview: "预览",
+      checking: "校验中…",
+      apply: "应用",
+      applying: "应用中…",
+      docOk: "{kind}/{name}",
+      docErr: "{kind}/{name} — {error}",
+      stale: "内容已修改,请重新点击预览",
+    },
     section: { basic: "基本" },
     extras: {
       labels: "标签",

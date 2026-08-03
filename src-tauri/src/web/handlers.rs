@@ -279,6 +279,13 @@ pub struct DryRunYamlArgs {
     pub yaml: String,
 }
 
+/// Args for `dry_run_yaml_bundle` — just the multi-doc YAML string. Each
+/// document's apiVersion/kind/namespace/name are read from the doc itself.
+#[derive(Debug, Deserialize)]
+pub struct DryRunYamlBundleArgs {
+    pub yaml: String,
+}
+
 // ---------------------------------------------------------------------------
 // list_contexts
 // ---------------------------------------------------------------------------
@@ -568,6 +575,9 @@ pub struct WireEvent {
     /// Pre-formatted age (e.g. "2m"); we don't try to be exact since the
     /// front-end just renders the string.
     pub age: String,
+    /// Last-seen time (RFC3339), for the EventsTab time-range filter.
+    #[serde(rename = "lastTimestamp", skip_serializing_if = "Option::is_none")]
+    pub last_timestamp: Option<String>,
 }
 
 pub async fn get_events(
@@ -576,37 +586,81 @@ pub async fn get_events(
 ) -> axum::response::Response {
     let result: AppResult<Vec<WireEvent>> = (|| async {
         let client = core_client(&state.core).await?;
-        // Always list cluster-wide and narrow client-side. Two reasons:
-        //   1. `args.namespace` is empty for cluster-scoped kinds (nodes,
-        //      namespaces, storageclasses) — `Api::namespaced(client, "")`
-        //      hits `/api/v1/namespaces//events` and the API server's 307
-        //      redirect breaks the kube client's deserializer.
-        //   2. The rest of the code (watchers) already goes through `Api::all`
-        //      and filters downstream, so this keeps the data path uniform.
-        let api: Api<Event> = Api::all(client);
-        let lp = ListParams::default();
+        // Server-side field-selector, mirroring the MCP path (kube_api::get_events)
+        // and `kubectl get event --field-selector`. The previous client-side
+        // filter on a cluster-wide `Api::all().list()` was unreliable: it pulled
+        // every event in the cluster and then dropped most of them, and on some
+        // clusters returned an empty list entirely (the Dashboard/EventsTab
+        // "always empty on the web path" symptom). A field-selected list is both
+        // cheaper and correct.
+        //
+        // Map the plural kind the frontend sends to the singular Kubernetes Kind
+        // the involvedObject carries. Same table the MCP path uses.
+        let involved_kind = match args.kind.rsplit('/').next().unwrap_or(&args.kind) {
+            "pods" => "Pod",
+            "deployments" => "Deployment",
+            "replicasets" => "ReplicaSet",
+            "statefulsets" => "StatefulSet",
+            "daemonsets" => "DaemonSet",
+            "jobs" => "Job",
+            "cronjobs" => "CronJob",
+            "services" => "Service",
+            "ingresses" => "Ingress",
+            "configmaps" => "ConfigMap",
+            "secrets" => "Secret",
+            "persistentvolumeclaims" => "PersistentVolumeClaim",
+            "nodes" => "Node",
+            "namespaces" => "Namespace",
+            other => other,
+        };
+        // Cluster-scoped kinds (nodes, namespaces, …) have no namespace; list
+        // cluster-wide for them. `Api::namespaced(client, "")` would hit
+        // `/api/v1/namespaces//events` and the 307 redirect breaks the kube
+        // client's deserializer.
+        let api: Api<Event> = if args.namespace.is_empty() {
+            Api::all(client)
+        } else {
+            Api::namespaced(client, &args.namespace)
+        };
+        let lp = ListParams::default().fields(&format!(
+            "involvedObject.name={},involvedObject.kind={}",
+            args.name, involved_kind
+        ));
         let list = api.list(&lp).await?;
-        // For namespaced kinds the event's `involvedObject.namespace` must
-        // match `args.namespace`; for cluster-scoped kinds the event has no
-        // namespace (the field is None / empty), so the match is "namespace
-        // absent on both sides". That single predicate covers everything.
         let mut out: Vec<WireEvent> = list
             .items
             .into_iter()
-            .filter(|e| {
-                let ev_ns = e.involved_object.namespace.as_deref().unwrap_or("");
-                e.involved_object.name.as_deref() == Some(&args.name)
-                    && ev_ns == args.namespace
-            })
-            .map(|e| WireEvent {
-                ty: e.type_.unwrap_or_else(|| "Normal".into()),
-                reason: e.reason.unwrap_or_default(),
-                message: e.message.unwrap_or_default(),
-                count: e.count.unwrap_or(1),
-                age: "—".into(),
+            .map(|e| {
+                // last-seen for the EventsTab filter: prefer lastTimestamp, then
+                // eventTime, then creationTimestamp. Same precedence as map_event.
+                let last_ts = e
+                    .last_timestamp
+                    .as_ref()
+                    .map(|t| t.0)
+                    .or_else(|| e.event_time.as_ref().map(|t| t.0))
+                    .or_else(|| e.creation_timestamp().map(|t| t.0))
+                    .map(|dt| dt.to_rfc3339());
+                WireEvent {
+                    ty: e.type_.unwrap_or_else(|| "Normal".into()),
+                    reason: e.reason.unwrap_or_default(),
+                    message: e.message.unwrap_or_default(),
+                    count: e.count.unwrap_or(1),
+                    age: "—".into(),
+                    last_timestamp: last_ts,
+                }
             })
             .collect();
-        // newest first; the front-end shows them in arrival order
+        // Newest first: the API server returns events in creation order (oldest
+        // first), and the front-end renders them in arrival order.
+        out.sort_by_key(|e| {
+            // parse the RFC3339 we just built; fall back to 0 (sorts oldest) so a
+            // missing timestamp can't crash the comparator.
+            e.last_timestamp
+                .as_deref()
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| dt.timestamp_millis())
+                .unwrap_or(0)
+        });
         out.reverse();
         Ok(out)
     })().await;
@@ -688,6 +742,20 @@ pub async fn dry_run_yaml(
             proposed: serde_yaml::to_string(&proposed)?,
         })
     })().await;
+    respond(result)
+}
+
+/// `POST /invoke/dry_run_yaml_bundle` — multi-doc dry run for the create
+/// overlay's YAML-import Preview. Delegates to `templates::multi_dry_run`.
+pub async fn dry_run_yaml_bundle(
+    State(state): State<WebState>,
+    Json(args): Json<DryRunYamlBundleArgs>,
+) -> axum::response::Response {
+    let result: AppResult<Vec<crate::kube::templates::DocDryRun>> = (|| async {
+        let client = core_client(&state.core).await?;
+        crate::kube::templates::multi_dry_run(&args.yaml, client).await
+    })()
+    .await;
     respond(result)
 }
 

@@ -12,6 +12,11 @@ import type {
   ApplyResult,
   ClusterInfo,
   ClusterStatus,
+  DocDryRun,
+  ImportImageResult,
+  SkopeoAvailability,
+  ImageSyncResult,
+  ArchiveInfo,
   ContextInfo,
   DataProvider,
   DashboardPreset,
@@ -782,6 +787,90 @@ export class MockProvider implements DataProvider {
         error: null,
       },
     ];
+  }
+
+  // ---- Multi-document YAML dry run: split on `---`, echo each doc as the
+  // proposed manifest. No schema validation in demo — enough to exercise the
+  // create overlay's YAML-import Preview UI without a cluster. ----
+  async dryRunYamlBundle(yaml: string): Promise<DocDryRun[]> {
+    const docs = yaml
+      .split(/^---\s*$/m)
+      .map((d) => d.trim())
+      .filter((d) => d.length > 0);
+    return docs.map((doc) => {
+      // Best-effort name/kind extraction for the review row header; the demo
+      // doesn't need to be correct, just non-empty.
+      const nameMatch = doc.match(/^\s*name:\s*(\S+)/m);
+      const kindMatch = doc.match(/^\s*kind:\s*(\S+)/m);
+      return {
+        kind: kindMatch?.[1] ?? "Unknown",
+        namespace: "default",
+        name: nameMatch?.[1] ?? "unknown",
+        proposed: doc,
+        error: null,
+      };
+    });
+  }
+
+  // ---- Image import (air-gapped): mock that "succeeds" in demo. The file
+  // isn't read — we just report a plausible loaded image derived from the
+  // filename so the result looks real. ----
+  async importImageToNode(_node: string, path: string): Promise<ImportImageResult> {
+    const base = path.split("/").pop()?.replace(/\.tar$/i, "") ?? "demo";
+    return {
+      runtime: "containerd",
+      output: `Loaded image: ${base}:latest\n`,
+      images: [`${base}:latest`],
+      error: null,
+    };
+  }
+
+  // ---- Image sync (skopeo → private registry): mock so the demo build can
+  // exercise the To-Registry tab without skopeo installed. ----
+  async imageSyncStatus(): Promise<SkopeoAvailability> {
+    return {
+      available: true,
+      path: "/opt/homebrew/bin/skopeo",
+      version: "skopeo version 1.14.0",
+    };
+  }
+
+  async imageInspectArchive(tarPath: string): Promise<ArchiveInfo> {
+    const base = tarPath.split("/").pop()?.replace(/\.tar$/i, "") ?? "demo";
+    return {
+      name: `docker.io/library/${base}`,
+      repoTags: [`${base}:latest`],
+      digest: "sha256:" + "a".repeat(64),
+      architecture: "amd64",
+      os: "linux",
+      created: "2024-01-15T10:00:00Z",
+      sizeBytes: 142000000,
+    };
+  }
+
+  async imageCopy(
+    _source: string,
+    destRegistry: string,
+    destRepo: string,
+    destTag: string,
+    _srcCreds: string | null,
+    _insecureSrc: boolean,
+    _insecureDest: boolean,
+    onLog: (line: string) => void,
+  ): Promise<ImageSyncResult> {
+    // Emit a couple of fake progress lines so the live log looks alive.
+    onLog("Getting image source signatures");
+    onLog("Copying blob sha256:abc123 done");
+    onLog("Copying config sha256:def456 done");
+    onLog("Writing manifest to image destination");
+    const dest = `docker://${destRegistry}/${destRepo}:${destTag}`;
+    return {
+      source: _source,
+      destination: dest,
+      success: true,
+      lines: 4,
+      summary: `copied → ${destRegistry}/${destRepo}:${destTag}`,
+    };
   }
 
   // ---- Endpoints / metrics / grafana / alerting (Phase 1 Tier-2) ----

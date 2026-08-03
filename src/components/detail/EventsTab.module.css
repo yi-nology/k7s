@@ -10,6 +10,38 @@
   gap: 8px;
 }
 
+/* Time-range toolbar — same vocabulary as the Cluster → Events table. Sits at
+   the top of the list; the count shows filtered/total so a tight window that
+   hides everything is obvious, not mistaken for "no events ever". */
+.toolbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+.sinceSelect {
+  flex: none;
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 5px 10px;
+  outline: none;
+  cursor: pointer;
+}
+.sinceSelect:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+.count {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
 .card {
   display: flex;
   gap: 12px;

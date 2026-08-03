@@ -54,6 +54,25 @@
   color: var(--text-faint);
 }
 
+/* Events time-range picker — shown only on the Cluster → Events table. Shares
+   the control surface tokens with the search box so the two read as one bar. */
+.sinceSelect {
+  flex: none;
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-md);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  cursor: pointer;
+}
+.sinceSelect:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
 /* Multi-select count chip. Appears next to the filter input when more than one
    row is selected (⌘-click or shift-click). Provides discoverable feedback for
    a feature that previously left the user with a row highlight and no count. */

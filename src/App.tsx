@@ -24,6 +24,7 @@ import { useStore } from "./store";
 import { HelmMarket } from "./components/helm/HelmMarket";
 import { PodFilesPanel } from "./components/podfiles/PodFilesPanel";
 import { ImageRepoPanel } from "./components/imagerepo/ImageRepoPanel";
+import { ImageImportPanel } from "./components/imageimport/ImageImportPanel";
 import { TemplatePicker } from "./components/templates/TemplatePicker";
 import { Dashboard } from "./components/dashboard/Dashboard";
 import { MetricsExplorer } from "./components/metrics/MetricsExplorer";
@@ -91,6 +92,11 @@ export default function App() {
           {overlay === "image-repos" && (
             <div className={styles.overlay}>
               <ImageRepoPanel onClose={closeOverlay} />
+            </div>
+          )}
+          {overlay === "image-import" && (
+            <div className={styles.overlay}>
+              <ImageImportPanel onClose={closeOverlay} />
             </div>
           )}
           {overlay === "templates" && (

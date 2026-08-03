@@ -142,6 +142,12 @@ pub fn run() {
             commands::image_registry_tags,
             // Multi-document YAML apply (Phase 4 — templates)
             commands::apply_yaml_bundle,
+            commands::dry_run_yaml_bundle,
+            // Image import (air-gapped clusters)
+            commands::import_image_to_node,
+            commands::image_sync_status,
+            commands::image_copy,
+            commands::image_inspect_archive,
             // Endpoints (Phase 1 Tier-2 of KubePi parity)
             commands::list_endpoints,
             commands::list_endpoints_for_service,

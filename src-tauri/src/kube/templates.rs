@@ -22,7 +22,7 @@
 
 use crate::error::{AppError, AppResult};
 use crate::kube::manager::ClientManager;
-use kube::api::{Api, DynamicObject, PostParams};
+use kube::api::{Api, DynamicObject, Patch, PatchParams};
 use kube::core::{ApiResource, GroupVersionKind};
 use kube::ResourceExt;
 use serde::Serialize;
@@ -52,7 +52,7 @@ pub async fn multi_apply(
         return Err(AppError::Other("no documents in YAML bundle".into()));
     }
     let mut results = Vec::with_capacity(docs.len());
-    let pp = PostParams::default();
+    let pp = PatchParams::apply("k7s");
     for doc in docs {
         let parsed: Result<DynamicObject, _> = serde_yaml::from_str(&doc);
         let obj = match parsed {
@@ -83,24 +83,12 @@ pub async fn multi_apply(
         };
         let name = obj.name_any();
         let kind = gvk.kind.clone();
-        let action = match api.create(&pp, &obj).await {
-            Ok(_) => "created",
-            Err(kube::Error::Api(ae)) if ae.code == 409 => {
-                // Already exists; replace instead.
-                match api.replace(&name, &pp, &obj).await {
-                    Ok(_) => "updated",
-                    Err(e) => {
-                        results.push(ApplyResult {
-                            name,
-                            kind,
-                            namespace: ns,
-                            action: "failed",
-                            error: Some(e.to_string()),
-                        });
-                        return Ok(results);
-                    }
-                }
-            }
+        // Single server-side apply per doc: create-or-update by name, so the
+        // hand-rolled create-then-replace-on-409 dance is unnecessary. SSA
+        // doesn't tell us create-vs-update cheaply, so we report a single
+        // honest "applied" action.
+        let action = match api.patch(&name, &pp, &Patch::Apply(obj)).await {
+            Ok(_) => "applied",
             Err(e) => {
                 results.push(ApplyResult {
                     name,
@@ -122,6 +110,92 @@ pub async fn multi_apply(
     }
     // Suppress unused-arg warnings on `mgr`; future: emit progress events.
     let _ = mgr;
+    Ok(results)
+}
+
+/// Per-document outcome of a multi-doc dry run (the bundle equivalent of
+/// `dry_run_yaml`). `proposed` is the object the server *would* store after
+/// defaulting and mutating webhooks, serialized as YAML; `error` is set when
+/// the dry run was rejected (the point of a dry run, not a hard failure).
+#[derive(Clone, Debug, Serialize)]
+pub struct DocDryRun {
+    pub name: String,
+    pub kind: String,
+    pub namespace: String,
+    pub proposed: Option<String>,
+    pub error: Option<String>,
+}
+
+/// Dry-run each document in a bundle without writing anything. Mirrors
+/// `multi_apply`'s parse/resolve loop but applies a server-side dry-run SSA
+/// patch per doc, collecting the server-defaulted proposed YAML. Stops at the
+/// first hard error (parse/resolve), but a *rejected* dry run is recorded as a
+/// per-doc error and the loop continues so the caller sees every problem.
+pub async fn multi_dry_run(
+    yaml: &str,
+    client: kube::Client,
+) -> AppResult<Vec<DocDryRun>> {
+    let docs = split_documents(yaml);
+    if docs.is_empty() {
+        return Err(AppError::Other("no documents in YAML bundle".into()));
+    }
+    let mut results = Vec::with_capacity(docs.len());
+    // Server-side-apply dry run: runs the full admission chain (validation,
+    // defaulting, mutating webhooks) without persisting — same semantics as the
+    // single-doc dry_run_yaml, so the bundle preview matches a real apply.
+    let pp = PatchParams::apply("k7s").dry_run();
+    for doc in docs {
+        let parsed: Result<DynamicObject, _> = serde_yaml::from_str(&doc);
+        let obj = match parsed {
+            Ok(o) => o,
+            Err(e) => {
+                results.push(DocDryRun {
+                    name: String::new(),
+                    kind: String::new(),
+                    namespace: String::new(),
+                    proposed: None,
+                    error: Some(format!("parse: {e}")),
+                });
+                return Ok(results);
+            }
+        };
+        let tm = obj
+            .types
+            .clone()
+            .ok_or_else(|| AppError::Other("document has no apiVersion/kind".into()))?;
+        let gvk = GroupVersionKind::try_from(&tm)
+            .map_err(|e| AppError::Other(format!("parse gvk: {e}")))?;
+        let (ar, namespaced) = resolve_api_resource(&client, &gvk).await?;
+        let ns = obj.metadata.namespace.clone().unwrap_or_else(|| "default".into());
+        let api: Api<DynamicObject> = if namespaced {
+            Api::namespaced_with(client.clone(), &ns, &ar)
+        } else {
+            Api::all_with(client.clone(), &ar)
+        };
+        let name = obj.name_any();
+        let kind = gvk.kind.clone();
+        match api.patch(&name, &pp, &Patch::Apply(obj)).await {
+            Ok(mut proposed) => {
+                proposed.metadata.managed_fields = None;
+                results.push(DocDryRun {
+                    name,
+                    kind,
+                    namespace: ns,
+                    proposed: Some(serde_yaml::to_string(&proposed)?),
+                    error: None,
+                });
+            }
+            Err(e) => {
+                results.push(DocDryRun {
+                    name,
+                    kind,
+                    namespace: ns,
+                    proposed: None,
+                    error: Some(e.to_string()),
+                });
+            }
+        }
+    }
     Ok(results)
 }
 

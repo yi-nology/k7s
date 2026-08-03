@@ -49,6 +49,7 @@ export type OverlayKey =
   | "helm-market"
   | "pod-files"
   | "image-repos"
+  | "image-import"
   | "templates"
   | "dashboard"
   | "metrics"
@@ -128,6 +129,10 @@ function selectionPatch(row: Row) {
     // you set.
     logPrevious: false,
     logSince: "all" as SinceOption,
+    // Events time-range filter, shared by the Cluster → Events table and the
+    // detail-panel EventsTab. "all" = everything the API server still retains
+    // (it has already GC'd events past --event-ttl, so this is bounded upstream).
+    eventsSince: "all" as SinceOption,
   };
 }
 
@@ -279,6 +284,8 @@ export interface AppState {
   logPrevious: boolean;
   /** How far back the read reaches (B29). */
   logSince: SinceOption;
+  /** Events time-range filter (Cluster → Events table + EventsTab). */
+  eventsSince: SinceOption;
 
   // yaml tab
   yamlEditing: boolean;
@@ -363,6 +370,7 @@ export interface AppState {
   setFollowing: (value: boolean) => void;
   setLogPrevious: (value: boolean) => void;
   setLogSince: (value: SinceOption) => void;
+  setEventsSince: (value: SinceOption) => void;
   appendLogs: (lines: LogLine[]) => void;
   clearLogs: () => void;
 
@@ -425,6 +433,7 @@ export const useStore = create<AppState>((set) => ({
   logBuffer: [],
   logPrevious: false,
   logSince: "all",
+  eventsSince: "all",
 
   yamlEditing: false,
   yamlDraft: "",
@@ -623,6 +632,9 @@ export const useStore = create<AppState>((set) => ({
   // output into the current one's would be worse than useless.
   setLogPrevious: (value) => set({ logPrevious: value, logBuffer: [] }),
   setLogSince: (value) => set({ logSince: value, logBuffer: [] }),
+  // Events filtering is client-side over the live watcher snapshot, so there's
+  // no buffer to clear — just flip the value and the table memo recomputes.
+  setEventsSince: (value) => set({ eventsSince: value }),
   // Append new lines, capping the buffer at the configured size (drop oldest).
   appendLogs: (lines) =>
     set((s) => {

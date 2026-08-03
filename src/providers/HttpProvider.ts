@@ -29,6 +29,11 @@ import type {
   ApplyResult,
   Alert,
   AlertManager,
+  DocDryRun,
+  ImportImageResult,
+  SkopeoAvailability,
+  ImageSyncResult,
+  ArchiveInfo,
   AlertManagerUpsert,
   ClusterInfo,
   ClusterStatus,
@@ -223,9 +228,9 @@ export class HttpProvider implements DataProvider {
   }
 
   getEvents(ref: ResourceRef): Promise<EventItem[]> {
-    // The back-end returns a simpler shape (`{ ty, reason, message, count, age }`)
-    // than `EventItem`; map it. The `ty` rename and the missing `lastTimestamp`
-    // are intentional simplifications in the first cut.
+    // The back-end returns a simpler shape than `EventItem`; map it. `ty` is
+    // renamed to `type` on the wire, and `lastTimestamp` carries the RFC3339
+    // last-seen time for the EventsTab time-range filter.
     return httpInvoke<
       Array<{
         type: string;
@@ -233,6 +238,7 @@ export class HttpProvider implements DataProvider {
         message: string;
         count: number;
         age: string;
+        lastTimestamp?: string;
       }>
     >("get_events", {
       kind: ref.kind,
@@ -245,6 +251,7 @@ export class HttpProvider implements DataProvider {
         message: r.message,
         count: r.count,
         age: r.age,
+        lastTimestamp: r.lastTimestamp,
       })),
     );
   }
@@ -680,6 +687,40 @@ export class HttpProvider implements DataProvider {
   // ---- Multi-doc apply: not proxied yet. ----
   async applyYamlBundle(_yaml: string): Promise<ApplyResult[]> {
     return [];
+  }
+
+  // ---- Multi-doc dry run: not proxied yet. ----
+  async dryRunYamlBundle(_yaml: string): Promise<DocDryRun[]> {
+    return [];
+  }
+
+  // ---- Image import: desktop only. The web shell has no access to the
+  // user's local filesystem, so the native file-picker path doesn't apply
+  // and there's no HTTP route to bridge. Throw a clear message; the panel
+  // surfaces it as a "desktop app only" notice. ----
+  async importImageToNode(_node: string, _path: string): Promise<ImportImageResult> {
+    throw new Error("Image import is only available in the desktop app");
+  }
+
+  async imageSyncStatus(): Promise<SkopeoAvailability> {
+    throw new Error("Image sync is only available in the desktop app");
+  }
+
+  async imageInspectArchive(_tarPath: string): Promise<ArchiveInfo> {
+    throw new Error("Image inspect is only available in the desktop app");
+  }
+
+  async imageCopy(
+    _source: string,
+    _destRegistry: string,
+    _destRepo: string,
+    _destTag: string,
+    _srcCreds: string | null,
+    _insecureSrc: boolean,
+    _insecureDest: boolean,
+    _onLog: (line: string) => void,
+  ): Promise<ImageSyncResult> {
+    throw new Error("Image sync is only available in the desktop app");
   }
 
   // ---- Endpoints / metrics / grafana / alerting (Phase 1 Tier-2) ----

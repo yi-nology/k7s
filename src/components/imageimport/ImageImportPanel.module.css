@@ -1,0 +1,486 @@
+/* ImageImportPanel — overlay for loading a local .tar into a node's runtime.
+ * Uses the global token set (src/styles/tokens.css); the spacing/size tokens
+ * some sibling panels reference aren't defined, so this file uses literals. */
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.header {
+  align-items: center;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+.header h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--text-primary);
+}
+
+/* ---- Tab bar (To Node / To Registry) ----
+   Segmented control mirroring TemplatePicker's mode toggle. */
+
+.tabBar {
+  display: flex;
+  gap: 2px;
+  padding: 8px 16px 0;
+  flex: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.tabBtn {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 6px 14px 8px;
+  transition: color 0.1s ease, border-color 0.1s ease;
+}
+.tabBtn:hover {
+  color: var(--text-secondary);
+}
+.tabBtn[data-active="true"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.closeBtn {
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 4px;
+}
+.closeBtn:hover {
+  color: var(--text-primary);
+}
+
+/* ---- Body ---- */
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.callout {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+}
+
+.calloutTitle {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.calloutText {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.select {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 7px 10px;
+}
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fileBtn {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 7px 14px;
+  flex: none;
+  transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+}
+.fileBtn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.fileBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fileName {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Result ---- */
+
+.result {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.resultErr {
+  color: var(--status-err);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.resultRuntime,
+.resultImages {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resultLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.resultValue {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-body);
+}
+
+.imageList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.imageItem {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--status-ok);
+  padding-left: 8px;
+  border-left: 2px solid var(--status-ok-soft);
+}
+
+.outputDetails {
+  margin-top: 4px;
+}
+
+.outputSummary {
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.outputPre {
+  margin: 6px 0 0;
+  background: var(--bg-terminal);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre;
+}
+
+/* ---- Footer ---- */
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-elevated);
+  flex: none;
+}
+
+.cancelBtn,
+.importBtn {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 18px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid;
+  line-height: 1.4;
+}
+
+.cancelBtn {
+  color: var(--text-secondary);
+  background: transparent;
+  border-color: var(--border-control);
+  margin-right: auto;
+}
+.cancelBtn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+.cancelBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.importBtn {
+  color: var(--bg-app);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.importBtn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.importBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Error banner / notice ---- */
+
+.error {
+  padding: 10px 16px;
+  color: var(--status-err);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  background: var(--status-err-soft);
+  border-bottom: 1px solid var(--border);
+  flex: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.notice {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 40px;
+  line-height: 1.6;
+}
+
+/* ---- To-Registry tab extras ---- */
+
+/* A slimmer inline notice for "no registries configured". */
+.noticeInline {
+  padding: 12px 14px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-warn, var(--accent));
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
+}
+
+/* Text inputs (the To-Node tab only has a dropdown + file picker). */
+.input {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 7px 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.fieldHelp {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+/* Two-column row (repo + tag). */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 140px;
+  gap: 12px;
+}
+
+/* Checkbox row. */
+.checkRow {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.check input {
+  cursor: pointer;
+}
+
+/* Secondary (non-primary) button for "Inspect tar". */
+.secondaryBtn {
+  background: transparent;
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  padding: 6px 12px;
+  flex: none;
+  transition: color 0.1s ease, border-color 0.1s ease;
+}
+.secondaryBtn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.secondaryBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Archive-inspect summary card. */
+.archiveInfo {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-body);
+}
+.archiveMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.tagChip {
+  display: inline-block;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 1px 7px;
+  margin-left: 6px;
+  font-size: 11px;
+}
+.warn {
+  font-size: 11px;
+  color: var(--status-warn, #e0a800);
+  font-family: var(--font-mono);
+}
+
+/* Live progress log (streamed from skopeo over image-sync-log events). */
+.logSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.logPre {
+  margin: 0;
+  background: var(--bg-terminal);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre;
+}

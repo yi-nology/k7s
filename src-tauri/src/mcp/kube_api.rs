@@ -563,3 +563,427 @@ pub fn redact_secret(obj: &mut DynamicObject) {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// One-shot exec (non-interactive command execution)
+// ---------------------------------------------------------------------------
+
+/// Run a single command in a pod container and return its stdout. Non-TTY,
+/// non-interactive — the right shape for an AI client that wants `kubectl exec
+/// <pod> -- <cmd>` semantics rather than a long-lived shell session. The
+/// container's stderr is merged into stdout so error messages reach the model.
+pub async fn exec_capture(
+    client: &Client,
+    namespace: &str,
+    pod: &str,
+    container: Option<&str>,
+    argv: Vec<String>,
+) -> AppResult<String> {
+    use k8s_openapi::api::core::v1::Pod;
+    use tokio::io::AsyncReadExt;
+
+    let api: Api<Pod> = Api::namespaced(client.clone(), namespace);
+    let mut ap = kube::api::AttachParams::default()
+        .stdin(false)
+        .stdout(true)
+        .stderr(true)
+        .tty(false);
+    if let Some(c) = container {
+        if !c.is_empty() {
+            ap = ap.container(c.to_string());
+        }
+    }
+    let mut proc = api.exec(pod, argv, &ap).await?;
+    let mut out = Vec::new();
+    if let Some(mut stdout) = proc.stdout() {
+        stdout
+            .read_to_end(&mut out)
+            .await
+            .map_err(|e| AppError::Other(format!("exec stdout: {e}")))?;
+    }
+    // Drain stderr into the same buffer so the model sees error text too.
+    if let Some(mut stderr) = proc.stderr() {
+        let mut err_buf = Vec::new();
+        stderr.read_to_end(&mut err_buf).await.ok();
+        if !err_buf.is_empty() {
+            if !out.is_empty() {
+                out.push(b'\n');
+            }
+            out.extend_from_slice(&err_buf);
+        }
+    }
+    let status_opt = proc
+        .take_status()
+        .ok_or_else(|| AppError::Other("no status channel".into()))?
+        .await;
+    let succeeded = status_opt
+        .as_ref()
+        .and_then(|s| s.status.as_deref())
+        .map(|s| s == "Success")
+        .unwrap_or(true);
+    if !succeeded && out.is_empty() {
+        return Err(AppError::Other(format!(
+            "exec failed: {:?}",
+            status_opt.and_then(|s| s.message)
+        )));
+    }
+    Ok(String::from_utf8_lossy(&out).into_owned())
+}
+
+// ---------------------------------------------------------------------------
+// Rollout status
+// ---------------------------------------------------------------------------
+
+/// A condition on a workload, mirroring the fields the UI shows.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkloadCondition {
+    pub type_: String,
+    pub status: String,
+    pub reason: String,
+    pub message: String,
+}
+
+/// The rollout state of a workload — what `kubectl rollout status` summarises
+/// in one line, broken out so the model can reason about each field.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RolloutStatus {
+    pub kind: String,
+    pub namespace: String,
+    pub name: String,
+    pub desired: i64,
+    pub ready: i64,
+    pub updated: i64,
+    pub available: i64,
+    pub unavailable: Option<i64>,
+    pub conditions: Vec<WorkloadCondition>,
+    /// True when the rollout has converged.
+    pub done: bool,
+    /// A single human-readable summary, e.g. "deployment successfully rolled out".
+    pub message: String,
+}
+
+/// Inspect a workload's rollout state. Accepts Deployment, StatefulSet,
+/// DaemonSet, ReplicaSet — the four kinds `restart_rollout` can restart, so the
+/// set of workloads whose rollout you can *read* matches the set you can *kick*.
+pub async fn rollout_status(
+    manager: &ClientManager,
+    kind: &str,
+    namespace: &str,
+    name: &str,
+) -> AppResult<RolloutStatus> {
+    let client = require_client(manager).await?;
+    if !matches!(kind, "deployments" | "statefulsets" | "daemonsets" | "replicasets") {
+        return Err(AppError::Other(format!(
+            "{kind} is not a rollout kind (use deployments, statefulsets, daemonsets, or replicasets)"
+        )));
+    }
+    let (api, _) = dynamic_api(client, kind, namespace, manager).await?;
+    let obj = api.get(name).await?;
+    let status = obj.data.get("status").cloned().unwrap_or_default();
+    let s = serde_json::json!(status);
+
+    let i64_field = |key: &str| -> i64 {
+        s.get(key).and_then(|v| v.as_i64()).unwrap_or(0)
+    };
+    let desired = i64_field("replicas");
+    let updated = i64_field("updatedReplicas");
+    let ready = i64_field("readyReplicas");
+    let available = i64_field("availableReplicas");
+    let unavailable = s.get("unavailableReplicas").and_then(|v| v.as_i64());
+
+    let conditions: Vec<WorkloadCondition> = s
+        .get("conditions")
+        .and_then(|c| c.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|c| WorkloadCondition {
+                    type_: c.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    status: c.get("status").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    reason: c.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    message: c.get("message").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let progressing = conditions.iter().find(|c| c.type_ == "Progressing");
+    let done = match (kind, progressing) {
+        ("deployments", Some(c)) => c.reason == "NewReplicaSetAvailable",
+        _ => desired > 0 && updated == desired && unavailable.unwrap_or(0) == 0,
+    };
+    let message = if done {
+        format!("{kind} successfully rolled out")
+    } else if updated < desired {
+        format!("{updated} of {desired} updated")
+    } else if unavailable.unwrap_or(0) > 0 {
+        format!("{} unavailable", unavailable.unwrap_or(0))
+    } else {
+        "waiting for conditions".into()
+    };
+
+    Ok(RolloutStatus {
+        kind: kind.to_string(),
+        namespace: namespace.to_string(),
+        name: name.to_string(),
+        desired,
+        ready,
+        updated,
+        available,
+        unavailable,
+        conditions,
+        done,
+        message,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Top pods / top nodes (metrics.k8s.io snapshot)
+// ---------------------------------------------------------------------------
+
+/// One pod's CPU/memory usage at a point in time.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TopPod {
+    pub namespace: String,
+    pub pod: String,
+    /// CPU in milli-cores (500m == 0.5 cores).
+    pub cpu_millis: i64,
+    /// Memory in bytes.
+    pub mem_bytes: i64,
+}
+
+/// One node's CPU/memory usage and capacity.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TopNode {
+    pub node: String,
+    pub cpu_millis: i64,
+    pub mem_bytes: i64,
+    pub cpu_capacity_millis: i64,
+    pub mem_capacity_bytes: i64,
+    /// 0–100, rounded to one decimal. 0 when capacity is unknown.
+    pub cpu_percent: f64,
+    pub mem_percent: f64,
+}
+
+#[derive(serde::Deserialize)]
+struct MetricsList<T> {
+    items: Vec<T>,
+}
+#[derive(serde::Deserialize)]
+struct MetaName {
+    name: String,
+    #[serde(default)]
+    namespace: String,
+}
+#[derive(serde::Deserialize)]
+struct Usage {
+    #[serde(default)]
+    cpu: String,
+    #[serde(default)]
+    memory: String,
+}
+#[derive(serde::Deserialize)]
+struct PodMetric {
+    metadata: MetaName,
+    containers: Vec<ContainerUsage>,
+}
+#[derive(serde::Deserialize)]
+struct ContainerUsage {
+    usage: Usage,
+}
+#[derive(serde::Deserialize)]
+struct NodeMetric {
+    metadata: MetaName,
+    usage: Usage,
+}
+
+/// Snapshot of pod usage from metrics.k8s.io. Reuses the Quantity parsers from
+/// `metrics.rs` (already `pub`). Returns pods sorted by CPU desc.
+pub async fn top_pods(client: &Client, namespace: Option<&str>) -> AppResult<Vec<TopPod>> {
+    let path = match namespace {
+        Some(ns) if !ns.is_empty() => format!("/apis/metrics.k8s.io/v1beta1/namespaces/{ns}/pods"),
+        _ => "/apis/metrics.k8s.io/v1beta1/pods".to_string(),
+    };
+    let req = http::Request::get(path)
+        .body(Vec::new())
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+    let list: MetricsList<PodMetric> = client.request(req).await?;
+
+    let mut rows: Vec<TopPod> = list
+        .items
+        .into_iter()
+        .map(|pm| {
+            let cpu: i64 = pm.containers.iter().map(|c| crate::kube::metrics::parse_cpu_millis(&c.usage.cpu)).sum();
+            let mem: i64 = pm.containers.iter().map(|c| crate::kube::metrics::parse_mem_bytes(&c.usage.memory)).sum();
+            TopPod {
+                namespace: pm.metadata.namespace,
+                pod: pm.metadata.name,
+                cpu_millis: cpu,
+                mem_bytes: mem,
+            }
+        })
+        .collect();
+    rows.sort_by(|a, b| b.cpu_millis.cmp(&a.cpu_millis));
+    Ok(rows)
+}
+
+/// Snapshot of node usage + capacity from metrics.k8s.io and the Node objects.
+pub async fn top_nodes(client: &Client) -> AppResult<Vec<TopNode>> {
+    use k8s_openapi::api::core::v1::Node;
+
+    let req = http::Request::get("/apis/metrics.k8s.io/v1beta1/nodes")
+        .body(Vec::new())
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+    let list: MetricsList<NodeMetric> = client.request(req).await?;
+
+    let nodes: Api<Node> = Api::all(client.clone());
+    let node_objs = nodes.list(&ListParams::default()).await?;
+    let mut alloc: std::collections::HashMap<String, (i64, i64)> = std::collections::HashMap::new();
+    for n in node_objs.items {
+        let name = n.metadata.name.clone().unwrap_or_default();
+        if let Some(status) = &n.status {
+            if let Some(a) = &status.allocatable {
+                let cpu = a.get("cpu").map(|q| crate::kube::metrics::parse_cpu_millis(&q.0)).unwrap_or(0);
+                let mem = a.get("memory").map(|q| crate::kube::metrics::parse_mem_bytes(&q.0)).unwrap_or(0);
+                alloc.insert(name, (cpu, mem));
+            }
+        }
+    }
+
+    let mut rows: Vec<TopNode> = list
+        .items
+        .into_iter()
+        .map(|nm| {
+            let cpu = crate::kube::metrics::parse_cpu_millis(&nm.usage.cpu);
+            let mem = crate::kube::metrics::parse_mem_bytes(&nm.usage.memory);
+            let (acpu, amem) = alloc.get(&nm.metadata.name).copied().unwrap_or((0, 0));
+            TopNode {
+                cpu_percent: pct(cpu, acpu),
+                mem_percent: pct(mem, amem),
+                cpu_millis: cpu,
+                mem_bytes: mem,
+                cpu_capacity_millis: acpu,
+                mem_capacity_bytes: amem,
+                node: nm.metadata.name,
+            }
+        })
+        .collect();
+    rows.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(rows)
+}
+
+/// Percentage used/capacity, guarding divide-by-zero.
+fn pct(used: i64, cap: i64) -> f64 {
+    if cap <= 0 {
+        0.0
+    } else {
+        (((used as f64 / cap as f64) * 1000.0).round()) / 10.0
+    }
+}
+
+// ---------------------------------------------------------------------------
+// API resources discovery (kubectl api-resources)
+// ---------------------------------------------------------------------------
+
+/// One entry in the api-resources table.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiResourceInfo {
+    pub name: String,
+    pub singular_name: String,
+    pub group: String,
+    pub version: String,
+    pub kind: String,
+    pub namespaced: bool,
+    pub verbs: Vec<String>,
+}
+
+/// Discover every resource the API server serves, like `kubectl api-resources`.
+pub async fn list_api_resources(client: &Client) -> AppResult<Vec<ApiResourceInfo>> {
+    let groups = kube::discovery::Discovery::new(client.clone())
+        .run()
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+
+    let mut rows = Vec::new();
+    for group in groups.groups() {
+        let version = group
+            .preferred_version()
+            .or_else(|| group.versions().next())
+            .unwrap_or("");
+        for (ar, caps) in group.versioned_resources(version) {
+            // kube 0.99 renamed ApiCapabilities.verbs → operations. Drop
+            // subresource-only entries (pods/exec etc.) that lack a top-level verb.
+            if !caps.operations.iter().any(|v| matches!(v.as_str(), "get" | "list" | "create" | "delete")) {
+                continue;
+            }
+            rows.push(ApiResourceInfo {
+                name: ar.plural.clone(),
+                // kube 0.99 dropped ApiResource.singular; kind is the PascalCase
+                // singular, so its lowercase form is the closest faithful value.
+                singular_name: ar.kind.to_ascii_lowercase(),
+                group: group.name().to_string(),
+                version: ar.version.clone(),
+                kind: ar.kind.clone(),
+                namespaced: caps.scope == kube::discovery::Scope::Namespaced,
+                verbs: caps.operations.clone(),
+            });
+        }
+    }
+    rows.sort_by(|a, b| (&a.group, &a.kind).cmp(&(&b.group, &b.kind)));
+    Ok(rows)
+}
+
+// ---------------------------------------------------------------------------
+// Trigger CronJob
+// ---------------------------------------------------------------------------
+
+/// Manually create a Job from a CronJob (like `kubectl create job
+/// --from=cronjob/<name>`). Returns the new Job's name.
+pub async fn trigger_cronjob(
+    client: &Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<String> {
+    use k8s_openapi::api::batch::v1::{CronJob, Job};
+    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference};
+    use kube::api::PostParams;
+
+    let cj_api: Api<CronJob> = Api::namespaced(client.clone(), namespace);
+    let cj = cj_api.get(name).await?;
+    let job_name = format!("{name}-manual-{}", chrono::Utc::now().timestamp());
+    let job = Job {
+        metadata: ObjectMeta {
+            name: Some(job_name.clone()),
+            namespace: Some(namespace.to_string()),
+            annotations: Some({
+                let mut m = std::collections::BTreeMap::new();
+                m.insert(
+                    "cronjob.kubernetes.io/instantiate".to_string(),
+                    "manual".to_string(),
+                );
+                m
+            }),
+            owner_references: Some(vec![OwnerReference {
+                api_version: "batch/v1".to_string(),
+                kind: "CronJob".to_string(),
+                name: name.to_string(),
+                uid: cj.metadata.uid.clone().unwrap_or_default(),
+                controller: Some(true),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        },
+        spec: cj.spec.and_then(|s| s.job_template.spec),
+        ..Default::default()
+    };
+    let job_api: Api<Job> = Api::namespaced(client.clone(), namespace);
+    job_api
+        .create(&PostParams::default(), &job)
+        .await
+        .map_err(|e| AppError::Kube(format!("create job: {e}")))?;
+    Ok(job_name)
+}

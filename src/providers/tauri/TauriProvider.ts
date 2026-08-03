@@ -16,6 +16,11 @@ import type {
   AlertManagerUpsert,
   ApplyResult,
   ClusterInfo,
+  DocDryRun,
+  ImportImageResult,
+  SkopeoAvailability,
+  ImageSyncResult,
+  ArchiveInfo,
   ClusterStatus,
   ContextInfo,
   DataProvider,
@@ -655,6 +660,52 @@ export class TauriProvider implements DataProvider {
 
   applyYamlBundle(yaml: string): Promise<ApplyResult[]> {
     return invoke<ApplyResult[]>("apply_yaml_bundle", { yaml });
+  }
+
+  dryRunYamlBundle(yaml: string): Promise<DocDryRun[]> {
+    return invoke<DocDryRun[]>("dry_run_yaml_bundle", { yaml });
+  }
+
+  importImageToNode(node: string, path: string): Promise<ImportImageResult> {
+    return invoke<ImportImageResult>("import_image_to_node", { node, path });
+  }
+
+  imageSyncStatus(): Promise<SkopeoAvailability> {
+    return invoke<SkopeoAvailability>("image_sync_status");
+  }
+
+  imageInspectArchive(tarPath: string): Promise<ArchiveInfo> {
+    return invoke<ArchiveInfo>("image_inspect_archive", { tarPath });
+  }
+
+  async imageCopy(
+    source: string,
+    destRegistry: string,
+    destRepo: string,
+    destTag: string,
+    srcCreds: string | null,
+    insecureSrc: boolean,
+    insecureDest: boolean,
+    onLog: (line: string) => void,
+  ): Promise<ImageSyncResult> {
+    // Subscribe to the shared `image-sync-log` event before invoking so we
+    // don't miss the first lines. The Rust LogLine payload is {stream, line}.
+    const off = subscribe<{ stream: string; line: string }>("image-sync-log", (p) => {
+      onLog(p.line);
+    });
+    try {
+      return await invoke<ImageSyncResult>("image_copy", {
+        source,
+        destRegistry,
+        destRepo,
+        destTag,
+        srcCreds,
+        insecureSrc,
+        insecureDest,
+      });
+    } finally {
+      off();
+    }
   }
 
   // ---- Endpoints (Phase 1 Tier-2) ----

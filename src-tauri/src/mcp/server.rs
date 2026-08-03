@@ -40,11 +40,11 @@ use crate::core::events::mcp_sink;
 use crate::core::CoreState;
 use crate::error::AppError;
 use crate::kube::{
-    client as kube_client,
-    drain,
-    manager::{ClientManager, ForwardDto, ShellSession},
-    nodeshell, portforward, restart,
-    ResourceKind,
+    alerting, client as kube_client, drain, endpoints,
+    grafana, helm_market, helm_ops, image_archive, image_sync, imagerepo,
+    manager::{ClientManager, ForwardDto, ImportedContext, ShellSession},
+    metrics_config, nodeshell, pod_files, portforward, restart, saved_queries,
+    templates, ResourceKind,
 };
 use crate::mcp::kube_api;
 use rmcp::transport::stdio;
@@ -216,6 +216,277 @@ pub struct DrainParams {
     /// (the MCP caller polls `list_port_forwards`-style events itself, in
     /// this case by re-listing the node's pods).
     pub timeout_secs: Option<u64>,
+}
+
+// ---------------------------------------------------------------------------
+// Helm op parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmInstallParams {
+    pub release: String,
+    pub chart: String,
+    #[serde(default)]
+    pub version: String,
+    pub namespace: String,
+    #[serde(default)]
+    pub values: String,
+    #[serde(default)]
+    pub dry_run: bool,
+    #[serde(default)]
+    pub create_namespace: bool,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmUpgradeParams {
+    pub release: String,
+    pub chart: String,
+    #[serde(default)]
+    pub version: String,
+    pub namespace: String,
+    #[serde(default)]
+    pub values: String,
+    #[serde(default)]
+    pub dry_run: bool,
+    #[serde(default)]
+    pub reuse_values: bool,
+    #[serde(default)]
+    pub rollback_on_failure: bool,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmUninstallParams {
+    pub release: String,
+    pub namespace: String,
+    #[serde(default)]
+    pub keep_history: bool,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmRollbackParams {
+    pub release: String,
+    pub namespace: String,
+    #[serde(default)]
+    pub revision: Option<i64>,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmHistoryParams {
+    pub release: String,
+    pub namespace: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmShowValuesParams {
+    pub chart: String,
+    #[serde(default)]
+    pub version: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmSearchParams {
+    #[serde(default)]
+    pub query: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmRepoParams {
+    pub name: String,
+    pub url: String,
+    #[serde(default)]
+    pub description: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmRepoNameParams {
+    pub name: String,
+}
+
+// ---------------------------------------------------------------------------
+// Exec / rollout / top / cronjob parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecParams {
+    pub namespace: String,
+    pub pod: String,
+    #[serde(default)]
+    pub container: String,
+    pub command: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct TopPodsParams {
+    #[serde(default)]
+    pub namespace: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NameNamespaceNameParams {
+    pub namespace: String,
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct YamlBundleParams {
+    pub yaml: String,
+}
+
+// ---------------------------------------------------------------------------
+// Endpoints / Pod files / import kubeconfig parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ListEndpointsParams {
+    #[serde(default)]
+    pub namespace: String,
+    #[serde(default)]
+    pub service: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PodFileParams {
+    pub namespace: String,
+    pub pod: String,
+    #[serde(default)]
+    pub container: String,
+    pub path: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PodFileWriteParams {
+    pub namespace: String,
+    pub pod: String,
+    #[serde(default)]
+    pub container: String,
+    pub path: String,
+    pub content: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PodFileUploadParams {
+    pub namespace: String,
+    pub pod: String,
+    #[serde(default)]
+    pub container: String,
+    pub dest_dir: String,
+    pub tar_b64: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ImportKubeconfigParams {
+    pub contents: String,
+    #[serde(default)]
+    pub filename: String,
+}
+
+// ---------------------------------------------------------------------------
+// Monitoring parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PrometheusQueryParams {
+    pub name: String,
+    pub promql: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PrometheusQueryRangeParams {
+    pub name: String,
+    pub promql: String,
+    pub start_ms: i64,
+    pub end_ms: i64,
+    pub step_seconds: i64,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct InstanceNameParams {
+    pub name: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct GrafanaDashboardParams {
+    pub name: String,
+    pub uid: String,
+    pub from_ms: i64,
+    pub to_ms: i64,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageRegistryRepoParams {
+    pub name: String,
+    pub repo: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageRegistryManifestParams {
+    pub name: String,
+    pub repo: String,
+    pub tag: String,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedQueryRunParams {
+    pub name: String,
+    pub instance: String,
+    #[serde(default)]
+    pub force_refresh: bool,
+}
+
+// ---------------------------------------------------------------------------
+// Image sync / import parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageCopyParams {
+    /// Any skopeo transport: `docker://nginx:1.25`, `docker-archive:/tmp/x.tar`, `oci:…`, `dir:…`.
+    pub source: String,
+    /// Name of the configured destination registry (resolved from image-registries config).
+    pub dest_registry: String,
+    pub dest_repo: String,
+    pub dest_tag: String,
+    /// Source credentials as `user:pass`. Empty/None for anonymous public images.
+    #[serde(default)]
+    pub src_creds: String,
+    /// Skip TLS verification on the source (self-signed registries).
+    #[serde(default)]
+    pub insecure_src: bool,
+    /// Skip TLS verification on the destination.
+    #[serde(default)]
+    pub insecure_dest: bool,
+}
+
+#[derive(Debug, Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageArchiveParams {
+    /// Path to a local `docker save` tarball.
+    pub tar_path: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -1048,6 +1319,574 @@ impl K7sMcpServer {
             .collect();
         json_result(&out)
     }
+
+    // -----------------------------------------------------------------------
+    // Helm operations (install / upgrade / uninstall / rollback / history)
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "Install a Helm chart (helm install). Streams progress to the event sink; returns the final result. The release name is required.")]
+    async fn helm_install(
+        &self,
+        Parameters(p): Parameters<HelmInstallParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let sink = self.manager().sink();
+        let op = helm_ops::HelmOp::Install(helm_ops::InstallArgs {
+            release: p.release,
+            chart: p.chart,
+            version: p.version,
+            namespace: p.namespace,
+            kubeconfig: None,
+            values: p.values,
+            dry_run: p.dry_run,
+            create_namespace: p.create_namespace,
+        });
+        let result = helm_ops::run_op(op, sink).await.map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(description = "Upgrade a Helm release (helm upgrade). Creates the release if absent. Supports reuseValues, rollbackOnFailure, and dryRun.")]
+    async fn helm_upgrade(
+        &self,
+        Parameters(p): Parameters<HelmUpgradeParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let sink = self.manager().sink();
+        let op = helm_ops::HelmOp::Upgrade(helm_ops::UpgradeArgs {
+            release: p.release,
+            chart: p.chart,
+            version: p.version,
+            namespace: p.namespace,
+            kubeconfig: None,
+            values: p.values,
+            dry_run: p.dry_run,
+            reuse_values: p.reuse_values,
+            rollback_on_failure: p.rollback_on_failure,
+        });
+        let result = helm_ops::run_op(op, sink).await.map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(description = "Uninstall a Helm release (helm uninstall). Set keepHistory=true to retain revisions for a later rollback.")]
+    async fn helm_uninstall(
+        &self,
+        Parameters(p): Parameters<HelmUninstallParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let sink = self.manager().sink();
+        let op = helm_ops::HelmOp::Uninstall(helm_ops::UninstallArgs {
+            release: p.release,
+            namespace: p.namespace,
+            kubeconfig: None,
+            keep_history: p.keep_history,
+        });
+        let result = helm_ops::run_op(op, sink).await.map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(description = "Roll back a Helm release to a previous revision (helm rollback). revision is optional — empty rolls back to the previous one.")]
+    async fn helm_rollback(
+        &self,
+        Parameters(p): Parameters<HelmRollbackParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let sink = self.manager().sink();
+        let op = helm_ops::HelmOp::Rollback(helm_ops::RollbackArgs {
+            release: p.release,
+            namespace: p.namespace,
+            revision: p.revision,
+            kubeconfig: None,
+        });
+        let result = helm_ops::run_op(op, sink).await.map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(description = "Fetch the revision history for a Helm release (helm history). Returns one row per revision with status, chart, and app version.")]
+    async fn helm_history(
+        &self,
+        Parameters(p): Parameters<HelmHistoryParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let rows = helm_ops::release_history(&p.release, &p.namespace, None)
+            .await
+            .map_err(tool_error)?;
+        json_result(&rows)
+    }
+
+    #[tool(description = "Render a chart's default values.yaml (helm show values). Useful to prefill the values editor before helm_install/helm_upgrade.")]
+    async fn helm_show_values(
+        &self,
+        Parameters(p): Parameters<HelmShowValuesParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let values = helm_ops::render_default_values(&p.chart, &p.version, None)
+            .await
+            .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![Content::text(values)]))
+    }
+
+    // -----------------------------------------------------------------------
+    // Helm chart repository management
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "List the user's configured Helm chart repositories, with last refresh status.")]
+    async fn helm_list_repos(&self) -> Result<CallToolResult, McpError> {
+        let repos = helm_market::list_repos().map_err(tool_error)?;
+        json_result(&repos)
+    }
+
+    #[tool(description = "Search across every cached Helm repo index. Empty query returns everything.")]
+    async fn helm_search_charts(
+        &self,
+        Parameters(p): Parameters<HelmSearchParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let charts = helm_market::search_charts(&p.query).map_err(tool_error)?;
+        json_result(&charts)
+    }
+
+    #[tool(description = "Add a Helm chart repository.")]
+    async fn helm_add_repo(
+        &self,
+        Parameters(p): Parameters<HelmRepoParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let repo = helm_market::add_repo(&p.name, &p.url, &p.description)
+            .map_err(tool_error)?;
+        json_result(&repo)
+    }
+
+    #[tool(description = "Remove a Helm chart repository and its cached index.")]
+    async fn helm_remove_repo(
+        &self,
+        Parameters(p): Parameters<HelmRepoNameParams>,
+    ) -> Result<CallToolResult, McpError> {
+        helm_market::remove_repo(&p.name).map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![Content::text("removed")]))
+    }
+
+    #[tool(description = "Re-fetch a Helm repo's index from its URL. Returns the updated repo entry.")]
+    async fn helm_update_repo(
+        &self,
+        Parameters(p): Parameters<HelmRepoNameParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let repo = helm_market::update_repo_index(&p.name)
+            .await
+            .map_err(tool_error)?;
+        json_result(&repo)
+    }
+
+    // -----------------------------------------------------------------------
+    // One-shot exec, rollout status, top, cronjob trigger
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "Run a single command in a pod container and return its stdout (kubectl exec). Non-interactive, non-TTY. The command runs via /bin/sh -c; stderr is merged into stdout.")]
+    async fn exec_command(
+        &self,
+        Parameters(p): Parameters<ExecParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let argv = vec!["/bin/sh".to_string(), "-c".to_string(), p.command];
+        let out = kube_api::exec_capture(&client, &p.namespace, &p.pod, container, argv)
+            .await
+            .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![Content::text(out)]))
+    }
+
+    #[tool(description = "Inspect a workload's rollout state (kubectl rollout status). Returns replica counts, conditions, and a `done` flag. Accepts deployments, statefulsets, daemonsets, replicasets.")]
+    async fn rollout_status(
+        &self,
+        Parameters(p): Parameters<GetResourceParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let status = kube_api::rollout_status(&self.manager(), &p.kind, &p.namespace, &p.name)
+            .await
+            .map_err(tool_error)?;
+        json_result(&status)
+    }
+
+    #[tool(description = "Snapshot of per-pod CPU/memory usage from metrics.k8s.io (kubectl top pods). Requires metrics-server.")]
+    async fn top_pods(
+        &self,
+        Parameters(p): Parameters<TopPodsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let ns = if p.namespace.is_empty() { None } else { Some(p.namespace.as_str()) };
+        let rows = kube_api::top_pods(&client, ns).await.map_err(tool_error)?;
+        json_result(&rows)
+    }
+
+    #[tool(description = "Snapshot of per-node CPU/memory usage and capacity (kubectl top nodes). Requires metrics-server.")]
+    async fn top_nodes(&self) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let rows = kube_api::top_nodes(&client).await.map_err(tool_error)?;
+        json_result(&rows)
+    }
+
+    #[tool(description = "Manually trigger a CronJob by creating a Job from its spec (kubectl create job --from=cronjob/<name>). Returns the new Job's name.")]
+    async fn trigger_cronjob(
+        &self,
+        Parameters(p): Parameters<NameNamespaceNameParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let job_name = kube_api::trigger_cronjob(&client, &p.namespace, &p.name)
+            .await
+            .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![Content::text(format!(
+            "created job {}/{}",
+            p.namespace, job_name
+        ))]))
+    }
+
+    // -----------------------------------------------------------------------
+    // Multi-document YAML apply / dry-run
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "Apply a multi-document YAML bundle (documents separated by ---). Each doc is applied via server-side apply; stops at the first error and returns per-document status.")]
+    async fn apply_yaml_bundle(
+        &self,
+        Parameters(p): Parameters<YamlBundleParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let results = templates::multi_apply(&p.yaml, client, &self.manager())
+            .await
+            .map_err(tool_error)?;
+        json_result(&results)
+    }
+
+    #[tool(description = "Dry-run a multi-document YAML bundle without writing anything. Returns per-document proposed YAML and any error.")]
+    async fn dry_run_yaml_bundle(
+        &self,
+        Parameters(p): Parameters<YamlBundleParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let results = templates::multi_dry_run(&p.yaml, client)
+            .await
+            .map_err(tool_error)?;
+        json_result(&results)
+    }
+
+    // -----------------------------------------------------------------------
+    // API resources discovery + Endpoints
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "Discover every resource the API server serves (kubectl api-resources). Returns name, group, version, kind, namespaced, verbs for each.")]
+    async fn list_api_resources(&self) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let rows = kube_api::list_api_resources(&client)
+            .await
+            .map_err(tool_error)?;
+        json_result(&rows)
+    }
+
+    #[tool(description = "List EndpointSlices. Optional namespace scopes the list; optional service filters to one Service's slices. Without filters, lists cluster-wide.")]
+    async fn list_endpoints(
+        &self,
+        Parameters(p): Parameters<ListEndpointsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let rows = if !p.service.is_empty() {
+            endpoints::list_for_service(&client, &p.namespace, &p.service)
+                .await
+                .map_err(tool_error)?
+        } else if !p.namespace.is_empty() {
+            endpoints::list_namespaced(&client, &p.namespace)
+                .await
+                .map_err(tool_error)?
+        } else {
+            endpoints::list_all(&client).await.map_err(tool_error)?
+        };
+        json_result(&rows)
+    }
+
+    // -----------------------------------------------------------------------
+    // Pod file operations
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "List a directory inside a pod container. Returns file/dir/symlink entries with size, mtime, and POSIX mode.")]
+    async fn pod_list_files(
+        &self,
+        Parameters(p): Parameters<PodFileParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let entries = pod_files::list_dir(client, &p.namespace, &p.pod, container, &p.path)
+            .await
+            .map_err(tool_error)?;
+        json_result(&entries)
+    }
+
+    #[tool(description = "Read a file's text contents from a pod container (UTF-8 lossy).")]
+    async fn pod_read_file(
+        &self,
+        Parameters(p): Parameters<PodFileParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let text = pod_files::read_file(client, &p.namespace, &p.pod, container, &p.path)
+            .await
+            .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![Content::text(text)]))
+    }
+
+    #[tool(description = "Write a file inside a pod container. Creates parent directories as needed.")]
+    async fn pod_write_file(
+        &self,
+        Parameters(p): Parameters<PodFileWriteParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        pod_files::write_file(client, &p.namespace, &p.pod, container, &p.path, &p.content)
+            .await
+            .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![Content::text("written")]))
+    }
+
+    #[tool(description = "Download a path from a pod container as a base64-encoded tar archive.")]
+    async fn pod_download_file(
+        &self,
+        Parameters(p): Parameters<PodFileParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use base64::Engine;
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let bytes = pod_files::download_path(client, &p.namespace, &p.pod, container, &p.path)
+            .await
+            .map_err(tool_error)?;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        Ok(CallToolResult::success(vec![Content::text(b64)]))
+    }
+
+    #[tool(description = "Upload a base64-encoded tar archive into a directory inside a pod container.")]
+    async fn pod_upload_file(
+        &self,
+        Parameters(p): Parameters<PodFileUploadParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use base64::Engine;
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&p.tar_b64)
+            .map_err(|e| tool_error(AppError::Other(format!("base64 decode: {e}"))))?;
+        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        pod_files::upload_path(client, &p.namespace, &p.pod, container, &p.dest_dir, &bytes)
+            .await
+            .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![Content::text("uploaded")]))
+    }
+
+    // -----------------------------------------------------------------------
+    // Import kubeconfig content
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "Register every context in a kubeconfig YAML blob so a later `connect` can build from it. Returns the merged context list.")]
+    async fn import_kubeconfig(
+        &self,
+        Parameters(p): Parameters<ImportKubeconfigParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let manager = self.manager();
+        let kc = kube::config::Kubeconfig::from_yaml(&p.contents)
+            .map_err(|e| tool_error(AppError::Kubeconfig(format!("parse kubeconfig: {e}"))))?;
+        for ctx in &kc.contexts {
+            let cluster = ctx
+                .context
+                .as_ref()
+                .map(|c| c.cluster.clone())
+                .unwrap_or_default();
+            manager
+                .add_import(
+                    ctx.name.clone(),
+                    ImportedContext {
+                        path: p.filename.clone(),
+                        cluster,
+                        kubeconfig: Some(kc.clone()),
+                    },
+                )
+                .await;
+        }
+        let mut merged = kube_client::list_contexts().unwrap_or_default();
+        let existing: std::collections::HashSet<String> =
+            merged.iter().map(|c| c.name.clone()).collect();
+        let imports = manager.imports().await;
+        for (name, imp) in imports {
+            if !existing.contains(&name) {
+                merged.push(kube_client::ContextInfo {
+                    name,
+                    cluster: imp.cluster,
+                    current: false,
+                });
+            }
+        }
+        json_result(&merged)
+    }
+
+    // -----------------------------------------------------------------------
+    // Monitoring: Prometheus / AlertManager / Grafana
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "Run an instant PromQL query against a configured Prometheus instance (by name).")]
+    async fn prometheus_query(
+        &self,
+        Parameters(p): Parameters<PrometheusQueryParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = metrics_config::query(&p.name, &p.promql)
+            .await
+            .map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(description = "Run a range PromQL query (start/end epoch-ms, step seconds) against a configured Prometheus instance.")]
+    async fn prometheus_query_range(
+        &self,
+        Parameters(p): Parameters<PrometheusQueryRangeParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = metrics_config::query_range(&p.name, &p.promql, p.start_ms, p.end_ms, p.step_seconds)
+            .await
+            .map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(description = "List active alerts from a configured AlertManager instance (by name).")]
+    async fn alertmanager_alerts(
+        &self,
+        Parameters(p): Parameters<InstanceNameParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let alerts = alerting::list_alerts(&p.name).await.map_err(tool_error)?;
+        json_result(&alerts)
+    }
+
+    #[tool(description = "List silences from a configured AlertManager instance (by name).")]
+    async fn alertmanager_silences(
+        &self,
+        Parameters(p): Parameters<InstanceNameParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let silences = alerting::list_silences(&p.name)
+            .await
+            .map_err(tool_error)?;
+        json_result(&silences)
+    }
+
+    #[tool(description = "Build a direct Grafana dashboard URL (by instance name, dashboard uid, from/to epoch-ms).")]
+    async fn grafana_dashboard_url(
+        &self,
+        Parameters(p): Parameters<GrafanaDashboardParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let url = grafana::dashboard_url(&p.name, &p.uid, p.from_ms, p.to_ms)
+            .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![Content::text(url)]))
+    }
+
+    // -----------------------------------------------------------------------
+    // Image registry queries
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "List tags for a repository in a configured image registry (by registry name).")]
+    async fn image_registry_tags(
+        &self,
+        Parameters(p): Parameters<ImageRegistryRepoParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let reg = imagerepo::list_registries()
+            .map_err(tool_error)?
+            .into_iter()
+            .find(|r| r.name == p.name)
+            .ok_or_else(|| tool_error(AppError::NotFound(format!("registry '{}' not found", p.name))))?;
+        let tags = imagerepo::list_tags(&reg, &p.repo)
+            .await
+            .map_err(tool_error)?;
+        json_result(&tags)
+    }
+
+    #[tool(description = "Fetch the manifest for a repo:tag in a configured image registry.")]
+    async fn image_registry_manifest(
+        &self,
+        Parameters(p): Parameters<ImageRegistryManifestParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let reg = imagerepo::list_registries()
+            .map_err(tool_error)?
+            .into_iter()
+            .find(|r| r.name == p.name)
+            .ok_or_else(|| tool_error(AppError::NotFound(format!("registry '{}' not found", p.name))))?;
+        let manifest = imagerepo::manifest(&reg, &p.repo, &p.tag)
+            .await
+            .map_err(tool_error)?;
+        json_result(&manifest)
+    }
+
+    #[tool(description = "Run a previously-saved PromQL query (by saved-query name) against a Prometheus instance. Set forceRefresh=true to bypass the cache.")]
+    async fn saved_query_run(
+        &self,
+        Parameters(p): Parameters<SavedQueryRunParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let query = saved_queries::list()
+            .map_err(tool_error)?
+            .into_iter()
+            .find(|q| q.name == p.name)
+            .ok_or_else(|| tool_error(AppError::NotFound(format!("saved query '{}' not found", p.name))))?;
+        let result = saved_queries::run_saved(&query, &p.instance, p.force_refresh)
+            .await
+            .map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    // -----------------------------------------------------------------------
+    // Image sync / import (air-gapped clusters)
+    // -----------------------------------------------------------------------
+
+    #[tool(description = "Check whether skopeo is installed and usable. Call this before image_copy to confirm the host can sync images. Returns the resolved path and version, or an install hint.")]
+    async fn image_sync_status(&self) -> Result<CallToolResult, McpError> {
+        let avail = image_sync::check_skopeo().await;
+        json_result(&avail)
+    }
+
+    #[tool(description = "Copy an image into a configured destination registry using skopeo (air-gapped / offline clusters). `source` is any skopeo transport: docker://nginx:1.25 (public registry), docker-archive:/tmp/img.tar (local docker-save tarball), oci:…, dir:…. The destination registry is resolved by name from the configured image registries (its stored credentials are used automatically). Streams copy progress to the event sink.")]
+    async fn image_copy(
+        &self,
+        Parameters(p): Parameters<ImageCopyParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let sink = self.manager().sink();
+        let src_creds = if p.src_creds.is_empty() { None } else { Some(p.src_creds.as_str()) };
+        let result = image_sync::copy_image(
+            &p.source,
+            &p.dest_registry,
+            &p.dest_repo,
+            &p.dest_tag,
+            src_creds,
+            p.insecure_src,
+            p.insecure_dest,
+            sink,
+        )
+        .await
+        .map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(description = "Inspect a local docker-save tarball (or OCI archive) before copying it: returns the image name, tags, digest, architecture, os, and total size. Use this to confirm a tar's contents before image_copy.")]
+    async fn image_inspect_archive(
+        &self,
+        Parameters(p): Parameters<ImageArchiveParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let info = image_archive::inspect_archive(&p.tar_path)
+            .await
+            .map_err(tool_error)?;
+        json_result(&info)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1072,12 +1911,33 @@ impl rmcp::ServerHandler for K7sMcpServer {
             "k7s MCP — Kubernetes tooling for AI clients. \
              Call `list_contexts` then `connect` before any cluster operation; \
              use the built-in kind ids (pods, deployments, services, nodes, …) \
-             for the common resources, and `list_custom_kinds` for CRDs. \
-             Writes go through `apply_yaml` / `dry_run_yaml` / `delete_resource` / \
-             `scale_resource` / `set_cordon` / `restart_*` / `drain_node`. \
-             Long-lived sessions: `start_port_forward*` / `start_shell` / \
-             `start_node_shell` — all return an id you later pass to the \
-             matching `stop_*` tool."
+             for the common resources, `list_custom_kinds` for CRDs, or \
+             `list_api_resources` for the full kubectl-api-resources table. \
+             Reads: `list_resources` / `get_resource` / `describe_resource` / \
+             `get_events` / `get_logs` / `list_endpoints` / `top_pods` / \
+             `top_nodes` / `rollout_status`. \
+             Writes: `apply_yaml` / `dry_run_yaml` / `apply_yaml_bundle` / \
+             `dry_run_yaml_bundle` / `delete_resource` / `scale_resource` / \
+             `set_cordon` / `restart_pod` / `restart_rollout` / `drain_node` / \
+             `trigger_cronjob`. \
+             Helm: `helm_install` / `helm_upgrade` / `helm_uninstall` / \
+             `helm_rollback` / `helm_history` / `helm_show_values` / \
+             `helm_list_repos` / `helm_search_charts` / `helm_add_repo` / \
+             `helm_remove_repo` / `helm_update_repo`. \
+             Execution: `exec_command` (one-shot) or `start_shell` (interactive); \
+             `start_node_shell` for a node root shell. \
+             Pod files: `pod_list_files` / `pod_read_file` / `pod_write_file` / \
+             `pod_download_file` / `pod_upload_file`. \
+             Port-forwards: `start_port_forward` / `start_service_port_forward`. \
+             Monitoring (instances configured in the UI): `prometheus_query` / \
+             `prometheus_query_range` / `alertmanager_alerts` / \
+             `alertmanager_silences` / `grafana_dashboard_url` / \
+             `image_registry_tags` / `image_registry_manifest` / `saved_query_run`. \
+             Image import (air-gapped clusters): `image_sync_status` / \
+             `image_copy` (copy docker:// or docker-archive: sources into a \
+             configured internal registry; requires skopeo on PATH) / \
+             `image_inspect_archive`. \
+             Long-lived sessions return an id you pass to the matching `stop_*` tool."
                 .to_string(),
         );
         info.capabilities = ServerCapabilities::builder().enable_tools().build();

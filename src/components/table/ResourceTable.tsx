@@ -20,6 +20,7 @@ import { formatAge, formatCpu, formatMem } from "../../lib/format";
 import { isClusterScoped, kindMeta, navIdForKind, type KindId } from "../../lib/kinds";
 import { sortRows } from "../../lib/sort";
 import { parseFilter, matchesFilter } from "../../lib/filter";
+import { eventWithinSince, SINCE_OPTIONS, type SinceOption } from "../../lib/events";
 import { rowWindow, scrollToShow, type RowWindow } from "../../lib/virtual";
 import type { Cell, NavTarget, NodeMetricsMap, PodMetricsMap, Row } from "../../providers/types";
 import { applyClick, pruneSelection, selectedInOrder, selectionForContextMenu } from "../../lib/selection";
@@ -30,6 +31,8 @@ export function ResourceTable() {
   const namespace = useStore((s) => s.namespace);
   const tableFilter = useStore((s) => s.tableFilter);
   const setTableFilter = useStore((s) => s.setTableFilter);
+  const eventsSince = useStore((s) => s.eventsSince);
+  const setEventsSince = useStore((s) => s.setEventsSince);
   const sortCol = useStore((s) => s.sortCol);
   const sortDir = useStore((s) => s.sortDir);
   const toggleSort = useStore((s) => s.toggleSort);
@@ -137,6 +140,15 @@ export function ResourceTable() {
       if (!isClusterScoped(nav, customKinds) && namespace !== "all" && r.namespace !== namespace) {
         return false;
       }
+      // Events time-range filter: map_event puts the last-seen epoch (ms) as the
+      // sort key on the AGE cell (index 4). Only the events kind carries it, so
+      // this is a no-op for every other kind.
+      if (nav === "events" && eventsSince !== "all") {
+        const seenMs = r.cells[4]?.sort;
+        if (typeof seenMs === "number" && !eventWithinSince(seenMs, eventsSince, now)) {
+          return false;
+        }
+      }
       return matchesFilter(r, parsed, nav);
     });
     const overlaid = overlayMetrics(nav, filtered, podMetrics, nodeMetrics, podRows);
@@ -146,12 +158,13 @@ export function ResourceTable() {
     allRows,
     namespace,
     parsed,
+    eventsSince,
+    now,
     podMetrics,
     nodeMetrics,
     podRows,
     sortCol,
     sortDir,
-    now,
     customKinds,
   ]);
 
@@ -264,6 +277,25 @@ export function ResourceTable() {
               ×
             </button>
           </div>
+        )}
+        {/* Events time-range filter. The watcher keeps a live snapshot capped at
+            the newest 500; this narrows it to a window so "what just happened"
+            isn't drowned in older rows. Cluster-scoped past --event-ttl is gone
+            upstream, so "all" is already bounded by the API server. */}
+        {nav === "events" && (
+          <select
+            className={styles.sinceSelect}
+            value={eventsSince}
+            onChange={(e) => setEventsSince(e.target.value as SinceOption)}
+            title={t("events.howFarBack")}
+            data-testid="events-since"
+          >
+            {SINCE_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o === "all" ? t("events.sinceAll") : t("events.sinceLast", o)}
+              </option>
+            ))}
+          </select>
         )}
         {/* "New" affordance. Mirrors the sidebar Tools → Templates entry so the
             create path is reachable from any kind page, not only via the

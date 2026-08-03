@@ -173,6 +173,8 @@ export interface EventItem {
   count: number;
   /** Pre-formatted age string (e.g. "2m"). */
   age: string;
+  /** Last-seen timestamp (RFC3339), used by the EventsTab time-range filter. */
+  lastTimestamp?: string;
 }
 
 /** Cluster-wide status shown in the status bar and cluster switcher. */
@@ -747,6 +749,38 @@ export interface DataProvider {
    * of "created" / "updated" / "failed" and a per-doc error message. */
   applyYamlBundle(yaml: string): Promise<ApplyResult[]>;
 
+  /** Per-document result of a bundle dry run (create-side preview). `proposed`
+   * is the server-defaulted manifest that would be stored, or null when the
+   * doc errored; `error` carries the per-doc failure reason. */
+  dryRunYamlBundle(yaml: string): Promise<DocDryRun[]>;
+
+  // ---- Image import (air-gapped clusters) ----
+  /** Import a local `.tar` image archive into a node's container runtime via a
+   * temporary privileged pod. `path` is an absolute filesystem path from the
+   * native file picker — desktop (Tauri) only; the web shell throws. */
+  importImageToNode(node: string, path: string): Promise<ImportImageResult>;
+
+  /** Whether skopeo is installed on the host (gates the To-Registry tab). */
+  imageSyncStatus(): Promise<SkopeoAvailability>;
+
+  /** Copy an image into a configured destination registry via `skopeo copy`.
+   * `source` is any skopeo transport (`docker://…`, `docker-archive:/path`,
+   * `oci:…`). The destination registry is resolved by name from the stored
+   * image-registries config. Progress streams via the `onLog` callback. */
+  imageCopy(
+    source: string,
+    destRegistry: string,
+    destRepo: string,
+    destTag: string,
+    srcCreds: string | null,
+    insecureSrc: boolean,
+    insecureDest: boolean,
+    onLog: (line: string) => void,
+  ): Promise<ImageSyncResult>;
+
+  /** Inspect a local `docker save` tarball: name, tags, digest, arch, os, size. */
+  imageInspectArchive(tarPath: string): Promise<ArchiveInfo>;
+
   // ---- Endpoints (Phase 1 Tier-2 of KubePi parity) ----
   /** List all EndpointSlices cluster-wide. */
   listEndpoints(): Promise<EndpointRow[]>;
@@ -971,6 +1005,78 @@ export interface ApplyResult {
   /** "created" | "updated" | "unchanged" | "failed" */
   action: string;
   error: string | null;
+}
+
+/** Per-document result of a bundle dry run (the create-side preview path).
+ * Mirrors the Rust `DocDryRun` in `src-tauri/src/kube/templates.rs`. */
+export interface DocDryRun {
+  kind: string;
+  namespace: string;
+  name: string;
+  /** Server-defaulted manifest that would be stored (after mutating
+   * webhooks), serialized as YAML; null when the doc errored. */
+  proposed: string | null;
+  /** Per-doc error (parse / discovery / admission); null on success. */
+  error: string | null;
+}
+
+/** Result of importing a local `.tar` into a node's container runtime.
+ * Mirrors the Rust `ImportResult` in `src-tauri/src/kube/imageimport.rs`. */
+export interface ImportImageResult {
+  /** Detected runtime family: "containerd" | "docker". Empty on a
+   * pre-detection error (e.g. unsupported runtime). */
+  runtime: string;
+  /** Raw stdout from the load command (the "Loaded image: …" lines). */
+  output: string;
+  /** Image refs parsed out of `output` (e.g. "nginx:1.25"). */
+  images: string[];
+  /** null on success; the failure reason on error. */
+  error: string | null;
+}
+
+/** Whether skopeo is installed and usable on the host. Mirrors the Rust
+ * `SkopeoAvailability` in `src-tauri/src/kube/image_sync.rs`. */
+export interface SkopeoAvailability {
+  available: boolean;
+  /** Resolved binary path, or null when not found. */
+  path: string | null;
+  /** `skopeo --version` output, or an install hint when missing. */
+  version: string | null;
+}
+
+/** Result of a completed `skopeo copy` into a private registry. Mirrors the
+ * Rust `ImageSyncResult` in `src-tauri/src/kube/image_sync.rs`. */
+export interface ImageSyncResult {
+  /** The original source transport string (e.g. `docker-archive:/tmp/x.tar`). */
+  source: string;
+  /** The final destination (`docker://harbor.internal/library/nginx:1.25`). */
+  destination: string;
+  /** True if the skopeo process exited 0. */
+  success: boolean;
+  /** Number of stdout+stderr lines produced. */
+  lines: number;
+  /** Human-readable summary, e.g. "copied … → harbor/library/nginx:1.25". */
+  summary: string;
+}
+
+/** Salient facts about an image inside a local archive, enough to decide
+ * whether to copy it. Mirrors the Rust `ArchiveInfo` in
+ * `src-tauri/src/kube/image_archive.rs`. */
+export interface ArchiveInfo {
+  /** Canonical name (e.g. `docker.io/library/nginx`). May be empty. */
+  name: string;
+  /** Tag(s) stored in the archive (e.g. `["1.25", "latest"]`). */
+  repoTags: string[];
+  /** Content digest (`sha256:…`). */
+  digest: string;
+  /** Target architecture, e.g. `amd64`. */
+  architecture: string;
+  /** Target OS, e.g. `linux`. */
+  os: string;
+  /** When the image was built (RFC3339), best-effort. */
+  created: string;
+  /** Total size of all layers in bytes (the on-wire size of the push). */
+  sizeBytes: number;
 }
 
 // ---------------------------------------------------------------------------

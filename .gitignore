@@ -46,3 +46,7 @@ probe_daocloud.sh
 # probe crate outputs
 crates/probe/last_run.txt
 crates/probe/last_run.err.txt
+
+# tool artifacts
+.zcode/
+.playwright-mcp/
