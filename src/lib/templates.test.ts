@@ -382,3 +382,132 @@ describe("renderTemplate() — Bxx parity templates", () => {
     }
   });
 });
+
+/**
+ * Bxx form-wizard pass — the `extras` field lets a template declare
+ * structured form sections (labels, resources) that the wizard renders
+ * alongside the simple `params` fields. The renderers consume the
+ * `labels` / `resources` keys from the values dict and embed them in
+ * the right YAML positions.
+ *
+ * The tests below pin the contract: which templates opt in to which
+ * extras, and what the rendered YAML looks like for each combination
+ * of inputs (empty, partial, full).
+ */
+import {
+  labelsBlock,
+  resourcesRequestsBlock,
+} from "./templates";
+
+describe("labelsBlock", () => {
+  it("returns an empty string for missing input", () => {
+    expect(labelsBlock(undefined, 4)).toBe("");
+    expect(labelsBlock(null, 4)).toBe("");
+    expect(labelsBlock({}, 4)).toBe("");
+  });
+
+  it("renders each entry with the requested indent", () => {
+    const out = labelsBlock({ app: "x", tier: "web" }, 6);
+    expect(out).toBe("      app: x\n      tier: web");
+  });
+
+  it("drops entries with empty keys (the user typed a value but not a key)", () => {
+    // The form lets a user add a row, type a value, then leave the
+    // key blank; the renderer must not emit `  : value`, which is
+    // invalid YAML.
+    const out = labelsBlock({ "": "orphan", app: "x" }, 2);
+    expect(out).toBe("  app: x");
+  });
+});
+
+describe("resourcesRequestsBlock", () => {
+  it("returns an empty string when nothing is set", () => {
+    expect(resourcesRequestsBlock(undefined, 8)).toBe("");
+    expect(resourcesRequestsBlock({}, 8)).toBe("");
+  });
+
+  it("emits the standard k8s indent: resources / requests / key", () => {
+    const out = resourcesRequestsBlock({ cpu: "100m", memory: "128Mi" }, 8);
+    expect(out).toBe(
+      "        resources:\n          requests:\n            cpu: 100m\n            memory: 128Mi",
+    );
+  });
+
+  it("omits the field block entirely when only one of cpu/memory is set", () => {
+    // CPU only: just one `cpu:` line under `requests:`.
+    expect(resourcesRequestsBlock({ cpu: "500m" }, 4)).toBe(
+      "    resources:\n      requests:\n        cpu: 500m",
+    );
+    // Memory only: ditto, but the order is cpu-then-memory when both
+    // are set; here only memory is.
+    expect(resourcesRequestsBlock({ memory: "1Gi" }, 4)).toBe(
+      "    resources:\n      requests:\n        memory: 1Gi",
+    );
+  });
+});
+
+describe("Template.extras integration (Bxx)", () => {
+  it("every workload template (Bxx parity) declares labels + resources extras", () => {
+    // Workloads that own a pod template — the same set that
+    // `modify-image` and `restart` apply to — should all have
+    // extras. Service / ConfigMap / Secret / PVC / Namespace /
+    // Ingress don't have a pod template, so extras are absent
+    // (and the wizard doesn't try to render an "Image" section
+    // for them).
+    const withExtras = [
+      "deployment",
+      "statefulset",
+      "daemonset",
+      "job",
+      "cronjob",
+    ];
+    for (const id of withExtras) {
+      const t = getTemplate(id)!;
+      expect(t.extras?.labels, `${id} should have labels extra`).toBeDefined();
+      expect(
+        t.extras?.resources,
+        `${id} should have resources extra`,
+      ).toBeDefined();
+    }
+  });
+
+  it("user labels show up in `spec.template.metadata.labels`", () => {
+    const t = getTemplate("deployment")!;
+    const values = {
+      ...defaultValuesFor(t),
+      labels: { app: "wiki", tier: "web" },
+    };
+    const yaml = renderTemplate(t.id, values);
+    expect(yaml).toMatch(/^      labels:$/m);
+    // Sorted by key (the wizard sorts the editor for stability) — but
+    // the renderer doesn't sort itself, it iterates the dict. We only
+    // assert the keys are present, not their order.
+    expect(yaml).toMatch(/^        app: wiki$/m);
+    expect(yaml).toMatch(/^        tier: web$/m);
+  });
+
+  it("user resources show up in `spec.template.spec.containers[0].resources`", () => {
+    const t = getTemplate("deployment")!;
+    const values = {
+      ...defaultValuesFor(t),
+      resources: { cpu: "250m", memory: "256Mi" },
+    };
+    const yaml = renderTemplate(t.id, values);
+    // The block sits between `image:` and `ports:`, indented to match
+    // the container's field column.
+    expect(yaml).toMatch(/^        resources:$/m);
+    expect(yaml).toMatch(/^          requests:$/m);
+    expect(yaml).toMatch(/^            cpu: 250m$/m);
+    expect(yaml).toMatch(/^            memory: 256Mi$/m);
+  });
+
+  it("empty resources object omits the resources: block entirely", () => {
+    const t = getTemplate("deployment")!;
+    const values = {
+      ...defaultValuesFor(t),
+      resources: {},
+    };
+    const yaml = renderTemplate(t.id, values);
+    expect(yaml).not.toMatch(/^        resources:$/m);
+  });
+});

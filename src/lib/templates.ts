@@ -51,6 +51,29 @@ export interface TemplateParam {
   required?: boolean;
 }
 
+export interface TemplateExtras {
+  /**
+   * Pod-level labels. Rendered as `spec.template.metadata.labels` for
+   * workloads (the place that `matchLabels` and Service selectors
+   * actually consult) and as `metadata.labels` for non-workload kinds.
+   * The form renders a key-value table; empty keys are stripped.
+   */
+  labels?: {
+    default: Record<string, string>;
+  };
+  /**
+   * Resource requests, rendered as
+   * `spec.template.spec.containers[0].resources.requests`. Either
+   * field can be empty — the renderer emits only the lines the user
+   * filled in. The single-container assumption is the same one the
+   * templates already make; multi-container resource requests are
+   * the YAML editor's job.
+   */
+  resources?: {
+    default: { cpu?: string; memory?: string };
+  };
+}
+
 export interface Template {
   id: string;
   /**
@@ -76,11 +99,21 @@ export interface Template {
   /** Parameters the form renders. */
   params: TemplateParam[];
   /**
-   * Render to a (possibly multi-document) YAML bundle. Implementations should
-   * `{{key}}`-substitute from the provided values and produce a string of
-   * one or more YAML documents separated by `---`.
+   * Optional form sections beyond `params`. Each becomes a labelled card
+   * in the wizard form, alongside the simple `params` fields. Values
+   * are passed to the render function under their own keys in the
+   * `values` dict:
+   *   - `labels`: `Record<string, string>` (key→value)
+   *   - `resources`: `{ cpu?: string; memory?: string }`
    */
-  render: (values: Record<string, string>) => string;
+  extras?: TemplateExtras;
+  /**
+   * Render to a (possibly multi-document) YAML bundle. Implementations
+   * substitute `{{key}}` from `values` (the merged `params` + `extras`
+   * dict) and produce a string of one or more YAML documents separated
+   * by `---`.
+   */
+  render: (values: Record<string, unknown>) => string;
 }
 
 const TEMPLATES: Template[] = [
@@ -121,20 +154,34 @@ const TEMPLATES: Template[] = [
         kind: "text",
       },
     ],
+    extras: {
+      // The default `app: my-app` is the baseline the Service selector
+      // and `matchLabels` already reference. The wizard starts the
+      // labels table with this entry pre-filled so the rendered YAML
+      // is internally consistent on first open; the user can add more
+      // or change the value.
+      labels: { default: { app: "my-app" } },
+      resources: { default: { cpu: "100m", memory: "128Mi" } },
+    },
     render: (v) => {
       const name = v.name || "my-app";
       const image = v.image || "nginx:1.25";
       const replicas = clampInt(v.replicas, 1, 100, 1);
       const port = clampInt(v.port, 1, 65535, 80);
       const ns = v.namespace || "default";
+      // The pod-level labels go under `spec.template.metadata.labels`
+      // — the place a Service selector and `matchLabels` actually
+      // read. Top-level `metadata.labels` is omitted because nothing
+      // else in this template uses it; a user wanting cluster-wide
+      // labels can add them in the YAML editor after apply.
+      const podLabels = labelsBlock(v.labels, 8) || `        app: ${name}`;
+      const containerRes = resourcesRequestsBlock(v.resources, 8);
       return [
         `apiVersion: apps/v1`,
         `kind: Deployment`,
         `metadata:`,
         `  name: ${name}`,
         `  namespace: ${ns}`,
-        `  labels:`,
-        `    app: ${name}`,
         `spec:`,
         `  replicas: ${replicas}`,
         `  selector:`,
@@ -143,11 +190,16 @@ const TEMPLATES: Template[] = [
         `  template:`,
         `    metadata:`,
         `      labels:`,
-        `        app: ${name}`,
+        podLabels,
         `    spec:`,
         `      containers:`,
         `      - name: ${name}`,
         `        image: ${image}`,
+        // Resources slot in between `image:` and `ports:` so the
+        // standard k8s field order is preserved (image, resources,
+        // ports, env, …). An empty `resourcesRequestsBlock` skips the
+        // line entirely.
+        ...(containerRes ? containerRes.split("\n") : []),
         `        ports:`,
         `        - containerPort: ${port}`,
         `---`,
@@ -319,12 +371,22 @@ const TEMPLATES: Template[] = [
         kind: "text",
       },
     ],
+    extras: {
+      // StatefulSet pods need labels that match `spec.selector.matchLabels`
+      // (defaulted to `app: <name>` below) so the headless Service's
+      // selector actually routes to them. The pre-filled `app: my-app`
+      // keeps the form usable on first open.
+      labels: { default: { app: "my-app" } },
+      resources: { default: { cpu: "100m", memory: "128Mi" } },
+    },
     render: (v) => {
       const name = v.name || "my-app";
       const image = v.image || "nginx:1.25";
       const replicas = clampInt(v.replicas, 1, 100, 3);
       const port = clampInt(v.port, 1, 65535, 80);
       const ns = v.namespace || "default";
+      const podLabels = labelsBlock(v.labels, 8) || `        app: ${name}`;
+      const containerRes = resourcesRequestsBlock(v.resources, 8);
       // A StatefulSet without `serviceName` has no stable network identity — the
       // headless Service in this template is the per-pod DNS, and the two have
       // to agree. `volumeClaimTemplates` is omitted on purpose: PVs are a topic
@@ -358,11 +420,12 @@ const TEMPLATES: Template[] = [
         `  template:`,
         `    metadata:`,
         `      labels:`,
-        `        app: ${name}`,
+        podLabels,
         `    spec:`,
         `      containers:`,
         `      - name: ${name}`,
         `        image: ${image}`,
+        ...(containerRes ? containerRes.split("\n") : []),
         `        ports:`,
         `        - containerPort: ${port}`,
       ].join("\n");
@@ -397,11 +460,21 @@ const TEMPLATES: Template[] = [
         kind: "text",
       },
     ],
+    extras: {
+      // DaemonSet pods need labels that match the workload's
+      // `spec.selector.matchLabels` (defaulted to `app: <name>` below)
+      // — the controller refuses to apply a DS whose pod template
+      // doesn't have a matching label set.
+      labels: { default: { app: "my-agent" } },
+      resources: { default: { cpu: "50m", memory: "64Mi" } },
+    },
     render: (v) => {
       const name = v.name || "my-agent";
       const image = v.image || "fluentd:1.16";
       const port = clampInt(v.port, 1, 65535, 24224);
       const ns = v.namespace || "kube-system";
+      const podLabels = labelsBlock(v.labels, 8) || `        app: ${name}`;
+      const containerRes = resourcesRequestsBlock(v.resources, 8);
       // Default namespace is `kube-system` because that's where node-level
       // agents actually live in real clusters — a user picking this template
       // is almost always provisioning infra, not an app.
@@ -420,11 +493,12 @@ const TEMPLATES: Template[] = [
         `  template:`,
         `    metadata:`,
         `      labels:`,
-        `        app: ${name}`,
+        podLabels,
         `    spec:`,
         `      containers:`,
         `      - name: ${name}`,
         `        image: ${image}`,
+        ...(containerRes ? containerRes.split("\n") : []),
         `        ports:`,
         `        - containerPort: ${port}`,
       ].join("\n");
@@ -459,11 +533,16 @@ const TEMPLATES: Template[] = [
         kind: "text",
       },
     ],
+    extras: {
+      labels: { default: { app: "my-job" } },
+      resources: { default: { cpu: "100m", memory: "128Mi" } },
+    },
     render: (v) => {
       const name = v.name || "my-job";
       const image = v.image || "busybox:1.36";
       const completions = clampInt(v.completions, 1, 1000, 1);
       const ns = v.namespace || "default";
+      const containerRes = resourcesRequestsBlock(v.resources, 8);
       // `restartPolicy: OnFailure` is the only sensible default for a Job
       // pod — the alternative (Never) would silently swallow transient
       // failures and leave a job wedged at "0/1" with no record of why.
@@ -476,11 +555,15 @@ const TEMPLATES: Template[] = [
         `spec:`,
         `  completions: ${completions}`,
         `  template:`,
+        `    metadata:`,
+        `      labels:`,
+        `        app: ${name}`,
         `    spec:`,
         `      restartPolicy: OnFailure`,
         `      containers:`,
         `      - name: ${name}`,
         `        image: ${image}`,
+        ...(containerRes ? containerRes.split("\n") : []),
       ].join("\n");
     },
   },
@@ -513,11 +596,16 @@ const TEMPLATES: Template[] = [
         kind: "text",
       },
     ],
+    extras: {
+      labels: { default: { app: "my-cron" } },
+      resources: { default: { cpu: "100m", memory: "128Mi" } },
+    },
     render: (v) => {
       const name = v.name || "my-cron";
       const image = v.image || "busybox:1.36";
       const schedule = v.schedule || "0 * * * *";
       const ns = v.namespace || "default";
+      const containerRes = resourcesRequestsBlock(v.resources, 10);
       return [
         `apiVersion: batch/v1`,
         `kind: CronJob`,
@@ -529,11 +617,15 @@ const TEMPLATES: Template[] = [
         `  jobTemplate:`,
         `    spec:`,
         `      template:`,
+        `        metadata:`,
+        `          labels:`,
+        `            app: ${name}`,
         `        spec:`,
         `          restartPolicy: OnFailure`,
         `          containers:`,
         `          - name: ${name}`,
         `            image: ${image}`,
+        ...(containerRes ? containerRes.split("\n") : []),
       ].join("\n");
     },
   },
@@ -751,7 +843,7 @@ export function getTemplate(id: string): Template | undefined {
 
 export function renderTemplate(
   id: string,
-  values: Record<string, string>,
+  values: Record<string, unknown>,
 ): string {
   const t = getTemplate(id);
   if (!t) throw new Error(`template '${id}' not found`);
@@ -762,13 +854,74 @@ export function defaultValuesFor(t: Template): Record<string, string> {
   return Object.fromEntries(t.params.map((p) => [p.key, p.default]));
 }
 
+/**
+ * Format a `Record<string, string>` as a multi-line, `indent`-spaced
+ * YAML block. Empty keys are dropped, and the function returns "" when
+ * the input is missing or empty so the caller can use a simple
+ * truthiness check.
+ *
+ * Used by template renderers to expand the wizard's `labels` extra
+ * into a YAML `labels:` block at the right indent.
+ */
+export function labelsBlock(
+  labels: unknown,
+  indent: number,
+): string {
+  if (!labels || typeof labels !== "object") return "";
+  const pad = " ".repeat(indent);
+  const entries = Object.entries(labels as Record<string, string>).filter(
+    ([k, v]) => k.length > 0 && v !== undefined && v !== null,
+  );
+  if (entries.length === 0) return "";
+  return entries.map(([k, v]) => `${pad}${k}: ${v}`).join("\n");
+}
+
+/**
+ * Format `{cpu, memory}` as a YAML `resources.requests:` block at the
+ * requested indent. Either field may be empty; the block is omitted
+ * entirely when both are. Indents:
+ *   indent+0 → `resources:`
+ *   indent+2 → `requests:`
+ *   indent+4 → `cpu:` / `memory:`
+ *
+ * The +4 / +2 spacing matches the standard k8s manifest style so the
+ * result diffs cleanly against `kubectl get -o yaml` output.
+ */
+export function resourcesRequestsBlock(
+  res: unknown,
+  indent: number,
+): string {
+  if (!res || typeof res !== "object") return "";
+  const r = res as { cpu?: string; memory?: string };
+  const lines: string[] = [];
+  const pad0 = " ".repeat(indent);
+  const pad2 = " ".repeat(indent + 2);
+  if (r.cpu) {
+    lines.push(`${pad0}resources:`);
+    lines.push(`${pad2}requests:`);
+    lines.push(`${" ".repeat(indent + 4)}cpu: ${r.cpu}`);
+  }
+  if (r.memory) {
+    if (lines.length === 0) {
+      lines.push(`${pad0}resources:`);
+      lines.push(`${pad2}requests:`);
+    }
+    lines.push(`${" ".repeat(indent + 4)}memory: ${r.memory}`);
+  }
+  return lines.join("\n");
+}
+
 function clampInt(
-  raw: string | undefined,
+  raw: unknown,
   min: number,
   max: number,
   fallback: number,
 ): number {
-  const n = Number.parseInt(raw ?? "", 10);
+  // `raw` is `unknown` because the wizard passes the merged
+  // params + extras values dict; non-number extras (e.g. a labels
+  // Record) are never actually fed to this function, but the wider
+  // type lets the existing renderers stay un-annotated.
+  const n = Number.parseInt(typeof raw === "string" ? raw : "", 10);
   if (Number.isNaN(n)) return fallback;
   if (n < min) return min;
   if (n > max) return max;

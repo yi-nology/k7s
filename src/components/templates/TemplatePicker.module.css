@@ -180,3 +180,142 @@
   border-left-color: var(--status-err);
   color: var(--status-err);
 }
+
+/* ---- Extras sections (Bxx) ----
+   Each `extras` block is a `<fieldset>` (semantic, keyboard-navigable
+   by default) with a `<legend>` header. The form puts two blocks side
+   by side via `flex-wrap` so a narrow panel stacks them. The labels
+   table is its own micro-component (see .labelsTable). */
+
+.extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  /* Full-bleed inside the form: the simple `params` fields have a
+     fixed-width label, but the extras blocks (with their own internal
+     grid) need the whole row width. */
+  grid-column: 1 / -1;
+  margin-top: var(--space-2);
+}
+
+.extrasBlock {
+  /* The native fieldset padding + border eat into the layout; reset
+     to the surrounding field rhythm. */
+  border: 1px solid var(--border-row);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3) var(--space-2);
+  margin: 0;
+}
+
+.extrasBlock legend {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding: 0 var(--space-1);
+}
+
+.resourcesRow {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.resourceField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* Two equal columns: CPU on the left, memory on the right. The
+     flex-wrap means a narrow window stacks them vertically. */
+  flex: 1 1 140px;
+  min-width: 140px;
+}
+
+.resourceField span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.resourceField input {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
+.labelsTable {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.labelsRow {
+  display: grid;
+  /* key | = | value | ×
+     The two text inputs grow, the equals and × stay fixed-width.
+     Using grid rather than flex here keeps the equals and × from
+     drifting when the value field grows. */
+  grid-template-columns: 1fr 12px 1fr 22px;
+  align-items: center;
+  gap: 4px;
+}
+
+.labelsKey,
+.labelsValue {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 8px;
+  min-width: 0;
+  /* Long label keys (a URL-style `app.kubernetes.io/instance`) need
+     to fit — truncate in the middle so the user still sees both
+     ends. The renderer will only see the untruncated value. */
+  text-overflow: ellipsis;
+}
+
+.labelsEq {
+  text-align: center;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+}
+
+.labelsDel {
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  height: 22px;
+  border-radius: var(--radius-sm);
+}
+.labelsDel:hover {
+  color: var(--status-err);
+  border-color: var(--status-err);
+}
+
+.labelsAdd {
+  align-self: flex-start;
+  background: none;
+  border: 1px dashed var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  margin-top: 4px;
+  padding: 4px 10px;
+}
+.labelsAdd:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}

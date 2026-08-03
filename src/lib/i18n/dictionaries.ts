@@ -438,6 +438,22 @@ export interface Dictionary {
     apply: string;
     pick: string;
     /**
+     * The structured "extras" sections (Bxx form-wizard pass) — labels
+     * and resource requests. The form renders these as field sets
+     * alongside the simple `params` fields; missing keys fall back to
+     * the English copy via `t(key, fallback)`.
+     */
+    extras: {
+      labels: string;
+      resources: string;
+      cpu: string;
+      memory: string;
+      addLabel: string;
+      remove: string;
+      keyPlaceholder: string;
+      valuePlaceholder: string;
+    };
+    /**
      * Per-template title translations keyed by the template id (`deployment`,
      * `ingress`, `configmap`). Each `Template.title` in `lib/templates.ts` is
      * the English fallback; the picker routes through `t("tpl.titles." + id,
@@ -997,6 +1013,16 @@ export const en: Dictionary = {
     applying: "Applying…",
     apply: "Apply",
     pick: "Pick a template on the left",
+    extras: {
+      labels: "Labels",
+      resources: "Resource requests",
+      cpu: "CPU",
+      memory: "Memory",
+      addLabel: "Add label",
+      remove: "remove",
+      keyPlaceholder: "key",
+      valuePlaceholder: "value",
+    },
     titles: {
       deployment: "Deployment",
       ingress: "Ingress (Nginx)",
@@ -1544,6 +1570,16 @@ export const zh: Dictionary = {
     applying: "应用中…",
     apply: "应用",
     pick: "在左侧选一个模板",
+    extras: {
+      labels: "标签",
+      resources: "资源请求",
+      cpu: "CPU",
+      memory: "内存",
+      addLabel: "添加标签",
+      remove: "删除",
+      keyPlaceholder: "键",
+      valuePlaceholder: "值",
+    },
     titles: {
       deployment: "Deployment",
       ingress: "Ingress (Nginx)",

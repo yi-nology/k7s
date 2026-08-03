@@ -157,6 +157,22 @@ describe("translate", () => {
     expect(translate("zh", "actions.labels.modifyImage")).toBe("修改镜像…");
   });
 
+  /** The Bxx form-wizard pass adds a structured `extras` section to the
+   *  create-from-template overlay. Each key below renders in either
+   *  locale; missing translations would leave the user staring at
+   *  the raw dotted path. */
+  it("resolves tpl.extras.* in both locales", () => {
+    expect(translate("en", "tpl.extras.labels")).toBe("Labels");
+    expect(translate("en", "tpl.extras.resources")).toBe("Resource requests");
+    expect(translate("en", "tpl.extras.cpu")).toBe("CPU");
+    expect(translate("en", "tpl.extras.memory")).toBe("Memory");
+    expect(translate("en", "tpl.extras.addLabel")).toBe("Add label");
+    expect(translate("zh", "tpl.extras.labels")).toBe("标签");
+    expect(translate("zh", "tpl.extras.resources")).toBe("资源请求");
+    expect(translate("zh", "tpl.extras.cpu")).toBe("CPU");
+    expect(translate("zh", "tpl.extras.memory")).toBe("内存");
+    expect(translate("zh", "tpl.extras.addLabel")).toBe("添加标签");
+  });
 });
 
 describe("groupLabel", () => {
