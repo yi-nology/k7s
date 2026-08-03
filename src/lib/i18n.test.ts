@@ -149,6 +149,14 @@ describe("translate", () => {
     expect(translate("en", "actions.labels.downloadYaml")).toBe("Download YAML");
     expect(translate("zh", "actions.labels.downloadYaml")).toBe("下载 YAML");
   });
+
+  /** The "Modify image…" form-mode row action (Bxx) — only on workload
+   *  kinds, but its i18n key still has to resolve in both locales. */
+  it("resolves actions.labels.modifyImage in both locales", () => {
+    expect(translate("en", "actions.labels.modifyImage")).toBe("Modify image…");
+    expect(translate("zh", "actions.labels.modifyImage")).toBe("修改镜像…");
+  });
+
 });
 
 describe("groupLabel", () => {

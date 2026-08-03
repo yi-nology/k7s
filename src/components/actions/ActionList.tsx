@@ -32,6 +32,7 @@ import {
   type ActionId,
 } from "../../lib/actions";
 import type { KindId, ResourceRef, Row } from "../../providers/types";
+import { ModifyImageForm } from "./ModifyImageForm";
 
 interface ActionListProps {
   kind: KindId;
@@ -417,6 +418,21 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
     );
   }
 
+  // ---- modify-image (Bxx) ----
+  // Routes the form-mode "modify-image" action into its own component.
+  // The form fetches the YAML on mount, lets the user pick a new
+  // image:tag per container, and applies via the existing
+  // `dryRunYaml` → `applyYaml` path. See ModifyImageForm.tsx.
+  if (mode.kind === "form" && mode.id === "modify-image") {
+    return (
+      <ModifyImageForm
+        ref={refOf(single)}
+        onError={onError}
+        onClose={onClose}
+      />
+    );
+  }
+
   // ---- the menu ----
   const safe = actions.filter((a) => !a.danger);
   const dangerous = actions.filter((a) => a.danger);
@@ -478,6 +494,7 @@ function confirmLabel(id: ActionId, locale: import("../../lib/i18n").Locale): st
     drain: "actions.labels.drain",
     delete: "actions.labels.delete",
     "download-yaml": "actions.labels.downloadYaml",
+    "modify-image": "actions.labels.modifyImage",
   };
   return translate(locale, dict[id]).replace(/…$/, "").trim();
 }

@@ -210,6 +210,9 @@ export interface Dictionary {
       /** "Download YAML" — fetches the resource's YAML and saves it locally.
        *  Works for every kind (Bxx — KubePi parity). */
       downloadYaml: string;
+      /** "Modify image…" — opens a form that re-writes one or more
+       *  containers' `image:` values and applies the result. */
+      modifyImage: string;
     };
     confirm: {
       delete: (what: string, names: string) => string;
@@ -779,6 +782,7 @@ export const en: Dictionary = {
       drain: "Drain…",
       delete: "Delete…",
       downloadYaml: "Download YAML",
+      modifyImage: "Modify image…",
     },
     confirm: {
       delete: (what, names) => `Delete ${what}?${names}`,
@@ -1327,6 +1331,7 @@ export const zh: Dictionary = {
       drain: "驱逐…",
       delete: "删除…",
       downloadYaml: "下载 YAML",
+      modifyImage: "修改镜像…",
     },
     confirm: {
       delete: (what, names) => `删除 ${what}?${names}`,

@@ -35,7 +35,8 @@ export type ActionId =
   | "uncordon"
   | "drain"
   | "delete"
-  | "download-yaml";
+  | "download-yaml"
+  | "modify-image";
 
 export interface ActionDef {
   id: ActionId;
@@ -73,6 +74,7 @@ const LABEL_KEYS: Record<ActionId, string> = {
   drain: "actions.labels.drain",
   delete: "actions.labels.delete",
   "download-yaml": "actions.labels.downloadYaml",
+  "modify-image": "actions.labels.modifyImage",
 };
 
 /** The mode/danger/bulk metadata, in menu order. Order is display order: safe things first. */
@@ -92,6 +94,11 @@ const META: Record<ActionId, Omit<ActionDef, "id" | "label">> = {
   // (events). Safe + bulk so the user can grab a hundred pods' YAML in one
   // zip-less flow.
   "download-yaml": { mode: "immediate", bulk: true },
+  // Modify-image: a form dialog that re-writes the workload's container
+  // `image:` values and applies the result. Not bulk — a multi-row
+  // selection would have to fetch+rewrite N manifests and show N dialogs,
+  // and there's no real use case for that.
+  "modify-image": { mode: "form", bulk: false },
 };
 
 /** Every action id, in menu order. The metadata + label key together define the action. */
@@ -100,6 +107,7 @@ const ORDER: ActionId[] = [
   "forward",
   "scale",
   "restart",
+  "modify-image",
   "cordon",
   "uncordon",
   "drain",
@@ -144,6 +152,19 @@ function applies(id: ActionId, kind: KindId, row: Row): boolean {
       // here; the provider does the actual work and the file picker still
       // comes out as a sensible `kind-name.yaml`.
       return true;
+    case "modify-image":
+      // Only meaningful for workloads that own a `spec.template.spec` with
+      // `containers:` — a Service, ConfigMap, or PVC has nothing to swap.
+      // ReplicaSets are included for symmetry with the rollout kind family
+      // even though users rarely change their image directly.
+      return (
+        kind === "deployments" ||
+        kind === "statefulsets" ||
+        kind === "daemonsets" ||
+        kind === "jobs" ||
+        kind === "cronjobs" ||
+        kind === "replicasets"
+      );
   }
 }
 

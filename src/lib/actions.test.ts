@@ -116,6 +116,69 @@ describe("actionsFor — download-yaml (Bxx)", () => {
   });
 });
 
+/**
+ * The "modify-image" action is workload-specific (Bxx). Services,
+ * ConfigMaps, and PVCs have no `containers:` array to swap, so the
+ * selector returns false for them — surfacing the menu item on those
+ * pages would only lead to an empty form. The rollout family
+ * (Deployment / STS / DS), Jobs, CronJobs, and ReplicaSets are all
+ * fair game.
+ */
+describe("actionsFor — modify-image (Bxx)", () => {
+  it("is offered on every workload kind that owns a pod template", () => {
+    const workloads: Array<Parameters<typeof actionsFor>[0]> = [
+      "deployments",
+      "statefulsets",
+      "daemonsets",
+      "jobs",
+      "cronjobs",
+      "replicasets",
+    ];
+    for (const kind of workloads) {
+      const got = actionsFor(kind, [row("x")]);
+      expect(got.map((a) => a.id), kind).toContain("modify-image");
+    }
+  });
+
+  it("is NOT offered on kinds without containers", () => {
+    const nonWorkloads: Array<Parameters<typeof actionsFor>[0]> = [
+      "services",
+      "configmaps",
+      "secrets",
+      "persistentvolumeclaims",
+      "nodes",
+      "namespaces",
+    ];
+    for (const kind of nonWorkloads) {
+      const got = actionsFor(kind, [row("x")]);
+      expect(got.map((a) => a.id), kind).not.toContain("modify-image");
+    }
+  });
+
+  it("is NOT offered on pods (pods are restartable, not modifiable)", () => {
+    // Pods have containers but no pod template — the action would
+    // patch the Pod, which is not a long-lived object and would be
+    // recreated by its controller on the next reconciliation. The
+    // form's "Modify image" wouldn't survive a restart. `restart`
+    // is the right action for pods.
+    const got = actionsFor("pods", [row("p")]);
+    expect(got.map((a) => a.id)).not.toContain("modify-image");
+  });
+
+  it("modify-image is single-row only (a multi-row dialog would be unwieldy)", () => {
+    // The action is `bulk: false`, so a multi-row selection filters it
+    // out before the user sees the menu. Verify both halves:
+    //   - single-row offers the action
+    //   - multi-row does not
+    const single = actionsFor("deployments", [row("a")]);
+    expect(single.map((a) => a.id)).toContain("modify-image");
+    expect(single.find((a) => a.id === "modify-image")?.bulk).toBe(false);
+
+    const multi = actionsFor("deployments", [row("a"), row("b")]);
+    expect(multi.map((a) => a.id)).not.toContain("modify-image");
+  });
+});
+
 describe("actionsFor — bulk", () => {
   const pods = [row("a"), row("b"), row("c")];
 
