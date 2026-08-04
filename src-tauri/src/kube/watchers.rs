@@ -11,7 +11,7 @@
 //! uses it to order and cap a stream that can otherwise run to thousands of rows.
 
 use super::discovery::CustomKind;
-use super::{dto::Row, events, helm, mappers, ClientManager, ResourceKind, ResourceUpdate};
+use super::{dto::Row, events, helm, mappers, ClientManager, KindStatus, ResourceKind, ResourceUpdate};
 use futures::stream::BoxStream;
 use futures::StreamExt;
 use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
@@ -389,15 +389,35 @@ async fn pump<K>(
     ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
     let mut dirty = false;
+    let mut was_forbidden = false;
     loop {
         tokio::select! {
             // A watch event arrived; the store is already updated. Mark dirty so the
             // next tick emits a fresh snapshot.
             ev = stream.next() => match ev {
-                Some(Ok(_)) => { dirty = true; }
+                Some(Ok(_)) => {
+                    if was_forbidden {
+                        was_forbidden = false;
+                        let _ = sink.emit(
+                            events::WATCH_KIND_STATUS,
+                            &KindStatus { kind: kind.clone(), status: "ok".into() },
+                        );
+                    }
+                    dirty = true;
+                }
                 Some(Err(e)) => {
                     // Logged, not fatal — backoff will retry this one kind.
                     tracing::warn!("watch {kind} error: {e}");
+                    let err_str = e.to_string();
+                    if err_str.contains("403") || err_str.contains("Forbidden") {
+                        if !was_forbidden {
+                            was_forbidden = true;
+                            let _ = sink.emit(
+                                events::WATCH_KIND_STATUS,
+                                &KindStatus { kind: kind.clone(), status: "forbidden".into() },
+                            );
+                        }
+                    }
                 }
                 None => break, // stream ended (client dropped on reset)
             },

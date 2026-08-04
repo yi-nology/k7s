@@ -252,6 +252,8 @@ pub mod events {
     pub const CLUSTER_STATUS: &str = "cluster-status";
     /// Count of live watcher + log-stream tasks (sidebar footer).
     pub const WATCH_STATUS: &str = "watch-status";
+    /// Per-kind RBAC status: emitted when a watch hits 403 Forbidden or recovers.
+    pub const WATCH_KIND_STATUS: &str = "watch-kind-status";
     /// The active port-forwards, pushed whenever one is added, removed, or fails
     /// (B16) — so the strip reflects failures without the UI polling for them.
     pub const FORWARDS_UPDATE: &str = "forwards-update";
@@ -280,4 +282,13 @@ pub mod events {
 pub struct ResourceUpdate {
     pub kind: String,
     pub rows: Vec<Row>,
+}
+
+/// Payload for [`events::WATCH_KIND_STATUS`].
+///
+/// Emitted when a per-kind watch encounters a 403 Forbidden or recovers from one.
+#[derive(Serialize, Clone)]
+pub struct KindStatus {
+    pub kind: String,
+    pub status: String,
 }
