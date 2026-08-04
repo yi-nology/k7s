@@ -47,3 +47,4 @@ if (!HTMLElement.prototype.getBoundingClientRect) {
     toJSON() {},
   });
 }
+

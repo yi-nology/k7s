@@ -5,7 +5,17 @@
  * tab rendering, close button, kind label display.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+// Mock the transport layer so useLogStream doesn't hit a real fetch with a
+// relative URL (which jsdom cannot parse).
+vi.mock('../../providers/transport', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers/transport')>();
+  return {
+    ...actual,
+    httpInvoke: vi.fn().mockResolvedValue({ data: null }),
+  };
+});
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { useStore } from '../../store';
 import { DetailPanel } from './DetailPanel';

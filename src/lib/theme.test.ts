@@ -106,7 +106,10 @@ const CSS = readFileSync(resolve('src/styles/tokens.css'), 'utf8');
  * and every check below vacuously pass.
  */
 function tokensIn(selector: string): Map<string, string> {
-  const open = new RegExp(`${selector.replace(/[[\]"]/g, '\\$&')}\\s*\\{`);
+  // Allow both single and double quotes in CSS selectors (e.g. [data-theme="light"]
+  // in the test vs [data-theme='light'] in the CSS file).
+  const normalized = selector.replace(/"/g, "'");
+  const open = new RegExp(`${normalized.replace(/[[\]']/g, '\\$&')}\\s*\\{`);
   const m = open.exec(CSS);
   expect(m, `${selector} block missing from tokens.css`).not.toBeNull();
   const start = m!.index + m![0].length;
