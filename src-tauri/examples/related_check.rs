@@ -22,7 +22,10 @@ use kube::{Client, ResourceExt};
 fn selector_filter(sel: &std::collections::BTreeMap<String, String>) -> String {
     let mut keys: Vec<_> = sel.keys().cloned().collect();
     keys.sort();
-    keys.iter().map(|k| format!("{k}={}", sel[k])).collect::<Vec<_>>().join(",")
+    keys.iter()
+        .map(|k| format!("{k}={}", sel[k]))
+        .collect::<Vec<_>>()
+        .join(",")
 }
 
 #[tokio::main]
@@ -45,10 +48,17 @@ async fn main() -> anyhow::Result<()> {
         .expect("a Deployment with a selector");
     let dep_ns = dep.namespace().unwrap_or_default();
     let dep_row = map_deployment(dep);
-    let sel = dep_row.selector.clone().expect("map_deployment carries the selector");
+    let sel = dep_row
+        .selector
+        .clone()
+        .expect("map_deployment carries the selector");
     let filter = selector_filter(&sel);
     println!("workload → pods:");
-    println!("  Deployment {}/{}  selector: {filter}", dep_ns, dep.name_any());
+    println!(
+        "  Deployment {}/{}  selector: {filter}",
+        dep_ns,
+        dep.name_any()
+    );
 
     // Now confirm pods in that namespace carry labels, and that the selector
     // actually selects some — the jump would land on an empty table otherwise.
@@ -64,10 +74,23 @@ async fn main() -> anyhow::Result<()> {
                 .is_some_and(|labels| sel.iter().all(|(k, v)| labels.get(k) == Some(v)))
         })
         .count();
-    let with_labels = pods.items.iter().filter(|p| map_pod(p).labels.is_some()).count();
-    println!("  pods in {dep_ns}: {} total, {with_labels} carry labels, {matched} match the selector", pods.items.len());
-    assert!(with_labels > 0, "pods must carry labels for the filter to match");
-    assert!(matched > 0, "the selector must select at least one pod, or the jump lands empty");
+    let with_labels = pods
+        .items
+        .iter()
+        .filter(|p| map_pod(p).labels.is_some())
+        .count();
+    println!(
+        "  pods in {dep_ns}: {} total, {with_labels} carry labels, {matched} match the selector",
+        pods.items.len()
+    );
+    assert!(
+        with_labels > 0,
+        "pods must carry labels for the filter to match"
+    );
+    assert!(
+        matched > 0,
+        "the selector must select at least one pod, or the jump lands empty"
+    );
 
     // ---- owner link: a crash-looper resolves through its RS to its Deployment ----
     let wiki: Api<Pod> = Api::namespaced(client.clone(), "wiki");
@@ -83,27 +106,52 @@ async fn main() -> anyhow::Result<()> {
         println!("\nowner link:");
         println!("  pod wiki/{}  →  owner \"{text}\"", p.name_any());
         match &nav {
-            Some(t) => println!("  nav target: kind={} ns={:?} name={}", t.kind, t.namespace, t.name),
+            Some(t) => println!(
+                "  nav target: kind={} ns={:?} name={}",
+                t.kind, t.namespace, t.name
+            ),
             None => println!("  nav target: none (bare pod or non-listed owner)"),
         }
         // The crash-looper is Deployment-managed, so it resolves through the RS.
         if let Some(t) = nav {
-            assert_eq!(t.kind, "deployments", "a Deployment-owned pod resolves to the deployments table");
-            assert!(text.starts_with("Deployment/"), "display shows the resolved Deployment");
+            assert_eq!(
+                t.kind, "deployments",
+                "a Deployment-owned pod resolves to the deployments table"
+            );
+            assert!(
+                text.starts_with("Deployment/"),
+                "display shows the resolved Deployment"
+            );
         }
     }
 
     // ---- event click-through: a real event carries its involvedObject ----
     let events: Api<Event> = Api::all(client.clone());
     let evs = events.list(&ListParams::default().limit(200)).await?;
-    let with_involved = evs.items.iter().filter(|e| map_event(e).involved.is_some()).count();
+    let with_involved = evs
+        .items
+        .iter()
+        .filter(|e| map_event(e).involved.is_some())
+        .count();
     println!("\nevent click-through:");
-    println!("  {} events, {with_involved} carry an involvedObject", evs.items.len());
+    println!(
+        "  {} events, {with_involved} carry an involvedObject",
+        evs.items.len()
+    );
     if let Some(e) = evs.items.iter().find(|e| map_event(e).involved.is_some()) {
         let inv = map_event(e).involved.unwrap();
-        println!("  e.g. {} {}/{} ({})", inv.kind, inv.namespace.as_deref().unwrap_or("-"), inv.name, inv.api_version.as_deref().unwrap_or("-"));
+        println!(
+            "  e.g. {} {}/{} ({})",
+            inv.kind,
+            inv.namespace.as_deref().unwrap_or("-"),
+            inv.name,
+            inv.api_version.as_deref().unwrap_or("-")
+        );
     }
-    assert!(with_involved > 0, "events must carry involvedObject for click-through");
+    assert!(
+        with_involved > 0,
+        "events must carry involvedObject for click-through"
+    );
 
     println!("\nRelated-navigation data OK.");
     Ok(())

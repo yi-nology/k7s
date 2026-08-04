@@ -84,13 +84,11 @@ fn load_file() -> AppResult<AlertManagerFile> {
 
 fn save_file(f: &AlertManagerFile) -> AppResult<()> {
     let path = config_path()?;
-    let text = serde_json::to_string_pretty(f)
-        .map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+    let text =
+        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, text)
-        .map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
-    std::fs::rename(&tmp, &path)
-        .map_err(|e| AppError::Other(format!("rename: {e}")))?;
+    std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
+    std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
     Ok(())
 }
 
@@ -336,10 +334,7 @@ fn map_silence(v: serde_json::Value) -> Silence {
                 .filter_map(|m| {
                     let name = m.get("name").and_then(|n| n.as_str())?;
                     let value = m.get("value").and_then(|v| v.as_str())?;
-                    let is_regex = m
-                        .get("isRegex")
-                        .and_then(|r| r.as_bool())
-                        .unwrap_or(false);
+                    let is_regex = m.get("isRegex").and_then(|r| r.as_bool()).unwrap_or(false);
                     Some(if is_regex {
                         format!("{name}=~{value}")
                     } else {
@@ -434,10 +429,7 @@ struct SilenceResponse {
 }
 
 /// Create a silence on an AlertManager instance. Returns the silence ID.
-pub async fn create_silence(
-    name: &str,
-    request: &CreateSilenceRequest,
-) -> AppResult<String> {
+pub async fn create_silence(name: &str, request: &CreateSilenceRequest) -> AppResult<String> {
     let cfg = find(name)?;
     let client = build_client()?;
 
@@ -573,11 +565,7 @@ pub async fn prometheus_rules(name: &str) -> AppResult<Vec<RuleGroup>> {
                 .cloned()
                 .unwrap_or_default()
                 .iter()
-                .filter(|r| {
-                    r.get("type")
-                        .and_then(|t| t.as_str())
-                        == Some("alerting")
-                })
+                .filter(|r| r.get("type").and_then(|t| t.as_str()) == Some("alerting"))
                 .map(|r| {
                     let labels: HashMap<String, String> = r
                         .get("labels")
@@ -618,10 +606,7 @@ pub async fn prometheus_rules(name: &str) -> AppResult<Vec<RuleGroup>> {
                             .and_then(|v| v.as_str())
                             .unwrap_or("")
                             .to_string(),
-                        duration: r
-                            .get("duration")
-                            .and_then(|v| v.as_f64())
-                            .unwrap_or(0.0),
+                        duration: r.get("duration").and_then(|v| v.as_f64()).unwrap_or(0.0),
                         labels,
                         annotations,
                     }
@@ -638,10 +623,7 @@ pub async fn prometheus_rules(name: &str) -> AppResult<Vec<RuleGroup>> {
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string(),
-                interval: g
-                    .get("interval")
-                    .and_then(|v| v.as_f64())
-                    .unwrap_or(0.0),
+                interval: g.get("interval").and_then(|v| v.as_f64()).unwrap_or(0.0),
                 rules,
             }
         })
@@ -683,9 +665,7 @@ mod tests {
     #[test]
     fn map_alert_tolerates_missing_annotations() {
         let mut v = sample_alert_json();
-        v.as_object_mut()
-            .unwrap()
-            .remove("annotations");
+        v.as_object_mut().unwrap().remove("annotations");
         let a = map_alert(v);
         assert_eq!(a.summary, "");
         assert_eq!(a.description, "");

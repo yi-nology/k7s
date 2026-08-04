@@ -56,7 +56,9 @@ async fn main() -> anyhow::Result<()> {
 
     // A kind with no gatherer must error, so the tab is never offered for it.
     assert!(
-        properties::gather(client, "configmaps", "default", "x").await.is_err(),
+        properties::gather(client, "configmaps", "default", "x")
+            .await
+            .is_err(),
         "kinds without a gatherer must error"
     );
 
@@ -117,19 +119,34 @@ fn has(props: &Properties, title: &str) -> bool {
 
 /// Assert the sections the backlog's accept criteria name for each kind.
 fn check(kind: &str, props: &Properties) {
-    assert!(has(props, "Overview"), "{kind} should always have an Overview");
+    assert!(
+        has(props, "Overview"),
+        "{kind} should always have an Overview"
+    );
     match kind {
         "deployments" => {
-            assert!(has(props, "ReplicaSets"), "deployment properties must show ReplicaSets");
-            assert!(has(props, "Conditions"), "deployment properties must show conditions");
+            assert!(
+                has(props, "ReplicaSets"),
+                "deployment properties must show ReplicaSets"
+            );
+            assert!(
+                has(props, "Conditions"),
+                "deployment properties must show conditions"
+            );
         }
         "services" => {
-            assert!(has(props, "Endpoints"), "service properties must list endpoints");
+            assert!(
+                has(props, "Endpoints"),
+                "service properties must list endpoints"
+            );
             assert!(has(props, "Ports"));
         }
         "nodes" => {
             assert!(has(props, "Taints"), "node properties must show taints");
-            assert!(has(props, "Capacity"), "node properties must show capacity/allocatable");
+            assert!(
+                has(props, "Capacity"),
+                "node properties must show capacity/allocatable"
+            );
             assert!(has(props, "Conditions"));
         }
         "statefulsets" => assert!(has(props, "Volume claim templates") || has(props, "Conditions")),

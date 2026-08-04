@@ -32,7 +32,10 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     println!("found {} Helm release(s)\n", releases.len());
-    assert!(!releases.is_empty(), "murphy-yi has Helm releases (traefik, arc, …)");
+    assert!(
+        !releases.is_empty(),
+        "murphy-yi has Helm releases (traefik, arc, …)"
+    );
 
     for (ns, name) in &releases {
         let props = gather(client.clone(), "helm", ns, name).await?;
@@ -47,7 +50,12 @@ async fn main() -> anyhow::Result<()> {
                     }
                 }
                 Body::Table { columns, rows } => {
-                    println!("  [{}] {} row(s), cols: {}", section.title, rows.len(), columns.join(", "));
+                    println!(
+                        "  [{}] {} row(s), cols: {}",
+                        section.title,
+                        rows.len(),
+                        columns.join(", ")
+                    );
                     for row in rows.iter().take(6) {
                         let line: Vec<_> = row.iter().map(|c| c.text.as_str()).collect();
                         println!("    {}", line.join("  |  "));
@@ -79,12 +87,19 @@ async fn main() -> anyhow::Result<()> {
         // Every release must show an Overview and a History with at least its
         // current revision.
         let has_overview = props.sections.iter().any(|s| s.title == "Overview");
-        let history_rows = props.sections.iter().find(|s| s.title == "History").map(|s| match &s.body {
-            Body::Table { rows, .. } => rows.len(),
-            _ => 0,
-        });
+        let history_rows = props
+            .sections
+            .iter()
+            .find(|s| s.title == "History")
+            .map(|s| match &s.body {
+                Body::Table { rows, .. } => rows.len(),
+                _ => 0,
+            });
         assert!(has_overview, "{ns}/{name} must have an Overview");
-        assert!(history_rows.unwrap_or(0) >= 1, "{ns}/{name} history must include its current revision");
+        assert!(
+            history_rows.unwrap_or(0) >= 1,
+            "{ns}/{name} history must include its current revision"
+        );
         println!();
     }
 

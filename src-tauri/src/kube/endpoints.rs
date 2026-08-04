@@ -47,10 +47,7 @@ pub async fn list_all(client: &Client) -> AppResult<Vec<EndpointRow>> {
 }
 
 /// List EndpointSlices in a single namespace.
-pub async fn list_namespaced(
-    client: &Client,
-    namespace: &str,
-) -> AppResult<Vec<EndpointRow>> {
+pub async fn list_namespaced(client: &Client, namespace: &str) -> AppResult<Vec<EndpointRow>> {
     let api: Api<EndpointSlice> = Api::namespaced(client.clone(), namespace);
     let slices = api.list(&ListParams::default()).await?;
     Ok(slices.iter().map(map_slice).collect())
@@ -149,7 +146,12 @@ pub async fn addresses_for(
         let (kind, target) = endpoint
             .target_ref
             .as_ref()
-            .map(|r| (r.kind.clone().unwrap_or_default(), r.name.clone().unwrap_or_default()))
+            .map(|r| {
+                (
+                    r.kind.clone().unwrap_or_default(),
+                    r.name.clone().unwrap_or_default(),
+                )
+            })
             .unwrap_or_default();
         let node = endpoint.node_name.clone().unwrap_or_default();
         for addr in &endpoint.addresses {

@@ -121,36 +121,40 @@ pub async fn resolve_service(
             let available: Vec<String> = ports.iter().map(|p| p.port.to_string()).collect();
             AppError::Other(format!(
                 "service {service} has no port {service_port} (has: {})",
-                if available.is_empty() { "none".into() } else { available.join(", ") }
+                if available.is_empty() {
+                    "none".into()
+                } else {
+                    available.join(", ")
+                }
             ))
         })?;
 
     // Pick a Ready pod: an unready pod would accept the forward and fail the traffic.
-    let label_selector =
-        selector.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(",");
+    let label_selector = selector
+        .iter()
+        .map(|(k, v)| format!("{k}={v}"))
+        .collect::<Vec<_>>()
+        .join(",");
     let pods: Api<Pod> = Api::namespaced(client, namespace);
     let list = pods
         .list(&ListParams::default().labels(&label_selector))
         .await
         .map_err(|e| AppError::Kube(e.to_string()))?;
-    let pod = list
-        .items
-        .iter()
-        .find(|p| is_ready(p))
-        .ok_or_else(|| {
-            AppError::NotFound(format!(
-                "service {service} has no ready pods ({} matched its selector)",
-                list.items.len()
-            ))
-        })?;
+    let pod = list.items.iter().find(|p| is_ready(p)).ok_or_else(|| {
+        AppError::NotFound(format!(
+            "service {service} has no ready pods ({} matched its selector)",
+            list.items.len()
+        ))
+    })?;
     let pod_name = pod.metadata.name.clone().unwrap_or_default();
 
     // targetPort defaults to the service port when unset; a named one is resolved
     // against the pod we just chose.
     let target = match &port_spec.target_port {
         None => service_port,
-        Some(IntOrString::Int(n)) => u16::try_from(*n)
-            .map_err(|_| AppError::Other(format!("invalid targetPort {n}")))?,
+        Some(IntOrString::Int(n)) => {
+            u16::try_from(*n).map_err(|_| AppError::Other(format!("invalid targetPort {n}")))?
+        }
         Some(IntOrString::String(name)) => named_container_port(pod, name).ok_or_else(|| {
             AppError::Other(format!(
                 "service {service} targets port \"{name}\", which pod {pod_name} does not declare"
@@ -200,8 +204,10 @@ mod tests {
 
     /// A pod with the given Ready condition and named container ports.
     fn pod(ready: bool, ports: &[(&str, i32)]) -> Pod {
-        let ports: Vec<_> =
-            ports.iter().map(|(n, p)| json!({ "name": n, "containerPort": p })).collect();
+        let ports: Vec<_> = ports
+            .iter()
+            .map(|(n, p)| json!({ "name": n, "containerPort": p }))
+            .collect();
         serde_json::from_value(json!({
             "metadata": { "name": "p1", "namespace": "prod" },
             "spec": { "containers": [{ "name": "app", "ports": ports }] },
@@ -241,7 +247,10 @@ mod tests {
     /// naming the pod, rather than forwarding to a wrong port).
     #[test]
     fn unknown_port_name_is_none() {
-        assert_eq!(named_container_port(&pod(true, &[("http", 8080)]), "grpc"), None);
+        assert_eq!(
+            named_container_port(&pod(true, &[("http", 8080)]), "grpc"),
+            None
+        );
     }
 
     /// Containers without declared ports don't panic the lookup.

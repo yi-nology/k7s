@@ -69,13 +69,11 @@ fn load_file() -> AppResult<SavedQueriesFile> {
 
 fn save_file(f: &SavedQueriesFile) -> AppResult<()> {
     let path = config_path()?;
-    let text = serde_json::to_string_pretty(f)
-        .map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+    let text =
+        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, text)
-        .map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
-    std::fs::rename(&tmp, &path)
-        .map_err(|e| AppError::Other(format!("rename: {e}")))?;
+    std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
+    std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
     Ok(())
 }
 

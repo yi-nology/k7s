@@ -30,13 +30,20 @@ async fn main() -> anyhow::Result<()> {
     for p in &all.items {
         if has_controller(p) {
             owned += 1;
-            first_owned.get_or_insert_with(|| format!("{}/{}", p.namespace().unwrap_or_default(), p.name_any()));
+            first_owned.get_or_insert_with(|| {
+                format!("{}/{}", p.namespace().unwrap_or_default(), p.name_any())
+            });
         } else {
             bare += 1;
-            first_bare.get_or_insert_with(|| format!("{}/{}", p.namespace().unwrap_or_default(), p.name_any()));
+            first_bare.get_or_insert_with(|| {
+                format!("{}/{}", p.namespace().unwrap_or_default(), p.name_any())
+            });
         }
     }
-    println!("pods: {} total  —  {owned} controller-owned (restartable), {bare} bare", all.items.len());
+    println!(
+        "pods: {} total  —  {owned} controller-owned (restartable), {bare} bare",
+        all.items.len()
+    );
     if let Some(o) = &first_owned {
         println!("  restartable e.g. : {o}");
     }
@@ -49,7 +56,10 @@ async fn main() -> anyhow::Result<()> {
     // Pick any Deployment and validate the real patch against it server-side.
     let deploys: Api<Deployment> = Api::all(client.clone());
     let dl = deploys.list(&ListParams::default()).await?;
-    let target = dl.items.first().expect("the cluster has at least one Deployment");
+    let target = dl
+        .items
+        .first()
+        .expect("the cluster has at least one Deployment");
     let ns = target.namespace().unwrap_or_default();
     let name = target.name_any();
     println!("\nrollout dry-run target: {ns}/{name}");
@@ -77,7 +87,11 @@ async fn main() -> anyhow::Result<()> {
         .pointer("/spec/template/metadata/annotations/kubectl.kubernetes.io~1restartedAt")
         .and_then(|v| v.as_str());
     println!("server echoed restartedAt = {stamped:?}  (dry run — not persisted)");
-    assert_eq!(stamped, Some(now), "the server must apply the annotation to the template");
+    assert_eq!(
+        stamped,
+        Some(now),
+        "the server must apply the annotation to the template"
+    );
 
     // And confirm we didn't actually change it: re-read and check the live object
     // has no such annotation (unless someone genuinely restarted it before).
@@ -88,8 +102,14 @@ async fn main() -> anyhow::Result<()> {
         .and_then(|s| s.template.metadata)
         .and_then(|m| m.annotations)
         .and_then(|a| a.get("kubectl.kubernetes.io/restartedAt").cloned());
-    println!("live object restartedAt  = {live_stamp:?}  (our dry-run value absent → nothing rolled)");
-    assert_ne!(live_stamp.as_deref(), Some(now), "dry run must not have persisted");
+    println!(
+        "live object restartedAt  = {live_stamp:?}  (our dry-run value absent → nothing rolled)"
+    );
+    assert_ne!(
+        live_stamp.as_deref(),
+        Some(now),
+        "dry run must not have persisted"
+    );
 
     println!("\nRestart logic OK.");
     Ok(())

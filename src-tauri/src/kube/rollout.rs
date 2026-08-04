@@ -21,7 +21,9 @@
 //! the same separation `restart.rs` uses.
 
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::apps::v1::{ControllerRevision, DaemonSet, Deployment, ReplicaSet, StatefulSet};
+use k8s_openapi::api::apps::v1::{
+    ControllerRevision, DaemonSet, Deployment, ReplicaSet, StatefulSet,
+};
 use k8s_openapi::api::core::v1::PodTemplateSpec;
 use kube::api::{Api, ListParams, Patch, PatchParams};
 use kube::ResourceExt;
@@ -159,7 +161,9 @@ pub async fn list_revisions(
 ) -> AppResult<Vec<Revision>> {
     match kind {
         "deployments" => list_deployment_revisions(client, namespace, name).await,
-        "statefulsets" | "daemonsets" => list_controller_revisions(client, kind, namespace, name).await,
+        "statefulsets" | "daemonsets" => {
+            list_controller_revisions(client, kind, namespace, name).await
+        }
         _ => Err(AppError::Other(format!("{kind} has no revision history"))),
     }
 }
@@ -192,13 +196,7 @@ async fn list_deployment_revisions(
         .items
         .iter()
         .filter(|rs| owned_by(rs, &dep_uid))
-        .filter(|rs| {
-            rs.spec
-                .as_ref()
-                .and_then(|s| s.replicas)
-                .unwrap_or(0)
-                > 0
-        })
+        .filter(|rs| rs.spec.as_ref().and_then(|s| s.replicas).unwrap_or(0) > 0)
         .filter_map(revision_of_replicaset)
         .max()
         .or_else(|| {
@@ -373,10 +371,17 @@ async fn undo_deployment(
     let template = target
         .spec
         .clone()
-        .ok_or_else(|| AppError::Other(format!("revision {} has no spec", display_rev(to_revision))))?
+        .ok_or_else(|| {
+            AppError::Other(format!("revision {} has no spec", display_rev(to_revision)))
+        })?
         .template
         .clone()
-        .ok_or_else(|| AppError::Other(format!("revision {} has no pod template", display_rev(to_revision))))?;
+        .ok_or_else(|| {
+            AppError::Other(format!(
+                "revision {} has no pod template",
+                display_rev(to_revision)
+            ))
+        })?;
 
     let patch = Patch::Merge(serde_json::json!({ "spec": { "template": template } }));
     dep_api.patch(name, &PatchParams::default(), &patch).await?;
@@ -442,8 +447,11 @@ fn pick_target<'a, T, F>(
 where
     F: Fn(&T) -> Option<i64>,
 {
-    let mut by_rev: Vec<(Option<i64>, usize)> =
-        owned.iter().enumerate().map(|(i, x)| (rev_of(x), i)).collect();
+    let mut by_rev: Vec<(Option<i64>, usize)> = owned
+        .iter()
+        .enumerate()
+        .map(|(i, x)| (rev_of(x), i))
+        .collect();
     // Newest first by revision number; unnumbered entries sort to the bottom.
     by_rev.sort_by_key(|(r, _)| std::cmp::Reverse(r.unwrap_or(i64::MIN)));
 
@@ -500,10 +508,7 @@ mod tests {
 
     fn rs_with_revision(name: &str, rev: i64) -> ReplicaSet {
         let mut annotations = BTreeMap::new();
-        annotations.insert(
-            DEPLOYMENT_REVISION_ANNOTATION.to_string(),
-            rev.to_string(),
-        );
+        annotations.insert(DEPLOYMENT_REVISION_ANNOTATION.to_string(), rev.to_string());
         ReplicaSet {
             metadata: ObjectMeta {
                 name: Some(name.into()),

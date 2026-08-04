@@ -41,7 +41,10 @@ async fn main() -> anyhow::Result<()> {
         .get_or_insert_with(Default::default)
         .insert("k7s.dev/dry-run-check".into(), "hello".into());
 
-    let pp = PostParams { dry_run: true, ..Default::default() };
+    let pp = PostParams {
+        dry_run: true,
+        ..Default::default()
+    };
     let result = api.replace(&name, &pp, &proposed).await?;
 
     let echoed = result
@@ -51,7 +54,11 @@ async fn main() -> anyhow::Result<()> {
         .and_then(|a| a.get("k7s.dev/dry-run-check"))
         .cloned();
     println!("server echoed the proposed annotation: {echoed:?}");
-    assert_eq!(echoed.as_deref(), Some("hello"), "the dry run must return the would-be object");
+    assert_eq!(
+        echoed.as_deref(),
+        Some("hello"),
+        "the dry run must return the would-be object"
+    );
 
     // The part that matters: nothing was written.
     let after = api.get(&name).await?;
@@ -61,7 +68,10 @@ async fn main() -> anyhow::Result<()> {
         .as_ref()
         .and_then(|a| a.get("k7s.dev/dry-run-check"));
     println!("annotation actually persisted: {persisted:?}");
-    assert!(persisted.is_none(), "a dry run must not write — found the annotation on the live object");
+    assert!(
+        persisted.is_none(),
+        "a dry run must not write — found the annotation on the live object"
+    );
     assert_eq!(
         after.resource_version(),
         before_rv,

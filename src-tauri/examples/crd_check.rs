@@ -27,7 +27,11 @@ async fn main() -> anyhow::Result<()> {
             k.id,
             k.kind,
             k.version,
-            if k.namespaced { "namespaced" } else { "cluster" }
+            if k.namespaced {
+                "namespaced"
+            } else {
+                "cluster"
+            }
         );
     }
 
@@ -93,12 +97,18 @@ async fn main() -> anyhow::Result<()> {
         .iter()
         .map(|o| mappers::map_dynamic(o.as_ref(), namespaced))
         .collect();
-    println!("watcher produced {} rows (columns NAME, NAMESPACE, AGE):", rows.len());
+    println!(
+        "watcher produced {} rows (columns NAME, NAMESPACE, AGE):",
+        rows.len()
+    );
     for r in &rows {
         let c: Vec<&str> = r.cells.iter().map(|c| c.text.as_str()).collect();
         println!("    {c:?}");
     }
-    assert!(!rows.is_empty(), "expected the reflector to see live Applications");
+    assert!(
+        !rows.is_empty(),
+        "expected the reflector to see live Applications"
+    );
     println!("\nDynamic watcher OK.");
     Ok(())
 }

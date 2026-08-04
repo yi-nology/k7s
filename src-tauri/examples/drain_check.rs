@@ -61,7 +61,13 @@ async fn main() -> anyhow::Result<()> {
 /// Kept here rather than exposing internals: this harness is about *seeing* the
 /// classification, and a divergence would show up as a surprising listing.
 fn skip_reason(pod: &Pod) -> Option<&'static str> {
-    if pod.metadata.owner_references.iter().flatten().any(|o| o.kind == "DaemonSet") {
+    if pod
+        .metadata
+        .owner_references
+        .iter()
+        .flatten()
+        .any(|o| o.kind == "DaemonSet")
+    {
         return Some("DaemonSet-owned");
     }
     if pod

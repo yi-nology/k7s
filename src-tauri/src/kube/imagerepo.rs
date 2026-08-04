@@ -120,12 +120,11 @@ impl HttpClient {
 
 fn config_path() -> AppResult<PathBuf> {
     let dir = match std::env::var_os("HOME") {
-        Some(h) => std::path::PathBuf::from(h)
-            .join(if cfg!(target_os = "macos") {
-                "Library/Application Support/k7s"
-            } else {
-                ".config/k7s"
-            }),
+        Some(h) => std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
+            "Library/Application Support/k7s"
+        } else {
+            ".config/k7s"
+        }),
         None => return Err(AppError::Other("no HOME".into())),
     };
     std::fs::create_dir_all(&dir)
@@ -148,13 +147,11 @@ fn load_file() -> AppResult<RegistryFile> {
 
 fn save_file(f: &RegistryFile) -> AppResult<()> {
     let path = config_path()?;
-    let text = serde_json::to_string_pretty(f)
-        .map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+    let text =
+        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, text)
-        .map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
-    std::fs::rename(&tmp, &path)
-        .map_err(|e| AppError::Other(format!("rename: {e}")))?;
+    std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
+    std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
     // The password map is sensitive; chmod the file 0600 on unix.
     #[cfg(unix)]
     {
@@ -287,9 +284,7 @@ pub async fn test_connect(reg: &ImageRegistry) -> AppResult<()> {
     if status.is_success() || status.as_u16() == 401 {
         Ok(())
     } else {
-        Err(AppError::Other(format!(
-            "GET {url}: HTTP {status}"
-        )))
+        Err(AppError::Other(format!("GET {url}: HTTP {status}")))
     }
 }
 
@@ -389,7 +384,9 @@ async fn authed_get(
         return Ok(resp);
     };
     let parsed = parse_bearer(&challenge);
-    let Some(parsed) = parsed else { return Ok(resp) };
+    let Some(parsed) = parsed else {
+        return Ok(resp);
+    };
     // Ask the realm for a token with the requested scope.
     let mut token_url = format!("{}?", parsed.realm);
     let mut sep = "";
@@ -519,11 +516,7 @@ pub struct LayerEntry {
 /// registry says it only knows `application/vnd.oci.image.manifest.v1+json`
 /// (a real OCI-only registry), the second call handles that. Either
 /// way the result is a parseable JSON document.
-pub async fn manifest(
-    reg: &ImageRegistry,
-    repo: &str,
-    tag: &str,
-) -> AppResult<ImageManifest> {
+pub async fn manifest(reg: &ImageRegistry, repo: &str, tag: &str) -> AppResult<ImageManifest> {
     let client = HttpClient::build(reg.insecure);
     let url = format!("{}/v2/{}/manifests/{}", reg.url, repo, tag);
     let resp = authed_get_manifest(&client, reg, &url).await?;
@@ -537,13 +530,19 @@ pub async fn manifest(
         .map_err(|e| AppError::Other(format!("read body: {e}")))?;
     let raw: serde_json::Value = serde_json::from_str(&text)
         .map_err(|e| AppError::Other(format!("decode manifest: {e}")))?;
-    let schema_version = raw.get("schemaVersion").and_then(|v| v.as_i64()).unwrap_or(0);
+    let schema_version = raw
+        .get("schemaVersion")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
     let media_type = raw
         .get("mediaType")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let config = raw.get("config").cloned().unwrap_or(serde_json::Value::Null);
+    let config = raw
+        .get("config")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let config_digest = config
         .get("digest")
         .and_then(|v| v.as_str())
@@ -619,7 +618,9 @@ async fn authed_get_manifest(
         return Ok(resp);
     };
     let parsed = parse_bearer(&challenge);
-    let Some(parsed) = parsed else { return Ok(resp) };
+    let Some(parsed) = parsed else {
+        return Ok(resp);
+    };
     let mut token_url = format!("{}?", parsed.realm);
     let mut sep = "";
     for (k, v) in [
@@ -653,10 +654,9 @@ async fn authed_get_manifest(
         .json()
         .await
         .map_err(|e| AppError::Other(format!("decode token: {e}")))?;
-    let token = tr
-        .token
-        .or(tr.access_token)
-        .ok_or_else(|| AppError::Other("token response missing 'token' and 'access_token'".into()))?;
+    let token = tr.token.or(tr.access_token).ok_or_else(|| {
+        AppError::Other("token response missing 'token' and 'access_token'".into())
+    })?;
     client
         .inner
         .get(url)
@@ -680,7 +680,8 @@ mod tests {
 
     #[test]
     fn parses_bearer_challenge() {
-        let s = r#"Bearer realm="https://r.example/token", service="r", scope="repository:foo:pull""#;
+        let s =
+            r#"Bearer realm="https://r.example/token", service="r", scope="repository:foo:pull""#;
         let c = parse_bearer(s).unwrap();
         assert_eq!(c.realm, "https://r.example/token");
         assert_eq!(c.service, "r");
@@ -689,7 +690,10 @@ mod tests {
 
     #[test]
     fn urlencodes_scope() {
-        assert_eq!(urlencode("repository:foo/bar:pull"), "repository%3Afoo%2Fbar%3Apull");
+        assert_eq!(
+            urlencode("repository:foo/bar:pull"),
+            "repository%3Afoo%2Fbar%3Apull"
+        );
     }
 
     #[test]

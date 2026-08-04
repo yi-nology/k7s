@@ -27,8 +27,9 @@ async fn main() -> anyhow::Result<()> {
             let ns = ev.involved_object.namespace.clone().unwrap_or_default();
             let name = ev.involved_object.name.clone().unwrap_or_default();
             let ns_api: Api<Event> = Api::namespaced(client.clone(), &ns);
-            let lp = ListParams::default()
-                .fields(&format!("involvedObject.name={name},involvedObject.namespace={ns}"));
+            let lp = ListParams::default().fields(&format!(
+                "involvedObject.name={name},involvedObject.namespace={ns}"
+            ));
             match ns_api.list(&lp).await {
                 Ok(list) => println!("get_events({ns}/{name}) → {} events", list.items.len()),
                 Err(e) => println!("get_events ERROR: {e}"),

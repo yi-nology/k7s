@@ -101,7 +101,11 @@ pub async fn write_file(
     let cmd = vec![
         "/bin/sh".into(),
         "-c".into(),
-        format!("mkdir -p -- $(dirname -- {}) && tee -- {} >/dev/null", quote_arg(&safe), quote_arg(&safe)),
+        format!(
+            "mkdir -p -- $(dirname -- {}) && tee -- {} >/dev/null",
+            quote_arg(&safe),
+            quote_arg(&safe)
+        ),
     ];
     // `tee` reads from stdin; we use the streaming exec helper.
     run_pipe(&client, namespace, pod, container, &cmd, content.as_bytes()).await?;
@@ -141,7 +145,11 @@ pub async fn upload_path(
     let cmd = vec![
         "/bin/sh".into(),
         "-c".into(),
-        format!("mkdir -p -- {} && tar xf - -C {}", quote_arg(&safe), quote_arg(&safe)),
+        format!(
+            "mkdir -p -- {} && tar xf - -C {}",
+            quote_arg(&safe),
+            quote_arg(&safe)
+        ),
     ];
     run_pipe(&client, namespace, pod, container, &cmd, tar_bytes).await?;
     Ok(())
@@ -151,10 +159,7 @@ pub async fn upload_path(
 /// running `tar` from the front-end: small JSON-style files are sometimes
 /// stored as ConfigMaps). Not used in the default UI flow; here as a
 /// utility for power users browsing CM-backed releases.
-pub async fn list_pods(
-    client: Client,
-    namespace: &str,
-) -> AppResult<Vec<HashMap<String, String>>> {
+pub async fn list_pods(client: Client, namespace: &str) -> AppResult<Vec<HashMap<String, String>>> {
     use k8s_openapi::api::core::v1::Pod;
     use kube::api::{Api, ListParams};
     let api: Api<Pod> = Api::namespaced(client, namespace);
@@ -166,7 +171,10 @@ pub async fn list_pods(
             m.insert("name".into(), p.name_any());
             m.insert(
                 "phase".into(),
-                p.status.as_ref().and_then(|s| s.phase.clone()).unwrap_or_default(),
+                p.status
+                    .as_ref()
+                    .and_then(|s| s.phase.clone())
+                    .unwrap_or_default(),
             );
             m
         })
@@ -193,9 +201,7 @@ fn sanitise_path(path: &str) -> AppResult<String> {
     // segments — they would let a caller escape the work dir.
     for seg in path.split('/') {
         if seg == ".." {
-            return Err(AppError::Other(
-                "path may not contain '..' segments".into(),
-            ));
+            return Err(AppError::Other("path may not contain '..' segments".into()));
         }
     }
     Ok(path.to_string())
@@ -206,7 +212,9 @@ fn sanitise_path(path: &str) -> AppResult<String> {
 /// or `$`. Wrapping in single quotes and escaping any embedded single quote
 /// the standard way handles all of those.
 fn quote_arg(s: &str) -> String {
-    if s.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '-' | '.' | '~')) {
+    if s.chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '/' | '_' | '-' | '.' | '~'))
+    {
         return s.to_string();
     }
     let escaped = s.replace('\'', "'\\''");
@@ -250,7 +258,8 @@ fn parse_ls(text: &str) -> Vec<FileEntry> {
         let name_start = parts[0].len() + parts[1].len() + parts[2].len() + parts[3].len() + 4;
         // Re-derive the name start from the line so quoting / spaces in the
         // filename don't trip the positional split.
-        let after_mtime = line.find(parts[3])
+        let after_mtime = line
+            .find(parts[3])
             .map(|i| i + parts[3].len())
             .unwrap_or(name_start);
         let name = line[after_mtime..].trim_start();

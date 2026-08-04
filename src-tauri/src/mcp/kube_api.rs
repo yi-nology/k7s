@@ -28,7 +28,7 @@ use serde::Serialize;
 /// for our own summaries — keeping the type public-but-aliased here means
 /// callers see `kube_api::Row` and the source-of-truth lives next to the
 /// rest of the wire DTOs.
-pub use crate::kube::dto::Row as Row;
+pub use crate::kube::dto::Row;
 
 /// A compact read-only snapshot of a single resource, ready to ship to the AI
 /// client. Field names are camelCase to match the rest of the wire format.
@@ -74,7 +74,8 @@ pub async fn list_resources(
     label_selector: Option<&str>,
 ) -> AppResult<Vec<ResourceSummary>> {
     let client = require_client(manager).await?;
-    let (api, is_helm) = dynamic_api(client.clone(), kind, namespace.unwrap_or(""), manager).await?;
+    let (api, is_helm) =
+        dynamic_api(client.clone(), kind, namespace.unwrap_or(""), manager).await?;
 
     if is_helm {
         return Ok(list_helm_rows(client, namespace.unwrap_or("")).await);
@@ -145,17 +146,15 @@ fn summarise_object(obj: &DynamicObject) -> String {
             "pods" => s.get("phase").and_then(|v| v.as_str()).map(str::to_string),
             "nodes" => conditions_summary(s),
             "deployments" | "statefulsets" | "daemonsets" | "replicasets" => {
-                s.get("readyReplicas")
-                    .and_then(|v| v.as_i64())
-                    .map(|r| {
-                        let desired = data
-                            .get("spec")
-                            .and_then(|sp| sp.as_object())
-                            .and_then(|sp| sp.get("replicas"))
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(r);
-                        format!("{r}/{desired} ready")
-                    })
+                s.get("readyReplicas").and_then(|v| v.as_i64()).map(|r| {
+                    let desired = data
+                        .get("spec")
+                        .and_then(|sp| sp.as_object())
+                        .and_then(|sp| sp.get("replicas"))
+                        .and_then(|v| v.as_i64())
+                        .unwrap_or(r);
+                    format!("{r}/{desired} ready")
+                })
             }
             "services" => {
                 if s.get("loadBalancer")
@@ -382,7 +381,10 @@ async fn list_helm_rows(client: Client, namespace: &str) -> Vec<ResourceSummary>
     } else {
         Api::namespaced(client, namespace)
     };
-    let Ok(list) = secrets.list(&ListParams::default().labels("owner=helm")).await else {
+    let Ok(list) = secrets
+        .list(&ListParams::default().labels("owner=helm"))
+        .await
+    else {
         return Vec::new();
     };
 
@@ -391,7 +393,9 @@ async fn list_helm_rows(client: Client, namespace: &str) -> Vec<ResourceSummary>
     use std::collections::HashMap;
     let mut latest: HashMap<(String, String), Row> = HashMap::new();
     for s in list {
-        let Some(row) = helm::map_release(&s) else { continue };
+        let Some(row) = helm::map_release(&s) else {
+            continue;
+        };
         let name = row.name.clone();
         let ns = row.namespace.clone().unwrap_or_default();
         let key = (name.clone(), ns.clone());
@@ -418,19 +422,22 @@ async fn list_helm_rows(client: Client, namespace: &str) -> Vec<ResourceSummary>
     }
 
     let cell_text = |r: &Row, i: usize| r.cells.get(i).map(|c| c.text.clone()).unwrap_or_default();
-    latest.into_values().map(|r| {
-        // Take owned copies up front so the `cell_text` borrows below
-        // don't fight with moving `r.name` into the result.
-        let namespace = r.namespace.clone();
-        let name = r.name.clone();
-        let summary = format!("rev {} — {}", cell_text(&r, 4), cell_text(&r, 5));
-        ResourceSummary {
-            kind: "helm".to_string(),
-            namespace,
-            name,
-            summary,
-        }
-    }).collect()
+    latest
+        .into_values()
+        .map(|r| {
+            // Take owned copies up front so the `cell_text` borrows below
+            // don't fight with moving `r.name` into the result.
+            let namespace = r.namespace.clone();
+            let name = r.name.clone();
+            let summary = format!("rev {} — {}", cell_text(&r, 4), cell_text(&r, 5));
+            ResourceSummary {
+                kind: "helm".to_string(),
+                namespace,
+                name,
+                summary,
+            }
+        })
+        .collect()
 }
 
 /// Read a Helm release's rendered manifest from its release Secret.
@@ -674,7 +681,10 @@ pub async fn rollout_status(
     name: &str,
 ) -> AppResult<RolloutStatus> {
     let client = require_client(manager).await?;
-    if !matches!(kind, "deployments" | "statefulsets" | "daemonsets" | "replicasets") {
+    if !matches!(
+        kind,
+        "deployments" | "statefulsets" | "daemonsets" | "replicasets"
+    ) {
         return Err(AppError::Other(format!(
             "{kind} is not a rollout kind (use deployments, statefulsets, daemonsets, or replicasets)"
         )));
@@ -684,9 +694,7 @@ pub async fn rollout_status(
     let status = obj.data.get("status").cloned().unwrap_or_default();
     let s = serde_json::json!(status);
 
-    let i64_field = |key: &str| -> i64 {
-        s.get(key).and_then(|v| v.as_i64()).unwrap_or(0)
-    };
+    let i64_field = |key: &str| -> i64 { s.get(key).and_then(|v| v.as_i64()).unwrap_or(0) };
     let desired = i64_field("replicas");
     let updated = i64_field("updatedReplicas");
     let ready = i64_field("readyReplicas");
@@ -699,10 +707,26 @@ pub async fn rollout_status(
         .map(|arr| {
             arr.iter()
                 .map(|c| WorkloadCondition {
-                    type_: c.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    status: c.get("status").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    reason: c.get("reason").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                    message: c.get("message").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    type_: c
+                        .get("type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    status: c
+                        .get("status")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    reason: c
+                        .get("reason")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                    message: c
+                        .get("message")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string(),
                 })
                 .collect()
         })
@@ -816,8 +840,16 @@ pub async fn top_pods(client: &Client, namespace: Option<&str>) -> AppResult<Vec
         .items
         .into_iter()
         .map(|pm| {
-            let cpu: i64 = pm.containers.iter().map(|c| crate::kube::metrics::parse_cpu_millis(&c.usage.cpu)).sum();
-            let mem: i64 = pm.containers.iter().map(|c| crate::kube::metrics::parse_mem_bytes(&c.usage.memory)).sum();
+            let cpu: i64 = pm
+                .containers
+                .iter()
+                .map(|c| crate::kube::metrics::parse_cpu_millis(&c.usage.cpu))
+                .sum();
+            let mem: i64 = pm
+                .containers
+                .iter()
+                .map(|c| crate::kube::metrics::parse_mem_bytes(&c.usage.memory))
+                .sum();
             TopPod {
                 namespace: pm.metadata.namespace,
                 pod: pm.metadata.name,
@@ -846,8 +878,14 @@ pub async fn top_nodes(client: &Client) -> AppResult<Vec<TopNode>> {
         let name = n.metadata.name.clone().unwrap_or_default();
         if let Some(status) = &n.status {
             if let Some(a) = &status.allocatable {
-                let cpu = a.get("cpu").map(|q| crate::kube::metrics::parse_cpu_millis(&q.0)).unwrap_or(0);
-                let mem = a.get("memory").map(|q| crate::kube::metrics::parse_mem_bytes(&q.0)).unwrap_or(0);
+                let cpu = a
+                    .get("cpu")
+                    .map(|q| crate::kube::metrics::parse_cpu_millis(&q.0))
+                    .unwrap_or(0);
+                let mem = a
+                    .get("memory")
+                    .map(|q| crate::kube::metrics::parse_mem_bytes(&q.0))
+                    .unwrap_or(0);
                 alloc.insert(name, (cpu, mem));
             }
         }
@@ -871,7 +909,11 @@ pub async fn top_nodes(client: &Client) -> AppResult<Vec<TopNode>> {
             }
         })
         .collect();
-    rows.sort_by(|a, b| b.cpu_percent.partial_cmp(&a.cpu_percent).unwrap_or(std::cmp::Ordering::Equal));
+    rows.sort_by(|a, b| {
+        b.cpu_percent
+            .partial_cmp(&a.cpu_percent)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     Ok(rows)
 }
 
@@ -917,7 +959,11 @@ pub async fn list_api_resources(client: &Client) -> AppResult<Vec<ApiResourceInf
         for (ar, caps) in group.versioned_resources(version) {
             // kube 0.99 renamed ApiCapabilities.verbs → operations. Drop
             // subresource-only entries (pods/exec etc.) that lack a top-level verb.
-            if !caps.operations.iter().any(|v| matches!(v.as_str(), "get" | "list" | "create" | "delete")) {
+            if !caps
+                .operations
+                .iter()
+                .any(|v| matches!(v.as_str(), "get" | "list" | "create" | "delete"))
+            {
                 continue;
             }
             rows.push(ApiResourceInfo {
@@ -943,11 +989,7 @@ pub async fn list_api_resources(client: &Client) -> AppResult<Vec<ApiResourceInf
 
 /// Manually create a Job from a CronJob (like `kubectl create job
 /// --from=cronjob/<name>`). Returns the new Job's name.
-pub async fn trigger_cronjob(
-    client: &Client,
-    namespace: &str,
-    name: &str,
-) -> AppResult<String> {
+pub async fn trigger_cronjob(client: &Client, namespace: &str, name: &str) -> AppResult<String> {
     use k8s_openapi::api::batch::v1::{CronJob, Job};
     use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference};
     use kube::api::PostParams;

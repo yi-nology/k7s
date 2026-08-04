@@ -14,7 +14,12 @@ use kube::{Client, ResourceExt};
 use std::time::Duration;
 
 /// Read a bounded log with the given options, non-following.
-async fn read(api: &Api<Pod>, pod: &str, container: &str, opts: LogStreamOptions) -> anyhow::Result<String> {
+async fn read(
+    api: &Api<Pod>,
+    pod: &str,
+    container: &str,
+    opts: LogStreamOptions,
+) -> anyhow::Result<String> {
     let mut lp = log_params(container, &opts);
     lp.follow = false;
     Ok(tokio::time::timeout(Duration::from_secs(20), api.logs(pod, &lp)).await??)
@@ -41,9 +46,17 @@ async fn main() -> anyhow::Result<()> {
         .expect("the wiki namespace has pods");
 
     let name = target.name_any();
-    let cs = target.status.as_ref().and_then(|s| s.container_statuses.as_ref());
-    let restarts: i32 = cs.map(|c| c.iter().map(|x| x.restart_count).sum()).unwrap_or(0);
-    let container = cs.and_then(|c| c.first()).map(|c| c.name.clone()).unwrap_or_default();
+    let cs = target
+        .status
+        .as_ref()
+        .and_then(|s| s.container_statuses.as_ref());
+    let restarts: i32 = cs
+        .map(|c| c.iter().map(|x| x.restart_count).sum())
+        .unwrap_or(0);
+    let container = cs
+        .and_then(|c| c.first())
+        .map(|c| c.name.clone())
+        .unwrap_or_default();
     let running = cs
         .and_then(|c| c.first())
         .map(|c| c.state.as_ref().is_some_and(|s| s.running.is_some()))
@@ -55,7 +68,16 @@ async fn main() -> anyhow::Result<()> {
     println!("running now: {running}");
 
     // ---- current ----
-    let current = read(&api, &name, &container, LogStreamOptions { tail: Some(5), ..Default::default() }).await?;
+    let current = read(
+        &api,
+        &name,
+        &container,
+        LogStreamOptions {
+            tail: Some(5),
+            ..Default::default()
+        },
+    )
+    .await?;
     println!("\n=== current, tail 5 ===\n{}", trim(&current));
 
     // ---- previous: the claim is that this returns and doesn't hang ----
@@ -64,20 +86,47 @@ async fn main() -> anyhow::Result<()> {
         &api,
         &name,
         &container,
-        LogStreamOptions { tail: Some(5), previous: true, ..Default::default() },
+        LogStreamOptions {
+            tail: Some(5),
+            previous: true,
+            ..Default::default()
+        },
     )
     .await?;
-    println!("=== previous, tail 5 (returned in {:?}) ===\n{}", started.elapsed(), trim(&previous));
+    println!(
+        "=== previous, tail 5 (returned in {:?}) ===\n{}",
+        started.elapsed(),
+        trim(&previous)
+    );
 
     // ---- since window ----
-    let recent = read(&api, &name, &container, LogStreamOptions { since_seconds: Some(60), ..Default::default() }).await?;
+    let recent = read(
+        &api,
+        &name,
+        &container,
+        LogStreamOptions {
+            since_seconds: Some(60),
+            ..Default::default()
+        },
+    )
+    .await?;
     let all = read(&api, &name, &container, LogStreamOptions::default()).await?;
-    println!("=== since=60s: {} lines   vs  no window: {} lines ===", recent.lines().count(), all.lines().count());
+    println!(
+        "=== since=60s: {} lines   vs  no window: {} lines ===",
+        recent.lines().count(),
+        all.lines().count()
+    );
 
     // A previous read must terminate — that's what `follow: !previous` buys, and
     // it's the difference between a snapshot and a hung task.
-    assert!(started.elapsed() < Duration::from_secs(20), "previous read must not hang");
-    assert!(!previous.is_empty(), "a pod with restarts has a previous container");
+    assert!(
+        started.elapsed() < Duration::from_secs(20),
+        "previous read must not hang"
+    );
+    assert!(
+        !previous.is_empty(),
+        "a pod with restarts has a previous container"
+    );
 
     // The window must actually bound the output.
     assert!(
@@ -134,14 +183,23 @@ async fn main() -> anyhow::Result<()> {
         export_path.display()
     );
     println!("    the view's ring buffer holds 200 — the file has {line_count}");
-    assert_eq!(written, whole, "the file must be exactly what the API returned");
+    assert_eq!(
+        written, whole,
+        "the file must be exactly what the API returned"
+    );
     assert!(
         line_count > 200,
         "the export must reach past the ring buffer, or it defeats its own purpose"
     );
 
     // And a window still bounds the export, so "last 5m" saves 5 minutes.
-    let mut windowed = log_params(&chatty_container, &LogStreamOptions { since_seconds: Some(300), ..Default::default() });
+    let mut windowed = log_params(
+        &chatty_container,
+        &LogStreamOptions {
+            since_seconds: Some(300),
+            ..Default::default()
+        },
+    );
     windowed.follow = false;
     let recent_text = chatty.logs(chatty_pod, &windowed).await?;
     println!("    with since=5m: {} lines", recent_text.lines().count());
@@ -155,5 +213,8 @@ async fn main() -> anyhow::Result<()> {
 
 /// Last few lines, indented.
 fn trim(s: &str) -> String {
-    s.lines().map(|l| format!("    {}", &l[..l.len().min(110)])).collect::<Vec<_>>().join("\n")
+    s.lines()
+        .map(|l| format!("    {}", &l[..l.len().min(110)]))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

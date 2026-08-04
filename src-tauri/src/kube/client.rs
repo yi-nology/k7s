@@ -84,7 +84,11 @@ pub fn contexts_from_file(path: &str) -> AppResult<Vec<ContextInfo>> {
                 .as_ref()
                 .map(|c| c.cluster.clone())
                 .unwrap_or_default();
-            ContextInfo { name: ctx.name.clone(), cluster, current: false }
+            ContextInfo {
+                name: ctx.name.clone(),
+                cluster,
+                current: false,
+            }
         })
         .collect();
     Ok(contexts)
@@ -169,7 +173,10 @@ mod tests {
         let path = std::env::temp_dir().join(format!(
             "k7s-test-{tag}-{}-{:?}.yaml",
             std::process::id(),
-            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
         ));
         let mut f = std::fs::File::create(&path).unwrap();
         f.write_all(body.as_bytes()).unwrap();

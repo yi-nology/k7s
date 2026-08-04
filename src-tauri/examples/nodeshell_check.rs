@@ -18,8 +18,8 @@
 //! Even then it targets a Ready node, cleans up on every exit path, and the pod
 //! carries `activeDeadlineSeconds` as a backstop.
 
-use k8s_openapi::api::core::v1::{Node, Pod};
 use k7s_lib::kube::nodeshell;
+use k8s_openapi::api::core::v1::{Node, Pod};
 use kube::api::{Api, AttachParams, DeleteParams, ListParams, PostParams};
 use kube::{Client, ResourceExt};
 use tokio::io::AsyncReadExt;
@@ -33,9 +33,7 @@ async fn ready_node(client: &Client) -> anyhow::Result<String> {
             .status
             .as_ref()
             .and_then(|s| s.conditions.as_ref())
-            .map(|cs| {
-                cs.iter().any(|c| c.type_ == "Ready" && c.status == "True")
-            })
+            .map(|cs| cs.iter().any(|c| c.type_ == "Ready" && c.status == "True"))
             .unwrap_or(false);
         if ready {
             return Ok(node.name_any());
@@ -56,7 +54,10 @@ async fn main() -> anyhow::Result<()> {
     let spec = nodeshell::debug_pod_spec(&node, nodeshell::DEFAULT_IMAGE, &name);
 
     // ---- always: does admission accept a privileged pod here? ----
-    let dry = PostParams { dry_run: true, ..Default::default() };
+    let dry = PostParams {
+        dry_run: true,
+        ..Default::default()
+    };
     match api.create(&dry, &spec).await {
         Ok(accepted) => {
             println!("admission accepts the debug pod (dry run)");
@@ -70,8 +71,15 @@ async fn main() -> anyhow::Result<()> {
                 Some(nodeshell::MAX_LIFETIME_SECS),
                 "the server did not preserve activeDeadlineSeconds — the crash backstop is gone"
             );
-            println!("  activeDeadlineSeconds survived admission: {:?}", s.active_deadline_seconds);
-            assert_eq!(s.host_pid, Some(true), "hostPID was stripped — nsenter would target the wrong init");
+            println!(
+                "  activeDeadlineSeconds survived admission: {:?}",
+                s.active_deadline_seconds
+            );
+            assert_eq!(
+                s.host_pid,
+                Some(true),
+                "hostPID was stripped — nsenter would target the wrong init"
+            );
         }
         Err(e) => {
             println!("\nadmission REJECTED the debug pod:\n  {e}");
@@ -95,7 +103,10 @@ async fn main() -> anyhow::Result<()> {
     let outcome = run_live_checks(&api, &name, &node).await;
 
     println!("\ncleaning up {name}");
-    let dp = DeleteParams { grace_period_seconds: Some(0), ..Default::default() };
+    let dp = DeleteParams {
+        grace_period_seconds: Some(0),
+        ..Default::default()
+    };
     api.delete(&name, &dp).await?;
 
     // Prove the cleanup, rather than assuming the delete call meant it happened.
@@ -131,7 +142,14 @@ async fn run_live_checks(api: &Api<Pod>, name: &str, node: &str) -> anyhow::Resu
     // namespaces. If it does, `hostname` is the *node's*, not the pod's — the pod's
     // would be the pod name. This is the difference between "a container on the
     // node" and "a shell on the node", which is the entire feature.
-    let out = exec_capture(api, name, vec!["nsenter", "-t", "1", "-m", "-u", "-i", "-n", "-p", "--", "hostname"]).await?;
+    let out = exec_capture(
+        api,
+        name,
+        vec![
+            "nsenter", "-t", "1", "-m", "-u", "-i", "-n", "-p", "--", "hostname",
+        ],
+    )
+    .await?;
     let host = out.trim();
     println!("hostname inside the shell: {host:?}");
     assert!(
@@ -141,7 +159,9 @@ async fn run_live_checks(api: &Api<Pod>, name: &str, node: &str) -> anyhow::Resu
     // Node objects are usually named after the host, but not always (cloud
     // providers use instance ids), so this is a note rather than an assertion.
     if host != node {
-        println!("  (note: node object is {node:?}, host reports {host:?} — normal on some providers)");
+        println!(
+            "  (note: node object is {node:?}, host reports {host:?} — normal on some providers)"
+        );
     }
 
     // Host PID namespace: PID 1 on the host is the init system, never our `sleep`.
@@ -157,7 +177,10 @@ async fn run_live_checks(api: &Api<Pod>, name: &str, node: &str) -> anyhow::Resu
 
 /// Run a command in the debug container and collect its stdout.
 async fn exec_capture(api: &Api<Pod>, name: &str, cmd: Vec<&str>) -> anyhow::Result<String> {
-    let ap = AttachParams::default().stdout(true).stderr(false).container("debug");
+    let ap = AttachParams::default()
+        .stdout(true)
+        .stderr(false)
+        .container("debug");
     let mut proc = api.exec(name, cmd, &ap).await?;
     let mut stdout = proc.stdout().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
     let mut buf = String::new();

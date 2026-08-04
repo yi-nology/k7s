@@ -55,7 +55,9 @@ async fn main() -> anyhow::Result<()> {
     // Manifests: readable, and with nothing secret in them.
     println!("\n--- manifests ---");
     for s in &secrets {
-        let Some(rel) = helm::decode_release(s) else { continue };
+        let Some(rel) = helm::decode_release(s) else {
+            continue;
+        };
         let secret_docs = rel.manifest.matches("kind: Secret").count();
         println!(
             "{:<20} manifest {:>6} bytes, {} Secret document(s)",

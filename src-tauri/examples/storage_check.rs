@@ -22,13 +22,29 @@ async fn main() -> anyhow::Result<()> {
     let pvcs: Api<PersistentVolumeClaim> = Api::all(client.clone());
     let claims = pvcs.list(&ListParams::default()).await?;
     println!("PersistentVolumeClaims ({}):", claims.items.len());
-    println!("  {:<26} {:<12} {:<8} {:<40} {:<9} {:<6} {:<10}", "NAME", "NAMESPACE", "STATUS", "VOLUME", "CAPACITY", "ACCESS", "CLASS");
+    println!(
+        "  {:<26} {:<12} {:<8} {:<40} {:<9} {:<6} {:<10}",
+        "NAME", "NAMESPACE", "STATUS", "VOLUME", "CAPACITY", "ACCESS", "CLASS"
+    );
     let mut claim_volume: HashMap<String, String> = HashMap::new();
     for p in &claims.items {
         let row = map_pvc(p);
         let t = |i: usize| row.cells[i].text.clone();
-        println!("  {:<26} {:<12} {:<8} {:<40} {:<9} {:<6} {}", t(0), t(1), t(2), t(3), t(4), t(5), t(6));
-        assert_eq!(row.cells.len(), 8, "PVC rows must fill the 8-column contract");
+        println!(
+            "  {:<26} {:<12} {:<8} {:<40} {:<9} {:<6} {}",
+            t(0),
+            t(1),
+            t(2),
+            t(3),
+            t(4),
+            t(5),
+            t(6)
+        );
+        assert_eq!(
+            row.cells.len(),
+            8,
+            "PVC rows must fill the 8-column contract"
+        );
         assert!(row.namespace.is_some(), "a claim is namespaced");
         if t(2) == "Bound" {
             claim_volume.insert(format!("{}/{}", t(1), t(0)), t(3));
@@ -39,14 +55,33 @@ async fn main() -> anyhow::Result<()> {
     let pvs: Api<PersistentVolume> = Api::all(client.clone());
     let volumes = pvs.list(&ListParams::default()).await?;
     println!("\nPersistentVolumes ({}):", volumes.items.len());
-    println!("  {:<40} {:<9} {:<6} {:<8} {:<10} {:<34} {:<10}", "NAME", "CAPACITY", "ACCESS", "RECLAIM", "STATUS", "CLAIM", "CLASS");
+    println!(
+        "  {:<40} {:<9} {:<6} {:<8} {:<10} {:<34} {:<10}",
+        "NAME", "CAPACITY", "ACCESS", "RECLAIM", "STATUS", "CLAIM", "CLASS"
+    );
     let mut volume_claim: HashMap<String, String> = HashMap::new();
     for v in &volumes.items {
         let row = map_pv(v);
         let t = |i: usize| row.cells[i].text.clone();
-        println!("  {:<40} {:<9} {:<6} {:<8} {:<10} {:<34} {}", t(0), t(1), t(2), t(3), t(4), t(5), t(6));
-        assert_eq!(row.cells.len(), 8, "PV rows must fill the 8-column contract");
-        assert!(row.namespace.is_none(), "a volume is cluster-scoped — no namespace column");
+        println!(
+            "  {:<40} {:<9} {:<6} {:<8} {:<10} {:<34} {}",
+            t(0),
+            t(1),
+            t(2),
+            t(3),
+            t(4),
+            t(5),
+            t(6)
+        );
+        assert_eq!(
+            row.cells.len(),
+            8,
+            "PV rows must fill the 8-column contract"
+        );
+        assert!(
+            row.namespace.is_none(),
+            "a volume is cluster-scoped — no namespace column"
+        );
         if t(4) == "Bound" {
             volume_claim.insert(t(0), t(5));
         }
@@ -56,9 +91,9 @@ async fn main() -> anyhow::Result<()> {
     // Every bound claim names a volume we listed, and that volume names it back.
     let mut checked = 0;
     for (claim, volume) in &claim_volume {
-        let back = volume_claim
-            .get(volume)
-            .unwrap_or_else(|| panic!("claim {claim} is bound to {volume}, which isn't in the PV list"));
+        let back = volume_claim.get(volume).unwrap_or_else(|| {
+            panic!("claim {claim} is bound to {volume}, which isn't in the PV list")
+        });
         assert_eq!(back, claim, "PV {volume} must point back at {claim}");
         checked += 1;
     }

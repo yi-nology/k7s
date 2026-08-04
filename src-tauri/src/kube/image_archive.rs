@@ -87,7 +87,10 @@ pub async fn inspect_archive(path: &str) -> AppResult<ArchiveInfo> {
         .map_err(|e| AppError::Other(format!("parse skopeo inspect output: {e}")))?;
 
     let str_field = |key: &str| -> String {
-        v.get(key).and_then(|x| x.as_str()).unwrap_or("").to_string()
+        v.get(key)
+            .and_then(|x| x.as_str())
+            .unwrap_or("")
+            .to_string()
     };
 
     // RepoTags is an array of strings. For docker-archive it's at the top
@@ -104,20 +107,17 @@ pub async fn inspect_archive(path: &str) -> AppResult<ArchiveInfo> {
 
     // Size: skopeo doesn't always include a top-level size; sum the layer
     // sizes from the history/layers if present, else fall back to 0.
-    let size_bytes = v
-        .get("Size")
-        .and_then(|s| s.as_i64())
-        .unwrap_or_else(|| {
-            v.get("LayersData")
-                .and_then(|l| l.as_array())
-                .map(|layers| {
-                    layers
-                        .iter()
-                        .filter_map(|l| l.get("Size").and_then(|s| s.as_i64()))
-                        .sum()
-                })
-                .unwrap_or(0)
-        });
+    let size_bytes = v.get("Size").and_then(|s| s.as_i64()).unwrap_or_else(|| {
+        v.get("LayersData")
+            .and_then(|l| l.as_array())
+            .map(|layers| {
+                layers
+                    .iter()
+                    .filter_map(|l| l.get("Size").and_then(|s| s.as_i64()))
+                    .sum()
+            })
+            .unwrap_or(0)
+    });
 
     Ok(ArchiveInfo {
         name: str_field("Name"),
