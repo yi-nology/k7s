@@ -22,8 +22,8 @@ vi.mock('../../providers', () => ({
 // Suppress the xterm canvas error in jsdom.
 HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(null) as any;
 
-// Mock d3-force to avoid actual simulation — the key is that force() returns
-// the simulation itself so chained calls like .force().force() work.
+// Mock d3-force to avoid actual simulation — force() returns a force-like
+// object so that chained calls like .force('link').links(links) work.
 vi.mock('d3-force', () => {
   const forceObj = {
     strength: vi.fn().mockReturnThis(),
@@ -33,7 +33,9 @@ vi.mock('d3-force', () => {
     links: vi.fn().mockReturnThis(),
   };
   const sim: Record<string, any> = {
-    force: vi.fn().mockImplementation(() => sim),
+    force: vi.fn().mockImplementation((...args: any[]) =>
+      args.length >= 2 ? sim : forceObj,
+    ),
     on: vi.fn().mockImplementation(() => sim),
     stop: vi.fn(),
     nodes: vi.fn().mockImplementation(() => sim),
