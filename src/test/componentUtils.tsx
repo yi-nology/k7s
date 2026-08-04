@@ -6,7 +6,7 @@
  * installed. Provides query helpers scoped to the mounted container.
  */
 
-import { act, createElement, type ReactNode } from 'react';
+import { act, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach } from 'vitest';
 

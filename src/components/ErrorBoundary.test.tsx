@@ -4,8 +4,8 @@
  * Covers: rendering children, catching errors, error display, reload button.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createElement } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { ErrorBoundary } from './ErrorBoundary';
 import { render, cleanup, type RenderResult } from '../test/componentUtils';
 

@@ -4,7 +4,7 @@
  * Covers: rendering, header, breadcrumbs, file list, close button.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PodFilesPanel } from './PodFilesPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
@@ -23,7 +23,7 @@ vi.mock('../../providers', () => ({
   }),
 }));
 
-const mockRef = { namespace: 'default', name: 'nginx' };
+const mockRef = { kind: 'pods' as const, namespace: 'default', name: 'nginx' };
 
 let view: RenderResult;
 

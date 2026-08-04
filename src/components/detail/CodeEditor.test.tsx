@@ -5,7 +5,7 @@
  * Note: CodeMirror is complex; tests focus on the React wrapper behavior.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CodeEditor } from './CodeEditor';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
@@ -24,9 +24,9 @@ vi.mock('@codemirror/state', () => ({
 vi.mock('@codemirror/view', () => ({
   EditorView: Object.assign(
     class {
-      static theme = vi.fn(() => ({}));
-      static lineWrapping = [];
-      static editable = { of: vi.fn(() => []) };
+      static theme: unknown = vi.fn(() => ({}));
+      static lineWrapping: unknown = [];
+      static editable: unknown = { of: vi.fn(() => []) };
       destroy = vi.fn();
       dispatch = vi.fn();
     },

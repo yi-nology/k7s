@@ -4,7 +4,7 @@
  * Covers: rendering, header, close button, empty state, table rendering.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EndpointsPanel } from './EndpointsPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 

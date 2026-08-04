@@ -4,7 +4,7 @@
  * Covers: rendering, header, close button, tabs, empty states.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AlertsPanel } from './AlertsPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 

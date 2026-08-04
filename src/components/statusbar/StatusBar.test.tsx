@@ -76,6 +76,8 @@ describe('StatusBar', () => {
   describe('cluster metrics', () => {
     it('shows API latency when status is available', () => {
       const status: ClusterStatus = {
+        connected: true,
+        version: 'v1.28.0',
         apiLatencyMs: 42,
         nodesReady: 3,
         nodesTotal: 3,
@@ -96,6 +98,8 @@ describe('StatusBar', () => {
 
     it('shows node ready count', () => {
       const status: ClusterStatus = {
+        connected: true,
+        version: 'v1.28.0',
         apiLatencyMs: 10,
         nodesReady: 2,
         nodesTotal: 3,
@@ -112,6 +116,8 @@ describe('StatusBar', () => {
 
     it('shows CPU percentage when available', () => {
       const status: ClusterStatus = {
+        connected: true,
+        version: 'v1.28.0',
         apiLatencyMs: 10,
         nodesReady: 3,
         nodesTotal: 3,
@@ -125,6 +131,8 @@ describe('StatusBar', () => {
 
     it('shows MEM percentage when available', () => {
       const status: ClusterStatus = {
+        connected: true,
+        version: 'v1.28.0',
         apiLatencyMs: 10,
         nodesReady: 3,
         nodesTotal: 3,

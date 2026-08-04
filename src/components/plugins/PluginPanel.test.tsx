@@ -129,7 +129,7 @@ describe('PluginPanel', () => {
       view = render(<PluginPanel />);
       const checkbox = view.container.querySelector('input[type="checkbox"]');
       expect(checkbox).not.toBeNull();
-      view.click(checkbox!);
+      view.click(checkbox as HTMLElement);
       expect(mockToggle).toHaveBeenCalledWith('my-plugin');
     });
 

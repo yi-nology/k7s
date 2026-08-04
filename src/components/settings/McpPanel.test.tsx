@@ -4,7 +4,7 @@
  * Covers: rendering, config cards, copy buttons, URL display.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { McpPanel } from './McpPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 

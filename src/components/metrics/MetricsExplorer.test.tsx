@@ -4,7 +4,7 @@
  * Covers: rendering, header, close button, mode toggle, query input.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MetricsExplorer } from './MetricsExplorer';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 

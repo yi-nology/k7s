@@ -4,7 +4,7 @@
  * Covers: rendering, watch count display, settings button, dot color by phase.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
 import { WatchFooter } from './WatchFooter';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
