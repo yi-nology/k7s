@@ -1,15 +1,16 @@
-name: release
+name: CI & Release
 
 # ── Trigger summary ──────────────────────────────────────────────
 #   tag v*    →  release + docker jobs run (full bundle + container)
-#   push main →  lint-test job runs (cheap: pnpm typecheck + pnpm test)
-#   pull req  →  lint-test job runs (same)
+#   push main →  frontend + backend jobs run (cheap CI gate)
+#   pull req  →  frontend + backend jobs run (same)
 #   dispatch  →  release + docker jobs run on demand
 #
 # Why no Tauri build on main pushes?  Building 3 OS matrix on every
-# commit eats 15-20 minutes of CI per push. The lint-test job is the
-# cheap gate that catches "did pnpm install / tsc / vitest break?".
-# Anything that affects the actual bundle is exercised on tag.
+# commit eats 15-20 minutes of CI per push. The frontend + backend
+# jobs are the cheap gate that catches typecheck / vitest / cargo
+# failures fast. Anything that affects the actual bundle is
+# exercised on tag.
 #
 # Version sync requirement (for tag pushes):
 #   tag v0.2.3   →   package.json / tauri.conf.json / Cargo.toml all
@@ -32,27 +33,24 @@ permissions:
 
 jobs:
   # ────────────────────────────────────────────────────────────────
-  # 1) Cheap gate on every push / PR. Single ubuntu runner, JS-only.
+  # 1) Frontend gate: typecheck + unit tests (JS/TS only).
   # ────────────────────────────────────────────────────────────────
-  lint-test:
-    name: lint & test (ubuntu)
+  frontend:
+    name: frontend (ubuntu)
     if: github.ref_type != 'tag'
-    # ↑ skip on tag pushes / workflow_dispatch on a tag.
-    # `github.ref_type` is "branch" for branch refs and "tag" for
-    # tag refs; this is more direct than poking at github.event_name
-    # × github.ref and works the same for `gh workflow run --ref`.
     runs-on: ubuntu-22.04
     steps:
       - name: checkout
         uses: actions/checkout@v4
 
+      - name: install pnpm
+        uses: pnpm/action-setup@v4
+
       - name: install Node
         uses: actions/setup-node@v4
         with:
           node-version: "26"
-
-      - name: install pnpm
-        uses: pnpm/action-setup@v4
+          cache: 'pnpm'
 
       - name: install JS deps
         run: pnpm install --frozen-lockfile
@@ -64,10 +62,44 @@ jobs:
         run: pnpm test -- --run
 
   # ────────────────────────────────────────────────────────────────
-  # 2) Tag push → full Tauri bundle matrix + GitHub release.
+  # 2) Backend gate: cargo check / clippy / fmt / test (Rust only).
+  # ────────────────────────────────────────────────────────────────
+  backend:
+    name: backend (ubuntu)
+    if: github.ref_type != 'tag'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - name: cargo check
+        run: cargo check
+
+      - name: cargo clippy
+        run: cargo clippy -- -D warnings
+
+      - name: cargo fmt check
+        run: cargo fmt --check
+
+      - name: cargo test
+        run: cargo test
+
+  # ────────────────────────────────────────────────────────────────
+  # 3) Tag push → full Tauri bundle matrix + GitHub release.
   # ────────────────────────────────────────────────────────────────
   release:
     name: release (${{ matrix.os }})
+    needs: [frontend, backend]
     if: startsWith(github.ref, 'refs/tags/v')
     strategy:
       fail-fast: false
@@ -128,21 +160,12 @@ jobs:
         with:
           projectName: k7s
           tagName: ${{ github.ref_name }}
-          # releaseName is required by tauri-action when creating a
-          # non-draft release. Default it to "k7s <tag>" so the
-          # release page title reads cleanly.
           releaseName: 'k7s ${{ github.ref_name }}'
-          # First public release — publish immediately.
           releaseDraft: false
           prerelease: false
-          # ── code signing (uncomment + add secrets to enable) ──
-          # appleId: ${{ secrets.APPLE_ID }}
-          # applePassword: ${{ secrets.APPLE_PASSWORD }}
-          # appleTeamId: ${{ secrets.APPLE_TEAM_ID }}
-          # signingIdentity: ${{ secrets.WINDOWS_CERT }}
 
   # ────────────────────────────────────────────────────────────────
-  # 3) Tag push → container image (linux/amd64 + linux/arm64) to ghcr.io.
+  # 4) Tag push → container image (linux/amd64 + linux/arm64) to ghcr.io.
   # ────────────────────────────────────────────────────────────────
   docker:
     name: docker (${{ matrix.platform }})
@@ -200,8 +223,6 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: ${{ matrix.platform }}
-          # Job-level `if:` already gates this to refs/tags/v*,
-          # so push: <ref check> is sufficient.
           push: ${{ startsWith(github.ref, 'refs/tags/v') }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -221,7 +242,8 @@ jobs:
 #                  + ghcr.io/zy84338719/k7s:v0.2.3 / 0.2.3 / 0.2 / latest
 #                    (multi-arch: linux/amd64 + linux/arm64)
 #
-#   push to main →  ~1 min lint-test run, no Tauri build, no image
-#                  push. Catches typecheck + vitest failures fast.
+#   push to main →  ~1 min frontend + backend runs, no Tauri build,
+#                  no image push. Catches typecheck + vitest + cargo
+#                  failures fast.
 #
 #   pull_request →  same as push to main.
