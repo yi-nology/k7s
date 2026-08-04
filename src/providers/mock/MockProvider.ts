@@ -378,6 +378,10 @@ export class MockProvider implements DataProvider {
     };
   }
 
+  onWatchKindStatus(_cb: (kind: string, status: "ok" | "forbidden") => void): Unsub {
+    return () => {}; // mock: no RBAC errors
+  }
+
   onDrainProgress(cb: (p: DrainProgress) => void): Unsub {
     this.drainCbs.add(cb);
     return () => {

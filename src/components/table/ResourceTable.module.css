@@ -338,6 +338,21 @@
   font-size: var(--text-md);
   color: var(--text-faint);
 }
+/* RBAC forbidden state: lock icon + message. */
+.forbidden {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+.forbidden svg {
+  color: var(--status-warn);
+  opacity: 0.6;
+}
 
 /* Rows included in a multi-row selection but not the one whose detail panel is
    open (B39). Quieter than .rowSelected on purpose: the panel's row is still the
