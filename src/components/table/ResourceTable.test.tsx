@@ -5,7 +5,7 @@
  * events time-range dropdown, and row click interaction via the store.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
 import type { Row } from '../../providers/types';
 import { ResourceTable } from './ResourceTable';
@@ -13,7 +13,7 @@ import {
   render,
   cleanup,
   createMockRow,
-  createMockCell,
+  
   type RenderResult,
 } from '../../test/componentUtils';
 

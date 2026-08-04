@@ -4,7 +4,7 @@
  * Covers: rendering, header, close button, filters, instance list.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuditPanel } from './AuditPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 

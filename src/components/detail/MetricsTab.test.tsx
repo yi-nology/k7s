@@ -13,7 +13,7 @@ import {
   render,
   cleanup,
   createMockRow,
-  createMockCell,
+  
   type RenderResult,
 } from '../../test/componentUtils';
 import type { NodeSample } from '../../providers/types';

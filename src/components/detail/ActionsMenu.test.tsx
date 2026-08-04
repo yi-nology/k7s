@@ -5,7 +5,7 @@
  * click outside to close.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ActionsMenu } from './ActionsMenu';
 import {
   render,
@@ -30,7 +30,7 @@ vi.mock('../actions/ActionList', () => ({
 
 // Mock actionsFor.
 vi.mock('../../lib/actions', () => ({
-  actionsFor: vi.fn((kind: string, rows: any[]) => {
+  actionsFor: vi.fn((kind: string, _rows: any[]) => {
     // Return non-empty for pods, empty for nodes
     if (kind === 'pods') return [{ id: 'delete', label: 'Delete' }];
     return [];

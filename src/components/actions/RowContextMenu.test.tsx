@@ -8,7 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { RowContextMenu } from './RowContextMenu';
-import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
+import { render, cleanup, createMockRow } from '../../test/componentUtils';
 
 // Mock the provider.
 vi.mock('../../providers', () => ({
@@ -20,7 +20,6 @@ vi.mock('../../providers', () => ({
   }),
 }));
 
-let view: RenderResult;
 
 function resetStore() {
   useStore.setState({
@@ -54,7 +53,7 @@ describe('RowContextMenu', () => {
   });
 
   it('renders the context menu', () => {
-    view = render(
+    render(
       <RowContextMenu
         at={{ x: 100, y: 100 }}
         kind="pods"
@@ -70,7 +69,7 @@ describe('RowContextMenu', () => {
   });
 
   it('renders as a portal to document.body', () => {
-    view = render(
+    render(
       <RowContextMenu
         at={{ x: 100, y: 100 }}
         kind="pods"
@@ -86,7 +85,7 @@ describe('RowContextMenu', () => {
   });
 
   it('positions at the given coordinates', () => {
-    view = render(
+    render(
       <RowContextMenu
         at={{ x: 200, y: 300 }}
         kind="pods"
@@ -102,7 +101,7 @@ describe('RowContextMenu', () => {
   });
 
   it('renders action buttons inside the menu', () => {
-    view = render(
+    render(
       <RowContextMenu
         at={{ x: 100, y: 100 }}
         kind="pods"
@@ -120,7 +119,7 @@ describe('RowContextMenu', () => {
 
   it('calls onClose on Escape key', () => {
     const onClose = vi.fn();
-    view = render(
+    render(
       <RowContextMenu
         at={{ x: 100, y: 100 }}
         kind="pods"
@@ -136,7 +135,7 @@ describe('RowContextMenu', () => {
 
   it('calls onClose on mousedown outside', () => {
     const onClose = vi.fn();
-    view = render(
+    render(
       <RowContextMenu
         at={{ x: 100, y: 100 }}
         kind="pods"
@@ -152,7 +151,7 @@ describe('RowContextMenu', () => {
 
   it('calls onClose on window resize', () => {
     const onClose = vi.fn();
-    view = render(
+    render(
       <RowContextMenu
         at={{ x: 100, y: 100 }}
         kind="pods"
@@ -167,7 +166,7 @@ describe('RowContextMenu', () => {
   });
 
   it('prevents default context menu on the menu element', () => {
-    view = render(
+    render(
       <RowContextMenu
         at={{ x: 100, y: 100 }}
         kind="pods"

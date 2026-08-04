@@ -4,7 +4,7 @@
  * Covers: rendering, header, close button, instance list, add form, presets.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GrafanaPanel } from './GrafanaPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 

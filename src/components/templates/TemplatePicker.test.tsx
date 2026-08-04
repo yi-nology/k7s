@@ -67,7 +67,7 @@ describe('TemplatePicker', () => {
     const onClose = vi.fn();
     view = render(<TemplatePicker onClose={onClose} />);
     const closeBtn = view.container.querySelector('[aria-label="Close"]');
-    if (closeBtn) view.click(closeBtn);
+    if (closeBtn) view.click(closeBtn as HTMLElement);
     expect(onClose).toHaveBeenCalled();
   });
 

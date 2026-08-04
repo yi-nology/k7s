@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createElement } from 'react';
+
 import { Plot } from './PlotChart';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 

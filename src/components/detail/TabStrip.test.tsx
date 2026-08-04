@@ -122,7 +122,7 @@ describe('TabStrip', () => {
       view = render(<TabStrip />);
       const closeBtn = view.container.querySelector('[aria-label="Close nginx tab"]');
       expect(closeBtn).not.toBeNull();
-      view.click(closeBtn!);
+      view.click(closeBtn as HTMLElement);
       const remaining = useStore.getState().detailTabs;
       expect(remaining.length).toBe(1);
       expect(remaining[0].uid).toBe('t2');

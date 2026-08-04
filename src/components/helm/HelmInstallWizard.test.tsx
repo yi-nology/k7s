@@ -32,6 +32,9 @@ const mockChart = {
   version: '1.0.0',
   appVersion: '1.25',
   description: 'NGINX web server',
+  keywords: ['web', 'server'],
+  home: 'https://nginx.org',
+  maintainers: [{ name: 'NGINX', email: 'info@nginx.org', url: 'https://nginx.org' }],
 };
 
 function resetStore() {

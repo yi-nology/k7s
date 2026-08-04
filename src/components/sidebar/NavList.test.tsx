@@ -153,6 +153,7 @@ describe('NavList', () => {
           group: 'argoproj.io',
           version: 'v1alpha1',
           namespaced: true,
+          plural: 'applications',
         },
       ];
       useStore.setState({ customKinds });
@@ -174,6 +175,7 @@ describe('NavList', () => {
           group: 'argoproj.io',
           version: 'v1alpha1',
           namespaced: true,
+          plural: 'applications',
         },
         {
           id: 'argoproj.io/appprojects',
@@ -181,6 +183,7 @@ describe('NavList', () => {
           group: 'argoproj.io',
           version: 'v1alpha1',
           namespaced: true,
+          plural: 'appprojects',
         },
       ];
       useStore.setState({ customKinds });

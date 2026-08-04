@@ -4,7 +4,7 @@
  * Covers: rendering, header, close button, registry list, add form.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImageRepoPanel } from './ImageRepoPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 

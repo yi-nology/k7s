@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act } from 'react';
+
 import { useStore } from '../../store';
 import { LogsTab } from './LogsTab';
 import {
