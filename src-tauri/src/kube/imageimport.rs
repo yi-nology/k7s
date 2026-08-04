@@ -88,15 +88,9 @@ pub fn detect_runtime(version: &str) -> AppResult<String> {
 /// implicit stdin for `docker load`).
 pub fn load_command(runtime: &str) -> AppResult<Vec<String>> {
     let inner = match runtime {
-        "containerd" => {
-            "ctr --address /run/containerd/containerd.sock images import --no-unpack -"
-        }
+        "containerd" => "ctr --address /run/containerd/containerd.sock images import --no-unpack -",
         "docker" => "docker load",
-        other => {
-            return Err(AppError::Other(format!(
-                "unsupported runtime '{other}'"
-            )))
-        }
+        other => return Err(AppError::Other(format!("unsupported runtime '{other}'"))),
     };
     Ok(vec![
         "nsenter".into(),
@@ -214,7 +208,7 @@ pub async fn import_to_node(
 
     // Guard: run the exec, then always delete the pod. Using a closure so the
     // `?` operator short-circuits into `res` and cleanup still runs.
-    let res: AppResult<(String, Vec<String>)> = (|| async {
+    let res: AppResult<(String, Vec<String>)> = async {
         // 3. Wait for Running.
         nodeshell::await_debug_pod(&pod_api, &pod_name).await?;
 
@@ -257,7 +251,7 @@ pub async fn import_to_node(
             )));
         }
         Ok((output.clone(), parse_loaded_images(&output)))
-    })()
+    }
     .await;
 
     // 5. Unconditional pod cleanup — success or failure.
@@ -308,7 +302,10 @@ mod tests {
 
     #[test]
     fn detect_trims_whitespace() {
-        assert_eq!(detect_runtime("  containerd://1.6  ").unwrap(), "containerd");
+        assert_eq!(
+            detect_runtime("  containerd://1.6  ").unwrap(),
+            "containerd"
+        );
     }
 
     #[test]
@@ -368,7 +365,13 @@ mod tests {
     fn parse_containerd_bare_refs() {
         let out = "docker.io/library/nginx:1.25\ndocker.io/library/busybox:latest\n";
         let imgs = parse_loaded_images(out);
-        assert_eq!(imgs, vec!["docker.io/library/nginx:1.25", "docker.io/library/busybox:latest"]);
+        assert_eq!(
+            imgs,
+            vec![
+                "docker.io/library/nginx:1.25",
+                "docker.io/library/busybox:latest"
+            ]
+        );
     }
 
     #[test]
@@ -406,7 +409,10 @@ docker.io/library/nginx:1.25";
 
     #[test]
     fn sanitize_replaces_dots_and_uppercase() {
-        assert_eq!(sanitize_for_name("Host.DC1.Example.COM"), "host-dc1-example-com");
+        assert_eq!(
+            sanitize_for_name("Host.DC1.Example.COM"),
+            "host-dc1-example-com"
+        );
     }
 
     #[test]

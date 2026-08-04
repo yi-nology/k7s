@@ -11,13 +11,13 @@
 //! event can include them without re-fetching.
 
 use super::events;
+use crate::core::events::EventSink;
 use k8s_openapi::api::core::v1::Node;
 use kube::api::{Api, ListParams};
 use kube::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::core::events::EventSink;
 use tokio::sync::Mutex;
 use tokio::time::{interval, Duration, Instant};
 
@@ -36,7 +36,10 @@ pub struct PollIntervals {
 
 impl Default for PollIntervals {
     fn default() -> Self {
-        PollIntervals { metrics: METRICS_INTERVAL, status: STATUS_INTERVAL }
+        PollIntervals {
+            metrics: METRICS_INTERVAL,
+            status: STATUS_INTERVAL,
+        }
     }
 }
 
@@ -140,12 +143,7 @@ pub fn spawn_pollers(
 }
 
 /// Poll pod/node metrics on an interval; emit events; track availability.
-async fn metrics_loop(
-    sink: EventSink,
-    client: Client,
-    shared: SharedClusterPct,
-    every: Duration,
-) {
+async fn metrics_loop(sink: EventSink, client: Client, shared: SharedClusterPct, every: Duration) {
     let mut tick = interval(every);
     // When the metrics API is missing we back off probing to ~60s.
     let mut miss_streak = 0u32;
@@ -165,8 +163,8 @@ async fn metrics_loop(
         match (pods, nodes) {
             (Ok(pod_map), Ok((node_map, cluster_pct))) => {
                 miss_streak = 0;
-                let _ = sink.emit(events::POD_METRICS, &&pod_map);
-                let _ = sink.emit(events::NODE_METRICS, &&node_map);
+                sink.emit(events::POD_METRICS, &&pod_map);
+                sink.emit(events::NODE_METRICS, &&node_map);
                 *shared.lock().await = Some(cluster_pct);
             }
             _ => {
@@ -190,10 +188,24 @@ async fn fetch_pod_metrics(client: &Client) -> Result<HashMap<String, PodUsage>,
 
     let mut map = HashMap::new();
     for pm in list.items {
-        let cpu: i64 = pm.containers.iter().map(|c| parse_cpu_millis(&c.usage.cpu)).sum();
-        let mem: i64 = pm.containers.iter().map(|c| parse_mem_bytes(&c.usage.memory)).sum();
+        let cpu: i64 = pm
+            .containers
+            .iter()
+            .map(|c| parse_cpu_millis(&c.usage.cpu))
+            .sum();
+        let mem: i64 = pm
+            .containers
+            .iter()
+            .map(|c| parse_mem_bytes(&c.usage.memory))
+            .sum();
         let key = format!("{}/{}", pm.metadata.namespace, pm.metadata.name);
-        map.insert(key, PodUsage { cpu_millis: cpu, mem_bytes: mem });
+        map.insert(
+            key,
+            PodUsage {
+                cpu_millis: cpu,
+                mem_bytes: mem,
+            },
+        );
     }
     Ok(map)
 }
@@ -290,7 +302,7 @@ async fn status_loop(sink: EventSink, client: Client, shared: SharedClusterPct, 
             cpu_percent: cpu,
             mem_percent: mem,
         };
-        let _ = sink.emit(events::CLUSTER_STATUS, &payload);
+        sink.emit(events::CLUSTER_STATUS, &payload);
     }
 }
 
@@ -361,13 +373,8 @@ pub fn parse_mem_bytes(s: &str) -> i64 {
             return (v.parse::<f64>().unwrap_or(0.0) * mult).round() as i64;
         }
     }
-    const DECIMAL: [(&str, f64); 5] = [
-        ("k", 1e3),
-        ("M", 1e6),
-        ("G", 1e9),
-        ("T", 1e12),
-        ("P", 1e15),
-    ];
+    const DECIMAL: [(&str, f64); 5] =
+        [("k", 1e3), ("M", 1e6), ("G", 1e9), ("T", 1e12), ("P", 1e15)];
     for (suf, mult) in DECIMAL {
         if let Some(v) = s.strip_suffix(suf) {
             return (v.parse::<f64>().unwrap_or(0.0) * mult).round() as i64;

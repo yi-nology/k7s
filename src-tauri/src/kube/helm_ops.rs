@@ -20,8 +20,8 @@
 //! (so the install dialog shows a live "fetching chart... rendered template"
 //! progress) and return the final result on completion.
 
-use crate::error::{AppError, AppResult};
 use crate::core::events::EventSink;
+use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Stdio;
@@ -147,7 +147,10 @@ pub async fn run_op(op: HelmOp, sink: EventSink) -> AppResult<HelmOpResult> {
         // Helm picks up KUBECONFIG from the environment; we pass through any
         // value the caller specified rather than letting the system default
         // leak in by accident.
-        .envs(std::env::vars().filter(|(k, _)| k == "KUBECONFIG" || k == "HELM_CONFIG" || k == "HOME"));
+        .envs(
+            std::env::vars()
+                .filter(|(k, _)| k == "KUBECONFIG" || k == "HELM_CONFIG" || k == "HOME"),
+        );
 
     if let Some(kc) = op_kubeconfig(&op) {
         // Write the kubeconfig to a temp file (helm needs a path, not a blob).
@@ -165,8 +168,14 @@ pub async fn run_op(op: HelmOp, sink: EventSink) -> AppResult<HelmOpResult> {
     // merging into a single ordered stream would need timestamps; for now
     // we interleave with a "stdout: " / "stderr: " prefix per line, which is
     // good enough for a live log.
-    let stdout = child.stdout.take().ok_or_else(|| AppError::Other("no stdout".into()))?;
-    let stderr = child.stderr.take().ok_or_else(|| AppError::Other("no stderr".into()))?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| AppError::Other("no stdout".into()))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| AppError::Other("no stderr".into()))?;
 
     let line_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let sink_out = sink.clone();
@@ -175,7 +184,13 @@ pub async fn run_op(op: HelmOp, sink: EventSink) -> AppResult<HelmOpResult> {
         let mut reader = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_out.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let _ = sink_out.emit(HELM_LOG_EVENT, &LogLine { stream: "stdout", line });
+            sink_out.emit(
+                HELM_LOG_EVENT,
+                &LogLine {
+                    stream: "stdout",
+                    line,
+                },
+            );
         }
     });
     let sink_err = sink.clone();
@@ -184,7 +199,13 @@ pub async fn run_op(op: HelmOp, sink: EventSink) -> AppResult<HelmOpResult> {
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_err.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let _ = sink_err.emit(HELM_LOG_EVENT, &LogLine { stream: "stderr", line });
+            sink_err.emit(
+                HELM_LOG_EVENT,
+                &LogLine {
+                    stream: "stderr",
+                    line,
+                },
+            );
         }
     });
 
@@ -210,7 +231,7 @@ pub async fn run_op(op: HelmOp, sink: EventSink) -> AppResult<HelmOpResult> {
         lines: line_count.load(std::sync::atomic::Ordering::Relaxed),
         summary,
     };
-    let _ = sink.emit(HELM_DONE_EVENT, &result);
+    sink.emit(HELM_DONE_EVENT, &result);
     if success {
         Ok(result)
     } else {
@@ -356,7 +377,11 @@ fn op_kubeconfig(op: &HelmOp) -> Option<String> {
 
 pub(crate) fn which_helm() -> Option<String> {
     // Try `helm` on PATH first; the typical install.
-    for path in ["/usr/local/bin/helm", "/opt/homebrew/bin/helm", "/usr/bin/helm"] {
+    for path in [
+        "/usr/local/bin/helm",
+        "/opt/homebrew/bin/helm",
+        "/usr/bin/helm",
+    ] {
         if std::path::Path::new(path).exists() {
             return Some(path.to_string());
         }
@@ -374,8 +399,7 @@ pub(crate) fn which_helm() -> Option<String> {
 
 fn write_temp_kubeconfig(content: &str) -> AppResult<PathBuf> {
     let dir = std::env::temp_dir().join("k7s-helm");
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| AppError::Other(format!("create tmp dir: {e}")))?;
+    std::fs::create_dir_all(&dir).map_err(|e| AppError::Other(format!("create tmp dir: {e}")))?;
     let path = dir.join(format!("kc-{}.yaml", std::process::id()));
     std::fs::write(&path, content)
         .map_err(|e| AppError::Other(format!("write kubeconfig: {e}")))?;
@@ -394,16 +418,14 @@ fn write_temp_kubeconfig(content: &str) -> AppResult<PathBuf> {
 
 fn write_temp_values(content: &str) -> AppResult<PathBuf> {
     let dir = std::env::temp_dir().join("k7s-helm");
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| AppError::Other(format!("create tmp dir: {e}")))?;
+    std::fs::create_dir_all(&dir).map_err(|e| AppError::Other(format!("create tmp dir: {e}")))?;
     // Random suffix so two concurrent installs don't clobber each other.
     let suffix: u64 = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos() as u64)
         .unwrap_or(0);
     let path = dir.join(format!("values-{suffix}.yaml"));
-    std::fs::write(&path, content)
-        .map_err(|e| AppError::Other(format!("write values: {e}")))?;
+    std::fs::write(&path, content).map_err(|e| AppError::Other(format!("write values: {e}")))?;
     Ok(path)
 }
 
@@ -455,7 +477,10 @@ pub async fn release_history(
         let path = write_temp_kubeconfig(kc)?;
         cmd.env("KUBECONFIG", &path);
     }
-    let out = cmd.output().await.map_err(|e| AppError::Other(format!("helm history: {e}")))?;
+    let out = cmd
+        .output()
+        .await
+        .map_err(|e| AppError::Other(format!("helm history: {e}")))?;
     if !out.status.success() {
         return Err(AppError::Other(format!(
             "helm history: {}",
@@ -470,11 +495,31 @@ pub async fn release_history(
         .into_iter()
         .map(|r| RevisionEntry {
             revision: r.get("revision").and_then(|v| v.as_i64()).unwrap_or(0),
-            updated: r.get("updated").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            status: r.get("status").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            chart: r.get("chart").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            app_version: r.get("app_version").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            description: r.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            updated: r
+                .get("updated")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            status: r
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            chart: r
+                .get("chart")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            app_version: r
+                .get("app_version")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            description: r
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
         })
         .collect())
 }
@@ -489,13 +534,9 @@ pub async fn render_default_values(
 ) -> AppResult<String> {
     let helm = which_helm().ok_or_else(|| AppError::Other("helm CLI not found".into()))?;
     let mut cmd = Command::new(&helm);
-    cmd.args([
-        "show",
-        "values",
-        chart,
-    ])
-    .stdout(Stdio::piped())
-    .stderr(Stdio::piped());
+    cmd.args(["show", "values", chart])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
     if !version.is_empty() {
         cmd.arg("--version").arg(version);
     }
@@ -503,7 +544,10 @@ pub async fn render_default_values(
         let path = write_temp_kubeconfig(kc)?;
         cmd.env("KUBECONFIG", &path);
     }
-    let out = cmd.output().await.map_err(|e| AppError::Other(format!("helm show values: {e}")))?;
+    let out = cmd
+        .output()
+        .await
+        .map_err(|e| AppError::Other(format!("helm show values: {e}")))?;
     if !out.status.success() {
         return Err(AppError::Other(format!(
             "helm show values: {}",

@@ -9,12 +9,12 @@
 //! AttachedProcess, so aborting the task (on stop / disconnect) tears down the
 //! exec connection.
 
+use crate::core::events::EventSink;
 use crate::error::AppError;
 use k8s_openapi::api::core::v1::Pod;
-use kube::api::{AttachParams, Api, TerminalSize};
+use kube::api::{Api, AttachParams, TerminalSize};
 use kube::Client;
 use serde::Serialize;
-use crate::core::events::EventSink;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::mpsc;
 
@@ -116,7 +116,7 @@ pub async fn run_argv(
         Ok(r) => r,
         Err(e) => e.to_string(),
     };
-    let _ = sink.emit(&closed_event, &reason);
+    sink.emit(&closed_event, &reason);
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -144,8 +144,12 @@ async fn exec_pump(
         .await
         .map_err(|e| AppError::Kube(e.to_string()))?;
 
-    let mut stdout = proc.stdout().ok_or_else(|| AppError::Other("no stdout".into()))?;
-    let mut stdin = proc.stdin().ok_or_else(|| AppError::Other("no stdin".into()))?;
+    let mut stdout = proc
+        .stdout()
+        .ok_or_else(|| AppError::Other("no stdout".into()))?;
+    let mut stdin = proc
+        .stdin()
+        .ok_or_else(|| AppError::Other("no stdin".into()))?;
     // terminal_size() is a futures mpsc Sender (bounded); use try_send (non-async).
     let mut ts_tx = proc.terminal_size();
 
@@ -159,7 +163,7 @@ async fn exec_pump(
                 Ok(0) => return Ok("session ended".into()),
                 Ok(n) => {
                     let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = sink.emit(&out_event, &ShellOut { data });
+                    sink.emit(&out_event, &ShellOut { data });
                 }
                 Err(e) => return Err(AppError::Other(e.to_string())),
             },
@@ -200,7 +204,10 @@ mod tests {
     /// a binary whose name contains spaces.
     #[test]
     fn override_runs_through_a_shell() {
-        assert_eq!(shell_cmd("/bin/zsh"), vec!["/bin/sh", "-c", "exec /bin/zsh"]);
+        assert_eq!(
+            shell_cmd("/bin/zsh"),
+            vec!["/bin/sh", "-c", "exec /bin/zsh"]
+        );
         assert_eq!(
             shell_cmd("env TERM=xterm bash -l"),
             vec!["/bin/sh", "-c", "exec env TERM=xterm bash -l"]
@@ -212,7 +219,10 @@ mod tests {
     #[test]
     fn override_is_exec_ed() {
         let cmd = shell_cmd("bash");
-        assert!(cmd[2].starts_with("exec "), "override must replace the wrapping shell");
+        assert!(
+            cmd[2].starts_with("exec "),
+            "override must replace the wrapping shell"
+        );
     }
 
     /// Surrounding whitespace from the settings field doesn't reach the container.

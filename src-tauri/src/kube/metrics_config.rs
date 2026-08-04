@@ -101,13 +101,11 @@ fn load_file() -> AppResult<MetricsFile> {
 
 fn save_file(f: &MetricsFile) -> AppResult<()> {
     let path = config_path()?;
-    let text = serde_json::to_string_pretty(f)
-        .map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+    let text =
+        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, text)
-        .map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
-    std::fs::rename(&tmp, &path)
-        .map_err(|e| AppError::Other(format!("rename: {e}")))?;
+    std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
+    std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
     Ok(())
 }
 
@@ -246,11 +244,7 @@ pub struct QueryResult {
 pub async fn query(name: &str, promql: &str) -> AppResult<QueryResult> {
     let cfg = find(name)?;
     let client = build_client(&cfg)?;
-    let url = format!(
-        "{}/api/v1/query?query={}",
-        cfg.url,
-        urlencode(promql)
-    );
+    let url = format!("{}/api/v1/query?query={}", cfg.url, urlencode(promql));
     let resp = client
         .get(&url)
         .basic_auth(&cfg.username, Some(&cfg.password))
@@ -260,9 +254,7 @@ pub async fn query(name: &str, promql: &str) -> AppResult<QueryResult> {
     let status = resp.status();
     if !status.is_success() {
         let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Other(format!(
-            "{url}: HTTP {status}: {text}"
-        )));
+        return Err(AppError::Other(format!("{url}: HTTP {status}: {text}")));
     }
     let body: PromResponse = resp
         .json()
@@ -297,9 +289,7 @@ pub async fn query_range(
     let status = resp.status();
     if !status.is_success() {
         let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Other(format!(
-            "{url}: HTTP {status}: {text}"
-        )));
+        return Err(AppError::Other(format!("{url}: HTTP {status}: {text}")));
     }
     let body: PromResponse = resp
         .json()
@@ -313,6 +303,7 @@ pub async fn query_range(
 // ---------------------------------------------------------------------------
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct PromResponse {
     data: PromData,
     #[serde(default = "default_status")]
@@ -358,7 +349,10 @@ fn translate(body: PromResponse) -> QueryResult {
                     let p = pair.as_array()?;
                     let ts = p.first()?.as_f64()? as i64;
                     let val = p.get(1)?.as_str()?.parse::<f64>().ok()?;
-                    Some(Sample { ts: ts * 1000, value: val })
+                    Some(Sample {
+                        ts: ts * 1000,
+                        value: val,
+                    })
                 })
                 .collect(),
             None => match item.get("value").and_then(|v| v.as_array()) {
@@ -369,7 +363,10 @@ fn translate(body: PromResponse) -> QueryResult {
                         .and_then(|v| v.as_str())
                         .and_then(|s| s.parse::<f64>().ok())
                         .unwrap_or(0.0);
-                    vec![Sample { ts: ts * 1000, value: val }]
+                    vec![Sample {
+                        ts: ts * 1000,
+                        value: val,
+                    }]
                 }
                 None => vec![],
             },
@@ -416,7 +413,10 @@ mod tests {
 
     #[test]
     fn urlencode_passes_safe_chars() {
-        assert_eq!(urlencode("rate(node_cpu[5m])"), "rate%28node_cpu%5B5m%5D%29");
+        assert_eq!(
+            urlencode("rate(node_cpu[5m])"),
+            "rate%28node_cpu%5B5m%5D%29"
+        );
     }
 
     #[test]

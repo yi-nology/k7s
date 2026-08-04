@@ -26,9 +26,8 @@ use kube::ResourceExt;
 
 /// Stable uid: the k8s uid, or "namespace/name" when uid is absent.
 fn uid_of<K: ResourceExt>(obj: &K) -> String {
-    obj.uid().unwrap_or_else(|| {
-        format!("{}/{}", obj.namespace().unwrap_or_default(), obj.name_any())
-    })
+    obj.uid()
+        .unwrap_or_else(|| format!("{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()))
 }
 
 /// RFC3339 creation timestamp string, or "" if unset.
@@ -99,17 +98,29 @@ pub fn humanize_duration(mut secs: i64) -> String {
     if secs < HOUR {
         let m = secs / MIN;
         let s = secs % MIN;
-        return if m < 10 && s > 0 { format!("{m}m{s}s") } else { format!("{m}m") };
+        return if m < 10 && s > 0 {
+            format!("{m}m{s}s")
+        } else {
+            format!("{m}m")
+        };
     }
     if secs < DAY {
         let h = secs / HOUR;
         let m = (secs % HOUR) / MIN;
-        return if m > 0 { format!("{h}h{m}m") } else { format!("{h}h") };
+        return if m > 0 {
+            format!("{h}h{m}m")
+        } else {
+            format!("{h}h")
+        };
     }
     let d = secs / DAY;
     if d < 8 {
         let h = (secs % DAY) / HOUR;
-        return if h > 0 { format!("{d}d{h}h") } else { format!("{d}d") };
+        return if h > 0 {
+            format!("{d}d{h}h")
+        } else {
+            format!("{d}d")
+        };
     }
     format!("{d}d")
 }
@@ -144,8 +155,22 @@ pub fn map_pod(pod: &Pod) -> Row {
     let cells = vec![
         name_cell(pod),
         ns_cell(pod),
-        Cell::new(&ready_str, if ready_degraded { Tone::Warn } else { Tone::Secondary }),
-        Cell::new(restarts.to_string(), if restarts > 5 { Tone::Bad } else { Tone::Secondary }),
+        Cell::new(
+            &ready_str,
+            if ready_degraded {
+                Tone::Warn
+            } else {
+                Tone::Secondary
+            },
+        ),
+        Cell::new(
+            restarts.to_string(),
+            if restarts > 5 {
+                Tone::Bad
+            } else {
+                Tone::Secondary
+            },
+        ),
         // CPU / MEM are overlaid from the metrics feed on the frontend.
         Cell::new("—", Tone::Secondary),
         Cell::new("—", Tone::Secondary),
@@ -220,11 +245,7 @@ fn pod_ready(pod: &Pod) -> (String, bool) {
         .status
         .as_ref()
         .and_then(|s| s.container_statuses.as_ref());
-    let total = pod
-        .spec
-        .as_ref()
-        .map(|s| s.containers.len())
-        .unwrap_or(0);
+    let total = pod.spec.as_ref().map(|s| s.containers.len()).unwrap_or(0);
     let ready = statuses
         .map(|cs| cs.iter().filter(|c| c.ready).count())
         .unwrap_or(0);
@@ -302,16 +323,33 @@ pub fn map_deployment(d: &Deployment) -> Row {
     let cells = vec![
         name_cell(d),
         ns_cell(d),
-        Cell::new(format!("{ready}/{desired}"), if degraded { Tone::Warn } else { Tone::Secondary }),
+        Cell::new(
+            format!("{ready}/{desired}"),
+            if degraded {
+                Tone::Warn
+            } else {
+                Tone::Secondary
+            },
+        ),
         Cell::new(updated.to_string(), Tone::Secondary),
-        Cell::new(available.to_string(), if available == 0 && desired > 0 { Tone::Warn } else { Tone::Secondary }),
-        Cell::new("—", Tone::Muted),   // CPU — filled by overlayMetrics
-        Cell::new("—", Tone::Muted),   // MEM — filled by overlayMetrics
+        Cell::new(
+            available.to_string(),
+            if available == 0 && desired > 0 {
+                Tone::Warn
+            } else {
+                Tone::Secondary
+            },
+        ),
+        Cell::new("—", Tone::Muted), // CPU — filled by overlayMetrics
+        Cell::new("—", Tone::Muted), // MEM — filled by overlayMetrics
         age_cell(d),
     ];
     let mut row = simple_row(d, cells);
     // The pod selector powers the "view pods" jump (B33).
-    row.selector = d.spec.as_ref().and_then(|s| s.selector.match_labels.clone());
+    row.selector = d
+        .spec
+        .as_ref()
+        .and_then(|s| s.selector.match_labels.clone());
     row
 }
 
@@ -340,30 +378,54 @@ pub fn map_replicaset(rs: &ReplicaSet) -> Row {
     let cells = vec![
         name_cell(rs),
         ns_cell(rs),
-        Cell::new(desired.to_string(), if desired == 0 { Tone::Muted } else { Tone::Secondary }),
+        Cell::new(
+            desired.to_string(),
+            if desired == 0 {
+                Tone::Muted
+            } else {
+                Tone::Secondary
+            },
+        ),
         Cell::new(current.to_string(), Tone::Secondary),
         Cell::new(ready.to_string(), ready_tone),
         age_cell(rs),
     ];
     let mut row = simple_row(rs, cells);
-    row.selector = rs.spec.as_ref().and_then(|s| s.selector.match_labels.clone());
+    row.selector = rs
+        .spec
+        .as_ref()
+        .and_then(|s| s.selector.match_labels.clone());
     row
 }
 
 /// StatefulSets: NAME, NAMESPACE, READY, CPU, MEM, AGE.
 pub fn map_statefulset(s: &StatefulSet) -> Row {
     let desired = s.spec.as_ref().and_then(|sp| sp.replicas).unwrap_or(0);
-    let ready = s.status.as_ref().and_then(|st| st.ready_replicas).unwrap_or(0);
+    let ready = s
+        .status
+        .as_ref()
+        .and_then(|st| st.ready_replicas)
+        .unwrap_or(0);
     let cells = vec![
         name_cell(s),
         ns_cell(s),
-        Cell::new(format!("{ready}/{desired}"), if ready != desired { Tone::Warn } else { Tone::Secondary }),
-        Cell::new("—", Tone::Muted),   // CPU — filled by overlayMetrics
-        Cell::new("—", Tone::Muted),   // MEM — filled by overlayMetrics
+        Cell::new(
+            format!("{ready}/{desired}"),
+            if ready != desired {
+                Tone::Warn
+            } else {
+                Tone::Secondary
+            },
+        ),
+        Cell::new("—", Tone::Muted), // CPU — filled by overlayMetrics
+        Cell::new("—", Tone::Muted), // MEM — filled by overlayMetrics
         age_cell(s),
     ];
     let mut row = simple_row(s, cells);
-    row.selector = s.spec.as_ref().and_then(|sp| sp.selector.match_labels.clone());
+    row.selector = s
+        .spec
+        .as_ref()
+        .and_then(|sp| sp.selector.match_labels.clone());
     row
 }
 
@@ -376,13 +438,23 @@ pub fn map_daemonset(ds: &DaemonSet) -> Row {
         name_cell(ds),
         ns_cell(ds),
         Cell::new(desired.to_string(), Tone::Secondary),
-        Cell::new(ready.to_string(), if ready != desired { Tone::Warn } else { Tone::Secondary }),
-        Cell::new("—", Tone::Muted),   // CPU — filled by overlayMetrics
-        Cell::new("—", Tone::Muted),   // MEM — filled by overlayMetrics
+        Cell::new(
+            ready.to_string(),
+            if ready != desired {
+                Tone::Warn
+            } else {
+                Tone::Secondary
+            },
+        ),
+        Cell::new("—", Tone::Muted), // CPU — filled by overlayMetrics
+        Cell::new("—", Tone::Muted), // MEM — filled by overlayMetrics
         age_cell(ds),
     ];
     let mut row = simple_row(ds, cells);
-    row.selector = ds.spec.as_ref().and_then(|s| s.selector.match_labels.clone());
+    row.selector = ds
+        .spec
+        .as_ref()
+        .and_then(|s| s.selector.match_labels.clone());
     row
 }
 
@@ -393,9 +465,7 @@ pub fn map_job(j: &Job) -> Row {
     // Duration = completion - start (if both known), else "—".
     let duration = match j.status.as_ref() {
         Some(st) => match (&st.start_time, &st.completion_time) {
-            (Some(start), Some(end)) => {
-                humanize_duration((end.0 - start.0).num_seconds().max(0))
-            }
+            (Some(start), Some(end)) => humanize_duration((end.0 - start.0).num_seconds().max(0)),
             _ => "—".to_string(),
         },
         None => "—".to_string(),
@@ -413,7 +483,14 @@ pub fn map_job(j: &Job) -> Row {
     let cells = vec![
         name_cell(j),
         ns_cell(j),
-        Cell::new(format!("{succeeded}/{completions}"), if complete { Tone::Secondary } else { Tone::Warn }),
+        Cell::new(
+            format!("{succeeded}/{completions}"),
+            if complete {
+                Tone::Secondary
+            } else {
+                Tone::Warn
+            },
+        ),
         Cell::new(duration, Tone::Secondary),
         age_cell(j),
     ];
@@ -426,7 +503,11 @@ pub fn map_job(j: &Job) -> Row {
 
 /// CronJobs: NAME, NAMESPACE, SCHEDULE, LAST RUN, AGE.
 pub fn map_cronjob(c: &CronJob) -> Row {
-    let schedule = c.spec.as_ref().map(|s| s.schedule.clone()).unwrap_or_default();
+    let schedule = c
+        .spec
+        .as_ref()
+        .map(|s| s.schedule.clone())
+        .unwrap_or_default();
     let last_run = c
         .status
         .as_ref()
@@ -450,14 +531,24 @@ pub fn map_cronjob(c: &CronJob) -> Row {
 /// Services: NAME, NAMESPACE, TYPE, CLUSTER-IP, PORTS, AGE.
 pub fn map_service(svc: &Service) -> Row {
     let spec = svc.spec.as_ref();
-    let ty = spec.and_then(|s| s.type_.clone()).unwrap_or_else(|| "ClusterIP".into());
-    let cluster_ip = spec.and_then(|s| s.cluster_ip.clone()).unwrap_or_else(|| "None".into());
+    let ty = spec
+        .and_then(|s| s.type_.clone())
+        .unwrap_or_else(|| "ClusterIP".into());
+    let cluster_ip = spec
+        .and_then(|s| s.cluster_ip.clone())
+        .unwrap_or_else(|| "None".into());
     // "8080/TCP, 443/TCP" from the port list.
     let ports = spec
         .and_then(|s| s.ports.as_ref())
         .map(|ps| {
             ps.iter()
-                .map(|p| format!("{}/{}", p.port, p.protocol.clone().unwrap_or_else(|| "TCP".into())))
+                .map(|p| {
+                    format!(
+                        "{}/{}",
+                        p.port,
+                        p.protocol.clone().unwrap_or_else(|| "TCP".into())
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(", ")
         })
@@ -495,7 +586,7 @@ pub fn map_ingress(ing: &Ingress) -> Row {
     // Carry TLS state so the frontend topology can detect it reliably
     // instead of relying on class-name heuristics.
     let has_tls = spec
-        .map(|s| s.tls.as_ref().map_or(false, |t| !t.is_empty()))
+        .map(|s| s.tls.as_ref().is_some_and(|t| !t.is_empty()))
         .unwrap_or(false);
     let mut labels = std::collections::BTreeMap::new();
     if has_tls {
@@ -545,7 +636,8 @@ pub fn map_ingressclass(ic: &IngressClass) -> Row {
     let cells = vec![
         Cell::new(name, Tone::Primary),
         Cell::new(
-            spec.and_then(|s| s.controller.clone()).unwrap_or_else(|| "—".into()),
+            spec.and_then(|s| s.controller.clone())
+                .unwrap_or_else(|| "—".into()),
             Tone::Secondary,
         ),
         Cell::new(parameters, Tone::Secondary),
@@ -606,7 +698,11 @@ pub fn map_serviceaccount(sa: &ServiceAccount) -> Row {
         ns_cell(sa),
         Cell::new(
             secrets.to_string(),
-            if secrets > 0 { Tone::Warn } else { Tone::Secondary },
+            if secrets > 0 {
+                Tone::Warn
+            } else {
+                Tone::Secondary
+            },
         ),
         age_cell(sa),
     ];
@@ -691,13 +787,19 @@ pub fn map_pvc(pvc: &PersistentVolumeClaim) -> Row {
         ns_cell(pvc),
         Cell::status(&phase, tone),
         Cell::new(
-            spec.and_then(|s| s.volume_name.clone()).filter(|v| !v.is_empty()).unwrap_or_else(|| "—".into()),
+            spec.and_then(|s| s.volume_name.clone())
+                .filter(|v| !v.is_empty())
+                .unwrap_or_else(|| "—".into()),
             Tone::Secondary,
         ),
         Cell::new(capacity, Tone::Secondary),
-        Cell::new(access_modes(spec.and_then(|s| s.access_modes.as_ref())), Tone::Secondary),
         Cell::new(
-            spec.and_then(|s| s.storage_class_name.clone()).unwrap_or_else(|| "—".into()),
+            access_modes(spec.and_then(|s| s.access_modes.as_ref())),
+            Tone::Secondary,
+        ),
+        Cell::new(
+            spec.and_then(|s| s.storage_class_name.clone())
+                .unwrap_or_else(|| "—".into()),
             Tone::Secondary,
         ),
         age_cell(pvc),
@@ -737,15 +839,21 @@ pub fn map_pv(pv: &PersistentVolume) -> Row {
     let cells = vec![
         name_cell(pv),
         Cell::new(capacity, Tone::Secondary),
-        Cell::new(access_modes(spec.and_then(|s| s.access_modes.as_ref())), Tone::Secondary),
         Cell::new(
-            spec.and_then(|s| s.persistent_volume_reclaim_policy.clone()).unwrap_or_else(|| "—".into()),
+            access_modes(spec.and_then(|s| s.access_modes.as_ref())),
+            Tone::Secondary,
+        ),
+        Cell::new(
+            spec.and_then(|s| s.persistent_volume_reclaim_policy.clone())
+                .unwrap_or_else(|| "—".into()),
             Tone::Secondary,
         ),
         Cell::status(&phase, tone),
         Cell::new(claim, Tone::Secondary),
         Cell::new(
-            spec.and_then(|s| s.storage_class_name.clone()).filter(|c| !c.is_empty()).unwrap_or_else(|| "—".into()),
+            spec.and_then(|s| s.storage_class_name.clone())
+                .filter(|c| !c.is_empty())
+                .unwrap_or_else(|| "—".into()),
             Tone::Secondary,
         ),
         age_cell(pv),
@@ -787,7 +895,9 @@ pub fn map_storageclass(sc: &StorageClass) -> Row {
             Tone::Secondary,
         ),
         Cell::new(
-            sc.volume_binding_mode.clone().unwrap_or_else(|| "Immediate".into()),
+            sc.volume_binding_mode
+                .clone()
+                .unwrap_or_else(|| "Immediate".into()),
             Tone::Secondary,
         ),
         Cell::new(
@@ -839,7 +949,11 @@ pub fn map_networkpolicy(obj: &DynamicObject) -> Row {
         Cell::age(Some(age).filter(|s| !s.is_empty())),
     ];
     Row {
-        uid: format!("networkpolicy:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        uid: format!(
+            "networkpolicy:{}/{}",
+            obj.namespace().unwrap_or_default(),
+            obj.name_any()
+        ),
         name: obj.name_any(),
         namespace: Some(obj.namespace().unwrap_or_default()),
         cells,
@@ -896,7 +1010,11 @@ pub fn map_hpa(obj: &DynamicObject) -> Row {
         Cell::age(Some(age).filter(|s| !s.is_empty())),
     ];
     Row {
-        uid: format!("horizontalpodautoscaler:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        uid: format!(
+            "horizontalpodautoscaler:{}/{}",
+            obj.namespace().unwrap_or_default(),
+            obj.name_any()
+        ),
         name: obj.name_any(),
         namespace: Some(obj.namespace().unwrap_or_default()),
         cells,
@@ -932,7 +1050,11 @@ pub fn map_resourcequota(obj: &DynamicObject) -> Row {
         Cell::age(Some(age).filter(|s| !s.is_empty())),
     ];
     Row {
-        uid: format!("resourcequota:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        uid: format!(
+            "resourcequota:{}/{}",
+            obj.namespace().unwrap_or_default(),
+            obj.name_any()
+        ),
         name: obj.name_any(),
         namespace: Some(obj.namespace().unwrap_or_default()),
         cells,
@@ -961,7 +1083,11 @@ pub fn map_limitrange(obj: &DynamicObject) -> Row {
         Cell::age(Some(age).filter(|s| !s.is_empty())),
     ];
     Row {
-        uid: format!("limitrange:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        uid: format!(
+            "limitrange:{}/{}",
+            obj.namespace().unwrap_or_default(),
+            obj.name_any()
+        ),
         name: obj.name_any(),
         namespace: Some(obj.namespace().unwrap_or_default()),
         cells,
@@ -987,7 +1113,11 @@ pub fn map_role(obj: &DynamicObject) -> Row {
         Cell::age(Some(age).filter(|s| !s.is_empty())),
     ];
     Row {
-        uid: format!("role:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        uid: format!(
+            "role:{}/{}",
+            obj.namespace().unwrap_or_default(),
+            obj.name_any()
+        ),
         name: obj.name_any(),
         namespace: Some(obj.namespace().unwrap_or_default()),
         cells,
@@ -1038,7 +1168,11 @@ pub fn map_rolebinding(obj: &DynamicObject) -> Row {
         Cell::age(Some(age).filter(|s| !s.is_empty())),
     ];
     Row {
-        uid: format!("rolebinding:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        uid: format!(
+            "rolebinding:{}/{}",
+            obj.namespace().unwrap_or_default(),
+            obj.name_any()
+        ),
         name: obj.name_any(),
         namespace: Some(obj.namespace().unwrap_or_default()),
         cells,
@@ -1086,10 +1220,7 @@ pub fn map_node(node: &Node) -> Row {
         .status
         .as_ref()
         .and_then(|s| s.conditions.as_ref())
-        .map(|cs| {
-            cs.iter()
-                .any(|c| c.type_ == "Ready" && c.status == "True")
-        })
+        .map(|cs| cs.iter().any(|c| c.type_ == "Ready" && c.status == "True"))
         .unwrap_or(false);
     let (status_text, status_tone) = if ready {
         ("Ready", Tone::Good)
@@ -1105,12 +1236,21 @@ pub fn map_node(node: &Node) -> Row {
         .filter(|r| !r.is_empty())
         .collect::<Vec<_>>()
         .join(",");
-    let roles = if roles.is_empty() { "<none>".to_string() } else { roles };
+    let roles = if roles.is_empty() {
+        "<none>".to_string()
+    } else {
+        roles
+    };
 
     let version = node
         .status
         .as_ref()
-        .map(|s| s.node_info.as_ref().map(|i| i.kubelet_version.clone()).unwrap_or_default())
+        .map(|s| {
+            s.node_info
+                .as_ref()
+                .map(|i| i.kubelet_version.clone())
+                .unwrap_or_default()
+        })
         .unwrap_or_default();
 
     let cells = vec![
@@ -1166,7 +1306,11 @@ pub fn map_namespace(ns: &Namespace) -> Row {
 pub fn map_event(e: &k8s_openapi::api::core::v1::Event) -> Row {
     let type_ = e.type_.clone().unwrap_or_else(|| "Normal".into());
     // Warning is the only tone that should draw the eye; Normal reads green.
-    let tone = if type_ == "Warning" { Tone::Bad } else { Tone::Good };
+    let tone = if type_ == "Warning" {
+        Tone::Bad
+    } else {
+        Tone::Good
+    };
 
     let last = event_last_seen(e);
     let object = format!(
@@ -1221,12 +1365,19 @@ fn event_last_seen(e: &k8s_openapi::api::core::v1::Event) -> chrono::DateTime<ch
 /// Applied to the whole snapshot by the events watcher before emitting.
 pub fn sort_events(mut rows: Vec<Row>, cap: usize) -> Vec<Row> {
     rows.sort_by(|a, b| {
-        let warn = |r: &Row| r.cells.first().map(|c| c.text == "Warning").unwrap_or(false);
+        let warn = |r: &Row| {
+            r.cells
+                .first()
+                .map(|c| c.text == "Warning")
+                .unwrap_or(false)
+        };
         let seen = |r: &Row| r.cells.get(4).and_then(|c| c.sort).unwrap_or(0.0);
         // Warnings before Normals, then newest first.
-        warn(b)
-            .cmp(&warn(a))
-            .then(seen(b).partial_cmp(&seen(a)).unwrap_or(std::cmp::Ordering::Equal))
+        warn(b).cmp(&warn(a)).then(
+            seen(b)
+                .partial_cmp(&seen(a))
+                .unwrap_or(std::cmp::Ordering::Equal),
+        )
     });
     rows.truncate(cap);
     rows
@@ -1275,12 +1426,9 @@ fn simple_row<K: ResourceExt>(obj: &K, cells: Vec<Cell>) -> Row {
 
 /// PodDisruptionBudget: NAME, NAMESPACE, MIN AVAILABLE, MAX UNAVAILABLE, ALLOWED DISRUPTIONS, AGE.
 pub fn map_pdb(obj: &DynamicObject) -> Row {
-    let min_avail = json_value_to_string(
-        obj.data.get("spec").and_then(|s| s.get("minAvailable")),
-    );
-    let max_unavail = json_value_to_string(
-        obj.data.get("spec").and_then(|s| s.get("maxUnavailable")),
-    );
+    let min_avail = json_value_to_string(obj.data.get("spec").and_then(|s| s.get("minAvailable")));
+    let max_unavail =
+        json_value_to_string(obj.data.get("spec").and_then(|s| s.get("maxUnavailable")));
     let allowed = obj
         .data
         .get("status")
@@ -1405,11 +1553,9 @@ pub fn map_api_service(obj: &DynamicObject) -> Row {
         .and_then(|s| s.get("conditions"))
         .and_then(|c| c.as_array())
         .and_then(|conds| {
-            conds.iter().find(|c| {
-                c.get("type")
-                    .and_then(|t| t.as_str())
-                    == Some("Available")
-            })
+            conds
+                .iter()
+                .find(|c| c.get("type").and_then(|t| t.as_str()) == Some("Available"))
         })
         .and_then(|c| c.get("status").and_then(|s| s.as_str()))
         .unwrap_or("Unknown");
@@ -1460,7 +1606,11 @@ mod tests {
         })).unwrap();
         let row = map_pod(&pod);
         // Columns: NAME,NAMESPACE,READY,RESTARTS,CPU,MEM,AGE,STATUS
-        assert_eq!(row.cells[2].tone, Tone::Secondary, "2/2 ready is not degraded");
+        assert_eq!(
+            row.cells[2].tone,
+            Tone::Secondary,
+            "2/2 ready is not degraded"
+        );
         assert_eq!(row.cells[3].tone, Tone::Secondary, "0 restarts");
         assert_eq!(row.cells[7].tone, Tone::Good);
         assert!(row.cells[7].dot, "status cell has a leading dot");
@@ -1497,7 +1647,8 @@ mod tests {
                           "creationTimestamp": "2026-07-15T11:59:00Z" },
             "spec": { "containers": [{ "name": "a" }, { "name": "b" }, { "name": "c" }] },
             "status": { "phase": "Pending" }
-        })).unwrap();
+        }))
+        .unwrap();
         let row = map_pod(&pod);
         assert_eq!(row.cells[2].text, "0/3");
         assert_eq!(row.cells[2].tone, Tone::Warn);
@@ -1520,7 +1671,8 @@ mod tests {
                     "requests": { "cpu": "100m", "memory": "64Mi" },
                     "limits": { "cpu": "200m", "memory": "128Mi" } } }
             ]}
-        })).unwrap();
+        }))
+        .unwrap();
         let r = map_pod(&pod).pod.unwrap().resources;
         assert_eq!(r.cpu_request_millis, Some(350));
         assert_eq!(r.cpu_limit_millis, Some(700));
@@ -1540,10 +1692,14 @@ mod tests {
                     "limits": { "cpu": "500m" } } },
                 { "name": "side", "resources": { "requests": { "cpu": "100m" } } }
             ]}
-        })).unwrap();
+        }))
+        .unwrap();
         let r = map_pod(&pod).pod.unwrap().resources;
         assert_eq!(r.cpu_request_millis, Some(350), "requests still sum");
-        assert_eq!(r.cpu_limit_millis, None, "an uncapped container means no ceiling");
+        assert_eq!(
+            r.cpu_limit_millis, None,
+            "an uncapped container means no ceiling"
+        );
         assert_eq!(r.mem_request_bytes, None, "no memory requests set");
         assert_eq!(r.mem_limit_bytes, None);
     }
@@ -1555,7 +1711,8 @@ mod tests {
         let pod: Pod = serde_json::from_value(json!({
             "metadata": { "name": "bare", "namespace": "prod", "uid": "r3" },
             "spec": { "containers": [{ "name": "app" }] }
-        })).unwrap();
+        }))
+        .unwrap();
         let r = map_pod(&pod).pod.unwrap().resources;
         assert_eq!(r.cpu_request_millis, None);
         assert_eq!(r.cpu_limit_millis, None);
@@ -1571,7 +1728,8 @@ mod tests {
                           "creationTimestamp": "2026-07-15T09:45:00Z" },
             "spec": { "replicas": 1 },
             "status": { "readyReplicas": 0, "updatedReplicas": 1, "availableReplicas": 0 }
-        })).unwrap();
+        }))
+        .unwrap();
         let row = map_deployment(&dep);
         // Columns: NAME,NAMESPACE,READY,UP-TO-DATE,AVAILABLE,AGE
         assert_eq!(row.cells[2].text, "0/1");
@@ -1629,7 +1787,11 @@ mod tests {
 
         let superseded = map_replicaset(&rs(0, 0));
         assert_eq!(superseded.cells[2].tone, Tone::Muted);
-        assert_eq!(superseded.cells[4].tone, Tone::Muted, "0/0 is history, not a fault");
+        assert_eq!(
+            superseded.cells[4].tone,
+            Tone::Muted,
+            "0/0 is history, not a fault"
+        );
     }
 
     /// The default StorageClass is marked in the NAME the way kubectl does — which
@@ -1651,7 +1813,10 @@ mod tests {
         };
         let row = map_storageclass(&sc(true));
         assert_eq!(row.cells[0].text, "local-path (default)");
-        assert_eq!(row.name, "local-path", "identity is the real name, not the label");
+        assert_eq!(
+            row.name, "local-path",
+            "identity is the real name, not the label"
+        );
         assert_eq!(row.namespace, None, "StorageClasses are cluster-scoped");
         assert_eq!(row.cells[1].text, "rancher.io/local-path");
         assert_eq!(row.cells[3].text, "WaitForFirstConsumer");
@@ -1680,7 +1845,11 @@ mod tests {
 
         let legacy = map_serviceaccount(&sa(json!([{ "name": "ci-token-abc" }])));
         assert_eq!(legacy.cells[2].text, "1");
-        assert_eq!(legacy.cells[2].tone, Tone::Warn, "a long-lived token is worth noticing");
+        assert_eq!(
+            legacy.cells[2].tone,
+            Tone::Warn,
+            "a long-lived token is worth noticing"
+        );
     }
 
     // ---- Storage: PVCs and PVs ----
@@ -1703,7 +1872,10 @@ mod tests {
         assert!(row.cells[2].dot);
         assert_eq!(row.cells[3].text, "pvc-5a948cc3");
         assert_eq!(row.cells[4].text, "5Gi");
-        assert_eq!(row.cells[5].text, "RWO", "access modes use kubectl's shorthand");
+        assert_eq!(
+            row.cells[5].text, "RWO",
+            "access modes use kubectl's shorthand"
+        );
         assert_eq!(row.cells[6].text, "local-path");
     }
 
@@ -1720,7 +1892,11 @@ mod tests {
         }))
         .unwrap();
         let row = map_pvc(&pvc);
-        assert_eq!(row.cells[2].tone, Tone::Warn, "Pending is a wait, not a failure");
+        assert_eq!(
+            row.cells[2].tone,
+            Tone::Warn,
+            "Pending is a wait, not a failure"
+        );
         assert_eq!(row.cells[3].text, "—", "no volume bound yet");
         assert_eq!(row.cells[4].text, "100Gi", "falls back to the request");
         assert_eq!(row.cells[5].text, "RWX");
@@ -1797,7 +1973,8 @@ mod tests {
                     "osImage":"","containerRuntimeVersion":"","kubeProxyVersion":"",
                     "operatingSystem":"linux","architecture":"arm64" }
             }
-        })).unwrap();
+        }))
+        .unwrap();
         let row = map_node(&node);
         // Columns: NAME,STATUS,ROLES,CPU,MEMORY,VERSION (no namespace)
         assert_eq!(row.namespace, None);
@@ -1833,8 +2010,15 @@ mod tests {
         assert_eq!(row.cells[1].text, "FailedMount");
         assert_eq!(row.cells[2].text, "Pod/my-pod", "OBJECT is kind/name");
         assert_eq!(row.cells[3].text, "prod");
-        assert_eq!(row.cells[4].format, Some("age"), "AGE is formatted by the frontend");
-        assert!(row.cells[4].sort.is_some(), "AGE carries the last-seen sort key");
+        assert_eq!(
+            row.cells[4].format,
+            Some("age"),
+            "AGE is formatted by the frontend"
+        );
+        assert!(
+            row.cells[4].sort.is_some(),
+            "AGE carries the last-seen sort key"
+        );
         assert_eq!(row.cells[5].text, "×3");
     }
 

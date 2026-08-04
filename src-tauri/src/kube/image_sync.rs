@@ -22,8 +22,8 @@
 //! `skopeo` on its PATH. `which_skopeo()` detects it up front and the caller
 //! surfaces a clear "install skopeo" message when it's missing.
 
-use crate::error::{AppError, AppResult};
 use crate::core::events::EventSink;
+use crate::error::{AppError, AppResult};
 use crate::kube::imagerepo;
 use serde::Serialize;
 use std::process::Stdio;
@@ -160,6 +160,7 @@ pub fn dest_reference(host: &str, repo: &str, tag: &str) -> String {
 ///
 /// Streams each stdout/stderr line to the event sink (so a UI can show live
 /// "Copying blob sha256:…" progress) and returns the final result.
+#[allow(clippy::too_many_arguments)]
 pub async fn copy_image(
     source: &str,
     dest_registry: &str,
@@ -237,7 +238,13 @@ pub async fn copy_image(
         let mut reader = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_out.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let _ = sink_out.emit(IMAGE_SYNC_LOG_EVENT, &LogLine { stream: "stdout", line });
+            sink_out.emit(
+                IMAGE_SYNC_LOG_EVENT,
+                &LogLine {
+                    stream: "stdout",
+                    line,
+                },
+            );
         }
     });
     let sink_err = sink.clone();
@@ -246,7 +253,13 @@ pub async fn copy_image(
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_err.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-            let _ = sink_err.emit(IMAGE_SYNC_LOG_EVENT, &LogLine { stream: "stderr", line });
+            sink_err.emit(
+                IMAGE_SYNC_LOG_EVENT,
+                &LogLine {
+                    stream: "stderr",
+                    line,
+                },
+            );
         }
     });
 
@@ -272,7 +285,7 @@ pub async fn copy_image(
         lines,
         summary,
     };
-    let _ = sink.emit(IMAGE_SYNC_DONE_EVENT, &result);
+    sink.emit(IMAGE_SYNC_DONE_EVENT, &result);
     if success {
         Ok(result)
     } else {
@@ -347,7 +360,10 @@ mod tests {
 
     #[test]
     fn registry_host_strips_scheme_and_trailing_slash() {
-        assert_eq!(registry_host("https://harbor.example.com"), "harbor.example.com");
+        assert_eq!(
+            registry_host("https://harbor.example.com"),
+            "harbor.example.com"
+        );
         assert_eq!(registry_host("http://reg.local:5000"), "reg.local:5000");
         assert_eq!(registry_host("https://reg.local/"), "reg.local");
         // No scheme: pass through (only trailing slash stripped).
@@ -383,7 +399,14 @@ mod tests {
     #[test]
     fn build_argv_attaches_dest_creds_only_when_user_present() {
         let with_creds = build_argv(
-            "skopeo", "docker://nginx:1", "docker://h/app:1", None, "admin", "s3cret", false, false,
+            "skopeo",
+            "docker://nginx:1",
+            "docker://h/app:1",
+            None,
+            "admin",
+            "s3cret",
+            false,
+            false,
         );
         assert!(with_creds.contains(&"--dest-creds".into()));
         assert!(with_creds.contains(&"admin:s3cret".into()));
@@ -395,7 +418,14 @@ mod tests {
     fn build_argv_skips_dest_creds_when_user_empty() {
         // An empty username means anonymous access — don't send "user:pass".
         let no_creds = build_argv(
-            "skopeo", "docker://nginx:1", "docker://h/app:1", None, "", "", false, false,
+            "skopeo",
+            "docker://nginx:1",
+            "docker://h/app:1",
+            None,
+            "",
+            "",
+            false,
+            false,
         );
         assert!(!no_creds.contains(&"--dest-creds".into()));
     }
@@ -419,7 +449,14 @@ mod tests {
     #[test]
     fn build_argv_respects_insecure_flags() {
         let argv = build_argv(
-            "skopeo", "docker://nginx:1", "docker://h/app:1", None, "", "", true, true,
+            "skopeo",
+            "docker://nginx:1",
+            "docker://h/app:1",
+            None,
+            "",
+            "",
+            true,
+            true,
         );
         assert!(argv.contains(&"--src-tls-verify=false".into()));
         assert!(argv.contains(&"--dest-tls-verify=false".into()));
@@ -430,7 +467,14 @@ mod tests {
         // Regression guard: the override flags must always be present so a
         // macOS host doesn't silently copy a darwin/arm64 image.
         let argv = build_argv(
-            "skopeo", "docker://nginx:1", "docker://h/app:1", None, "", "", false, false,
+            "skopeo",
+            "docker://nginx:1",
+            "docker://h/app:1",
+            None,
+            "",
+            "",
+            false,
+            false,
         );
         assert!(argv.contains(&"--override-os".into()));
         assert!(argv.contains(&"linux".into()));
@@ -442,7 +486,14 @@ mod tests {
     fn build_argv_puts_source_and_dest_last() {
         // skopeo parses positionally: flags first, then <source> <destination>.
         let argv = build_argv(
-            "skopeo", "docker://nginx:1", "docker://h/app:1", None, "", "", false, false,
+            "skopeo",
+            "docker://nginx:1",
+            "docker://h/app:1",
+            None,
+            "",
+            "",
+            false,
+            false,
         );
         assert_eq!(argv[argv.len() - 2], "docker://nginx:1");
         assert_eq!(argv[argv.len() - 1], "docker://h/app:1");

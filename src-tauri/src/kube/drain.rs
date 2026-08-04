@@ -16,12 +16,12 @@
 //! to see which pods are stuck rather than watching a spinner.
 
 use super::events;
+use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::{Api, DeleteParams, EvictParams, ListParams, Patch, PatchParams};
 use kube::{Client, ResourceExt};
 use serde::Serialize;
-use crate::core::events::EventSink;
 
 /// A pod that could not be evicted, and why.
 #[derive(Serialize, Clone)]
@@ -88,11 +88,19 @@ pub async fn run_drain(client: Client, sink: EventSink, node: String) {
 
     let targets: Vec<Pod> = list.items.into_iter().filter(is_evictable).collect();
     let total = targets.len();
-    let mut progress =
-        DrainProgress { node: node.clone(), evicted: 0, total, failures: Vec::new(), done: false };
+    let mut progress = DrainProgress {
+        node: node.clone(),
+        evicted: 0,
+        total,
+        failures: Vec::new(),
+        done: false,
+    };
     emit(&sink, progress.clone());
 
-    let ep = EvictParams { delete_options: Some(DeleteParams::default()), ..Default::default() };
+    let ep = EvictParams {
+        delete_options: Some(DeleteParams::default()),
+        ..Default::default()
+    };
     for pod in targets {
         let name = pod.name_any();
         let ns = pod.namespace().unwrap_or_default();
@@ -125,7 +133,7 @@ pub async fn run_drain(client: Client, sink: EventSink, node: String) {
 
 /// Emit progress (best-effort; the webview may be gone).
 fn emit(sink: &EventSink, p: DrainProgress) {
-    let _ = sink.emit(events::DRAIN_PROGRESS, &p);
+    sink.emit(events::DRAIN_PROGRESS, &p);
 }
 
 /// True when this pod should be evicted as part of a drain.
