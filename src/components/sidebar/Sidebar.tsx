@@ -7,6 +7,7 @@
 
 import styles from "./Sidebar.module.css";
 import { ClusterSwitcher } from "./ClusterSwitcher";
+import { Hotbar } from "./Hotbar";
 import { NavList } from "./NavList";
 import { WatchFooter } from "./WatchFooter";
 
@@ -23,6 +24,7 @@ export function Sidebar() {
       </div>
       <ClusterSwitcher />
       <NavList />
+      <Hotbar />
       <WatchFooter />
     </div>
   );

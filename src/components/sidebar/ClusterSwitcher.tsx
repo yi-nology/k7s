@@ -144,7 +144,6 @@ export function ClusterSwitcher() {
       <input
         ref={fileInputRef}
         type="file"
-        accept=".yaml,.yml,.kubeconfig,application/x-yaml,text/yaml"
         data-testid="kubeconfig-file-input"
         style={{
           position: "fixed",

@@ -29,7 +29,9 @@ import { ShellTab } from "./ShellTab";
 import { NodeShellTab } from "./NodeShellTab";
 import { YamlTab } from "./YamlTab";
 import { EventsTab } from "./EventsTab";
+import { CronJobTimeline } from "./CronJobTimeline";
 import { ActionsMenu } from "./ActionsMenu";
+import { TabStrip } from "./TabStrip";
 import type { DrainProgress } from "../../providers/types";
 
 export function DetailPanel() {
@@ -41,6 +43,9 @@ export function DetailPanel() {
   const closeDetail = useStore((s) => s.closeDetail);
   const customKinds = useStore((s) => s.customKinds);
   const drains = useStore((s) => s.drains);
+  const detailTabs = useStore((s) => s.detailTabs);
+  const activeDetailTabUid = useStore((s) => s.activeDetailTabUid);
+  const closeDetailTab = useStore((s) => s.closeDetailTab);
   const now = useNow();
   const { locale, t } = useTranslation();
 
@@ -50,15 +55,17 @@ export function DetailPanel() {
   // Stale-row guard: if the selected row disappears from the live watcher data
   // (deleted by an external actor, not by us), close the panel. Skips the check
   // while the kind's rows are still empty (watch hasn't delivered yet).
+  // When multi-tabs are active, the setRows handler cleans up stale tabs instead.
   const kindRows = rows[nav] ?? [];
+  const hasMultiTabs = detailTabs.length > 0;
   useEffect(() => {
-    if (!row) return;
+    if (!row || hasMultiTabs) return;
     if (kindRows.length === 0) return; // still loading
     if (kindRows.some((r) => r.uid === row.uid)) return;
     closeDetail();
-  }, [kindRows, row, closeDetail]);
+  }, [kindRows, row, closeDetail, hasMultiTabs]);
 
-  // Panel is closed when nothing is selected.
+  // Panel is closed when nothing is selected (single-panel or multi-tab).
   if (!row) return null;
 
   // Drain progress for this node, if one has run this session (B20).
@@ -87,6 +94,8 @@ export function DetailPanel() {
   // data-surface="panel": in light mode the inspector is dark chrome (tokens.css).
   return (
     <div className={styles.panel} data-surface="panel">
+      {/* Multi-tab strip: shows when 2+ resources are open in tabs. */}
+      <TabStrip />
       <div className={styles.header}>
         <div className={styles.titleRow}>
           <span className={statusDotCls} />
@@ -96,11 +105,15 @@ export function DetailPanel() {
           <ActionsMenu kind={nav} row={row} onError={setActionError} onDeleted={closeDetail} />
           {/* Close button. Was a <div onClick> before pass-30 — a real <button>
               is keyboard-focusable, responds to Enter/Space, and announces as a
-              button to assistive tech. */}
+              button to assistive tech. When multi-tabs are active, closes the
+              active tab rather than the entire panel. */}
           <button
             type="button"
             className={styles.close}
-            onClick={closeDetail}
+            onClick={() => {
+              if (activeDetailTabUid) closeDetailTab(activeDetailTabUid);
+              else closeDetail();
+            }}
             title={t("detail.header.closeTitle")}
             aria-label={t("detail.header.closeTitle")}
           >
@@ -193,6 +206,8 @@ export function DetailPanel() {
       {activeTab === "shell" && nav === "nodes" && <NodeShellTab />}
       {activeTab === "yaml" && <YamlTab />}
       {activeTab === "events" && <EventsTab />}
+      {/* CronJob timeline — Job execution history for CronJobs. */}
+      {activeTab === "timeline" && nav === "cronjobs" && <CronJobTimeline />}
     </div>
   );
 }

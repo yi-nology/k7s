@@ -82,6 +82,7 @@ import type {
   Row,
   SavedLog,
   ShellHandle,
+  SecretEntry,
   Silence,
   Unsub,
   Revision,
@@ -263,6 +264,10 @@ export class HttpProvider implements DataProvider {
       namespace: ref.namespace ?? "",
       name: ref.name,
     });
+  }
+
+  getSecretData(namespace: string, name: string): Promise<SecretEntry[]> {
+    return httpInvoke<SecretEntry[]>("get_secret_data", { namespace, name });
   }
 
   // ---- mutations ----
@@ -619,6 +624,13 @@ export class HttpProvider implements DataProvider {
   async helmChartVersions(_repo: string, _chart: string): Promise<HelmChartVersionEntry[]> {
     return [];
   }
+  async helmExportChart(_repo: string, _chart: string, _version: string, _outputDir: string): Promise<string> {
+    throw new Error("helm_export_chart not implemented in HttpProvider");
+  }
+  async helmImportChart(_filePath: string, _repoName: string): Promise<string> {
+    throw new Error("helm_import_chart not implemented in HttpProvider");
+  }
+  async helmLocalCharts(_repoName: string): Promise<string[]> { return []; }
   async helmRenderDefaultValues(
     _chart: string,
     _version: string,
@@ -744,19 +756,19 @@ export class HttpProvider implements DataProvider {
   // implement these routes. Throw for everything, return [] for reads
   // so the UI renders "no data" rather than an error.
   async listEndpoints(): Promise<EndpointRow[]> {
-    return [];
+    return httpInvoke<EndpointRow[]>("list_endpoints");
   }
   async listEndpointsForService(
-    _ns: string,
-    _name: string,
+    ns: string,
+    name: string,
   ): Promise<EndpointRow[]> {
-    return [];
+    return httpInvoke<EndpointRow[]>("list_endpoints_for_service", { namespace: ns, name });
   }
   async listEndpointAddresses(
-    _ns: string,
-    _name: string,
+    ns: string,
+    name: string,
   ): Promise<EndpointAddress[]> {
-    return [];
+    return httpInvoke<EndpointAddress[]>("list_endpoint_addresses", { namespace: ns, name });
   }
   async triggerCronjob(_ns: string, _name: string): Promise<string> {
     throw new Error("trigger_cronjob not implemented in HttpProvider");
@@ -827,6 +839,23 @@ export class HttpProvider implements DataProvider {
   async alertManagerSilences(_name: string): Promise<Silence[]> {
     return [];
   }
+  async alertManagerCreateSilence(_instance: string, _request: import("./types").CreateSilenceRequest): Promise<string> {
+    throw new Error("alertmanager_create_silence not implemented in HttpProvider");
+  }
+  async alertManagerDeleteSilence(_instance: string, _silenceId: string): Promise<void> {
+    throw new Error("alertmanager_delete_silence not implemented in HttpProvider");
+  }
+  async prometheusRules(_instance: string): Promise<import("./types").RuleGroup[]> {
+    return [];
+  }
+  async lokiList(): Promise<import("./types").LokiConfig[]> { return []; }
+  async lokiUpsert(_input: import("./types").LokiUpsert): Promise<import("./types").LokiConfig> {
+    throw new Error("loki_upsert not implemented in HttpProvider");
+  }
+  async lokiRemove(_name: string): Promise<void> {}
+  async lokiTest(_name: string): Promise<void> {}
+  async auditEvents(_query: import("./types").AuditQuery): Promise<import("./types").AuditEvent[]> { return []; }
+  async grafanaSearchDashboards(_name: string, _query: string): Promise<import("./types").GrafanaDashboardSearchResult[]> { return []; }
 
   // ---- Saved queries (Http shell: not proxied yet) ----
   async savedQueriesList(): Promise<SavedQuery[]> {

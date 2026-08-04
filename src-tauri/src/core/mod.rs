@@ -19,6 +19,8 @@
 //! concerns.
 
 pub mod events;
+pub mod prefs;
+pub mod shell_common;
 pub mod state;
 
 pub mod commands;

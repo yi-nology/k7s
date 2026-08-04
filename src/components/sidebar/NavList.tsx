@@ -7,9 +7,10 @@
  *   - Network: Endpoints, Service Topology (views that belong with networking)
  *   - Helm: Helm Market (action wizard alongside releases)
  *
- * The bottom section holds the remaining overlays, split into collapsible groups:
- *   - Views → Observability (Dashboard, Metrics, Alerting, Grafana)
- *   - Tools → Images (Registries, Import), Pod Files, Templates
+ * The bottom section holds the remaining overlays:
+ *   - Dashboard, PromQL, Alerting, Grafana (flat, always visible)
+ *   - Images (collapsible): Registries, Import
+ *   - Pod Files, Templates (flat)
  *
  * The Custom section (B15) lists CRD-backed kinds discovered on connect, folded
  * under their API group the way Lens does — murphy-yi has 44 CRDs across 10 groups, so
@@ -94,6 +95,20 @@ export function NavList() {
                 />
                 <OverlayItem
                   item={{ key: "topology", label: t("chrome.sidebar.tools.topology", "Service Topology"), icon: "◌" }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t("chrome.sidebar.tools.close", "Click to close")}
+                />
+                <OverlayItem
+                  item={{ key: "ingress-routes", label: t("chrome.sidebar.tools.ingressRoutes", "Ingress Routes"), icon: "⇥" }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t("chrome.sidebar.tools.close", "Click to close")}
+                />
+                <OverlayItem
+                  item={{ key: "ingress-editor", label: t("chrome.sidebar.tools.ingressEditor", "Ingress Editor"), icon: "✎" }}
                   overlay={overlay}
                   openOverlay={openOverlay}
                   closeOverlay={closeOverlay}
@@ -203,7 +218,8 @@ function CollapsibleOverlayGroup({
  *
  *  Items absorbed by resource groups (Endpoints/Topology → Network, Helm Market → Helm)
  *  are rendered inline in the main loop above. What remains here:
- *  - Observability (collapsible): Dashboard, Metrics, Alerting, Grafana
+ *  - Dashboard (flat — first entry, primary home)
+ *  - Observability (collapsible): Metrics, Alerting, Grafana
  *  - Images (collapsible): Image Registries, Image Import
  *  - Pod Files, Templates (flat) */
 function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
@@ -213,10 +229,10 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
   const titleClose = t("chrome.sidebar.tools.close", "Click to close");
 
   const observabilityItems: OverlayItemDef[] = [
-    { key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: "◐" },
     { key: "metrics", label: t("chrome.sidebar.tools.metrics", "Metrics"), icon: "≋" },
     { key: "alerting", label: t("chrome.sidebar.tools.alerting", "Alerting"), icon: "△" },
     { key: "grafana", label: t("chrome.sidebar.tools.grafana", "Grafana"), icon: "▣" },
+    { key: "audit", label: t("chrome.sidebar.tools.audit", "Audit"), icon: "📋" },
   ];
 
   const imageItems: OverlayItemDef[] = [
@@ -226,6 +242,15 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
 
   return (
     <div>
+      {/* Dashboard — primary entry point, always visible at the top. */}
+      <OverlayItem
+        item={{ key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: "◐" }}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      {/* Observability — Metrics, Alerting, Grafana grouped together. */}
       <CollapsibleOverlayGroup
         header={t("chrome.sidebar.tools.observability", "Observability")}
         items={observabilityItems}
@@ -251,6 +276,20 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
       />
       <OverlayItem
         item={{ key: "templates", label: t("chrome.sidebar.tools.templates", "Templates"), icon: "✚" }}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      <OverlayItem
+        item={{ key: "diff", label: t("chrome.sidebar.tools.diff", "Diff"), icon: "⇄" }}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      <OverlayItem
+        item={{ key: "plugins", label: t("chrome.sidebar.tools.plugins", "Plugins"), icon: "⌂" }}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}

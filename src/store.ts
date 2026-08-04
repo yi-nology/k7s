@@ -43,7 +43,19 @@ export type DetailTab =
   | "shell"
   | "yaml"
   | "events"
-  | "pods";
+  | "pods"
+  | "timeline";
+
+/**
+ * Multi-tab entry: one open resource in the detail panel's tab strip.
+ * The `activeTab` is the sub-tab (logs, yaml, etc.) the user was viewing.
+ */
+export interface DetailTab2 {
+  uid: string;
+  kind: KindId;
+  row: Row;
+  activeTab: DetailTab;
+}
 
 /** Which dropdown menu (if any) is currently open — only one at a time. */
 export type OpenMenu = "cluster" | "ns" | "lang" | null;
@@ -64,7 +76,12 @@ export type OverlayKey =
   | "grafana"
   | "endpoints"
   | "topology"
-  | "alerting";
+  | "ingress-routes"
+  | "alerting"
+  | "audit"
+  | "ingress-editor"
+  | "diff"
+  | "plugins";
 
 /** Connection lifecycle for the active cluster/context. */
 export interface ConnectionState {
@@ -192,6 +209,8 @@ export interface AppState {
    * re-imported on boot, so imported contexts survive a relaunch.
    */
   importedFiles: string[];
+  /** Pinned context names for the sidebar hotbar (max 8). */
+  hotbar: string[];
 
   // ---------- navigation & filtering ----------
   /** Active resource kind (drives the table + breadcrumb); a custom id for CRDs. */
@@ -279,6 +298,12 @@ export interface AppState {
   selectedRow: Row | null;
   activeTab: DetailTab;
 
+  // multi-tab system
+  /** Open resource tabs in the detail panel (empty = single-panel mode). */
+  detailTabs: DetailTab2[];
+  /** Uid of the active multi-tab, or null when no multi-tabs are open. */
+  activeDetailTabUid: string | null;
+
   // logs tab
   logSearch: string;
   containerIndex: number;
@@ -315,6 +340,9 @@ export interface AppState {
   setImportedFiles: (paths: string[]) => void;
   /** Remember an imported kubeconfig path (no-op if already known). */
   addImportedFile: (path: string) => void;
+  setHotbar: (items: string[]) => void;
+  addHotbarItem: (context: string) => void;
+  removeHotbarItem: (context: string) => void;
   setClusterStatus: (s: ClusterStatus) => void;
   setWatchCount: (n: number) => void;
   setRows: (kind: KindId, rows: Row[]) => void;
@@ -370,6 +398,18 @@ export interface AppState {
   closeDetail: () => void;
   setActiveTab: (tab: DetailTab) => void;
 
+  // multi-tab system
+  /** Open a resource in a new multi-tab (or activate an existing one). */
+  openDetailTab: (kind: KindId, row: Row) => void;
+  /** Close a multi-tab by uid. */
+  closeDetailTab: (uid: string) => void;
+  /** Set the active multi-tab by uid. */
+  setActiveDetailTab: (uid: string) => void;
+  /** Cycle to the next or previous multi-tab. */
+  cycleDetailTab: (direction: 1 | -1) => void;
+  /** Open the current selectedRow in a new multi-tab. */
+  openSelectedInTab: () => void;
+
   // logs
   setLogSearch: (q: string) => void;
   cycleContainer: () => void;
@@ -402,6 +442,7 @@ export const useStore = create<AppState>((set) => ({
   watchCount: 0,
   contexts: [],
   importedFiles: [],
+  hotbar: [],
 
   nav: "pods",
   namespace: "all",
@@ -433,6 +474,9 @@ export const useStore = create<AppState>((set) => ({
 
   selectedRow: null,
   activeTab: "logs",
+
+  detailTabs: [],
+  activeDetailTabUid: null,
 
   logSearch: "",
   containerIndex: 0,
@@ -490,9 +534,42 @@ export const useStore = create<AppState>((set) => ({
     set((s) =>
       s.importedFiles.includes(path) ? s : { importedFiles: [...s.importedFiles, path] },
     ),
+  setHotbar: (items) => set({ hotbar: items }),
+  addHotbarItem: (context) =>
+    set((s) => {
+      if (s.hotbar.includes(context) || s.hotbar.length >= 8) return s;
+      return { hotbar: [...s.hotbar, context] };
+    }),
+  removeHotbarItem: (context) =>
+    set((s) => ({ hotbar: s.hotbar.filter((c) => c !== context) })),
   setClusterStatus: (status) => set({ clusterStatus: status }),
   setWatchCount: (n) => set({ watchCount: n }),
-  setRows: (kind, rows) => set((s) => ({ rows: { ...s.rows, [kind]: rows } })),
+  setRows: (kind, rows) =>
+    set((s) => {
+      const nextRows = { ...s.rows, [kind]: rows };
+      // Clean up multi-tabs whose resource was deleted externally.
+      let nextTabs = s.detailTabs;
+      if (s.detailTabs.length > 0 && rows.length > 0) {
+        const filtered = s.detailTabs.filter(
+          (t) => t.kind !== kind || rows.some((r) => r.uid === t.row.uid),
+        );
+        if (filtered.length !== s.detailTabs.length) nextTabs = filtered;
+      }
+      return {
+        rows: nextRows,
+        ...(nextTabs !== s.detailTabs
+          ? {
+              detailTabs: nextTabs,
+              activeDetailTabUid:
+                nextTabs.length === 0
+                  ? null
+                  : nextTabs.some((t) => t.uid === s.activeDetailTabUid)
+                    ? s.activeDetailTabUid
+                    : nextTabs[0].uid,
+            }
+          : {}),
+      };
+    }),
   setCustomKinds: (kinds) => set({ customKinds: kinds }),
   setPodMetrics: (m) => set({ podMetrics: m }),
   setNodeMetrics: (m) => set({ nodeMetrics: m }),
@@ -614,6 +691,8 @@ export const useStore = create<AppState>((set) => ({
       logBuffer: [],
       clusterStatus: null,
       openMenu: null,
+      detailTabs: [],
+      activeDetailTabUid: null,
     }),
 
   // ---------- detail panel ----------
@@ -625,21 +704,152 @@ export const useStore = create<AppState>((set) => ({
   // returns null when selectedRow is null — all tab components are already
   // unmounted, so no active hooks depend on this state.
   closeDetail: () =>
-    set({
-      selectedRow: null,
-      logBuffer: [],
-      logSearch: "",
-      containerIndex: 0,
-      following: true,
-      logPrevious: false,
-      logSince: "all",
-      yamlEditing: false,
-      yamlDraft: "",
+    set((s) => {
+      // If a multi-tab is active, close it instead of the single-panel.
+      if (s.activeDetailTabUid) {
+        const next = s.detailTabs.filter((t) => t.uid !== s.activeDetailTabUid);
+        if (next.length === 0) {
+          return {
+            detailTabs: [],
+            activeDetailTabUid: null,
+            selectedRow: null,
+            logBuffer: [],
+            logSearch: "",
+            containerIndex: 0,
+            following: true,
+            logPrevious: false,
+            logSince: "all",
+            yamlEditing: false,
+            yamlDraft: "",
+          };
+        }
+        const newActive = next[Math.min(
+          s.detailTabs.findIndex((t) => t.uid === s.activeDetailTabUid),
+          next.length - 1,
+        )];
+        return {
+          detailTabs: next,
+          activeDetailTabUid: newActive.uid,
+          nav: newActive.kind,
+          selectedRow: newActive.row,
+          activeTab: newActive.activeTab,
+          yamlEditing: false,
+          yamlDraft: "",
+          logBuffer: [],
+          logSearch: "",
+          containerIndex: 0,
+          following: true,
+          logPrevious: false,
+          logSince: "all",
+        };
+      }
+      return {
+        selectedRow: null,
+        logBuffer: [],
+        logSearch: "",
+        containerIndex: 0,
+        following: true,
+        logPrevious: false,
+        logSince: "all",
+        yamlEditing: false,
+        yamlDraft: "",
+      };
     }),
   // Switching tabs cancels any in-progress YAML edit (design behavior) and
   // also drops the draft — see selectionPatch for why carrying it forward is
   // worse than discarding it.
-  setActiveTab: (tab) => set({ activeTab: tab, yamlEditing: false, yamlDraft: "" }),
+  setActiveTab: (tab) =>
+    set((s) => {
+      // Sync the active multi-tab's sub-tab so switching back restores it.
+      let detailTabs = s.detailTabs;
+      if (s.activeDetailTabUid) {
+        detailTabs = s.detailTabs.map((t) =>
+          t.uid === s.activeDetailTabUid ? { ...t, activeTab: tab } : t,
+        );
+      }
+      return { activeTab: tab, yamlEditing: false, yamlDraft: "", detailTabs };
+    }),
+
+  // ---------- multi-tab system ----------
+  // Opening a multi-tab: reuse if the resource is already open, else create.
+  // Hides the single-panel view; the tab strip + active tab drive the detail.
+  openDetailTab: (kind, row) =>
+    set((s) => {
+      const existing = s.detailTabs.find((t) => t.row.uid === row.uid);
+      if (existing) return { activeDetailTabUid: existing.uid, selectedRow: null };
+      const uid = crypto.randomUUID();
+      const activeTab: DetailTab = row.pod ? "logs" : "yaml";
+      return {
+        detailTabs: [...s.detailTabs, { uid, kind, row, activeTab }],
+        activeDetailTabUid: uid,
+        selectedRow: null,
+      };
+    }),
+  closeDetailTab: (uid) =>
+    set((s) => {
+      const idx = s.detailTabs.findIndex((t) => t.uid === uid);
+      if (idx < 0) return {};
+      const next = s.detailTabs.filter((t) => t.uid !== uid);
+      if (next.length === 0) return { detailTabs: [], activeDetailTabUid: null };
+      // Activate the nearest surviving tab.
+      const newActive = next[Math.min(idx, next.length - 1)];
+      return { detailTabs: next, activeDetailTabUid: newActive.uid };
+    }),
+  setActiveDetailTab: (uid) =>
+    set((s) => {
+      const tab = s.detailTabs.find((t) => t.uid === uid);
+      if (!tab || uid === s.activeDetailTabUid) return {};
+      return {
+        activeDetailTabUid: uid,
+        nav: tab.kind,
+        selectedRow: tab.row,
+        activeTab: tab.activeTab,
+        yamlEditing: false,
+        yamlDraft: "",
+        logBuffer: [],
+        logSearch: "",
+        containerIndex: 0,
+        following: true,
+        logPrevious: false,
+        logSince: "all",
+      };
+    }),
+  cycleDetailTab: (direction) =>
+    set((s) => {
+      if (s.detailTabs.length <= 1) return {};
+      const i = s.detailTabs.findIndex((t) => t.uid === s.activeDetailTabUid);
+      if (i < 0) return {};
+      const next = s.detailTabs[(i + direction + s.detailTabs.length) % s.detailTabs.length];
+      return {
+        activeDetailTabUid: next.uid,
+        nav: next.kind,
+        selectedRow: next.row,
+        activeTab: next.activeTab,
+        yamlEditing: false,
+        yamlDraft: "",
+        logBuffer: [],
+        logSearch: "",
+        containerIndex: 0,
+        following: true,
+        logPrevious: false,
+        logSince: "all",
+      };
+    }),
+  openSelectedInTab: () =>
+    set((s) => {
+      if (!s.selectedRow) return {};
+      const row = s.selectedRow;
+      const kind = s.nav;
+      const existing = s.detailTabs.find((t) => t.row.uid === row.uid);
+      if (existing) return { activeDetailTabUid: existing.uid, selectedRow: null };
+      const uid = crypto.randomUUID();
+      const activeTab: DetailTab = row.pod ? "logs" : "yaml";
+      return {
+        detailTabs: [...s.detailTabs, { uid, kind, row, activeTab }],
+        activeDetailTabUid: uid,
+        selectedRow: null,
+      };
+    }),
 
   // ---------- logs ----------
   setLogSearch: (q) => set({ logSearch: q }),

@@ -114,6 +114,7 @@ export function useBootstrap(): void {
           restore.namespace =
             typeof prefs.namespace === "string" ? prefs.namespace : restore.settings.defaultNamespace;
           if (typeof prefs.showTimestamps === "boolean") restore.showTimestamps = prefs.showTimestamps;
+          if (Array.isArray(prefs.hotbar)) restore.hotbar = prefs.hotbar;
           if (Object.keys(restore).length) useStore.setState(restore);
         }
 
@@ -143,6 +144,8 @@ export function useBootstrap(): void {
             showTimestamps: s.showTimestamps,
             // Persisted so imported contexts survive a relaunch (B17).
             importedFiles: s.importedFiles,
+            // Pinned contexts for the sidebar hotbar.
+            hotbar: s.hotbar,
             // Settings (B23). The backend reads the poll intervals and shell
             // command straight out of this same file.
             ...s.settings,

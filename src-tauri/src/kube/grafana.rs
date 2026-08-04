@@ -315,6 +315,97 @@ fn find(name: &str) -> AppResult<GrafanaConfig> {
         .ok_or_else(|| AppError::NotFound(format!("grafana '{name}' not found")))
 }
 
+// ---------------------------------------------------------------------------
+// Dashboard search via Grafana API
+// ---------------------------------------------------------------------------
+
+/// A dashboard returned by Grafana's `/api/search`.
+#[derive(Clone, Debug, Serialize)]
+pub struct DashboardSearchResult {
+    pub uid: String,
+    pub title: String,
+    pub uri: String,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub tags: Vec<String>,
+    pub url: String,
+}
+
+/// Search dashboards on a Grafana instance via `/api/search`.
+pub async fn search_dashboards(
+    name: &str,
+    query: &str,
+) -> AppResult<Vec<DashboardSearchResult>> {
+    let cfg = find(name)?;
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| AppError::Other(format!("build client: {e}")))?;
+
+    let encoded_q = query.replace(' ', "%20");
+    let url = format!("{}/api/search?query={}&type=dash-db", cfg.url, encoded_q);
+    let mut req = client.get(&url);
+    if !cfg.api_token.is_empty() {
+        req = req.bearer_auth(&cfg.api_token);
+    } else if !cfg.username.is_empty() {
+        req = req.basic_auth(&cfg.username, Some(&cfg.password));
+    }
+
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("GET {url}: {e}")))?;
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(AppError::Other(format!("{url}: HTTP {status}")));
+    }
+
+    let raw: Vec<serde_json::Value> = resp
+        .json()
+        .await
+        .map_err(|e| AppError::Other(format!("decode: {e}")))?;
+
+    Ok(raw
+        .iter()
+        .map(|v| DashboardSearchResult {
+            uid: v
+                .get("uid")
+                .and_then(|s| s.as_str())
+                .unwrap_or("")
+                .to_string(),
+            title: v
+                .get("title")
+                .and_then(|s| s.as_str())
+                .unwrap_or("")
+                .to_string(),
+            uri: v
+                .get("uri")
+                .and_then(|s| s.as_str())
+                .unwrap_or("")
+                .to_string(),
+            kind: v
+                .get("type")
+                .and_then(|s| s.as_str())
+                .unwrap_or("dash-db")
+                .to_string(),
+            tags: v
+                .get("tags")
+                .and_then(|t| t.as_array())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|t| t.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            url: v
+                .get("url")
+                .and_then(|s| s.as_str())
+                .unwrap_or("")
+                .to_string(),
+        })
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

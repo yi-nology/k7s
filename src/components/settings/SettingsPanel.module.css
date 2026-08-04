@@ -4,7 +4,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: var(--z-modal);
   background: var(--scrim);
   display: flex;
   align-items: center;
@@ -35,14 +35,14 @@
 }
 .title {
   flex: 1;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-primary);
 }
 .close {
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: var(--text-lg);
   line-height: 1;
   padding: 0 2px;
 }
@@ -75,14 +75,14 @@
   min-width: 0;
 }
 .label {
-  font-size: 12.5px;
+  font-size: var(--text-md);
   color: var(--text-primary);
 }
 /* The hint carries the bounds and the "applies on next connect" caveat, so it's
    readable rather than fine print. */
 .hint {
   margin-top: 2px;
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   color: var(--text-faint);
   line-height: 1.4;
 }
@@ -95,7 +95,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   padding: 4px 8px;
   outline: none;
 }
@@ -114,7 +114,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   padding: 4px 8px;
   outline: none;
 }
@@ -136,7 +136,7 @@
   padding: 8px 14px;
   border-top: 1px solid var(--border-default);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--text-xs);
 }
 .note {
   flex: 1;
@@ -174,7 +174,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12.5px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -182,7 +182,7 @@
 .mcpBadge {
   display: inline-block;
   padding: 1px 6px;
-  font-size: 9.5px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   letter-spacing: 0.05em;
   color: var(--accent);
@@ -194,7 +194,7 @@
 
 .mcpHint {
   margin-top: 4px;
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   color: var(--text-faint);
   line-height: 1.5;
   word-break: break-all;
@@ -227,21 +227,21 @@
 }
 
 .mcpCardTitle {
-  font-size: 11.5px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-primary);
 }
 
 .mcpCardHint {
   margin-top: 2px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--text-faint);
   line-height: 1.4;
 }
 
 .mcpCardPath {
   margin-top: 3px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-family: var(--font-mono);
   word-break: break-all;
@@ -263,7 +263,7 @@
   border: 1px solid var(--border-control);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--text-xs);
   line-height: 1.45;
   overflow-x: auto;
   white-space: pre;
@@ -282,7 +282,7 @@
   top: 6px;
   right: 6px;
   padding: 2px 8px;
-  font-size: 9.5px;
+  font-size: var(--text-2xs);
   font-family: var(--font-mono);
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -312,7 +312,7 @@
 
 .mcpExtraLabel {
   margin: 8px 0 4px;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   font-family: var(--font-mono);
   text-transform: uppercase;

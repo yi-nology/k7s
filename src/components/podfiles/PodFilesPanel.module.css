@@ -1,5 +1,5 @@
 .panel {
-  background: var(--surface-0);
+  background: var(--bg-app);
   border: 1px solid var(--border);
   border-radius: var(--radius-2);
   display: flex;
@@ -10,7 +10,7 @@
 
 .header {
   align-items: center;
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   display: flex;
   gap: var(--space-2);
@@ -53,7 +53,7 @@
 }
 
 .btn {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);
@@ -69,7 +69,7 @@
 }
 
 .error {
-  background: var(--surface-warn);
+  background: var(--status-warn-soft);
   border-bottom: 1px solid var(--status-err);
   color: var(--status-err);
   font-size: var(--text-sm);
@@ -107,7 +107,7 @@
 }
 
 .entryActive {
-  background: var(--surface-2);
+  background: var(--bg-control);
 }
 
 .icon {
@@ -136,7 +136,7 @@
 
 .editorBar {
   align-items: center;
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   color: var(--text-secondary);
   display: flex;
@@ -152,7 +152,7 @@
 }
 
 .content {
-  background: var(--surface-0);
+  background: var(--bg-app);
   border: none;
   color: var(--text-primary);
   flex: 1 1 auto;

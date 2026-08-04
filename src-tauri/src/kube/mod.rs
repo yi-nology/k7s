@@ -5,6 +5,7 @@
 //! events named in [`events`].
 
 pub mod alerting;
+pub mod audit;
 pub mod client;
 pub mod discovery;
 pub mod drain;
@@ -82,6 +83,22 @@ pub enum ResourceKind {
     Events,
     /// Helm releases (B26) — decoded from Helm's release Secrets; read-only.
     Helm,
+    /// RBAC: namespaced permission rules.
+    Roles,
+    /// RBAC: cluster-scoped permission rules.
+    Clusterroles,
+    /// RBAC: bind roles to subjects (namespaced).
+    Rolebindings,
+    /// RBAC: bind cluster roles to subjects (cluster-scoped).
+    Clusterrolebindings,
+    /// PodDisruptionBudget — namespaced; limits voluntary disruptions.
+    Poddisruptionbudgets,
+    /// MutatingWebhookConfiguration — cluster-scoped; admission webhooks.
+    Mutatingwebhookconfigurations,
+    /// ValidatingWebhookConfiguration — cluster-scoped; admission webhooks.
+    Validatingwebhookconfigurations,
+    /// APIService — cluster-scoped; registers aggregated API servers.
+    Apiservices,
 }
 
 impl ResourceKind {
@@ -112,6 +129,14 @@ impl ResourceKind {
             ResourceKind::Namespaces => "namespaces",
             ResourceKind::Events => "events",
             ResourceKind::Helm => "helm",
+            ResourceKind::Roles => "roles",
+            ResourceKind::Clusterroles => "clusterroles",
+            ResourceKind::Rolebindings => "rolebindings",
+            ResourceKind::Clusterrolebindings => "clusterrolebindings",
+            ResourceKind::Poddisruptionbudgets => "poddisruptionbudgets",
+            ResourceKind::Mutatingwebhookconfigurations => "mutatingwebhookconfigurations",
+            ResourceKind::Validatingwebhookconfigurations => "validatingwebhookconfigurations",
+            ResourceKind::Apiservices => "apiservices",
         }
     }
 
@@ -130,14 +155,20 @@ impl ResourceKind {
             | ResourceKind::Networkpolicies => "networking.k8s.io",
             ResourceKind::Storageclasses => "storage.k8s.io",
             ResourceKind::Horizontalpodautoscalers => "autoscaling",
+            ResourceKind::Roles | ResourceKind::Clusterroles
+            | ResourceKind::Rolebindings | ResourceKind::Clusterrolebindings => "rbac.authorization.k8s.io",
             ResourceKind::Helm => "",
+            ResourceKind::Poddisruptionbudgets => "policy",
+            ResourceKind::Mutatingwebhookconfigurations
+            | ResourceKind::Validatingwebhookconfigurations => "admissionregistration.k8s.io",
+            ResourceKind::Apiservices => "apiregistration.k8s.io",
         }
     }
 
-    /// The API version (e.g. "v1", "v1beta1").
+    /// The API version (e.g. "v1", "v2").
     pub fn version(&self) -> &'static str {
         match self {
-            ResourceKind::Horizontalpodautoscalers => "v1",
+            ResourceKind::Horizontalpodautoscalers => "v2",
             _ => "v1",
         }
     }
@@ -174,6 +205,14 @@ impl ResourceKind {
             ResourceKind::Namespaces => "Namespace",
             ResourceKind::Events => "Event",
             ResourceKind::Helm => "HelmRelease",
+            ResourceKind::Roles => "Role",
+            ResourceKind::Clusterroles => "ClusterRole",
+            ResourceKind::Rolebindings => "RoleBinding",
+            ResourceKind::Clusterrolebindings => "ClusterRoleBinding",
+            ResourceKind::Poddisruptionbudgets => "PodDisruptionBudget",
+            ResourceKind::Mutatingwebhookconfigurations => "MutatingWebhookConfiguration",
+            ResourceKind::Validatingwebhookconfigurations => "ValidatingWebhookConfiguration",
+            ResourceKind::Apiservices => "APIService",
         }
     }
 
@@ -182,7 +221,11 @@ impl ResourceKind {
         match self {
             ResourceKind::Nodes | ResourceKind::Persistentvolumes
             | ResourceKind::Storageclasses | ResourceKind::Namespaces
-            | ResourceKind::Events | ResourceKind::Helm => false,
+            | ResourceKind::Events | ResourceKind::Helm
+            | ResourceKind::Clusterroles | ResourceKind::Clusterrolebindings
+            | ResourceKind::Mutatingwebhookconfigurations
+            | ResourceKind::Validatingwebhookconfigurations
+            | ResourceKind::Apiservices => false,
             _ => true,
         }
     }

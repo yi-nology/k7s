@@ -66,6 +66,29 @@ export function useGlobalKeys(): void {
         const next = e.key === "]" ? (i + 1) % tabs.length : (i - 1 + tabs.length) % tabs.length;
         s.setActiveTab(tabs[next]);
       }
+
+      // Multi-tab cycling: { / } (Shift+[ / Shift+]) cycle open detail tabs.
+      if ((e.key === "{" || e.key === "}") && s.detailTabs.length > 1 && !typing) {
+        e.preventDefault();
+        s.cycleDetailTab(e.key === "}" ? 1 : -1);
+      }
+
+      // Ctrl/Cmd+T: open the current selection in a new detail tab.
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "t" && !typing) {
+        e.preventDefault();
+        s.openSelectedInTab();
+      }
+
+      // Ctrl/Cmd+W: close the active detail tab (or the panel if no multi-tabs).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "w") {
+        if (s.activeDetailTabUid) {
+          e.preventDefault();
+          s.closeDetailTab(s.activeDetailTabUid);
+        } else if (s.selectedRow) {
+          e.preventDefault();
+          s.closeDetail();
+        }
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);

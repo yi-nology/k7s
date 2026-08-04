@@ -38,7 +38,11 @@ pub struct EndpointRow {
 /// List all EndpointSlices in the cluster (cluster-wide).
 pub async fn list_all(client: &Client) -> AppResult<Vec<EndpointRow>> {
     let api: Api<EndpointSlice> = Api::all(client.clone());
-    let slices = api.list(&ListParams::default()).await?;
+    let slices = api.list(&ListParams::default()).await.map_err(|e| {
+        tracing::error!("EndpointSlice list failed: {e}");
+        AppError::Kube(e.to_string())
+    })?;
+    tracing::info!("EndpointSlice list: got {} slices", slices.items.len());
     Ok(slices.iter().map(map_slice).collect())
 }
 

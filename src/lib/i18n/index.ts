@@ -146,6 +146,7 @@ const GROUP_LABELS_ZH: Record<NavGroup, string> = {
   workloads: "工作负载",
   network: "网络",
   config: "配置",
+  access: "访问控制",
   storage: "存储",
   cluster: "集群",
   helm: "Helm",
@@ -177,6 +178,14 @@ const KIND_LABELS_ZH: Record<ResourceKind, string> = {
   horizontalpodautoscalers: "HPA",
   resourcequotas: "资源配额",
   limitranges: "限制范围",
+  roles: "Roles",
+  clusterroles: "ClusterRoles",
+  rolebindings: "RoleBindings",
+  clusterrolebindings: "ClusterRoleBindings",
+  poddisruptionbudgets: "Pod中断预算",
+  mutatingwebhookconfigurations: "变更Webhook",
+  validatingwebhookconfigurations: "验证Webhook",
+  apiservices: "API服务",
 };
 
 const TAB_LABELS_ZH: Record<DetailTabId, string> = {
@@ -188,6 +197,7 @@ const TAB_LABELS_ZH: Record<DetailTabId, string> = {
   yaml: "YAML",
   events: "事件",
   pods: "Pod 列表",
+  timeline: "时间线",
 };
 
 /** Translated group header (or English on en/unknown). */

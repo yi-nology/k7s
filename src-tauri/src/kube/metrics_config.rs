@@ -382,7 +382,7 @@ fn translate(body: PromResponse) -> QueryResult {
     }
 }
 
-fn find(name: &str) -> AppResult<MetricsConfig> {
+pub(crate) fn find(name: &str) -> AppResult<MetricsConfig> {
     list()?
         .into_iter()
         .find(|c| c.name == name)

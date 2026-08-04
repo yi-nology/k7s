@@ -818,16 +818,498 @@ const TEMPLATES: Template[] = [
     ],
     render: (v) => {
       const name = v.name || "my-namespace";
-      // `kube-system`, `default`, and `kube-public` are the three namespaces
-      // every cluster has — recreating them under a new name is a real footgun.
-      // The picker doesn't enforce it, but the form's help text on `name`
-      // (added in the i18n entry) is the place to mention this; the renderer
-      // keeps the default simple and lets the YAML editor handle the edge.
       return [
         `apiVersion: v1`,
         `kind: Namespace`,
         `metadata:`,
         `  name: ${name}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "ingress-tls",
+    kind: "ingresses",
+    title: "Ingress (with TLS)",
+    description: "Ingress that routes a host to a Service over HTTPS.",
+    params: [
+      { key: "name", label: "Name", default: "my-app-ingress", kind: "text" },
+      {
+        key: "host",
+        label: "Host",
+        default: "app.example.com",
+        kind: "text",
+      },
+      {
+        key: "service",
+        label: "Backend Service",
+        default: "my-app",
+        kind: "text",
+      },
+      {
+        key: "port",
+        label: "Service port",
+        default: "80",
+        kind: "number",
+        min: 1,
+        max: 65535,
+      },
+      {
+        key: "tlsSecret",
+        label: "TLS Secret",
+        default: "my-app-tls",
+        kind: "text",
+        help: "Name of the Secret holding the TLS certificate and key.",
+      },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "ingressClass",
+        label: "Ingress class",
+        default: "nginx",
+        kind: "text",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-app-ingress";
+      const host = v.host || "app.example.com";
+      const service = v.service || "my-app";
+      const port = clampInt(v.port, 1, 65535, 80);
+      const tlsSecret = v.tlsSecret || "my-app-tls";
+      const ns = v.namespace || "default";
+      const ic = v.ingressClass || "nginx";
+      return [
+        `apiVersion: networking.k8s.io/v1`,
+        `kind: Ingress`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `  annotations:`,
+        `    kubernetes.io/ingress.class: ${ic}`,
+        `spec:`,
+        `  tls:`,
+        `  - hosts:`,
+        `    - ${host}`,
+        `    secretName: ${tlsSecret}`,
+        `  rules:`,
+        `  - host: ${host}`,
+        `    http:`,
+        `      paths:`,
+        `      - path: /`,
+        `        pathType: Prefix`,
+        `        backend:`,
+        `          service:`,
+        `            name: ${service}`,
+        `            port:`,
+        `              number: ${port}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "networkpolicy",
+    kind: "networkpolicies",
+    title: "NetworkPolicy",
+    description: "Allow ingress and egress traffic for selected pods.",
+    params: [
+      { key: "name", label: "Name", default: "my-netpol", kind: "text" },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "podLabelKey",
+        label: "Pod selector key",
+        default: "app",
+        kind: "text",
+        help: "Label key used to select pods this policy applies to.",
+      },
+      {
+        key: "podLabelValue",
+        label: "Pod selector value",
+        default: "my-app",
+        kind: "text",
+      },
+      {
+        key: "ingressFromNs",
+        label: "Allow ingress from namespace",
+        default: "default",
+        kind: "text",
+        help: "Namespace whose pods may send traffic. Leave empty to skip ingress rules.",
+        required: false,
+      },
+      {
+        key: "egressToNs",
+        label: "Allow egress to namespace",
+        default: "",
+        kind: "text",
+        help: "Namespace whose pods may receive traffic. Leave empty to skip egress rules.",
+        required: false,
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-netpol";
+      const ns = v.namespace || "default";
+      const podKey = v.podLabelKey || "app";
+      const podVal = v.podLabelValue || "my-app";
+      const ingressNs = typeof v.ingressFromNs === "string" ? v.ingressFromNs.trim() : "";
+      const egressNs = typeof v.egressToNs === "string" ? v.egressToNs.trim() : "";
+      const lines = [
+        `apiVersion: networking.k8s.io/v1`,
+        `kind: NetworkPolicy`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  podSelector:`,
+        `    matchLabels:`,
+        `      ${podKey}: ${podVal}`,
+        `  policyTypes:`,
+      ];
+      if (ingressNs) {
+        lines.push(`  - Ingress`);
+      }
+      if (egressNs) {
+        lines.push(`  - Egress`);
+      }
+      if (!ingressNs && !egressNs) {
+        lines.push(`  - Ingress`);
+        lines.push(`  - Egress`);
+      }
+      if (ingressNs) {
+        lines.push(`  ingress:`);
+        lines.push(`  - from:`);
+        lines.push(`    - namespaceSelector:`);
+        lines.push(`        matchLabels:`);
+        lines.push(`          kubernetes.io/metadata.name: ${ingressNs}`);
+      }
+      if (egressNs) {
+        lines.push(`  egress:`);
+        lines.push(`  - to:`);
+        lines.push(`    - namespaceSelector:`);
+        lines.push(`        matchLabels:`);
+        lines.push(`          kubernetes.io/metadata.name: ${egressNs}`);
+      }
+      return lines.join("\n");
+    },
+  },
+  {
+    id: "resourcequota",
+    kind: "resourcequotas",
+    title: "ResourceQuota",
+    description: "Limit total resource consumption in a namespace.",
+    params: [
+      { key: "name", label: "Name", default: "my-quota", kind: "text" },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "cpuLimit",
+        label: "CPU limit",
+        default: "4",
+        kind: "text",
+        help: "Total CPU limit across all pods (e.g. 4, 2000m).",
+      },
+      {
+        key: "memoryLimit",
+        label: "Memory limit",
+        default: "8Gi",
+        kind: "text",
+        help: "Total memory limit across all pods.",
+      },
+      {
+        key: "podCount",
+        label: "Max pods",
+        default: "20",
+        kind: "number",
+        min: 1,
+        max: 10000,
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-quota";
+      const ns = v.namespace || "default";
+      const cpu = v.cpuLimit || "4";
+      const mem = v.memoryLimit || "8Gi";
+      const pods = clampInt(v.podCount, 1, 10000, 20);
+      return [
+        `apiVersion: v1`,
+        `kind: ResourceQuota`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  hard:`,
+        `    requests.cpu: "${cpu}"`,
+        `    requests.memory: ${mem}`,
+        `    limits.cpu: "${cpu}"`,
+        `    limits.memory: ${mem}`,
+        `    pods: "${pods}"`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "limitrange",
+    kind: "limitranges",
+    title: "LimitRange",
+    description: "Set default resource requests/limits for pods in a namespace.",
+    params: [
+      { key: "name", label: "Name", default: "my-limitrange", kind: "text" },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "defaultCpu",
+        label: "Default CPU limit",
+        default: "500m",
+        kind: "text",
+        help: "Default CPU limit for containers.",
+      },
+      {
+        key: "defaultMemory",
+        label: "Default memory limit",
+        default: "256Mi",
+        kind: "text",
+        help: "Default memory limit for containers.",
+      },
+      {
+        key: "defaultRequestCpu",
+        label: "Default CPU request",
+        default: "100m",
+        kind: "text",
+      },
+      {
+        key: "defaultRequestMemory",
+        label: "Default memory request",
+        default: "128Mi",
+        kind: "text",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-limitrange";
+      const ns = v.namespace || "default";
+      const dc = v.defaultCpu || "500m";
+      const dm = v.defaultMemory || "256Mi";
+      const rc = v.defaultRequestCpu || "100m";
+      const rm = v.defaultRequestMemory || "128Mi";
+      return [
+        `apiVersion: v1`,
+        `kind: LimitRange`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  limits:`,
+        `  - type: Container`,
+        `    default:`,
+        `      cpu: ${dc}`,
+        `      memory: ${dm}`,
+        `    defaultRequest:`,
+        `      cpu: ${rc}`,
+        `      memory: ${rm}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "hpa",
+    kind: "horizontalpodautoscalers",
+    title: "HPA",
+    description: "Auto-scale a Deployment based on CPU utilization.",
+    params: [
+      { key: "name", label: "Name", default: "my-app-hpa", kind: "text" },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "targetKind",
+        label: "Target kind",
+        default: "Deployment",
+        kind: "text",
+        help: "Kind of the resource to scale (Deployment, StatefulSet, etc.).",
+      },
+      {
+        key: "targetName",
+        label: "Target name",
+        default: "my-app",
+        kind: "text",
+      },
+      {
+        key: "minReplicas",
+        label: "Min replicas",
+        default: "2",
+        kind: "number",
+        min: 1,
+        max: 1000,
+      },
+      {
+        key: "maxReplicas",
+        label: "Max replicas",
+        default: "10",
+        kind: "number",
+        min: 1,
+        max: 10000,
+      },
+      {
+        key: "cpuPercent",
+        label: "Target CPU %",
+        default: "70",
+        kind: "number",
+        min: 1,
+        max: 100,
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-app-hpa";
+      const ns = v.namespace || "default";
+      const kind = v.targetKind || "Deployment";
+      const target = v.targetName || "my-app";
+      const min = clampInt(v.minReplicas, 1, 1000, 2);
+      const max = clampInt(v.maxReplicas, 1, 10000, 10);
+      const pct = clampInt(v.cpuPercent, 1, 100, 70);
+      return [
+        `apiVersion: autoscaling/v2`,
+        `kind: HorizontalPodAutoscaler`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `spec:`,
+        `  scaleTargetRef:`,
+        `    apiVersion: apps/v1`,
+        `    kind: ${kind}`,
+        `    name: ${target}`,
+        `  minReplicas: ${min}`,
+        `  maxReplicas: ${max}`,
+        `  metrics:`,
+        `  - type: Resource`,
+        `    resource:`,
+        `      name: cpu`,
+        `      target:`,
+        `        type: Utilization`,
+        `        averageUtilization: ${pct}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "serviceaccount",
+    kind: "serviceaccounts",
+    title: "ServiceAccount",
+    description: "Identity for pods to access the Kubernetes API.",
+    params: [
+      { key: "name", label: "Name", default: "my-sa", kind: "text" },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "automount",
+        label: "Auto-mount token",
+        default: "true",
+        kind: "boolean",
+        help: "Automatically mount the API token into pods using this account.",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-sa";
+      const ns = v.namespace || "default";
+      const automount = v.automount === "true";
+      return [
+        `apiVersion: v1`,
+        `kind: ServiceAccount`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `automountServiceAccountToken: ${automount}`,
+      ].join("\n");
+    },
+  },
+  {
+    id: "role",
+    kind: "roles",
+    title: "Role + RoleBinding",
+    description: "Grant permissions to a ServiceAccount within a namespace.",
+    params: [
+      { key: "name", label: "Name", default: "my-role", kind: "text" },
+      {
+        key: "namespace",
+        label: "Namespace",
+        default: "default",
+        kind: "text",
+      },
+      {
+        key: "saName",
+        label: "ServiceAccount",
+        default: "my-sa",
+        kind: "text",
+        help: "The ServiceAccount to bind this role to.",
+      },
+      {
+        key: "resources",
+        label: "Resources",
+        default: "pods,services",
+        kind: "text",
+        help: "Comma-separated list of resource types (e.g. pods,configmaps).",
+      },
+      {
+        key: "verbs",
+        label: "Verbs",
+        default: "get,list,watch",
+        kind: "text",
+        help: "Comma-separated verbs (get,list,watch,create,update,delete).",
+      },
+    ],
+    render: (v) => {
+      const name = v.name || "my-role";
+      const ns = v.namespace || "default";
+      const sa = v.saName || "my-sa";
+      const resources = String(v.resources || "pods,services")
+        .split(",")
+        .map((r: string) => `  - ${r.trim()}`)
+        .join("\n");
+      const verbs = String(v.verbs || "get,list,watch")
+        .split(",")
+        .map((vr: string) => `  - ${vr.trim()}`)
+        .join("\n");
+      return [
+        `apiVersion: rbac.authorization.k8s.io/v1`,
+        `kind: Role`,
+        `metadata:`,
+        `  name: ${name}`,
+        `  namespace: ${ns}`,
+        `rules:`,
+        `- apiGroups: [""]`,
+        `  resources:`,
+        resources,
+        `  verbs:`,
+        verbs,
+        `---`,
+        `apiVersion: rbac.authorization.k8s.io/v1`,
+        `kind: RoleBinding`,
+        `metadata:`,
+        `  name: ${name}-binding`,
+        `  namespace: ${ns}`,
+        `roleRef:`,
+        `  apiGroup: rbac.authorization.k8s.io`,
+        `  kind: Role`,
+        `  name: ${name}`,
+        `subjects:`,
+        `- kind: ServiceAccount`,
+        `  name: ${sa}`,
+        `  namespace: ${ns}`,
       ].join("\n");
     },
   },

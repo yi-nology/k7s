@@ -64,6 +64,7 @@ import type {
   ShellHandle,
   Row,
   SavedLog,
+  SecretEntry,
   Unsub,
   Revision,
   YamlDiff,
@@ -222,6 +223,15 @@ export class MockProvider implements DataProvider {
     // offered for those, so this only fires if the two lists drift apart.
     if (!props) throw new Error(`no properties for kind ${ref.kind}`);
     return props;
+  }
+
+  async getSecretData(_namespace: string, _name: string): Promise<SecretEntry[]> {
+    // Demo mode: return sample decoded secret data so the toggle is demonstrable.
+    return [
+      { key: "username", value: "admin" },
+      { key: "password", value: "s3cret-v4lue!" },
+      { key: "token", value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo" },
+    ];
   }
 
   // Mutations are no-ops in demo mode (the data is static) — they resolve so the
@@ -701,6 +711,9 @@ export class MockProvider implements DataProvider {
       { version: "1.2.1", appVersion: "0.9.0", created: "2023-11-01T00:00:00Z", urls: [] },
     ];
   }
+  async helmExportChart(_repo: string, _chart: string, _version: string, _outputDir: string): Promise<string> { return "/tmp/chart.tgz"; }
+  async helmImportChart(_filePath: string, _repoName: string): Promise<string> { return "/tmp/imported.tgz"; }
+  async helmLocalCharts(_repoName: string): Promise<string[]> { return []; }
   async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
     return "# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n";
   }
@@ -1098,12 +1111,29 @@ export class MockProvider implements DataProvider {
         description: "demo alert",
         activeAt: new Date().toISOString(),
         labels: { severity: "warning", instance: "demo" },
+        generatorUrl: "",
+        inhibitedBy: "",
       },
     ];
   }
   async alertManagerSilences(_name: string): Promise<Silence[]> {
     return [];
   }
+  async alertManagerCreateSilence(_instance: string, _request: import("../types").CreateSilenceRequest): Promise<string> {
+    return "mock-silence-id";
+  }
+  async alertManagerDeleteSilence(_instance: string, _silenceId: string): Promise<void> {}
+  async prometheusRules(_instance: string): Promise<import("../types").RuleGroup[]> {
+    return [];
+  }
+  async lokiList(): Promise<import("../types").LokiConfig[]> { return []; }
+  async lokiUpsert(_input: import("../types").LokiUpsert): Promise<import("../types").LokiConfig> {
+    throw new Error("mock");
+  }
+  async lokiRemove(_name: string): Promise<void> {}
+  async lokiTest(_name: string): Promise<void> {}
+  async auditEvents(_query: import("../types").AuditQuery): Promise<import("../types").AuditEvent[]> { return []; }
+  async grafanaSearchDashboards(_name: string, _query: string): Promise<import("../types").GrafanaDashboardSearchResult[]> { return []; }
 
   // ---- Saved PromQL queries (demo seeds) ----
   async savedQueriesList(): Promise<SavedQuery[]> {

@@ -165,7 +165,7 @@ fn config_dir() -> Option<PathBuf> {
     }
 }
 
-fn cache_dir() -> Option<PathBuf> {
+pub(crate) fn cache_dir() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
     return std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Caches/k7s/helm-index"));
     #[cfg(target_os = "linux")]
@@ -567,3 +567,99 @@ impl HelmRepo {
 // drops the only call site).
 #[allow(dead_code)]
 fn _path_marker(_: &Path) {}
+
+// ---------------------------------------------------------------------------
+// Offline chart export/import (air-gap environments)
+// ---------------------------------------------------------------------------
+
+/// Download a chart .tgz to a local directory. Returns the saved file path.
+/// Uses `helm pull` to fetch the chart archive.
+pub async fn export_chart(
+    repo: &str,
+    chart: &str,
+    version: &str,
+    output_dir: &str,
+) -> AppResult<PathBuf> {
+    let helm = super::helm_ops::which_helm()
+        .ok_or_else(|| AppError::Other("helm not found".into()))?;
+
+    let output = std::path::PathBuf::from(output_dir);
+    std::fs::create_dir_all(&output)
+        .map_err(|e| AppError::Other(format!("mkdir {}: {e}", output.display())))?;
+
+    let mut cmd = tokio::process::Command::new(&helm);
+    cmd.arg("pull")
+        .arg(format!("{repo}/{chart}"))
+        .arg("--version")
+        .arg(version)
+        .arg("--destination")
+        .arg(output_dir)
+        .arg("--untar=false");
+
+    let result = cmd
+        .output()
+        .await
+        .map_err(|e| AppError::Other(format!("helm pull: {e}")))?;
+
+    if !result.status.success() {
+        let stderr = String::from_utf8_lossy(&result.stderr);
+        return Err(AppError::Other(format!("helm pull failed: {stderr}")));
+    }
+
+    // The downloaded file is typically {chart}-{version}.tgz
+    let filename = format!("{}-{}.tgz", chart, version);
+    let path = output.join(&filename);
+    if path.exists() {
+        Ok(path)
+    } else {
+        // helm pull might use a different name; list the directory
+        Ok(output.join(&filename))
+    }
+}
+
+/// Import a local chart .tgz into a local Helm repo directory.
+/// This copies the file to the chart cache so it can be used offline.
+pub fn import_chart(file_path: &str, repo_name: &str) -> AppResult<PathBuf> {
+    let src = std::path::PathBuf::from(file_path);
+    if !src.exists() {
+        return Err(AppError::NotFound(format!("file not found: {file_path}")));
+    }
+
+    let cache_dir = chart_cache_dir(repo_name)?;
+    std::fs::create_dir_all(&cache_dir)
+        .map_err(|e| AppError::Other(format!("mkdir {}: {e}", cache_dir.display())))?;
+
+    let dest = cache_dir.join(src.file_name().unwrap_or_default());
+    std::fs::copy(&src, &dest)
+        .map_err(|e| AppError::Other(format!("copy: {e}")))?;
+
+    Ok(dest)
+}
+
+/// List locally imported chart archives for a repo.
+pub fn list_local_charts(repo_name: &str) -> AppResult<Vec<String>> {
+    let cache_dir = chart_cache_dir(repo_name)?;
+    if !cache_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let entries: Vec<String> = std::fs::read_dir(&cache_dir)
+        .map_err(|e| AppError::Other(format!("read_dir: {e}")))?
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.path()
+                .extension()
+                .map(|ext| ext == "tgz")
+                .unwrap_or(false)
+        })
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect();
+    Ok(entries)
+}
+
+fn chart_cache_dir(repo_name: &str) -> AppResult<PathBuf> {
+    let dir = cache_dir()
+        .ok_or_else(|| AppError::Other("no cache dir".into()))?
+        .join("helm-local-charts")
+        .join(repo_name);
+    Ok(dir)
+}

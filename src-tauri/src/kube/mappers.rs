@@ -54,6 +54,27 @@ fn ns_cell<K: ResourceExt>(obj: &K) -> Cell {
     Cell::new(obj.namespace().unwrap_or_default(), Tone::Muted)
 }
 
+/// Convert a JSON value to a display string: strings pass through, numbers
+/// stringify, anything else becomes "—".
+fn json_value_to_string(v: Option<&serde_json::Value>) -> String {
+    match v {
+        Some(val) => {
+            if let Some(s) = val.as_str() {
+                s.to_string()
+            } else if let Some(n) = val.as_i64() {
+                n.to_string()
+            } else if let Some(n) = val.as_u64() {
+                n.to_string()
+            } else if let Some(n) = val.as_f64() {
+                format!("{n}")
+            } else {
+                "—".to_string()
+            }
+        }
+        None => "—".to_string(),
+    }
+}
+
 /// The prototype's status-word → tone mapping.
 pub fn status_tone(status: &str) -> Tone {
     match status {
@@ -284,6 +305,8 @@ pub fn map_deployment(d: &Deployment) -> Row {
         Cell::new(format!("{ready}/{desired}"), if degraded { Tone::Warn } else { Tone::Secondary }),
         Cell::new(updated.to_string(), Tone::Secondary),
         Cell::new(available.to_string(), if available == 0 && desired > 0 { Tone::Warn } else { Tone::Secondary }),
+        Cell::new("—", Tone::Muted),   // CPU — filled by overlayMetrics
+        Cell::new("—", Tone::Muted),   // MEM — filled by overlayMetrics
         age_cell(d),
     ];
     let mut row = simple_row(d, cells);
@@ -327,7 +350,7 @@ pub fn map_replicaset(rs: &ReplicaSet) -> Row {
     row
 }
 
-/// StatefulSets: NAME, NAMESPACE, READY, AGE.
+/// StatefulSets: NAME, NAMESPACE, READY, CPU, MEM, AGE.
 pub fn map_statefulset(s: &StatefulSet) -> Row {
     let desired = s.spec.as_ref().and_then(|sp| sp.replicas).unwrap_or(0);
     let ready = s.status.as_ref().and_then(|st| st.ready_replicas).unwrap_or(0);
@@ -335,6 +358,8 @@ pub fn map_statefulset(s: &StatefulSet) -> Row {
         name_cell(s),
         ns_cell(s),
         Cell::new(format!("{ready}/{desired}"), if ready != desired { Tone::Warn } else { Tone::Secondary }),
+        Cell::new("—", Tone::Muted),   // CPU — filled by overlayMetrics
+        Cell::new("—", Tone::Muted),   // MEM — filled by overlayMetrics
         age_cell(s),
     ];
     let mut row = simple_row(s, cells);
@@ -342,7 +367,7 @@ pub fn map_statefulset(s: &StatefulSet) -> Row {
     row
 }
 
-/// DaemonSets: NAME, NAMESPACE, DESIRED, READY, AGE.
+/// DaemonSets: NAME, NAMESPACE, DESIRED, READY, CPU, MEM, AGE.
 pub fn map_daemonset(ds: &DaemonSet) -> Row {
     let st = ds.status.as_ref();
     let desired = st.map(|s| s.desired_number_scheduled).unwrap_or(0);
@@ -352,6 +377,8 @@ pub fn map_daemonset(ds: &DaemonSet) -> Row {
         ns_cell(ds),
         Cell::new(desired.to_string(), Tone::Secondary),
         Cell::new(ready.to_string(), if ready != desired { Tone::Warn } else { Tone::Secondary }),
+        Cell::new("—", Tone::Muted),   // CPU — filled by overlayMetrics
+        Cell::new("—", Tone::Muted),   // MEM — filled by overlayMetrics
         age_cell(ds),
     ];
     let mut row = simple_row(ds, cells);
@@ -374,6 +401,15 @@ pub fn map_job(j: &Job) -> Row {
         None => "—".to_string(),
     };
     let complete = succeeded >= completions;
+    // Carry ownerReferences so the CronJob Timeline can match Jobs reliably
+    // instead of relying on name-prefix heuristics.
+    let mut labels = std::collections::BTreeMap::new();
+    for owner in j.metadata.owner_references.iter().flatten() {
+        if owner.kind == "CronJob" {
+            labels.insert("owner.cronjob".to_string(), owner.name.clone());
+            break;
+        }
+    }
     let cells = vec![
         name_cell(j),
         ns_cell(j),
@@ -381,7 +417,11 @@ pub fn map_job(j: &Job) -> Row {
         Cell::new(duration, Tone::Secondary),
         age_cell(j),
     ];
-    simple_row(j, cells)
+    let mut row = simple_row(j, cells);
+    if !labels.is_empty() {
+        row.labels = Some(labels);
+    }
+    row
 }
 
 /// CronJobs: NAME, NAMESPACE, SCHEDULE, LAST RUN, AGE.
@@ -430,7 +470,11 @@ pub fn map_service(svc: &Service) -> Row {
         Cell::new(ports, Tone::Secondary),
         age_cell(svc),
     ];
-    simple_row(svc, cells)
+    let mut row = simple_row(svc, cells);
+    // Expose the Service's pod selector so the topology graph can match
+    // Services to Pods even when EndpointSlices are unavailable.
+    row.selector = spec.and_then(|s| s.selector.clone());
+    row
 }
 
 /// Ingresses: NAME, NAMESPACE, HOSTS, CLASS, AGE.
@@ -448,6 +492,15 @@ pub fn map_ingress(ing: &Ingress) -> Row {
     let class = spec
         .and_then(|s| s.ingress_class_name.clone())
         .unwrap_or_else(|| "—".into());
+    // Carry TLS state so the frontend topology can detect it reliably
+    // instead of relying on class-name heuristics.
+    let has_tls = spec
+        .map(|s| s.tls.as_ref().map_or(false, |t| !t.is_empty()))
+        .unwrap_or(false);
+    let mut labels = std::collections::BTreeMap::new();
+    if has_tls {
+        labels.insert("tls".to_string(), "true".to_string());
+    }
     let cells = vec![
         name_cell(ing),
         ns_cell(ing),
@@ -455,7 +508,11 @@ pub fn map_ingress(ing: &Ingress) -> Row {
         Cell::new(class, Tone::Secondary),
         age_cell(ing),
     ];
-    simple_row(ing, cells)
+    let mut row = simple_row(ing, cells);
+    if !labels.is_empty() {
+        row.labels = Some(labels);
+    }
+    row
 }
 
 /// The annotation marking an IngressClass as the cluster default.
@@ -913,6 +970,112 @@ pub fn map_limitrange(obj: &DynamicObject) -> Row {
 }
 
 // ---------------------------------------------------------------------------
+// RBAC resources (DynamicObject-based)
+// ---------------------------------------------------------------------------
+
+/// Role: NAME, NAMESPACE, AGE. Namespaced permission rule.
+pub fn map_role(obj: &DynamicObject) -> Row {
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(obj.namespace().unwrap_or_default(), Tone::Muted),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("role:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        name: obj.name_any(),
+        namespace: Some(obj.namespace().unwrap_or_default()),
+        cells,
+        ..Default::default()
+    }
+}
+
+/// ClusterRole: NAME, AGE. Cluster-scoped permission rule.
+pub fn map_clusterrole(obj: &DynamicObject) -> Row {
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("clusterrole:{}", obj.name_any()),
+        name: obj.name_any(),
+        namespace: None,
+        cells,
+        ..Default::default()
+    }
+}
+
+/// RoleBinding: NAME, NAMESPACE, ROLE, AGE. Namespaced; references a Role or ClusterRole.
+pub fn map_rolebinding(obj: &DynamicObject) -> Row {
+    let role_ref = obj
+        .data
+        .get("roleRef")
+        .and_then(|r| r.get("name"))
+        .and_then(|n| n.as_str())
+        .unwrap_or("")
+        .to_string();
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(obj.namespace().unwrap_or_default(), Tone::Muted),
+        Cell::new(role_ref, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("rolebinding:{}/{}", obj.namespace().unwrap_or_default(), obj.name_any()),
+        name: obj.name_any(),
+        namespace: Some(obj.namespace().unwrap_or_default()),
+        cells,
+        ..Default::default()
+    }
+}
+
+/// ClusterRoleBinding: NAME, ROLE, AGE. Cluster-scoped; references a ClusterRole.
+pub fn map_clusterrolebinding(obj: &DynamicObject) -> Row {
+    let role_ref = obj
+        .data
+        .get("roleRef")
+        .and_then(|r| r.get("name"))
+        .and_then(|n| n.as_str())
+        .unwrap_or("")
+        .to_string();
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(role_ref, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("clusterrolebinding:{}", obj.name_any()),
+        name: obj.name_any(),
+        namespace: None,
+        cells,
+        ..Default::default()
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Cluster-scoped
 // ---------------------------------------------------------------------------
 
@@ -1101,6 +1264,178 @@ fn simple_row<K: ResourceExt>(obj: &K, cells: Vec<Cell>) -> Row {
         uid: uid_of(obj),
         name: obj.name_any(),
         namespace: obj.namespace(),
+        cells,
+        ..Default::default()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// PodDisruptionBudget (policy/v1) — Phase 2 KubePi parity
+// ---------------------------------------------------------------------------
+
+/// PodDisruptionBudget: NAME, NAMESPACE, MIN AVAILABLE, MAX UNAVAILABLE, ALLOWED DISRUPTIONS, AGE.
+pub fn map_pdb(obj: &DynamicObject) -> Row {
+    let min_avail = json_value_to_string(
+        obj.data.get("spec").and_then(|s| s.get("minAvailable")),
+    );
+    let max_unavail = json_value_to_string(
+        obj.data.get("spec").and_then(|s| s.get("maxUnavailable")),
+    );
+    let allowed = obj
+        .data
+        .get("status")
+        .and_then(|s| s.get("disruptionsAllowed"))
+        .and_then(|v| v.as_i64())
+        .map(|n| n.to_string())
+        .unwrap_or_else(|| "—".to_string());
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(obj.namespace().unwrap_or_default(), Tone::Muted),
+        Cell::new(min_avail, Tone::Secondary),
+        Cell::new(max_unavail, Tone::Secondary),
+        Cell::new(allowed, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!(
+            "poddisruptionbudget:{}/{}",
+            obj.namespace().unwrap_or_default(),
+            obj.name_any()
+        ),
+        name: obj.name_any(),
+        namespace: Some(obj.namespace().unwrap_or_default()),
+        cells,
+        ..Default::default()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MutatingWebhookConfiguration (admissionregistration.k8s.io/v1) — Phase 2
+// ---------------------------------------------------------------------------
+
+/// MutatingWebhookConfiguration: NAME, WEBHOOKS, AGE.
+pub fn map_mutating_webhook(obj: &DynamicObject) -> Row {
+    let webhook_count = obj
+        .data
+        .get("webhooks")
+        .and_then(|w| w.as_array())
+        .map(|a| a.len().to_string())
+        .unwrap_or_else(|| "0".to_string());
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(webhook_count, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("mutatingwebhookconfiguration:{}", obj.name_any()),
+        name: obj.name_any(),
+        namespace: None,
+        cells,
+        ..Default::default()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ValidatingWebhookConfiguration (admissionregistration.k8s.io/v1) — Phase 2
+// ---------------------------------------------------------------------------
+
+/// ValidatingWebhookConfiguration: NAME, WEBHOOKS, AGE.
+pub fn map_validating_webhook(obj: &DynamicObject) -> Row {
+    let webhook_count = obj
+        .data
+        .get("webhooks")
+        .and_then(|w| w.as_array())
+        .map(|a| a.len().to_string())
+        .unwrap_or_else(|| "0".to_string());
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(webhook_count, Tone::Secondary),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("validatingwebhookconfiguration:{}", obj.name_any()),
+        name: obj.name_any(),
+        namespace: None,
+        cells,
+        ..Default::default()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// APIService (apiregistration.k8s.io/v1) — Phase 2
+// ---------------------------------------------------------------------------
+
+/// APIService: NAME, SERVICE, AVAILABLE, AGE.
+pub fn map_api_service(obj: &DynamicObject) -> Row {
+    let svc = obj
+        .data
+        .get("spec")
+        .and_then(|s| s.get("service"))
+        .map(|svc| {
+            let ns = svc.get("namespace").and_then(|v| v.as_str()).unwrap_or("");
+            let name = svc.get("name").and_then(|v| v.as_str()).unwrap_or("?");
+            if ns.is_empty() {
+                name.to_string()
+            } else {
+                format!("{ns}/{name}")
+            }
+        })
+        .unwrap_or_else(|| "—".to_string());
+    let available = obj
+        .data
+        .get("status")
+        .and_then(|s| s.get("conditions"))
+        .and_then(|c| c.as_array())
+        .and_then(|conds| {
+            conds.iter().find(|c| {
+                c.get("type")
+                    .and_then(|t| t.as_str())
+                    == Some("Available")
+            })
+        })
+        .and_then(|c| c.get("status").and_then(|s| s.as_str()))
+        .unwrap_or("Unknown");
+    let tone = if available == "True" {
+        Tone::Good
+    } else if available == "False" {
+        Tone::Bad
+    } else {
+        Tone::Warn
+    };
+    let age = obj
+        .metadata
+        .creation_timestamp
+        .as_ref()
+        .map(|t| t.0.to_rfc3339())
+        .unwrap_or_default();
+    let cells = vec![
+        Cell::new(obj.name_any(), Tone::Primary),
+        Cell::new(svc, Tone::Secondary),
+        Cell::new(available.to_string(), tone),
+        Cell::age(Some(age).filter(|s| !s.is_empty())),
+    ];
+    Row {
+        uid: format!("apiservice:{}", obj.name_any()),
+        name: obj.name_any(),
+        namespace: None,
         cells,
         ..Default::default()
     }

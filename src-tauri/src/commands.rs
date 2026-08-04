@@ -3,143 +3,50 @@
 //! pushed back via events (see kube::events); these commands cover the one-shot
 //! request/response operations plus starting/stopping log streams.
 
+use crate::core::prefs::{self, Prefs};
+use crate::core::shell_common::{self, NodeShellInfo, STREAM_SEQ};
 use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
 use crate::kube::client::{self, ClusterInfo, ContextInfo};
 use crate::kube::manager::{ForwardDto, ImportedContext, ShellSession};
 use crate::kube::{
-    alerting, discovery, drain, endpoints, exec, exporter, grafana, helm, helm_market, helm_ops,
+    alerting, audit, discovery, drain, endpoints, exec, exporter, grafana, helm_market, helm_ops,
     image_archive, image_sync, imageimport, imagerepo, logs, mappers, metrics, metrics_config,
     nodeshell, nodestats, pod_files, portforward, promql, properties, restart, rollout,
     saved_queries,
     templates, watchers, ClientManager, ResourceKind,
 };
 use tokio::sync::{mpsc, oneshot};
-use k8s_openapi::api::core::v1::Event;
+use k8s_openapi::api::core::v1::{Event, Secret};
 use kube::api::{
-    Api, ApiResource, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams,
+    Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams,
 };
-use kube::core::GroupVersionKind;
 use kube::ResourceExt;
 use serde::Serialize;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
-use tauri::{Emitter, State};
+use tauri::State;
 
-/// Monotonic counter for generating unique log-stream ids.
-static STREAM_SEQ: AtomicU64 = AtomicU64::new(1);
-
-/// Persisted UI preferences (B11): where the user left off. Written to
-/// `<app_config_dir>/prefs.json`.
-#[derive(serde::Serialize, serde::Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct Prefs {
-    pub context: Option<String>,
-    pub nav: Option<String>,
-    pub namespace: Option<String>,
-    pub show_timestamps: Option<bool>,
-    /// Kubeconfig files the user imported, re-imported on boot (B17).
-    pub imported_files: Option<Vec<String>>,
-    // ---- settings (B23) ----
-    /// Seconds between metrics polls; None uses the built-in default.
-    pub metrics_interval_secs: Option<u64>,
-    /// Seconds between cluster-status polls; None uses the built-in default.
-    pub status_interval_secs: Option<u64>,
-    /// Shell command override for exec; None/empty uses the bash-or-sh probe.
-    pub shell_command: Option<String>,
-    // The two below are never read here — they're the frontend's business. They
-    // exist because `save_prefs` round-trips the frontend's object *through this
-    // struct*, and serde drops fields it doesn't know about. Leaving them out
-    // doesn't "let the frontend own them"; it silently deletes them on the first
-    // save, which is exactly what happened before this was written down.
-    //
-    // So: this struct is the schema of prefs.json, not just the part Rust uses.
-    // A new frontend-only setting must be added here too.
-    /// Log ring-buffer size. Frontend-only; carried so it survives a save.
-    pub log_buffer_cap: Option<u32>,
-    /// Namespace selected on connect. Frontend-only; carried so it survives a save.
-    pub default_namespace: Option<String>,
-    /// Colour palette ("dark"/"light"/"system"). Frontend-only; carried so it
-    /// survives a save (B52).
-    pub theme: Option<String>,
-    /// Container image for the node debug shell; None/empty uses the default (B53).
-    pub node_shell_image: Option<String>,
-}
-
-/// Read persisted prefs, or defaults when absent/unreadable.
-///
-/// The backend reads the same prefs file the frontend writes rather than having
-/// settings passed in per call: there's then exactly one copy of the truth, and
-/// no way for a command to be invoked with settings that disagree with what the
-/// user last saved.
-fn read_prefs(app: &tauri::AppHandle) -> Prefs {
-    prefs_path(app)
-        .ok()
-        .and_then(|p| std::fs::read_to_string(p).ok())
-        .and_then(|t| serde_json::from_str(&t).ok())
-        .unwrap_or_default()
-}
-
-/// Default prefs when no file is reachable. Used by commands that need a
-/// "shell command override" or "node-shell image" but can't reach the
-/// tauri::AppHandle for it (the web shell, or any future path that doesn't
-/// have an AppHandle in scope). Behaviour is the same as a fresh-install
-/// prefs.json with no overrides.
-fn read_prefs_default() -> Prefs {
-    Prefs::default()
-}
-
-/// Poll intervals from prefs, clamped to the same bounds the settings panel
-/// enforces — a hand-edited prefs.json shouldn't be able to hammer the API server.
-fn poll_intervals(app: &tauri::AppHandle) -> metrics::PollIntervals {
-    let prefs = read_prefs(app);
-    let clamp = |v: Option<u64>, default: std::time::Duration| {
-        v.map(|s| std::time::Duration::from_secs(s.clamp(5, 300))).unwrap_or(default)
-    };
-    metrics::PollIntervals {
-        metrics: clamp(prefs.metrics_interval_secs, metrics::METRICS_INTERVAL),
-        status: clamp(prefs.status_interval_secs, metrics::STATUS_INTERVAL),
-    }
-}
-
-/// Default poll intervals when prefs aren't readable (the web shell, or a
-/// fresh install with no prefs file yet). Same defaults the Tauri shell uses
-/// before the user touches the settings panel.
-fn poll_intervals_default() -> metrics::PollIntervals {
-    metrics::PollIntervals {
-        metrics: metrics::METRICS_INTERVAL,
-        status: metrics::STATUS_INTERVAL,
-    }
-}
-
-/// Path to the prefs file under the app config dir (created on demand).
-fn prefs_path(app: &tauri::AppHandle) -> AppResult<std::path::PathBuf> {
+/// Path to the app config dir (Tauri-specific). Used by prefs I/O.
+fn app_data_dir(app: &tauri::AppHandle) -> AppResult<std::path::PathBuf> {
     use tauri::Manager;
-    let dir = app
-        .path()
+    app.path()
         .app_config_dir()
-        .map_err(|e| AppError::Other(format!("no config dir: {e}")))?;
-    Ok(dir.join("prefs.json"))
+        .map_err(|e| AppError::Other(format!("no config dir: {e}")))
 }
 
 /// Load persisted preferences, or None if absent/unreadable.
 #[tauri::command]
 pub fn load_prefs(app: tauri::AppHandle) -> Option<Prefs> {
-    let path = prefs_path(&app).ok()?;
-    let text = std::fs::read_to_string(path).ok()?;
-    serde_json::from_str(&text).ok()
+    let dir = app_data_dir(&app).ok()?;
+    prefs::load_prefs_json(&dir)
 }
 
 /// Save preferences (best-effort; creates the config dir if needed).
 #[tauri::command]
 pub fn save_prefs(app: tauri::AppHandle, prefs: Prefs) -> AppResult<()> {
-    let path = prefs_path(&app)?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| AppError::Other(e.to_string()))?;
-    }
-    let text = serde_json::to_string_pretty(&prefs).map_err(|e| AppError::Other(e.to_string()))?;
-    std::fs::write(path, text).map_err(|e| AppError::Other(e.to_string()))?;
-    Ok(())
+    let dir = app_data_dir(&app)?;
+    prefs::save_prefs(&dir, &prefs)
 }
 
 /// List contexts for the cluster switcher: the default kubeconfig's plus any
@@ -147,7 +54,7 @@ pub fn save_prefs(app: tauri::AppHandle, prefs: Prefs) -> AppResult<()> {
 /// they'd vanish on relaunch).
 #[tauri::command]
 pub async fn list_contexts(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<ContextInfo>> {
-    Ok(merged_contexts(&(*mgr).manager).await)
+    Ok(shell_common::merged_contexts(&(*mgr).manager).await)
 }
 
 /// Re-register kubeconfig files imported in a previous session (B17), returning
@@ -209,21 +116,7 @@ pub async fn import_kubeconfig(
             .await;
     }
 
-    Ok(merged_contexts(&manager).await)
-}
-
-/// Build the switcher list: default kubeconfig contexts plus every imported
-/// context not already present (imported files never shadow the default).
-async fn merged_contexts(manager: &ClientManager) -> Vec<ContextInfo> {
-    let mut merged = client::list_contexts().unwrap_or_default();
-    let existing: std::collections::HashSet<String> =
-        merged.iter().map(|c| c.name.clone()).collect();
-    for (name, imp) in manager.imports().await {
-        if !existing.contains(&name) {
-            merged.push(ContextInfo { name, cluster: imp.cluster, current: false });
-        }
-    }
-    merged
+    Ok(shell_common::merged_contexts(&manager).await)
 }
 
 /// Connect to a context: tear down any previous connection, build a client, probe
@@ -253,8 +146,9 @@ pub async fn connect(
     // Poll intervals come from the user's settings (B23). Read at connect, so a
     // change takes effect on the next connection rather than restarting live
     // pollers for a value measured in seconds.
+    let pi = prefs::poll_intervals(&prefs::read_prefs(&(*mgr).data_dir));
     let (metrics_task, status_task) =
-        metrics::spawn_pollers(manager.sink(), kube_client.clone(), poll_intervals_default());
+        metrics::spawn_pollers(manager.sink(), kube_client.clone(), pi);
     manager.push_task(metrics_task).await;
     manager.push_task(status_task).await;
 
@@ -289,85 +183,6 @@ pub async fn connect(
     })
 }
 
-/// Map a frontend kind id to its `ApiResource` and whether it is namespaced. The
-/// kind id doubles as the resource plural, so we build the ApiResource directly
-/// (avoiding fragile plural-guessing).
-///
-/// A custom (CRD-backed) kind id contains a slash ("group/plural", B15) and is
-/// resolved from the kinds discovered on connect, so YAML/delete/events work on
-/// CRDs through the same path as built-ins.
-async fn resource_for(kind: &str, mgr: &ClientManager) -> AppResult<(ApiResource, bool)> {
-    if kind.contains('/') {
-        return match mgr.custom_kind(kind).await {
-            Some(ck) => Ok((ck.api_resource(), ck.namespaced)),
-            None => Err(AppError::Other(format!("unknown custom kind: {kind}"))),
-        };
-    }
-    // (group, version, Kind, namespaced)
-    let (group, version, k, namespaced) = match kind {
-        "pods" => ("", "v1", "Pod", true),
-        "deployments" => ("apps", "v1", "Deployment", true),
-        "replicasets" => ("apps", "v1", "ReplicaSet", true),
-        "statefulsets" => ("apps", "v1", "StatefulSet", true),
-        "daemonsets" => ("apps", "v1", "DaemonSet", true),
-        "jobs" => ("batch", "v1", "Job", true),
-        "cronjobs" => ("batch", "v1", "CronJob", true),
-        "services" => ("", "v1", "Service", true),
-        "ingresses" => ("networking.k8s.io", "v1", "Ingress", true),
-        "ingressclasses" => ("networking.k8s.io", "v1", "IngressClass", false),
-        "configmaps" => ("", "v1", "ConfigMap", true),
-        "secrets" => ("", "v1", "Secret", true),
-        "serviceaccounts" => ("", "v1", "ServiceAccount", true),
-        "persistentvolumeclaims" => ("", "v1", "PersistentVolumeClaim", true),
-        "persistentvolumes" => ("", "v1", "PersistentVolume", false),
-        "storageclasses" => ("storage.k8s.io", "v1", "StorageClass", false),
-        "nodes" => ("", "v1", "Node", false),
-        "namespaces" => ("", "v1", "Namespace", false),
-        other => return Err(AppError::Other(format!("unknown kind: {other}"))),
-    };
-    let gvk = GroupVersionKind::gvk(group, version, k);
-    Ok((ApiResource::from_gvk_with_plural(&gvk, kind), namespaced))
-}
-
-/// Build a dynamic API for `kind`, namespaced or cluster-scoped as appropriate.
-async fn dynamic_api(
-    client: kube::Client,
-    kind: &str,
-    namespace: &str,
-    mgr: &ClientManager,
-) -> AppResult<Api<DynamicObject>> {
-    let (ar, namespaced) = resource_for(kind, mgr).await?;
-    Ok(if namespaced {
-        Api::namespaced_with(client, namespace, &ar)
-    } else {
-        Api::all_with(client, &ar)
-    })
-}
-
-/// The rendered manifest of a Helm release, newest revision (B26).
-///
-/// Finds the release by label rather than reconstructing the Secret's name:
-/// `sh.helm.release.v1.<name>.v<revision>` requires knowing the revision, and the
-/// labels are what Helm itself queries on.
-async fn helm_manifest(client: kube::Client, namespace: &str, name: &str) -> AppResult<String> {
-    let api: Api<k8s_openapi::api::core::v1::Secret> = Api::namespaced(client, namespace);
-    let lp = ListParams::default()
-        .fields(&format!("type={}", helm::RELEASE_SECRET_TYPE))
-        .labels(&format!("name={name},owner=helm"));
-    let list = api.list(&lp).await?;
-
-    let latest = list
-        .items
-        .iter()
-        .filter_map(helm::decode_release)
-        .max_by_key(|r| r.revision)
-        .ok_or_else(|| AppError::NotFound(format!("helm release {name} not found in {namespace}")))?;
-
-    if latest.manifest.trim().is_empty() {
-        return Err(AppError::Other(format!("release {name} has no rendered manifest")));
-    }
-    Ok(latest.manifest)
-}
 
 /// Fetch an object's YAML for the detail panel (any kind). Strips
 /// `metadata.managedFields`; Secret values are redacted (see below).
@@ -383,30 +198,18 @@ pub async fn get_yaml(
     // the manifest the chart rendered, which is what you actually want to read
     // (B26). Secret values in it are already redacted by the decoder.
     if kind == ResourceKind::Helm.id() {
-        return helm_manifest(client, &namespace, &name).await;
+        return shell_common::helm_manifest(client, &namespace, &name).await;
     }
-    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
+    let (api, _is_helm) = shell_common::dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     let mut obj = api.get(&name).await?;
     // Drop server-managed noise before rendering.
     obj.metadata.managed_fields = None;
     // Never surface Secret values; redact them for display (Secrets are read-only,
     // see apply_yaml). Documented in docs/verification.md.
     if kind == "secrets" {
-        redact_secret(&mut obj);
+        shell_common::redact_secret(&mut obj);
     }
     Ok(serde_yaml::to_string(&obj)?)
-}
-
-/// Replace `data` values in a Secret with a placeholder so raw values never leave
-/// the backend.
-fn redact_secret(obj: &mut DynamicObject) {
-    for field in ["data", "stringData"] {
-        if let Some(serde_json::Value::Object(map)) = obj.data.get_mut(field) {
-            for v in map.values_mut() {
-                *v = serde_json::Value::String("<redacted>".into());
-            }
-        }
-    }
 }
 
 /// Apply edited YAML back to the cluster via replace (preserving resourceVersion
@@ -420,46 +223,13 @@ pub async fn apply_yaml(
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
     let client = require_client(&(*mgr).manager).await?;
-    ensure_writable(&kind)?;
+    shell_common::ensure_writable(&kind)?;
     let obj: DynamicObject = serde_yaml::from_str(&yaml)?;
-    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
+    let (api, _is_helm) = shell_common::dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     // replace() requires the resourceVersion present in the fetched/edited object;
     // a stale value yields a 409 whose message we pass straight through.
     api.replace(&name, &PostParams::default(), &obj).await?;
     Ok(())
-}
-
-/// Refuse the two kinds whose YAML must never be written back.
-///
-/// Shared by `apply_yaml` and `dry_run_yaml` so the two can't drift — a dry run
-/// that succeeded on a kind the real apply then refuses would be worse than no
-/// preview at all.
-fn ensure_writable(kind: &str) -> AppResult<()> {
-    // A Helm release's YAML is a *rendered* manifest, not an API object: applying
-    // it would bypass Helm and desync the release from what Helm believes it
-    // deployed. B26 is read-only by design.
-    if kind == ResourceKind::Helm.id() {
-        return Err(AppError::Other(
-            "Helm releases are read-only here — use `helm upgrade` to change one".into(),
-        ));
-    }
-    // Secrets are shown redacted, so applying edits would clobber their real values
-    // — disallow it (the UI also hides the Edit button for Secrets).
-    if kind == "secrets" {
-        return Err(AppError::Other("editing Secrets is disabled".into()));
-    }
-    Ok(())
-}
-
-/// What a proposed edit would actually do, as the *server* sees it (B36).
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct YamlDiff {
-    /// The live object now.
-    pub current: String,
-    /// What would be stored if this were applied — after defaulting and any
-    /// mutating webhooks.
-    pub proposed: String,
 }
 
 /// Send an edit as a server-side dry run and return both sides for a diff (B36).
@@ -479,11 +249,11 @@ pub async fn dry_run_yaml(
     name: String,
     yaml: String,
     mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<YamlDiff> {
+) -> AppResult<shell_common::YamlDiff> {
     let client = require_client(&(*mgr).manager).await?;
-    ensure_writable(&kind)?;
+    shell_common::ensure_writable(&kind)?;
     let obj: DynamicObject = serde_yaml::from_str(&yaml)?;
-    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
+    let (api, _is_helm) = shell_common::dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
 
     let mut current = api.get(&name).await?;
     current.metadata.managed_fields = None;
@@ -494,7 +264,7 @@ pub async fn dry_run_yaml(
     let mut proposed = api.replace(&name, &pp, &obj).await?;
     proposed.metadata.managed_fields = None;
 
-    Ok(YamlDiff {
+    Ok(shell_common::YamlDiff {
         current: serde_yaml::to_string(&current)?,
         proposed: serde_yaml::to_string(&proposed)?,
     })
@@ -510,7 +280,7 @@ pub async fn delete_resource(
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
     let client = require_client(&(*mgr).manager).await?;
-    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
+    let (api, _is_helm) = shell_common::dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     api.delete(&name, &DeleteParams::default()).await?;
     Ok(())
 }
@@ -525,7 +295,7 @@ pub async fn scale_resource(
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
     let client = require_client(&(*mgr).manager).await?;
-    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
+    let (api, _is_helm) = shell_common::dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": replicas } }));
     api.patch(&name, &PatchParams::default(), &patch).await?;
     Ok(())
@@ -539,7 +309,7 @@ pub async fn set_cordon(
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
     let client = require_client(&(*mgr).manager).await?;
-    let api = dynamic_api(client, "nodes", "", &(*mgr).manager).await?;
+    let (api, _is_helm) = shell_common::dynamic_api(client, "nodes", "", &(*mgr).manager).await?;
     let patch = Patch::Merge(serde_json::json!({ "spec": { "unschedulable": unschedulable } }));
     api.patch(&name, &PatchParams::default(), &patch).await?;
     Ok(())
@@ -582,7 +352,7 @@ pub async fn restart_rollout(
         return Err(AppError::Other(format!("{kind} cannot be rollout-restarted")));
     }
     let client = require_client(&(*mgr).manager).await?;
-    let api = dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
+    let (api, _is_helm) = shell_common::dynamic_api(client, &kind, &namespace, &(*mgr).manager).await?;
     let now = chrono::Utc::now().to_rfc3339();
     let patch = Patch::Merge(restart::restart_patch(&now));
     api.patch(&name, &PatchParams::default(), &patch).await?;
@@ -714,7 +484,7 @@ pub async fn watch_node_stats(node: String, mgr: State<'_, Arc<CoreState>>) -> A
     // Reuses the metrics poll interval from settings (B23): it's the same question
     // ("how often should we ask the cluster how it's doing"), so it would be odd
     // for the plots to march to a different drum than the table's CPU column.
-    let every = poll_intervals_default().metrics;
+    let every = prefs::poll_intervals(&prefs::read_prefs(&(*mgr).data_dir)).metrics;
     let n = node.clone();
     let task = tokio::spawn(async move {
         nodestats::run_node_stats(client, app, n, every).await;
@@ -740,6 +510,34 @@ pub struct EventItem {
     message: String,
     count: i32,
     age: String,
+}
+
+/// Decoded secret data entry.
+#[derive(Serialize, Clone)]
+pub struct SecretEntry {
+    pub key: String,
+    pub value: String,
+}
+
+/// Return decoded Secret data (base64 -> UTF-8). Deliberately separate from
+/// `get_yaml` which redacts values — this is an explicit user action.
+#[tauri::command]
+pub async fn get_secret_data(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<SecretEntry>> {
+    let client = require_client(&(*mgr).manager).await?;
+    let api: Api<Secret> = Api::namespaced(client, &namespace);
+    let sec = api.get(&name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let mut entries = Vec::new();
+    if let Some(data) = &sec.data {
+        for (k, v) in data {
+            let decoded = String::from_utf8_lossy(&v.0).to_string();
+            entries.push(SecretEntry { key: k.clone(), value: decoded });
+        }
+    }
+    Ok(entries)
 }
 
 /// Gather an object's properties as a generic section document (B13, B18).
@@ -907,7 +705,7 @@ pub async fn start_shell(
     let app = manager.sink();
     // Read per-session, so changing the override applies to the next shell you
     // open rather than needing a reconnect (B23).
-    let shell_override = read_prefs_default().shell_command.unwrap_or_default();
+    let shell_override = prefs::read_prefs(&(*mgr).data_dir).shell_command.unwrap_or_default();
     let id_for_task = id.clone();
     let task = tokio::spawn(async move {
         exec::run_shell(
@@ -934,23 +732,7 @@ pub async fn start_shell(
 // Node debug shell (B53)
 // --------------------------------------------------------------------------
 
-/// What the frontend needs to drive and clean up a node shell session.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NodeShellInfo {
-    pub stream_id: String,
-    pub namespace: String,
-    /// Surfaced in the UI so the pod is never invisible: if cleanup somehow fails,
-    /// the user has the exact name to delete by hand.
-    pub pod: String,
-}
 
-/// How long to wait for the debug pod before giving up and explaining why.
-///
-/// Generous, because the first run on a node pulls the image over whatever link
-/// the node has. Bounded, because a NotReady node will never start it at all and
-/// waiting forever just looks like a hang.
-const NODE_SHELL_READY_TIMEOUT: std::time::Duration = nodeshell::READY_TIMEOUT;
 
 /// Open a root shell on a node's host OS (B53).
 ///
@@ -981,7 +763,7 @@ pub async fn start_node_shell(
     let seq = STREAM_SEQ.fetch_add(1, Ordering::Relaxed);
     let pod_name = nodeshell::pod_name(&node, seq);
     let app = manager.sink();
-    let image = read_prefs_default()
+    let image = prefs::read_prefs(&(*mgr).data_dir)
         .node_shell_image
         .filter(|s| !s.trim().is_empty())
         .unwrap_or_else(|| nodeshell::DEFAULT_IMAGE.to_string());
@@ -1283,6 +1065,34 @@ pub fn helm_chart_versions(
     chart: String,
 ) -> AppResult<Vec<helm_market::ChartVersionEntry>> {
     helm_market::chart_versions(&repo, &chart)
+}
+
+/// Export a chart .tgz to a local directory (air-gap / offline).
+#[tauri::command]
+pub async fn helm_export_chart(
+    repo: String,
+    chart: String,
+    version: String,
+    output_dir: String,
+) -> AppResult<String> {
+    let path = helm_market::export_chart(&repo, &chart, &version, &output_dir).await?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// Import a local chart .tgz into the chart cache.
+#[tauri::command]
+pub fn helm_import_chart(
+    file_path: String,
+    repo_name: String,
+) -> AppResult<String> {
+    let path = helm_market::import_chart(&file_path, &repo_name)?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// List locally imported chart archives for a repo.
+#[tauri::command]
+pub fn helm_local_charts(repo_name: String) -> AppResult<Vec<String>> {
+    helm_market::list_local_charts(&repo_name)
 }
 
 /// Default values.yaml for a chart at a given version. Delegates to
@@ -1777,6 +1587,14 @@ pub fn grafana_dashboard_url(
     grafana::dashboard_url(&name, &uid, from_ms, to_ms)
 }
 
+#[tauri::command]
+pub async fn grafana_search_dashboards(
+    name: String,
+    query: String,
+) -> AppResult<Vec<grafana::DashboardSearchResult>> {
+    grafana::search_dashboards(&name, &query).await
+}
+
 // ---------------------------------------------------------------------------
 // AlertManager (Phase 1 Tier-2 of KubePi parity).
 // ---------------------------------------------------------------------------
@@ -1814,6 +1632,64 @@ pub async fn alertmanager_alerts(name: String) -> AppResult<Vec<alerting::Alert>
 #[tauri::command]
 pub async fn alertmanager_silences(name: String) -> AppResult<Vec<alerting::Silence>> {
     alerting::list_silences(&name).await
+}
+
+#[tauri::command]
+pub async fn alertmanager_create_silence(
+    instance: String,
+    request: alerting::CreateSilenceRequest,
+) -> AppResult<String> {
+    alerting::create_silence(&instance, &request).await
+}
+
+#[tauri::command]
+pub async fn alertmanager_delete_silence(
+    instance: String,
+    silence_id: String,
+) -> AppResult<()> {
+    alerting::delete_silence(&instance, &silence_id).await
+}
+
+#[tauri::command]
+pub async fn prometheus_rules(
+    instance: String,
+) -> AppResult<Vec<alerting::RuleGroup>> {
+    alerting::prometheus_rules(&instance).await
+}
+
+// ---------------------------------------------------------------------------
+// Loki / K8s Audit log (Phase 3 — KubePi parity).
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+pub fn loki_list() -> AppResult<Vec<audit::LokiConfig>> {
+    audit::list()
+}
+
+#[tauri::command]
+pub fn loki_upsert(
+    name: String,
+    url: String,
+    username: String,
+    password: String,
+    description: String,
+) -> AppResult<audit::LokiConfig> {
+    audit::upsert(&name, &url, &username, &password, &description)
+}
+
+#[tauri::command]
+pub fn loki_remove(name: String) -> AppResult<()> {
+    audit::remove(&name)
+}
+
+#[tauri::command]
+pub async fn loki_test(name: String) -> AppResult<()> {
+    audit::test_connect(&name).await
+}
+
+#[tauri::command]
+pub async fn audit_events(query: audit::AuditQuery) -> AppResult<Vec<audit::AuditEvent>> {
+    audit::query_audit_events(&query).await
 }
 
 // ---------------------------------------------------------------------------

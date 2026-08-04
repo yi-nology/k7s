@@ -1,0 +1,217 @@
+/* CronJobTimeline — horizontal timeline of Job executions for a CronJob. */
+
+.wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ============== Schedule info bar ============== */
+
+.infoBar {
+  display: flex;
+  gap: 24px;
+  padding: 8px 12px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+}
+.infoItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.infoLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.infoValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* ============== Summary counts ============== */
+
+.summary {
+  display: flex;
+  gap: 18px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+.summaryItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* ============== Timeline ============== */
+
+.timelineContainer {
+  padding: 16px 0 8px;
+  overflow-x: auto;
+}
+.timeline {
+  position: relative;
+  height: 80px;
+  min-width: 200px;
+}
+.timelineLine {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--border-default);
+  border-radius: 1px;
+}
+
+/* ============== Job dot on the timeline ============== */
+
+.jobDot {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  /* Ensure hover hit area */
+  min-width: 24px;
+}
+.jobDot:hover .dotCore {
+  transform: scale(1.4);
+}
+.jobDot:focus-visible {
+  outline: none;
+}
+.jobDot:focus-visible .dotCore {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.dotCore {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  transition: transform 0.15s ease;
+  z-index: var(--z-table-header);
+}
+
+.dotLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+}
+.dotAge {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-faint);
+}
+.dotStatus {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* ============== Job list below timeline ============== */
+
+.jobList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border-default);
+  padding-top: 10px;
+}
+.jobRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.jobRow:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-control);
+}
+.jobRow:focus-visible {
+  border-color: var(--accent);
+}
+.jobStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+.jobName {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.jobMeta {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  flex: none;
+}
+.jobAge {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  flex: none;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* ============== Empty / loading state ============== */
+
+.empty {
+  padding: 24px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  color: var(--text-faint);
+}
+.emptyHint {
+  margin-top: 6px;
+  font-size: var(--text-sm);
+  opacity: 0.75;
+}

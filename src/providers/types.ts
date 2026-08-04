@@ -38,6 +38,14 @@ export type ResourceKind =
   | "nodes"
   | "namespaces"
   | "events"
+  | "roles"
+  | "clusterroles"
+  | "rolebindings"
+  | "clusterrolebindings"
+  | "poddisruptionbudgets"
+  | "mutatingwebhookconfigurations"
+  | "validatingwebhookconfigurations"
+  | "apiservices"
   | "helm";
 
 /**
@@ -273,6 +281,12 @@ export interface KeyValue {
   value: string;
 }
 
+/** A decoded Secret data entry (base64 -> UTF-8). */
+export interface SecretEntry {
+  key: string;
+  value: string;
+}
+
 /**
  * A navigable target: a nav id plus the object's namespace/name (B33). Carried by
  * a properties {@link Field} and by any {@link Cell} that names another object.
@@ -386,6 +400,8 @@ export interface Prefs {
   language?: string | null;
   /** Image for the node debug shell; empty uses the default (B53). */
   nodeShellImage?: string | null;
+  /** Pinned context names for the sidebar hotbar. */
+  hotbar?: string[] | null;
 }
 
 /** Identifies a specific object for YAML/events/log commands. */
@@ -560,6 +576,9 @@ export interface DataProvider {
    * what stops the tab being offered for them (B13, B18).
    */
   getProperties(ref: ResourceRef): Promise<Properties>;
+
+  /** Decode Secret data (base64 -> text). Explicit user action — values are otherwise redacted. */
+  getSecretData(namespace: string, name: string): Promise<SecretEntry[]>;
 
   // ---- mutations (B3); all reject with the API error message on failure ----
   /** Delete a resource of any kind. */
@@ -736,6 +755,12 @@ export interface DataProvider {
   /** Search every cached index. Empty query returns the full catalog. */
   helmSearchCharts(query: string): Promise<HelmChartSummary[]>;
   helmChartVersions(repo: string, chart: string): Promise<HelmChartVersionEntry[]>;
+  /** Export a chart .tgz to a local directory (air-gap / offline). */
+  helmExportChart(repo: string, chart: string, version: string, outputDir: string): Promise<string>;
+  /** Import a local chart .tgz into the chart cache. */
+  helmImportChart(filePath: string, repoName: string): Promise<string>;
+  /** List locally imported chart archives for a repo. */
+  helmLocalCharts(repoName: string): Promise<string[]>;
   /** Default values.yaml from the chart itself (via `helm show values`). */
   helmRenderDefaultValues(
     chart: string,
@@ -882,6 +907,19 @@ export interface DataProvider {
   alertManagerTest(name: string): Promise<void>;
   alertManagerAlerts(name: string): Promise<Alert[]>;
   alertManagerSilences(name: string): Promise<Silence[]>;
+  alertManagerCreateSilence(instance: string, request: CreateSilenceRequest): Promise<string>;
+  alertManagerDeleteSilence(instance: string, silenceId: string): Promise<void>;
+  prometheusRules(instance: string): Promise<RuleGroup[]>;
+
+  // ---- Loki / K8s Audit log ----
+  lokiList(): Promise<LokiConfig[]>;
+  lokiUpsert(input: LokiUpsert): Promise<LokiConfig>;
+  lokiRemove(name: string): Promise<void>;
+  lokiTest(name: string): Promise<void>;
+  auditEvents(query: AuditQuery): Promise<AuditEvent[]>;
+
+  // ---- Grafana dashboard search ----
+  grafanaSearchDashboards(name: string, query: string): Promise<GrafanaDashboardSearchResult[]>;
 
   // ---- Saved PromQL queries + in-memory cache ----
   savedQueriesList(): Promise<SavedQuery[]>;
@@ -1235,6 +1273,8 @@ export interface Alert {
   description: string;
   activeAt: string;
   labels: Record<string, string>;
+  generatorUrl: string;
+  inhibitedBy: string;
 }
 
 export interface Silence {
@@ -1245,6 +1285,87 @@ export interface Silence {
   startsAt: string;
   endsAt: string;
   status: string;
+}
+
+export interface SilenceMatcher {
+  name: string;
+  value: string;
+  isRegex: boolean;
+}
+
+export interface CreateSilenceRequest {
+  matchers: SilenceMatcher[];
+  comment: string;
+  createdBy: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface AlertRule {
+  name: string;
+  state: string;
+  severity: string;
+  query: string;
+  duration: number;
+  labels: Record<string, string>;
+  annotations: Record<string, string>;
+}
+
+export interface RuleGroup {
+  name: string;
+  file: string;
+  interval: number;
+  rules: AlertRule[];
+}
+
+export interface LokiConfig {
+  name: string;
+  url: string;
+  username: string;
+  description: string;
+  lastError: string | null;
+  lastRefreshed: string | null;
+}
+
+export interface LokiUpsert {
+  name: string;
+  url: string;
+  username: string;
+  password: string;
+  description: string;
+}
+
+export interface AuditQuery {
+  instance: string;
+  namespace: string;
+  resource: string;
+  user: string;
+  sinceSeconds: number;
+  limit: number;
+}
+
+export interface AuditEvent {
+  timestamp: string;
+  verb: string;
+  resource: string;
+  subresource: string;
+  namespace: string;
+  name: string;
+  user: string;
+  sourceIp: string;
+  statusCode: number;
+  stage: string;
+  auditId: string;
+  raw: string;
+}
+
+export interface GrafanaDashboardSearchResult {
+  uid: string;
+  title: string;
+  uri: string;
+  type: string;
+  tags: string[];
+  url: string;
 }
 
 export interface SavedQuery {

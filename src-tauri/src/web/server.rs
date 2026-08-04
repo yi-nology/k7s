@@ -96,6 +96,7 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/invoke/get_yaml", post(handlers::get_yaml))
         .route("/api/invoke/get_events", post(handlers::get_events))
         .route("/api/invoke/get_properties", post(handlers::get_properties))
+        .route("/api/invoke/get_secret_data", post(handlers::get_secret_data))
         // Browser equivalent of the Tauri file-picker dialog: the user
         // picks a kubeconfig file in the browser, the front-end reads its
         // bytes and POSTs the contents here. See HttpProvider.importKubeconfig.
@@ -130,6 +131,10 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/invoke/stop_shell", post(handlers::stop_shell))
         .route("/api/invoke/start_node_shell", post(handlers::start_node_shell))
         .route("/api/invoke/stop_node_shell", post(handlers::stop_node_shell))
+        // EndpointSlices — for the topology graph.
+        .route("/api/invoke/list_endpoints", post(handlers::list_endpoints))
+        .route("/api/invoke/list_endpoints_for_service", post(handlers::list_endpoints_for_service))
+        .route("/api/invoke/list_endpoint_addresses", post(handlers::list_endpoint_addresses))
         // Stubs for everything else.
         .route("/api/invoke/:cmd", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client

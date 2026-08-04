@@ -131,9 +131,15 @@
   --space-6: 24px;
 
   /* ================ Font size (theme-independent) ================ */
+  --text-2xs: 9px;
   --text-xs: 10px;
   --text-sm: 11px;
+  --text-md: 12px;
+  --text-base: 13.5px;
   --text-lg: 14px;
+  --text-xl: 16px;
+  --text-2xl: 20px;
+  --text-3xl: 28px;
 
   /* ================ Radius aliases (theme-independent) ================ */
   --radius-1: var(--radius-sm);
@@ -148,12 +154,24 @@
 
   /* ================ Z-index scale ================ */
   --z-wash: 0;
+  --z-table-header: 1;
   --z-sticky: 2;
   --z-topbar: 5;
   --z-dropdown: 50;
   --z-menu: 60;
   --z-modal: 100;
   --z-palette: 200;
+
+  /* ================ Gradient tokens ================ */
+  --gradient-badge: linear-gradient(135deg, #3A3A48 0%, #26262F 100%);
+
+  /* ================ Glow tokens for status dots ================ */
+  --glow-ok: rgba(78, 201, 176, 0.35);
+  --glow-warn: rgba(224, 175, 104, 0.35);
+  --glow-err: rgba(247, 118, 142, 0.4);
+
+  /* ================ Misc surface tokens ================ */
+  --bg-footer: rgba(0, 0, 0, 0.15);
 
   /* ================ TopBar glass ================ */
   --bg-topbar-glass: rgba(10, 10, 15, 0.72);
@@ -266,6 +284,13 @@
   --shadow-panel: -16px 0 32px rgba(20, 20, 50, 0.08);
   --shadow-menu:  0 8px 24px rgba(20, 20, 50, 0.14);
   --shadow-glow:  0 0 0 3px var(--accent-soft);
+
+  --gradient-badge: linear-gradient(135deg, #E8E8F0 0%, #D8D8E2 100%);
+  --glow-ok: rgba(56, 161, 136, 0.35);
+  --glow-warn: rgba(184, 135, 64, 0.35);
+  --glow-err: rgba(207, 78, 102, 0.4);
+  --bg-footer: rgba(0, 0, 0, 0.06);
+  --bg-topbar-glass-light: rgba(255, 255, 255, 0.72);
 }
 
 /*
@@ -353,4 +378,7 @@
   --shadow-panel: -16px 0 32px rgba(0, 0, 0, 0.45);
   --shadow-menu:  0 8px 24px rgba(0, 0, 0, 0.5);
   --shadow-glow:  0 0 0 3px var(--accent-soft);
+
+  --gradient-badge: linear-gradient(135deg, #3A3A48 0%, #26262F 100%);
+  --bg-footer: rgba(0, 0, 0, 0.15);
 }

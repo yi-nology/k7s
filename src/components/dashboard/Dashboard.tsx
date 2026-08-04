@@ -19,6 +19,10 @@ import { useMemo, useState } from "react";
 import { useStore } from "../../store";
 import { useTranslation } from "../../hooks/useI18n";
 import { kindLabelFor } from "../../lib/i18n";
+import {
+  calculateHealth,
+  gradeColor,
+} from "../../lib/health";
 import styles from "./Dashboard.module.css";
 
 /**
@@ -96,6 +100,26 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
     Object.values(nodeMetrics).map((n) => n.memPercent),
   );
 
+  // Compute cluster health score from live data.
+  const health = useMemo(
+    () =>
+      calculateHealth(
+        rows.nodes ?? [],
+        rows.pods ?? [],
+        rows.deployments ?? [],
+        events,
+        nodeMetrics,
+        rows.persistentvolumeclaims ?? [],
+        rows.horizontalpodautoscalers ?? [],
+        rows.cronjobs ?? [],
+        rows.daemonsets ?? [],
+      ),
+    [rows.nodes, rows.pods, rows.deployments, events, nodeMetrics,
+      rows.persistentvolumeclaims, rows.horizontalpodautoscalers,
+      rows.cronjobs, rows.daemonsets],
+  );
+  const [checksExpanded, setChecksExpanded] = useState(false);
+
   return (
     <div className={styles.dashboard}>
       {onClose && (
@@ -158,6 +182,81 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
         </div>
       </div>
 
+      {/* Health score card — shows the cluster's overall grade and
+          an expandable list of individual health checks. */}
+      <div className={styles.healthCard}>
+        <div className={styles.healthMain}>
+          {/* Animated score ring */}
+          <div className={styles.healthRing}>
+            <svg viewBox="0 0 100 100" className={styles.healthRingSvg}>
+              <circle
+                cx="50"
+                cy="50"
+                r="42"
+                fill="none"
+                stroke="var(--bg-terminal)"
+                strokeWidth="8"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r="42"
+                fill="none"
+                stroke={gradeColor(health.grade)}
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={`${(health.score / 100) * 264} 264`}
+                className={styles.healthRingArc}
+              />
+            </svg>
+            <div
+              className={styles.healthGrade}
+              style={{ color: gradeColor(health.grade) }}
+            >
+              {health.grade}
+            </div>
+          </div>
+          <div className={styles.healthInfo}>
+            <div className={styles.healthScore}>
+              {health.checks.length > 0 ? health.score : "—"}
+              {health.checks.length > 0 && (
+                <span className={styles.healthScoreUnit}>/100</span>
+              )}
+            </div>
+            <div className={styles.healthLabel}>
+              {t("dashboard.healthScore", "Cluster Health")}
+            </div>
+          </div>
+        </div>
+        {health.checks.length > 0 && (
+          <button
+            type="button"
+            className={styles.healthToggle}
+            onClick={() => setChecksExpanded((v) => !v)}
+          >
+            {checksExpanded
+              ? t("dashboard.healthHide", "Hide checks")
+              : t(
+                  "dashboard.healthShow",
+                  `Show ${health.checks.length} checks`,
+                )}
+          </button>
+        )}
+        {checksExpanded && health.checks.length > 0 && (
+          <ul className={styles.healthChecks}>
+            {health.checks.map((c) => (
+              <li key={c.name} className={styles.healthCheckItem}>
+                <span className={styles[`check${capitalize(c.status)}`]}>
+                  {c.status === "pass" ? "\u2713" : c.status === "warn" ? "!" : "\u2717"}
+                </span>
+                <span className={styles.checkName}>{c.name}</span>
+                <span className={styles.checkMessage}>{c.message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
       <div className={styles.resourceGrid}>
         {RESOURCE_KINDS.map((k) => {
           // kindLabelFor falls back to the static KIND_META label if the
@@ -193,6 +292,64 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
           );
         })}
       </div>
+
+      {/* Resource Quotas — progress bars showing usage vs hard limits.
+          Rendered only when the cluster has at least one ResourceQuota. */}
+      {(rows.resourcequotas?.length ?? 0) > 0 && (
+        <div className={styles.quotaSection}>
+          <h3 className={styles.panelTitle}>
+            {t("dashboard.quotas", "Resource Quotas")}
+          </h3>
+          <div className={styles.quotaGrid}>
+            {rows.resourcequotas!.map((rq) => {
+              // Cells: [NAME, NAMESPACE, HARD, USED, AGE]
+              const name = rq.cells[0]?.text ?? "";
+              const ns = rq.cells[1]?.text ?? "";
+              const hardMap = parseQuotaMap(rq.cells[2]?.text ?? "");
+              const usedMap = parseQuotaMap(rq.cells[3]?.text ?? "");
+
+              // Iterate the HARD keys so we show every resource the quota
+              // defines, even when USED hasn't reported it yet (renders 0).
+              const resources = Array.from(hardMap.entries());
+
+              return (
+                <div key={rq.uid} className={styles.quotaCard}>
+                  <div className={styles.quotaName}>{name}</div>
+                  <div className={styles.quotaNs}>{ns}</div>
+                  {resources.map(([key, hardRaw]) => {
+                    const hardVal = parseResourceValue(hardRaw);
+                    const usedRaw = usedMap.get(key) ?? "";
+                    const usedVal = parseResourceValue(usedRaw);
+                    const pct =
+                      hardVal > 0
+                        ? Math.min(100, (usedVal / hardVal) * 100)
+                        : 0;
+                    return (
+                      <div key={key} className={styles.quotaItem}>
+                        <div className={styles.quotaItemHeader}>
+                          <span className={styles.quotaLabel}>{key}</span>
+                          <span className={styles.quotaValues}>
+                            {usedRaw || "0"} / {hardRaw}
+                          </span>
+                        </div>
+                        <div className={styles.barOuter}>
+                          <div
+                            className={styles.barInner}
+                            style={{
+                              width: `${pct}%`,
+                              background: meterColor(pct),
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className={styles.eventsPanel}>
         <h3 className={styles.panelTitle}>
@@ -268,4 +425,76 @@ function meterColor(p: number): string {
   if (p < 60) return "var(--status-ok)";
   if (p < 85) return "var(--status-warn)";
   return "var(--status-err)";
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Parse a Kubernetes resource quantity string into a comparable number.
+ *
+ * CPU: "100m" → 100, "1" → 1000, "500m" → 500  (all in millicores)
+ * Memory: "128Mi" → 128, "1Gi" → 1024, "512Ki" → 0.5  (all in MiB)
+ * Plain numbers (pods, services, etc.): parsed directly.
+ *
+ * Returns 0 for empty or unparseable strings so a missing "USED" value
+ * renders as a zero-fill bar rather than crashing the math.
+ */
+function parseResourceValue(s: string): number {
+  if (!s) return 0;
+  const trimmed = s.trim();
+
+  // CPU — millicores ("100m") or cores ("1", "2")
+  if (trimmed.endsWith("m")) {
+    return parseFloat(trimmed) || 0;
+  }
+
+  // Memory — binary suffixes
+  const memMatch = trimmed.match(/^(\d+(?:\.\d+)?)(Ki|Mi|Gi|Ti|Pi|Ei)$/);
+  if (memMatch) {
+    const val = parseFloat(memMatch[1]);
+    switch (memMatch[2]) {
+      case "Ki":
+        return val / 1024; // normalise to MiB
+      case "Mi":
+        return val;
+      case "Gi":
+        return val * 1024;
+      case "Ti":
+        return val * 1024 * 1024;
+      case "Pi":
+        return val * 1024 * 1024 * 1024;
+      case "Ei":
+        return val * 1024 * 1024 * 1024 * 1024;
+    }
+  }
+
+  // Plain number (pods, services, secrets, …) — or a core count ("4")
+  // For cores, multiply by 1000 to match the millicore scale above.
+  const num = parseFloat(trimmed);
+  if (isNaN(num)) return 0;
+  // Heuristic: if the value is a small integer and the string had no unit
+  // suffix at all, treat it as a core count → millicores so cpu bars scale
+  // correctly against "100m"-style used values.
+  if (Number.isInteger(num) && num <= 64 && !/[a-zA-Z]/.test(trimmed)) {
+    return num * 1000;
+  }
+  return num;
+}
+
+/**
+ * Parse a comma-separated "key=value" string (the format Kubernetes uses for
+ * ResourceQuota HARD and USED columns) into a Map of resource name → raw value
+ * string.  Example: "cpu=4,memory=8Gi,pods=10" → { cpu: "4", memory: "8Gi", pods: "10" }.
+ */
+function parseQuotaMap(raw: string): Map<string, string> {
+  const m = new Map<string, string>();
+  if (!raw) return m;
+  for (const pair of raw.split(",")) {
+    const eq = pair.indexOf("=");
+    if (eq === -1) continue;
+    m.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+  }
+  return m;
 }

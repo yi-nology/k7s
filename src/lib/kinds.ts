@@ -17,6 +17,7 @@ export type NavGroup =
   | "workloads"
   | "network"
   | "config"
+  | "access"
   | "storage"
   | "cluster"
   | "helm"
@@ -27,6 +28,7 @@ export const GROUP_LABELS: Record<NavGroup, string> = {
   workloads: "Workloads",
   network: "Network",
   config: "Config",
+  access: "Access",
   storage: "Storage",
   cluster: "Cluster",
   helm: "Helm",
@@ -59,7 +61,7 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
     group: "workloads",
     label: "Deployments",
     icon: "▲",
-    columns: ["NAME", "NAMESPACE", "READY", "UP-TO-DATE", "AVAILABLE", "AGE"],
+    columns: ["NAME", "NAMESPACE", "READY", "UP-TO-DATE", "AVAILABLE", "CPU", "MEM", "AGE"],
   },
   // A Deployment's actual generation, and a pod's immediate owner — the object
   // the owner chain used to have to route around (B33).
@@ -73,13 +75,13 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
     group: "workloads",
     label: "StatefulSets",
     icon: "≡",
-    columns: ["NAME", "NAMESPACE", "READY", "AGE"],
+    columns: ["NAME", "NAMESPACE", "READY", "CPU", "MEM", "AGE"],
   },
   daemonsets: {
     group: "workloads",
     label: "DaemonSets",
     icon: "⦿",
-    columns: ["NAME", "NAMESPACE", "DESIRED", "READY", "AGE"],
+    columns: ["NAME", "NAMESPACE", "DESIRED", "READY", "CPU", "MEM", "AGE"],
   },
   jobs: {
     group: "workloads",
@@ -201,6 +203,55 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
     icon: "≤",
     columns: ["NAME", "NAMESPACE", "LIMITS", "AGE"],
   },
+  // ---- Access (RBAC) ----
+  roles: {
+    group: "access",
+    label: "Roles",
+    icon: "⚷",
+    columns: ["NAME", "NAMESPACE", "AGE"],
+  },
+  clusterroles: {
+    group: "access",
+    label: "ClusterRoles",
+    icon: "⚷",
+    columns: ["NAME", "AGE"],
+  },
+  rolebindings: {
+    group: "access",
+    label: "RoleBindings",
+    icon: "⚿",
+    columns: ["NAME", "NAMESPACE", "ROLE", "AGE"],
+  },
+  clusterrolebindings: {
+    group: "access",
+    label: "ClusterRoleBindings",
+    icon: "⚿",
+    columns: ["NAME", "ROLE", "AGE"],
+  },
+  poddisruptionbudgets: {
+    group: "config",
+    label: "PDBs",
+    icon: "⊡",
+    columns: ["NAME", "NAMESPACE", "MIN AVAILABLE", "MAX UNAVAILABLE", "ALLOWED DISRUPTIONS", "AGE"],
+  },
+  mutatingwebhookconfigurations: {
+    group: "config",
+    label: "MutatingWebhooks",
+    icon: "⟁",
+    columns: ["NAME", "WEBHOOKS", "AGE"],
+  },
+  validatingwebhookconfigurations: {
+    group: "config",
+    label: "ValidatingWebhooks",
+    icon: "⟁",
+    columns: ["NAME", "WEBHOOKS", "AGE"],
+  },
+  apiservices: {
+    group: "config",
+    label: "APIServices",
+    icon: "⊡",
+    columns: ["NAME", "SERVICE", "AVAILABLE", "AGE"],
+  },
   // A read-only feed rather than a managed resource, but it lives in the Cluster
   // group because it is cluster-wide. It *is* namespaced, so it keeps a NAMESPACE
   // column and honours the namespace filter.
@@ -232,6 +283,11 @@ const CLUSTER_SCOPED: ReadonlySet<string> = new Set<string>([
   "persistentvolumes",
   "storageclasses",
   "ingressclasses",
+  "clusterroles",
+  "clusterrolebindings",
+  "mutatingwebhookconfigurations",
+  "validatingwebhookconfigurations",
+  "apiservices",
 ]);
 
 /** Groups in sidebar order. */
@@ -239,6 +295,7 @@ export const GROUP_ORDER: NavGroup[] = [
   "workloads",
   "network",
   "config",
+  "access",
   "storage",
   "cluster",
   "helm",
@@ -259,6 +316,26 @@ export const KINDS_WITH_PROPERTIES: ReadonlySet<string> = new Set<string>([
   "nodes",
   "helm",
   "ingresses",
+  "configmaps",
+  "secrets",
+  "serviceaccounts",
+  "storageclasses",
+  "namespaces",
+  "persistentvolumeclaims",
+  "persistentvolumes",
+  "jobs",
+  "cronjobs",
+  "horizontalpodautoscalers",
+  "networkpolicies",
+  "resourcequotas",
+  "roles",
+  "clusterroles",
+  "rolebindings",
+  "clusterrolebindings",
+  "poddisruptionbudgets",
+  "mutatingwebhookconfigurations",
+  "validatingwebhookconfigurations",
+  "apiservices",
 ]);
 
 /** Detail-panel tabs, in strip order. Mirrors DetailTab in the store. */
@@ -270,7 +347,8 @@ export type DetailTabId =
   | "shell"
   | "yaml"
   | "events"
-  | "pods";
+  | "pods"
+  | "timeline";
 
 /** Tab id → label, in the order the strip renders them. */
 export const DETAIL_TABS: { id: DetailTabId; label: string }[] = [
@@ -282,6 +360,7 @@ export const DETAIL_TABS: { id: DetailTabId; label: string }[] = [
   { id: "shell", label: "Shell" },
   { id: "yaml", label: "YAML" },
   { id: "events", label: "Events" },
+  { id: "timeline", label: "Timeline" },
 ];
 
 /**
@@ -309,7 +388,9 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
       case "shell":
         return isPod || kind === "nodes";
       case "properties":
-        return KINDS_WITH_PROPERTIES.has(kind);
+        // Built-in kinds need a gatherer; custom (CRD) kinds use the generic
+        // CRD detail gatherer, so they always get the tab.
+        return KINDS_WITH_PROPERTIES.has(kind) || isCustomKind(kind);
       case "revisions":
         // Revision history + rollback — only workloads that carry a pod
         // template with retained history (Deployment/StatefulSet/DaemonSet).
@@ -324,6 +405,8 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
         return kind === "nodes";
       case "events":
         return kind !== "helm";
+      case "timeline":
+        return kind === "cronjobs";
       default:
         return true;
     }
@@ -367,6 +450,14 @@ const BUILTIN_KIND_TO_NAV: Record<string, ResourceKind> = {
   StorageClass: "storageclasses",
   Node: "nodes",
   Namespace: "namespaces",
+  Role: "roles",
+  ClusterRole: "clusterroles",
+  RoleBinding: "rolebindings",
+  ClusterRoleBinding: "clusterrolebindings",
+  PodDisruptionBudget: "poddisruptionbudgets",
+  MutatingWebhookConfiguration: "mutatingwebhookconfigurations",
+  ValidatingWebhookConfiguration: "validatingwebhookconfigurations",
+  APIService: "apiservices",
 };
 
 /**

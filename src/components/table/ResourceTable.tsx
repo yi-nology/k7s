@@ -47,6 +47,7 @@ export function ResourceTable() {
   const setSelection = useStore((s) => s.setSelection);
   const clearSelection = useStore((s) => s.clearSelection);
   const navigateTo = useStore((s) => s.navigateTo);
+  const openDetailTab = useStore((s) => s.openDetailTab);
   const customKinds = useStore((s) => s.customKinds);
   // Open the create-from-template overlay. Lives on the generic toolbar so any
   // kind page (Deployments, Pods, Nodes, …) gets the affordance — the picker
@@ -102,7 +103,10 @@ export function ResourceTable() {
    * you were building.
    */
   const onSelect = useCallback(
-    (row: Row, mods?: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean }) => {
+    (
+      row: Row,
+      mods?: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean; button?: number },
+    ) => {
       if (nav === "events") {
         const target = eventTarget(row);
         if (target) navigateTo(target);
@@ -110,21 +114,24 @@ export function ResourceTable() {
       }
       // ⌘ on macOS, Ctrl elsewhere. Mapped here, once, so lib/selection stays
       // platform-agnostic.
+      const cmd = (mods?.metaKey ?? false) || (mods?.ctrlKey ?? false);
       const range = mods?.shiftKey ?? false;
-      const toggle = (mods?.metaKey ?? false) || (mods?.ctrlKey ?? false);
-      if (range || toggle) {
-        // Read the selection from the store rather than the closure. A handler
-        // closes over the selection as it was at *render* time, so two clicks
-        // landing before React re-renders would both extend from the older
-        // anchor — a shift-click could then select a range starting from a row
-        // you had already clicked past.
+      const middle = mods?.button === 1;
+      // Ctrl/Cmd+Click or middle-click: open the resource in a new detail tab.
+      if ((cmd && !range) || middle) {
+        openDetailTab(nav, row);
+        return;
+      }
+      // Shift+Click (with or without Cmd/Ctrl): range/toggle selection.
+      if (range) {
         const current = useStore.getState().selection;
+        const toggle = cmd;
         setSelection(applyClick(current, orderedUidsRef.current, row.uid, { range, toggle }));
         return;
       }
       selectRow(row);
     },
-    [nav, eventTarget, navigateTo, selectRow, setSelection],
+    [nav, eventTarget, navigateTo, selectRow, setSelection, openDetailTab],
   );
 
   // Namespace filter (cluster-scoped kinds ignore it), text filter, metrics overlay,
@@ -365,6 +372,9 @@ export function ResourceTable() {
                 // two cannot drift apart. Natural height when not windowed.
                 style={virtual ? { height: ROW_HEIGHT } : undefined}
                 onClick={(e) => onSelect(row, e)}
+                onAuxClick={(e) => {
+                  if (e.button === 1) onSelect(row, { ...e, button: 1 });
+                }}
                 onContextMenu={(e) => onRowContextMenu(e, row)}
               >
                 {row.cells.map((cell, j) => (
@@ -602,6 +612,42 @@ function overlayMetrics(
       // Nodes columns: NAME,STATUS,ROLES,CPU(3),MEMORY(4),VERSION
       cells[3] = { ...cells[3], text: `${Math.round(m.cpuPercent)}%` };
       cells[4] = { ...cells[4], text: `${Math.round(m.memPercent)}%` };
+      return { ...r, cells };
+    });
+  }
+  // Workloads: aggregate pod metrics by matching selector.
+  // Columns: NAME,NAMESPACE,...,CPU(last-2),MEM(last-1),AGE(last).
+  if (kind === "deployments" || kind === "statefulsets" || kind === "daemonsets") {
+    // Build a selector → aggregated metrics map. A pod matches a workload when
+    // all the workload's selector labels appear in the pod's labels.
+    const aggMap = new Map<string, { cpu: number; mem: number }>();
+    for (const pod of podRows) {
+      if (!pod.selector) continue;
+      const m = podMetrics[`${pod.namespace}/${pod.name}`];
+      if (!m) continue;
+      // Find all workloads whose selector matches this pod's labels.
+      // We key by "namespace/selectorLabels" for namespaced uniqueness.
+      for (const r of rows) {
+        if (!r.selector) continue;
+        if (r.namespace !== pod.namespace) continue;
+        const labels = pod.labels ?? {};
+        const matches = Object.entries(r.selector).every(([k, v]) => labels[k] === v);
+        if (!matches) continue;
+        const key = `${r.namespace}/${r.name}`;
+        const agg = aggMap.get(key) ?? { cpu: 0, mem: 0 };
+        agg.cpu += m.cpuMillis;
+        agg.mem += m.memBytes;
+        aggMap.set(key, agg);
+      }
+    }
+    return rows.map((r) => {
+      const agg = aggMap.get(`${r.namespace}/${r.name}`);
+      if (!agg) return r;
+      const cells = r.cells.slice();
+      const last = cells.length;
+      // CPU is second-to-last, MEM is last (before AGE which is always last).
+      cells[last - 3] = { ...cells[last - 3], text: formatCpu(agg.cpu), sort: agg.cpu };
+      cells[last - 2] = { ...cells[last - 2], text: formatMem(agg.mem), sort: agg.mem };
       return { ...r, cells };
     });
   }

@@ -10,7 +10,7 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-3) var(--space-4);
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
 }
 
@@ -21,8 +21,8 @@
 }
 
 .close {
-  background: var(--surface-2);
-  border: 1px solid var(--surface-3);
+  background: var(--bg-control);
+  border: 1px solid var(--bg-hover);
   color: var(--text);
   padding: 4px 12px;
   border-radius: 4px;
@@ -31,7 +31,7 @@
 }
 
 .close:hover {
-  background: var(--surface-3);
+  background: var(--bg-hover);
 }
 
 .tabs {
@@ -40,7 +40,7 @@
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
-  background: var(--surface-1);
+  background: var(--bg-panel);
 }
 
 .tab,
@@ -56,7 +56,7 @@
 
 .tabActive {
   color: var(--text-primary);
-  background: var(--surface-2);
+  background: var(--bg-control);
   border-color: var(--border);
 }
 
@@ -65,7 +65,7 @@
 }
 
 .search {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);
@@ -90,7 +90,7 @@
 
 .btn,
 .btnDanger {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border-color: var(--border);
   color: var(--text-primary);
 }
@@ -100,7 +100,7 @@
 }
 
 .error {
-  background: var(--surface-warn);
+  background: var(--status-warn-soft);
   border-bottom: 1px solid var(--status-err);
   color: var(--status-err);
   font-size: var(--text-sm);
@@ -138,7 +138,7 @@
 }
 
 .chartActive {
-  background: var(--surface-2);
+  background: var(--bg-control);
 }
 
 .chartName {
@@ -190,7 +190,7 @@
 
 .repo {
   align-items: center;
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   display: flex;
@@ -251,7 +251,7 @@
 }
 
 .repoForm input {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);
@@ -292,7 +292,7 @@
 
 .step,
 .stepActive {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-muted);
@@ -327,7 +327,7 @@
 
 .field input,
 .field select {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);
@@ -345,7 +345,7 @@
 }
 
 .values {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);
@@ -393,7 +393,7 @@
 
 .summaryOk {
   align-items: center;
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--status-ok);
   border-radius: var(--radius-1);
   color: var(--status-ok);
@@ -405,7 +405,7 @@
 
 .summaryErr {
   align-items: center;
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--status-err);
   border-radius: var(--radius-1);
   color: var(--status-err);

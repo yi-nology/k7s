@@ -354,7 +354,7 @@ fn op_kubeconfig(op: &HelmOp) -> Option<String> {
     }
 }
 
-fn which_helm() -> Option<String> {
+pub(crate) fn which_helm() -> Option<String> {
     // Try `helm` on PATH first; the typical install.
     for path in ["/usr/local/bin/helm", "/opt/homebrew/bin/helm", "/usr/bin/helm"] {
         if std::path::Path::new(path).exists() {

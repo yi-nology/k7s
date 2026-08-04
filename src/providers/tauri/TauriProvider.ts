@@ -68,6 +68,7 @@ import type {
   ShellHandle,
   Row,
   SavedLog,
+  SecretEntry,
   Unsub,
   Revision,
   YamlDiff,
@@ -184,6 +185,10 @@ export class TauriProvider implements DataProvider {
       namespace: ref.namespace ?? "",
       name: ref.name,
     });
+  }
+
+  getSecretData(namespace: string, name: string): Promise<SecretEntry[]> {
+    return invoke<SecretEntry[]>("get_secret_data", { namespace, name });
   }
 
   deleteResource(ref: ResourceRef): Promise<void> {
@@ -545,6 +550,15 @@ export class TauriProvider implements DataProvider {
   helmChartVersions(repo: string, chart: string): Promise<HelmChartVersionEntry[]> {
     return invoke<HelmChartVersionEntry[]>("helm_chart_versions", { repo, chart });
   }
+  helmExportChart(repo: string, chart: string, version: string, outputDir: string): Promise<string> {
+    return invoke<string>("helm_export_chart", { repo, chart, version, outputDir });
+  }
+  helmImportChart(filePath: string, repoName: string): Promise<string> {
+    return invoke<string>("helm_import_chart", { filePath, repoName });
+  }
+  helmLocalCharts(repoName: string): Promise<string[]> {
+    return invoke<string[]>("helm_local_charts", { repoName });
+  }
   helmRenderDefaultValues(
     chart: string,
     version: string,
@@ -822,6 +836,33 @@ export class TauriProvider implements DataProvider {
   }
   alertManagerSilences(name: string): Promise<Silence[]> {
     return invoke<Silence[]>("alertmanager_silences", { name });
+  }
+  alertManagerCreateSilence(instance: string, request: import("../types").CreateSilenceRequest): Promise<string> {
+    return invoke<string>("alertmanager_create_silence", { instance, request });
+  }
+  alertManagerDeleteSilence(instance: string, silenceId: string): Promise<void> {
+    return invoke<void>("alertmanager_delete_silence", { instance, silenceId });
+  }
+  prometheusRules(instance: string): Promise<import("../types").RuleGroup[]> {
+    return invoke<import("../types").RuleGroup[]>("prometheus_rules", { instance });
+  }
+  lokiList(): Promise<import("../types").LokiConfig[]> {
+    return invoke<import("../types").LokiConfig[]>("loki_list");
+  }
+  lokiUpsert(input: import("../types").LokiUpsert): Promise<import("../types").LokiConfig> {
+    return invoke<import("../types").LokiConfig>("loki_upsert", { ...input });
+  }
+  lokiRemove(name: string): Promise<void> {
+    return invoke<void>("loki_remove", { name });
+  }
+  lokiTest(name: string): Promise<void> {
+    return invoke<void>("loki_test", { name });
+  }
+  auditEvents(query: import("../types").AuditQuery): Promise<import("../types").AuditEvent[]> {
+    return invoke<import("../types").AuditEvent[]>("audit_events", { query });
+  }
+  grafanaSearchDashboards(name: string, query: string): Promise<import("../types").GrafanaDashboardSearchResult[]> {
+    return invoke<import("../types").GrafanaDashboardSearchResult[]>("grafana_search_dashboards", { name, query });
   }
 
   // ---- Saved PromQL queries ----

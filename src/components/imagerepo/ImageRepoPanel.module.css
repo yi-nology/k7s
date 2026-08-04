@@ -1,5 +1,5 @@
 .panel {
-  background: var(--surface-0);
+  background: var(--bg-app);
   border: 1px solid var(--border);
   border-radius: var(--radius-2);
   display: flex;
@@ -10,7 +10,7 @@
 
 .header {
   align-items: center;
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -54,7 +54,7 @@
 }
 
 .itemActive {
-  background: var(--surface-2);
+  background: var(--bg-control);
 }
 
 .itemName {
@@ -94,7 +94,7 @@
 .btn,
 .btnDanger,
 .primary {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);
@@ -115,7 +115,7 @@
 }
 
 .error {
-  background: var(--surface-warn);
+  background: var(--status-warn-soft);
   border-bottom: 1px solid var(--status-err);
   color: var(--status-err);
   font-size: var(--text-sm);
@@ -142,7 +142,7 @@
 .repo,
 .tag {
   align-items: center;
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   cursor: pointer;
@@ -165,7 +165,7 @@
 }
 
 .tagActive {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border-color: var(--accent);
   color: var(--text-primary);
 }
@@ -177,7 +177,7 @@
 }
 
 .manifest {
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   margin-top: var(--space-3);
@@ -208,14 +208,14 @@
 }
 
 .manifestTable th {
-  background: var(--surface-2);
+  background: var(--bg-control);
   color: var(--text-muted);
   font-weight: 500;
   width: 30%;
 }
 
 .rawJson {
-  background: var(--surface-0);
+  background: var(--bg-app);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-secondary);
@@ -246,7 +246,7 @@
 }
 
 .form input {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);

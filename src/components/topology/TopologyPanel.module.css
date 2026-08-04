@@ -1,5 +1,5 @@
 .panel {
-  background: var(--surface-0);
+  background: var(--bg-app);
   border: 1px solid var(--border);
   border-radius: var(--radius-2);
   display: flex;
@@ -10,7 +10,7 @@
 
 .header {
   align-items: center;
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
@@ -36,19 +36,81 @@
   padding: var(--space-2);
 }
 
+/* ------------------------------------------------------------------ */
+/* Search box                                                          */
+/* ------------------------------------------------------------------ */
+
+.searchWrap {
+  margin-bottom: var(--space-2);
+  position: relative;
+}
+
+.searchInput {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  outline: none;
+  padding: var(--space-1) var(--space-2);
+  padding-right: 28px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.searchInput:focus {
+  border-color: var(--accent);
+}
+
+.searchClear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-xl);
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.searchClear:hover {
+  color: var(--text-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Service list                                                        */
+/* ------------------------------------------------------------------ */
+
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-/* The sidebar list is informational (no per-service click yet). cursor:default
-   keeps the OS from advertising a clickable affordance the user can't act on;
-   the panel header's Close button is the only interactive control here. */
 .item {
   border-radius: var(--radius-1);
+  cursor: pointer;
   margin-bottom: 2px;
   padding: var(--space-2);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.item:hover {
+  background: var(--bg-panel);
+}
+
+.itemFocused {
+  background: var(--bg-control);
+  border-left: 3px solid var(--accent);
+  padding-left: calc(var(--space-2) - 3px);
 }
 
 .itemName {
@@ -61,11 +123,26 @@
   font-size: var(--text-xs);
 }
 
+/* ------------------------------------------------------------------ */
+/* Main graph area                                                     */
+/* ------------------------------------------------------------------ */
+
 .main {
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: var(--space-4);
 }
+
+.colHeader {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin: 0 0 var(--space-1) 0;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ */
+/* Legacy styles (kept for compatibility)                              */
+/* ------------------------------------------------------------------ */
 
 .graph {
   align-items: flex-start;
@@ -82,18 +159,11 @@
   min-width: 200px;
 }
 
-.colHeader {
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-  margin: 0 0 var(--space-1) 0;
-  text-transform: uppercase;
-}
-
 .node,
 .nodePrimary,
 .nodeOk,
 .nodeBad {
-  background: var(--surface-1);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   min-width: 180px;
@@ -101,7 +171,7 @@
 }
 
 .nodePrimary {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border-color: var(--accent);
 }
 
@@ -134,8 +204,12 @@
   font-size: var(--text-lg);
 }
 
+/* ------------------------------------------------------------------ */
+/* Shared                                                              */
+/* ------------------------------------------------------------------ */
+
 .btn {
-  background: var(--surface-2);
+  background: var(--bg-control);
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);
@@ -146,7 +220,7 @@
 }
 
 .error {
-  background: var(--surface-warn);
+  background: var(--status-warn-soft);
   border-bottom: 1px solid var(--status-err);
   color: var(--status-err);
   font-size: var(--text-sm);
@@ -158,4 +232,41 @@
   font-size: var(--text-sm);
   padding: var(--space-4);
   text-align: center;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Health summary bar                                                       */
+/* ----------------------------------------------------------------------- */
+
+.healthBar {
+  align-items: center;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+}
+
+.healthItem {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.healthCount {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.healthLabel {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.healthSeparator {
+  background: var(--border);
+  height: 16px;
+  width: 1px;
 }

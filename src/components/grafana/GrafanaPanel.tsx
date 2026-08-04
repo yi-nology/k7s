@@ -12,9 +12,9 @@
  * iframe's origin is the Grafana host, which is the only place that
  * needs its own auth.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getProvider } from "../../providers";
-import type { DashboardPreset, GrafanaConfig } from "../../providers/types";
+import type { DashboardPreset, GrafanaConfig, GrafanaDashboardSearchResult } from "../../providers/types";
 import { useTranslation } from "../../hooks/useI18n";
 import styles from "./GrafanaPanel.module.css";
 
@@ -35,6 +35,32 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   const [rangeMinutes, setRangeMinutes] = useState(60);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  // Dashboard search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<GrafanaDashboardSearchResult[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  const handleSearch = useCallback(
+    (q: string) => {
+      setSearchQuery(q);
+      if (!selected || !q.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      setSearching(true);
+      getProvider()
+        .grafanaSearchDashboards(selected, q.trim())
+        .then((results) => {
+          setSearchResults(results);
+          setSearching(false);
+        })
+        .catch((e: unknown) => {
+          setError(String(e));
+          setSearching(false);
+        });
+    },
+    [selected],
+  );
   const [form, setForm] = useState({
     name: "",
     url: "",
@@ -265,6 +291,49 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                   </li>
                 ))}
               </ul>
+              {/* Dashboard search */}
+              <div style={{ margin: "8px 0" }}>
+                <input
+                  type="text"
+                  placeholder={t("grafana.searchPlaceholder", "Search dashboards…")}
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  style={{
+                    width: "100%",
+                    background: "var(--bg-terminal)",
+                    border: "1px solid var(--border-control)",
+                    borderRadius: "var(--radius-sm)",
+                    color: "var(--text-body)",
+                    padding: "4px 8px",
+                    fontSize: 12,
+                  }}
+                />
+                {searching && (
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", padding: "4px 0" }}>
+                    {t("grafana.searching", "Searching…")}
+                  </div>
+                )}
+                {searchResults.length > 0 && (
+                  <ul className={styles.presetList} style={{ marginTop: 4 }}>
+                    {searchResults.map((d) => (
+                      <li
+                        key={d.uid}
+                        className={
+                          activePreset === d.uid
+                            ? styles.presetActive
+                            : styles.preset
+                        }
+                        onClick={() => setActivePreset(d.uid)}
+                      >
+                        <div className={styles.presetTitle}>{d.title}</div>
+                        <div className={styles.presetDesc}>
+                          {d.tags.length > 0 && `[${d.tags.join(", ")}]`}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               {iframeUrl && (
                 <iframe
                   className={styles.iframe}

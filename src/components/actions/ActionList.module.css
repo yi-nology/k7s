@@ -28,7 +28,7 @@
    a bulk menu looks identical to a single-row one. */
 .scope {
   padding: 4px 12px 6px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-default);
   margin-bottom: 4px;
@@ -37,7 +37,7 @@
 .row {
   padding: 6px 12px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-md);
   color: var(--text-secondary);
 }
 
@@ -73,7 +73,7 @@
 }
 
 .confirmText {
-  font-size: 12px;
+  font-size: var(--text-md);
   color: var(--text-primary);
   line-height: 1.5;
   /* A bulk confirmation enumerates names and can run long; wrapping beats a
@@ -91,7 +91,7 @@
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   border: 1px solid var(--border-default);
   /* Reset the native <button> defaults so a real <button> renders the same as
@@ -111,7 +111,7 @@
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--bg-app);
   background: var(--accent);
@@ -129,7 +129,7 @@
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--bg-app);
   background: var(--status-err);

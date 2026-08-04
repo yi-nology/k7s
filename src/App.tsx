@@ -32,7 +32,13 @@ import { MetricsExplorer } from "./components/metrics/MetricsExplorer";
 import { GrafanaPanel } from "./components/grafana/GrafanaPanel";
 import { EndpointsPanel } from "./components/endpoints/EndpointsPanel";
 import { TopologyPanel } from "./components/topology/TopologyPanel";
+import { IngressRouteTopology } from "./components/topology/IngressRouteTopology";
 import { AlertsPanel } from "./components/alerting/AlertsPanel";
+import { AuditPanel } from "./components/audit/AuditPanel";
+import { IngressEditor } from "./components/ingress/IngressEditor";
+import { ResourceDiff } from "./components/diff/ResourceDiff";
+import { PluginPanel } from "./components/plugins/PluginPanel";
+import { usePlugins } from "./hooks/usePlugins";
 
 export default function App() {
   // Wire provider → store and connect on mount.
@@ -46,6 +52,8 @@ export default function App() {
   // Mirror the active locale onto <html lang> so screen readers and the
   // browser's widgets (spell-check, etc.) follow the user's pick.
   useLocaleSync();
+  // Register built-in plugins and restore enabled state from prefs.
+  usePlugins();
 
   // Which feature overlay is open, if any (Phase 1/2/4/5 entry points).
   const overlay = useStore((s) => s.overlay);
@@ -131,9 +139,34 @@ export default function App() {
                 <TopologyPanel onClose={closeOverlay} />
               </div>
             )}
+            {overlay === "ingress-routes" && (
+              <div className={styles.overlay}>
+                <IngressRouteTopology onClose={closeOverlay} />
+              </div>
+            )}
             {overlay === "alerting" && (
               <div className={styles.overlay}>
                 <AlertsPanel onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "audit" && (
+              <div className={styles.overlay}>
+                <AuditPanel onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "ingress-editor" && (
+              <div className={styles.overlay}>
+                <IngressEditor onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "diff" && (
+              <div className={styles.overlay}>
+                <ResourceDiff onClose={closeOverlay} />
+              </div>
+            )}
+            {overlay === "plugins" && (
+              <div className={styles.overlay}>
+                <PluginPanel onClose={closeOverlay} />
               </div>
             )}
           </div>

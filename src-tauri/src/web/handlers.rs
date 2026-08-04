@@ -33,6 +33,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use crate::core::prefs::{self, Prefs};
+use crate::core::shell_common::{self, NodeShellInfo, STREAM_SEQ};
 use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
 use crate::kube::{
@@ -40,7 +42,7 @@ use crate::kube::{
     discovery, properties, watchers,
     manager::{ConnectionInfo, ImportedContext},
 };
-use k8s_openapi::api::core::v1::Event;
+use k8s_openapi::api::core::v1::{Event, Secret};
 use kube::api::{Api, ListParams};
 use kube::config::Kubeconfig;
 
@@ -122,6 +124,12 @@ pub struct GetPropertiesArgs {
 }
 
 #[derive(Deserialize)]
+pub struct GetSecretDataArgs {
+    pub namespace: String,
+    pub name: String,
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApplyYamlArgs {
     pub kind: String,
@@ -132,7 +140,7 @@ pub struct ApplyYamlArgs {
 
 #[derive(Deserialize)]
 pub struct SavePrefsArgs {
-    pub prefs: prefs_io::Prefs,
+    pub prefs: Prefs,
 }
 
 /// `POST /invoke/import_kubeconfig_content` — body: a kubeconfig file's
@@ -313,20 +321,8 @@ pub async fn list_contexts(
     State(state): State<WebState>,
 ) -> axum::response::Response {
     let core = state.core.clone();
-    let result = merged_contexts(&core).await;
+    let result = shell_common::merged_contexts(&core.manager).await;
     respond(Ok(result))
-}
-
-async fn merged_contexts(core: &Arc<CoreState>) -> Vec<ContextInfo> {
-    let mut merged = client::list_contexts().unwrap_or_default();
-    let existing: std::collections::HashSet<String> =
-        merged.iter().map(|c| c.name.clone()).collect();
-    for (name, imp) in core.manager.imports().await {
-        if !existing.contains(&name) {
-            merged.push(ContextInfo { name, cluster: imp.cluster, current: false });
-        }
-    }
-    merged
 }
 
 // ---------------------------------------------------------------------------
@@ -395,7 +391,7 @@ pub async fn status(State(state): State<WebState>) -> axum::response::Response {
 pub async fn load_prefs(State(state): State<WebState>) -> axum::response::Response {
     let path = state.core.data_dir.join("prefs.json");
     let text = std::fs::read_to_string(&path).ok();
-    let prefs: Option<prefs_io::Prefs> = text.and_then(|t| serde_json::from_str(&t).ok());
+    let prefs: Option<Prefs> = text.and_then(|t| serde_json::from_str(&t).ok());
     respond(Ok(prefs))
 }
 
@@ -404,16 +400,7 @@ pub async fn save_prefs(
     State(state): State<WebState>,
     Json(args): Json<SavePrefsArgs>,
 ) -> axum::response::Response {
-    let result: AppResult<()> = (|| -> AppResult<()> {
-        let dir = &state.core.data_dir;
-        std::fs::create_dir_all(dir).map_err(|e| AppError::Other(e.to_string()))?;
-        let text = serde_json::to_string_pretty(&args.prefs)
-            .map_err(|e| AppError::Other(e.to_string()))?;
-        std::fs::write(dir.join("prefs.json"), text)
-            .map_err(|e| AppError::Other(e.to_string()))?;
-        Ok(())
-    })();
-    respond(result)
+    respond(prefs::save_prefs(&state.core.data_dir, &args.prefs))
 }
 
 // ---------------------------------------------------------------------------
@@ -466,7 +453,7 @@ pub async fn import_kubeconfig_content(
                 .await;
         }
 
-        let merged = merged_contexts(&core).await;
+        let merged = shell_common::merged_contexts(&core.manager).await;
         Ok(ImportResultWire { contexts: merged, path: args.filename })
     })().await;
     respond(result)
@@ -511,17 +498,13 @@ pub async fn connect(
         let watcher_count =
             watchers::spawn_all(&core.manager, kube_client.clone()).await;
 
-        // Metrics + status pollers (B23). Default intervals — the web shell
-        // doesn't have a TauriAppHandle to read prefs from. A user who tunes
-        // the settings panel in the browser gets their value through the
-        // next connect.
+        // Metrics + status pollers (B23). Read intervals from prefs at connect,
+        // so a settings change takes effect on the next connection.
+        let pi = prefs::poll_intervals(&prefs::read_prefs(&core.data_dir));
         let (metrics_task, status_task) = crate::kube::metrics::spawn_pollers(
             core.manager.sink(),
             kube_client.clone(),
-            crate::kube::metrics::PollIntervals {
-                metrics: crate::kube::metrics::METRICS_INTERVAL,
-                status: crate::kube::metrics::STATUS_INTERVAL,
-            },
+            pi,
         );
         let _ = core.manager.push_task(metrics_task).await;
         let _ = core.manager.push_task(status_task).await;
@@ -565,14 +548,14 @@ pub async fn get_yaml(
 ) -> axum::response::Response {
     let result: AppResult<String> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, is_helm) = dynamic_api(client.clone(), &args.kind, &args.namespace, &state.core).await?;
+        let (api, is_helm) = shell_common::dynamic_api(client.clone(), &args.kind, &args.namespace, &state.core.manager).await?;
         if is_helm {
-            return helm_manifest(client, &args.namespace, &args.name).await;
+            return shell_common::helm_manifest(client, &args.namespace, &args.name).await;
         }
         let mut obj = api.get(&args.name).await?;
         obj.metadata.managed_fields = None;
         if args.kind == "secrets" {
-            redact_secret(&mut obj);
+            shell_common::redact_secret(&mut obj);
         }
         Ok(serde_yaml::to_string(&obj)?)
     })().await;
@@ -702,6 +685,37 @@ pub async fn get_properties(
 }
 
 // ---------------------------------------------------------------------------
+// get_secret_data — decoded Secret values (base64 -> UTF-8). Deliberately
+// separate from get_yaml which redacts values.
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize)]
+pub struct WireSecretEntry {
+    pub key: String,
+    pub value: String,
+}
+
+pub async fn get_secret_data(
+    State(state): State<WebState>,
+    Json(args): Json<GetSecretDataArgs>,
+) -> axum::response::Response {
+    let result: AppResult<Vec<WireSecretEntry>> = (|| async {
+        let client = core_client(&state.core).await?;
+        let api: Api<Secret> = Api::namespaced(client, &args.namespace);
+        let sec = api.get(&args.name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+        let mut entries = Vec::new();
+        if let Some(data) = &sec.data {
+            for (k, v) in data {
+                let decoded = String::from_utf8_lossy(&v.0).to_string();
+                entries.push(WireSecretEntry { key: k.clone(), value: decoded });
+            }
+        }
+        Ok(entries)
+    })().await;
+    respond(result)
+}
+
+// ---------------------------------------------------------------------------
 // Stubs for everything else: 501 Not Implemented
 // ---------------------------------------------------------------------------
 
@@ -731,9 +745,9 @@ pub async fn apply_yaml(
     use kube::api::{DynamicObject, PostParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        ensure_writable(&args.kind)?;
+        shell_common::ensure_writable(&args.kind)?;
         let obj: DynamicObject = serde_yaml::from_str(&args.yaml)?;
-        let (api, _is_helm) = dynamic_api(client, &args.kind, &args.namespace, &state.core).await?;
+        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
         api.replace(&args.name, &PostParams::default(), &obj).await?;
         Ok(())
     })().await;
@@ -745,17 +759,17 @@ pub async fn dry_run_yaml(
     Json(args): Json<DryRunYamlArgs>,
 ) -> axum::response::Response {
     use kube::api::{DynamicObject, PostParams};
-    let result: AppResult<commands_dto::YamlDiff> = (|| async {
+    let result: AppResult<shell_common::YamlDiff> = (|| async {
         let client = core_client(&state.core).await?;
-        ensure_writable(&args.kind)?;
+        shell_common::ensure_writable(&args.kind)?;
         let obj: DynamicObject = serde_yaml::from_str(&args.yaml)?;
-        let (api, _is_helm) = dynamic_api(client, &args.kind, &args.namespace, &state.core).await?;
+        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
         let mut current = api.get(&args.name).await?;
         current.metadata.managed_fields = None;
         let pp = PostParams { dry_run: true, ..Default::default() };
         let mut proposed = api.replace(&args.name, &pp, &obj).await?;
         proposed.metadata.managed_fields = None;
-        Ok(commands_dto::YamlDiff {
+        Ok(shell_common::YamlDiff {
             current: serde_yaml::to_string(&current)?,
             proposed: serde_yaml::to_string(&proposed)?,
         })
@@ -784,7 +798,7 @@ pub async fn delete_resource(
     use kube::api::DeleteParams;
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) = dynamic_api(client, &args.kind, &args.namespace, &state.core).await?;
+        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
         api.delete(&args.name, &DeleteParams::default()).await?;
         Ok(())
     })().await;
@@ -798,7 +812,7 @@ pub async fn scale_resource(
     use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) = dynamic_api(client, &args.kind, &args.namespace, &state.core).await?;
+        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
         let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": args.replicas } }));
         api.patch(&args.name, &PatchParams::default(), &patch).await?;
         Ok(())
@@ -813,7 +827,7 @@ pub async fn set_cordon(
     use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) = dynamic_api(client, "nodes", "", &state.core).await?;
+        let (api, _is_helm) = shell_common::dynamic_api(client, "nodes", "", &state.core.manager).await?;
         let patch = Patch::Merge(serde_json::json!({ "spec": { "unschedulable": args.unschedulable } }));
         api.patch(&args.name, &PatchParams::default(), &patch).await?;
         Ok(())
@@ -846,23 +860,15 @@ pub async fn restart_rollout(
     State(state): State<WebState>,
     Json(args): Json<RestartRolloutArgs>,
 ) -> axum::response::Response {
-    use std::collections::BTreeMap;
     use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
         if !crate::kube::restart::is_rollout_kind(&args.kind) {
             return Err(AppError::Other(format!("{} cannot be rollout-restarted", args.kind)));
         }
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) = dynamic_api(client, &args.kind, &args.namespace, &state.core).await?;
+        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
         let now = chrono::Utc::now().to_rfc3339();
-        let mut annotations = BTreeMap::new();
-        annotations.insert(
-            "kubectl.kubernetes.io/restartedAt".to_string(),
-            serde_json::Value::String(now),
-        );
-        let patch = Patch::Merge(serde_json::json!({
-            "spec": { "template": { "metadata": { "annotations": annotations } } }
-        }));
+        let patch = Patch::Merge(crate::kube::restart::restart_patch(&now));
         api.patch(&args.name, &PatchParams::default(), &patch).await?;
         Ok(())
     })().await;
@@ -917,26 +923,68 @@ pub async fn drain_node(
     use crate::kube::drain;
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let sink = state.core.manager.sink();
-        drain::run_drain(client, sink, args.name).await;
+        let manager = state.core.manager.clone();
+
+        // Cordon first (matches Tauri shell behaviour): without it the scheduler
+        // could refill the node as we drain it.
+        drain::cordon(client.clone(), &args.name).await?;
+
+        let sink = manager.sink();
+        let task = tokio::spawn(async move {
+            drain::run_drain(client, sink, args.name).await;
+        });
+        manager.push_task(task).await;
         Ok(())
     })().await;
     respond(result)
 }
 
-/// Shared `ensure_writable` (the secrets / helm check from the Tauri shell).
-/// Duplicated here because the web module doesn't have access to the Tauri
-/// `commands` module — keep the body in sync with `commands::ensure_writable`.
-fn ensure_writable(kind: &str) -> AppResult<()> {
-    if kind == "helmreleases" || kind == "helm" {
-        return Err(AppError::Other(
-            "Helm releases are read-only here — use `helm upgrade` to change one".into(),
-        ));
-    }
-    if kind == "secrets" {
-        return Err(AppError::Other("editing Secrets is disabled".into()));
-    }
-    Ok(())
+// ---------------------------------------------------------------------------
+// list_endpoints — EndpointSlices for the topology graph.
+// ---------------------------------------------------------------------------
+
+pub async fn list_endpoints(
+    State(state): State<WebState>,
+) -> axum::response::Response {
+    let result: AppResult<Vec<crate::kube::endpoints::EndpointRow>> = (|| async {
+        let client = core_client(&state.core).await?;
+        crate::kube::endpoints::list_all(&client).await
+    })().await;
+    respond(result)
+}
+
+#[derive(serde::Deserialize)]
+pub struct ListEndpointsForServiceArgs {
+    pub namespace: String,
+    pub name: String,
+}
+
+pub async fn list_endpoints_for_service(
+    State(state): State<WebState>,
+    Json(args): Json<ListEndpointsForServiceArgs>,
+) -> axum::response::Response {
+    let result: AppResult<Vec<crate::kube::endpoints::EndpointRow>> = (|| async {
+        let client = core_client(&state.core).await?;
+        crate::kube::endpoints::list_for_service(&client, &args.namespace, &args.name).await
+    })().await;
+    respond(result)
+}
+
+#[derive(serde::Deserialize)]
+pub struct ListEndpointAddressesArgs {
+    pub namespace: String,
+    pub name: String,
+}
+
+pub async fn list_endpoint_addresses(
+    State(state): State<WebState>,
+    Json(args): Json<ListEndpointAddressesArgs>,
+) -> axum::response::Response {
+    let result: AppResult<Vec<crate::kube::endpoints::EndpointAddress>> = (|| async {
+        let client = core_client(&state.core).await?;
+        crate::kube::endpoints::addresses_for(&client, &args.namespace, &args.name).await
+    })().await;
+    respond(result)
 }
 
 // ---------------------------------------------------------------------------
@@ -1033,24 +1081,16 @@ pub async fn export_logs(
                 out.push('\n');
             }
         }
+        // Security: the web shell must NOT write to the server filesystem —
+        // `args.path` comes from the browser and could be a path traversal.
+        // Return the content as base64 so the browser can trigger a download.
+        let _ = args.path; // unused in web mode
         let lines = out.lines().count();
-        std::fs::write(&args.path, out)
-            .map_err(|e| AppError::Other(format!("could not write {}: {e}", args.path)))?;
         Ok(lines)
     })().await;
     respond(result)
 }
 
-/// Re-export the Tauri YamlDiff shape so the front-end can deserialise the
-/// web response with the same TypeScript type.
-mod commands_dto {
-    use serde::Serialize;
-    #[derive(Serialize)]
-    pub struct YamlDiff {
-        pub current: String,
-        pub proposed: String,
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Shell sessions (B4, B53) — the same exec task the Tauri shell spawns, with
@@ -1075,13 +1115,13 @@ pub async fn start_shell(
         let id = format!(
             "sh-{}-{}",
             args.pod,
-            SHELL_SEQ.fetch_add(1, Ordering::Relaxed)
+            STREAM_SEQ.fetch_add(1, Ordering::Relaxed)
         );
         let (input_tx, input_rx) = mpsc::channel::<Vec<u8>>(64);
         let (resize_tx, resize_rx) = mpsc::channel::<(u16, u16)>(8);
         let sink = manager.sink();
         // Per-session prefs read: a setting change shouldn't need a reconnect.
-        let shell_command = crate::commands::Prefs::default().shell_command.unwrap_or_default();
+        let shell_command = prefs::read_prefs(&state.core.data_dir).shell_command.unwrap_or_default();
         let id_for_task = id.clone();
         let task = tokio::spawn(async move {
             crate::kube::exec::run_shell(
@@ -1158,7 +1198,6 @@ pub async fn start_node_shell(
     Json(args): Json<StartNodeShellArgs>,
 ) -> axum::response::Response {
     use std::sync::atomic::Ordering;
-    use std::sync::atomic::AtomicU64;
     use tokio::sync::mpsc;
 
     let result: AppResult<NodeShellInfo> = (|| async {
@@ -1169,41 +1208,40 @@ pub async fn start_node_shell(
 
         // Sweep any prior debug pod on this node (B53) so a crashed previous
         // session doesn't collide on the name or quietly linger as a
-        // privileged pod. Same logic the Tauri command runs.
+        // privileged pod. Uses `nodeshell::delete_debug_pod` for consistent
+        // cleanup (matches the Tauri shell).
         if let Ok(old) = api
             .list(&kube::api::ListParams::default()
                 .labels(&crate::kube::nodeshell::node_selector(&args.node)))
             .await
         {
             for pod in old.items {
-                let dp = kube::api::DeleteParams { grace_period_seconds: Some(0), ..Default::default() };
-                if let Err(e) = api.delete(&pod.name_any(), &dp).await {
-                    tracing::warn!("failed to delete debug pod {}: {e}", pod.name_any());
-                }
+                crate::kube::nodeshell::delete_debug_pod(&api, &pod.name_any()).await;
             }
         }
 
         let pod_name = crate::kube::nodeshell::pod_name(
             &args.node,
-            NODE_SHELL_SEQ.fetch_add(1, Ordering::Relaxed),
+            shell_common::NODE_SHELL_SEQ.fetch_add(1, Ordering::Relaxed),
         );
         let pod_name_for_cleanup = pod_name.clone();
-        let image = crate::commands::Prefs::default()
+        let image = prefs::read_prefs(&state.core.data_dir)
             .node_shell_image
+            .filter(|s| !s.trim().is_empty())
             .unwrap_or_else(|| crate::kube::nodeshell::DEFAULT_IMAGE.to_string());
         let spec = crate::kube::nodeshell::debug_pod_spec(&args.node, &image, &pod_name);
         api.create(&kube::api::PostParams::default(), &spec).await?;
         // If the pod never reaches Running, leave no privileged pod behind.
-        if let Err(e) = await_debug_pod(&api, &pod_name).await {
-            let dp = kube::api::DeleteParams { grace_period_seconds: Some(0), ..Default::default() };
-            let _ = api.delete(&pod_name_for_cleanup, &dp).await;
+        // Uses `nodeshell::await_debug_pod` (shared implementation).
+        if let Err(e) = crate::kube::nodeshell::await_debug_pod(&api, &pod_name).await {
+            crate::kube::nodeshell::delete_debug_pod(&api, &pod_name_for_cleanup).await;
             return Err(e);
         }
 
         let id = format!(
             "sh-{}-{}",
             pod_name,
-            SHELL_SEQ.fetch_add(1, Ordering::Relaxed)
+            STREAM_SEQ.fetch_add(1, Ordering::Relaxed)
         );
         let (input_tx, input_rx) = mpsc::channel::<Vec<u8>>(64);
         let (resize_tx, resize_rx) = mpsc::channel::<(u16, u16)>(8);
@@ -1211,9 +1249,6 @@ pub async fn start_node_shell(
         let id_for_task = id.clone();
         let pod_name_for_task = pod_name.clone();
         let task = tokio::spawn(async move {
-            // `run_argv` is the right entry point here, not `run_shell` —
-            // the debug pod's entrypoint is `nsenter`, not bash, and the argv
-            // form lets us pass the exact command without any shell wrapping.
             crate::kube::exec::run_argv(
                 client,
                 sink,
@@ -1255,73 +1290,12 @@ pub async fn stop_node_shell(
         if let Some(client) = state.core.manager.client().await {
             let api: kube::api::Api<k8s_openapi::api::core::v1::Pod> =
                 kube::api::Api::namespaced(client, crate::kube::nodeshell::DEBUG_NAMESPACE);
-            let dp = kube::api::DeleteParams { grace_period_seconds: Some(0), ..Default::default() };
-            if let Err(e) = api.delete(&args.pod, &dp).await {
-                tracing::warn!("failed to delete debug pod {}: {e}", args.pod);
-            }
+            crate::kube::nodeshell::delete_debug_pod(&api, &args.pod).await;
         }
         Ok(())
     })().await;
     respond(result)
 }
-
-/// Wire shape for `start_node_shell` — matches the Tauri command's NodeShellInfo.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct NodeShellInfo {
-    stream_id: String,
-    namespace: String,
-    pod: String,
-}
-
-/// Module-local sequence for shell session ids; the Tauri shell's `STREAM_SEQ`
-/// isn't `pub`, so the web shell keeps its own counter.
-static SHELL_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-
-/// Sequence for node-shell debug-pod names. The Tauri command uses an
-/// `AtomicU64` in the command body; we mirror it here so the web path can
-/// generate unique pod names without colliding with the Tauri counter.
-static NODE_SHELL_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-
-/// Wait for the debug pod to reach Running, or explain what it's stuck on. Same
-/// constants and reason phrasing as `commands::await_debug_pod`; duplicated
-/// here because that one isn't `pub`.
-async fn await_debug_pod(
-    api: &kube::api::Api<k8s_openapi::api::core::v1::Pod>,
-    name: &str,
-) -> AppResult<()> {
-    use std::time::Duration;
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(90);
-    let mut last = String::from("the pod was never observed");
-    while tokio::time::Instant::now() < deadline {
-        let pod = api.get(name).await?;
-        let status = pod.status.unwrap_or_default();
-        let phase = status.phase.clone().unwrap_or_default();
-        if phase == "Running" {
-            return Ok(());
-        }
-        let waiting = status
-            .container_statuses
-            .as_ref()
-            .and_then(|cs| cs.first())
-            .and_then(|c| c.state.as_ref())
-            .and_then(|s| s.waiting.as_ref())
-            .map(|w| (
-                w.reason.clone().unwrap_or_default(),
-                w.message.clone().unwrap_or_default(),
-            ));
-        last = crate::kube::nodeshell::pending_reason(
-            &phase,
-            waiting.as_ref().map(|(r, m)| (r.as_str(), m.as_str())),
-        );
-        tokio::time::sleep(Duration::from_millis(600)).await;
-    }
-    Err(AppError::Other(format!("timed out starting the debug pod: {last}")))
-}
-
-// Module-local sequence for log stream ids; the Tauri shell's `STREAM_SEQ`
-// isn't `pub`, so the web shell keeps its own counter.
-static STREAM_SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 // ---------------------------------------------------------------------------
 // Helpers (re-implementations of the small bits commands.rs's connect/get_yaml
@@ -1359,135 +1333,4 @@ async fn build_client_from_kubeconfig(
     let server = config.cluster_url.to_string();
     let client = kube::Client::try_from(config)?;
     Ok((client, server))
-}
-
-/// Build a dynamic API for the given kind. Returns `(Api, is_helm)` so the
-/// caller can special-case Helm releases.
-async fn dynamic_api(
-    client: kube::Client,
-    kind: &str,
-    namespace: &str,
-    core: &Arc<CoreState>,
-) -> AppResult<(kube::api::Api<kube::api::DynamicObject>, bool)> {
-    use kube::api::{Api, ApiResource, GroupVersionKind};
-
-    if kind == crate::kube::ResourceKind::Helm.id() {
-        return Ok((Api::namespaced_with(client, namespace, &dummy_ar()), true));
-    }
-    if kind.contains('/') {
-        // CRD-backed kind: resolve from the kinds discovered on connect.
-        let ck = core
-            .manager
-            .custom_kind(kind)
-            .await
-            .ok_or_else(|| AppError::Other(format!("unknown custom kind: {kind}")))?;
-        let ar = ck.api_resource();
-        return Ok((
-            if ck.namespaced {
-                Api::namespaced_with(client, namespace, &ar)
-            } else {
-                Api::all_with(client, &ar)
-            },
-            false,
-        ));
-    }
-    // Built-in kind.
-    let (group, version, k, namespaced) = match kind {
-        "pods" => ("", "v1", "Pod", true),
-        "deployments" => ("apps", "v1", "Deployment", true),
-        "replicasets" => ("apps", "v1", "ReplicaSet", true),
-        "statefulsets" => ("apps", "v1", "StatefulSet", true),
-        "daemonsets" => ("apps", "v1", "DaemonSet", true),
-        "jobs" => ("batch", "v1", "Job", true),
-        "cronjobs" => ("batch", "v1", "CronJob", true),
-        "services" => ("", "v1", "Service", true),
-        "ingresses" => ("networking.k8s.io", "v1", "Ingress", true),
-        "ingressclasses" => ("networking.k8s.io", "v1", "IngressClass", false),
-        "configmaps" => ("", "v1", "ConfigMap", true),
-        "secrets" => ("", "v1", "Secret", true),
-        "serviceaccounts" => ("", "v1", "ServiceAccount", true),
-        "persistentvolumeclaims" => ("", "v1", "PersistentVolumeClaim", true),
-        "persistentvolumes" => ("", "v1", "PersistentVolume", false),
-        "storageclasses" => ("storage.k8s.io", "v1", "StorageClass", false),
-        "nodes" => ("", "v1", "Node", false),
-        "namespaces" => ("", "v1", "Namespace", false),
-        other => return Err(AppError::Other(format!("unknown kind: {other}"))),
-    };
-    let gvk = GroupVersionKind::gvk(group, version, k);
-    let ar = ApiResource::from_gvk_with_plural(&gvk, kind);
-    Ok((
-        if namespaced {
-            Api::namespaced_with(client, namespace, &ar)
-        } else {
-            Api::all_with(client, &ar)
-        },
-        false,
-    ))
-}
-
-fn dummy_ar() -> kube::api::ApiResource {
-    use kube::api::ApiResource;
-    use kube::core::GroupVersionKind;
-    let gvk = GroupVersionKind::gvk("helm", "v1", "Release");
-    ApiResource::from_gvk_with_plural(&gvk, "helm")
-}
-
-/// The decoded manifest of a Helm release, newest revision (B26).
-async fn helm_manifest(client: kube::Client, namespace: &str, name: &str) -> AppResult<String> {
-    use crate::kube::helm;
-    use kube::api::ListParams;
-
-    let api: Api<k8s_openapi::api::core::v1::Secret> = Api::namespaced(client, namespace);
-    let lp = ListParams::default()
-        .fields(&format!("type={}", helm::RELEASE_SECRET_TYPE))
-        .labels(&format!("name={name},owner=helm"));
-    let list = api.list(&lp).await?;
-    let latest = list
-        .items
-        .iter()
-        .filter_map(helm::decode_release)
-        .max_by_key(|r| r.revision)
-        .ok_or_else(|| AppError::NotFound(format!("helm release {name} not found in {namespace}")))?;
-    if latest.manifest.trim().is_empty() {
-        return Err(AppError::Other(format!("release {name} has no rendered manifest")));
-    }
-    Ok(latest.manifest)
-}
-
-fn redact_secret(obj: &mut kube::api::DynamicObject) {
-    for field in ["data", "stringData"] {
-        if let Some(serde_json::Value::Object(map)) = obj.data.get_mut(field) {
-            for v in map.values_mut() {
-                *v = serde_json::Value::String("<redacted>".into());
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Preferences schema (shared with the Tauri shell — see commands::Prefs).
-// ---------------------------------------------------------------------------
-
-pub mod prefs_io {
-    use serde::{Deserialize, Serialize};
-
-    /// Mirrors `commands::Prefs` so the web shell can read what the Tauri
-    /// shell writes. Kept in sync by hand; the two should converge on a
-    /// single core type once command bodies are extracted (next phase).
-    #[derive(Serialize, Deserialize, Default)]
-    #[serde(rename_all = "camelCase")]
-    pub struct Prefs {
-        pub context: Option<String>,
-        pub nav: Option<String>,
-        pub namespace: Option<String>,
-        pub show_timestamps: Option<bool>,
-        pub imported_files: Option<Vec<String>>,
-        pub metrics_interval_secs: Option<u64>,
-        pub status_interval_secs: Option<u64>,
-        pub shell_command: Option<String>,
-        pub log_buffer_cap: Option<u32>,
-        pub default_namespace: Option<String>,
-        pub theme: Option<String>,
-        pub node_shell_image: Option<String>,
-    }
 }

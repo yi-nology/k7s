@@ -33,6 +33,7 @@ import {
 } from "../../lib/actions";
 import type { KindId, ResourceRef, Row } from "../../providers/types";
 import { ModifyImageForm } from "./ModifyImageForm";
+import { HelmRollbackForm } from "./HelmRollbackForm";
 
 interface ActionListProps {
   kind: KindId;
@@ -215,10 +216,8 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
         );
         break;
       case "rollback":
-        // No `toRevision` = roll back to the previous revision, the
-        // `kubectl rollout undo` default. The workload keeps its identity, so
-        // `gone` is false — the row stays put while the controller rolls it.
-        void execute((row) => getProvider().undoRollout(refOf(row)), false);
+        // Rollback is now handled through the form path (HelmRollbackForm).
+        // This case is unreachable but kept for type completeness.
         break;
       case "drain":
         // Resolves once cordoned; the eviction progress streams to the banner.
@@ -450,6 +449,22 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
         ref={refOf(single)}
         onError={onError}
         onClose={onClose}
+      />
+    );
+  }
+
+  // ---- rollback ----
+  // Routes to HelmRollbackForm which handles both Helm releases
+  // (revision history picker) and workloads (simple confirm + undoRollout).
+  if (mode.kind === "form" && mode.id === "rollback") {
+    return (
+      <HelmRollbackForm
+        kind={kind}
+        row={single}
+        ref={refOf(single)}
+        onError={onError}
+        onClose={onClose}
+        onDone={onGone}
       />
     );
   }

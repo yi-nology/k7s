@@ -15,7 +15,7 @@
    node" answer before the user scans the rows. */
 .summary {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   padding: 6px 10px;
   background: var(--bg-panel);
@@ -30,7 +30,7 @@
 .table {
   border-collapse: collapse;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-md);
   width: 100%;
 }
 
@@ -45,7 +45,7 @@
 .table th {
   background: var(--bg-panel);
   color: var(--text-faint);
-  font-size: 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -98,7 +98,7 @@
 .empty {
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--text-md);
   padding: 24px;
   text-align: center;
 }

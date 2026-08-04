@@ -51,26 +51,27 @@ fn events_order(rows: Vec<Row>) -> Vec<Row> {
 /// Start watchers for every kind and register their tasks with the manager so
 /// they are aborted on disconnect/context-switch. Returns the number started.
 pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
+    let mut count: usize = 0;
     // Each line pairs a typed resource with its mapper (the column contract) and
     // a snapshot post-processor (ordering/capping; identity for most kinds).
-    spawn::<Pod>(mgr, &client, ResourceKind::Pods, mappers::map_pod, identity).await;
-    spawn::<Deployment>(mgr, &client, ResourceKind::Deployments, mappers::map_deployment, identity).await;
-    spawn::<ReplicaSet>(mgr, &client, ResourceKind::Replicasets, mappers::map_replicaset, identity).await;
-    spawn::<StatefulSet>(mgr, &client, ResourceKind::Statefulsets, mappers::map_statefulset, identity).await;
-    spawn::<DaemonSet>(mgr, &client, ResourceKind::Daemonsets, mappers::map_daemonset, identity).await;
-    spawn::<Job>(mgr, &client, ResourceKind::Jobs, mappers::map_job, identity).await;
-    spawn::<CronJob>(mgr, &client, ResourceKind::Cronjobs, mappers::map_cronjob, identity).await;
-    spawn::<Service>(mgr, &client, ResourceKind::Services, mappers::map_service, identity).await;
-    spawn::<Ingress>(mgr, &client, ResourceKind::Ingresses, mappers::map_ingress, identity).await;
-    spawn::<IngressClass>(mgr, &client, ResourceKind::Ingressclasses, mappers::map_ingressclass, identity).await;
-    spawn::<ConfigMap>(mgr, &client, ResourceKind::Configmaps, mappers::map_configmap, identity).await;
-    spawn::<Secret>(mgr, &client, ResourceKind::Secrets, mappers::map_secret, identity).await;
-    spawn::<ServiceAccount>(mgr, &client, ResourceKind::Serviceaccounts, mappers::map_serviceaccount, identity).await;
-    spawn::<PersistentVolumeClaim>(mgr, &client, ResourceKind::Persistentvolumeclaims, mappers::map_pvc, identity).await;
-    spawn::<PersistentVolume>(mgr, &client, ResourceKind::Persistentvolumes, mappers::map_pv, identity).await;
-    spawn::<StorageClass>(mgr, &client, ResourceKind::Storageclasses, mappers::map_storageclass, identity).await;
-    spawn::<Node>(mgr, &client, ResourceKind::Nodes, mappers::map_node, identity).await;
-    spawn::<Namespace>(mgr, &client, ResourceKind::Namespaces, mappers::map_namespace, identity).await;
+    spawn::<Pod>(mgr, &client, ResourceKind::Pods, mappers::map_pod, identity).await; count += 1;
+    spawn::<Deployment>(mgr, &client, ResourceKind::Deployments, mappers::map_deployment, identity).await; count += 1;
+    spawn::<ReplicaSet>(mgr, &client, ResourceKind::Replicasets, mappers::map_replicaset, identity).await; count += 1;
+    spawn::<StatefulSet>(mgr, &client, ResourceKind::Statefulsets, mappers::map_statefulset, identity).await; count += 1;
+    spawn::<DaemonSet>(mgr, &client, ResourceKind::Daemonsets, mappers::map_daemonset, identity).await; count += 1;
+    spawn::<Job>(mgr, &client, ResourceKind::Jobs, mappers::map_job, identity).await; count += 1;
+    spawn::<CronJob>(mgr, &client, ResourceKind::Cronjobs, mappers::map_cronjob, identity).await; count += 1;
+    spawn::<Service>(mgr, &client, ResourceKind::Services, mappers::map_service, identity).await; count += 1;
+    spawn::<Ingress>(mgr, &client, ResourceKind::Ingresses, mappers::map_ingress, identity).await; count += 1;
+    spawn::<IngressClass>(mgr, &client, ResourceKind::Ingressclasses, mappers::map_ingressclass, identity).await; count += 1;
+    spawn::<ConfigMap>(mgr, &client, ResourceKind::Configmaps, mappers::map_configmap, identity).await; count += 1;
+    spawn::<Secret>(mgr, &client, ResourceKind::Secrets, mappers::map_secret, identity).await; count += 1;
+    spawn::<ServiceAccount>(mgr, &client, ResourceKind::Serviceaccounts, mappers::map_serviceaccount, identity).await; count += 1;
+    spawn::<PersistentVolumeClaim>(mgr, &client, ResourceKind::Persistentvolumeclaims, mappers::map_pvc, identity).await; count += 1;
+    spawn::<PersistentVolume>(mgr, &client, ResourceKind::Persistentvolumes, mappers::map_pv, identity).await; count += 1;
+    spawn::<StorageClass>(mgr, &client, ResourceKind::Storageclasses, mappers::map_storageclass, identity).await; count += 1;
+    spawn::<Node>(mgr, &client, ResourceKind::Nodes, mappers::map_node, identity).await; count += 1;
+    spawn::<Namespace>(mgr, &client, ResourceKind::Namespaces, mappers::map_namespace, identity).await; count += 1;
     // Phase 2 Tier-2: HPA (HorizontalPodAutoscaler) — namespaced, autoscaling/v1.
     // Uses DynamicObject path because map_hpa expects DynamicObject (same as
     // NetworkPolicy, ResourceQuota, LimitRange — their mappers are written
@@ -86,15 +87,127 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
             run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_hpa).await;
         });
         mgr.push_task(handle).await;
+        count += 1;
+    }
+    // RBAC resources — DynamicObject-based watchers.
+    {
+        let kind = ResourceKind::Roles;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_role).await;
+        });
+        mgr.push_task(handle).await;
+        count += 1;
+    }
+    {
+        let kind = ResourceKind::Clusterroles;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_clusterrole).await;
+        });
+        mgr.push_task(handle).await;
+        count += 1;
+    }
+    {
+        let kind = ResourceKind::Rolebindings;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_rolebinding).await;
+        });
+        mgr.push_task(handle).await;
+        count += 1;
+    }
+    {
+        let kind = ResourceKind::Clusterrolebindings;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_clusterrolebinding).await;
+        });
+        mgr.push_task(handle).await;
+        count += 1;
+    }
+    // PDB — DynamicObject-based watcher.
+    {
+        let kind = ResourceKind::Poddisruptionbudgets;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_pdb).await;
+        });
+        mgr.push_task(handle).await;
+        count += 1;
+    }
+    // MutatingWebhookConfiguration — DynamicObject-based watcher.
+    {
+        let kind = ResourceKind::Mutatingwebhookconfigurations;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_mutating_webhook).await;
+        });
+        mgr.push_task(handle).await;
+        count += 1;
+    }
+    // ValidatingWebhookConfiguration — DynamicObject-based watcher.
+    {
+        let kind = ResourceKind::Validatingwebhookconfigurations;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_validating_webhook).await;
+        });
+        mgr.push_task(handle).await;
+        count += 1;
+    }
+    // APIService — DynamicObject-based watcher.
+    {
+        let kind = ResourceKind::Apiservices;
+        let ar = kind.api_resource();
+        let namespaced = kind.is_namespaced();
+        let sink = mgr.sink();
+        let client_clone = client.clone();
+        let id = kind.id().to_string();
+        let handle = tokio::spawn(async move {
+            run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_api_service).await;
+        });
+        mgr.push_task(handle).await;
+        count += 1;
     }
     // Cluster-wide events feed: ordered Warnings-first/newest and capped (B14).
     spawn::<Event>(mgr, &client, ResourceKind::Events, mappers::map_event, events_order).await;
+    count += 1;
     // Helm releases, decoded from their Secrets (B26).
     let sink = mgr.sink();
     let helm_client = client.clone();
     let handle = tokio::spawn(async move { run_helm_watcher(helm_client, sink).await });
     mgr.push_task(handle).await;
-    21
+    count += 1;
+    count
 }
 
 /// Spawn one watcher task and register it with the manager.

@@ -51,12 +51,16 @@ export interface Dictionary {
         imageRepos: string;
         imageImport: string;
         templates: string;
+        diff: string;
         dashboard: string;
         metrics: string;
         grafana: string;
         endpoints: string;
         topology: string;
         alerting: string;
+        audit: string;
+        ingressEditor: string;
+        ingressRoutes: string;
         observability: string;
         images: string;
         close: string;
@@ -118,6 +122,7 @@ export interface Dictionary {
         imageRepos: string;
         imageImport: string;
         templates: string;
+        diff: string;
       };
       /** Right-aligned hint for an app-level action (settings, import). */
       actionHintApp: string;
@@ -242,6 +247,8 @@ export interface Dictionary {
       generic: (id: string, what: string, names: string) => string;
       /** "Rollback <what> to its previous revision?" */
       rollback: (what: string) => string;
+      /** "Rollback Helm release <what>?" */
+      rollbackHelm: (what: string) => string;
     };
     scope: (n: number, what: string) => string;
     scaleForm: {
@@ -259,6 +266,12 @@ export interface Dictionary {
       applying: string;
       /** Inline hint next to the port input ("port" / "端口"). */
       portLabel: string;
+    };
+    rollbackForm: {
+      helmTitle: (name: string) => string;
+      loadingHistory: string;
+      applying: string;
+      rollbackTo: (rev: string) => string;
     };
     /** In-flight indicator on the confirm buttons (Delete / Restart / Drain). */
     confirming: string;
@@ -762,12 +775,16 @@ export const en: Dictionary = {
         imageRepos: "Image Registries",
         imageImport: "Image Import",
         templates: "Templates",
+        diff: "Diff",
         dashboard: "Dashboard",
         metrics: "PromQL",
         grafana: "Grafana",
         endpoints: "Endpoints",
         topology: "Service Topology",
         alerting: "Alerting",
+        audit: "Audit",
+        ingressEditor: "Ingress Editor",
+        ingressRoutes: "Ingress Routes",
         observability: "Observability",
         images: "Images",
         close: "Click to close",
@@ -825,6 +842,7 @@ export const en: Dictionary = {
         imageRepos: "Image Registries",
         imageImport: "Image Import",
         templates: "Templates",
+        diff: "Diff",
       },
       actionHintApp: "app",
       actionHintNode: "node",
@@ -955,6 +973,8 @@ export const en: Dictionary = {
       generic: (id, what, names) => `${id} ${what}?${names}`,
       rollback: (what) =>
         `Roll ${what} back to its previous revision? The controller will roll through its normal update strategy.`,
+      rollbackHelm: (what) =>
+        `Rollback Helm release ${what}? Select a target revision from the history.`,
     },
     scope: (n, what) => `${n} ${what} selected`,
     scaleForm: {
@@ -968,6 +988,12 @@ export const en: Dictionary = {
       apply: "Forward",
       applying: "Forwarding…",
       portLabel: "port",
+    },
+    rollbackForm: {
+      helmTitle: (name) => `Rollback ${name}`,
+      loadingHistory: "Loading revision history…",
+      applying: "Rolling back…",
+      rollbackTo: (rev) => `Rollback to ${rev}`,
     },
     confirming: "…",
     bulk: {
@@ -1428,12 +1454,16 @@ export const zh: Dictionary = {
         imageRepos: "镜像仓库",
         imageImport: "镜像导入",
         templates: "模板",
+        diff: "对比",
         dashboard: "总览",
         metrics: "指标查询",
         grafana: "Grafana",
         endpoints: "Endpoints",
         topology: "服务拓扑",
         alerting: "告警",
+        audit: "审计日志",
+        ingressEditor: "Ingress 编辑器",
+        ingressRoutes: "Ingress 路由",
         observability: "可观测性",
         images: "镜像",
         close: "点击关闭",
@@ -1496,6 +1526,7 @@ export const zh: Dictionary = {
         imageRepos: "镜像仓库",
         imageImport: "镜像导入",
         templates: "模板",
+        diff: "对比",
       },
       actionHintApp: "应用",
       actionHintNode: "节点",
@@ -1623,6 +1654,7 @@ export const zh: Dictionary = {
       uncordon: (what, names) => `允许调度 ${what}?${names}`,
       generic: (id, what, names) => `${id} ${what}?${names}`,
       rollback: (what) => `回滚 ${what} 到上一修订版本?控制器将按正常更新策略滚动更新。`,
+      rollbackHelm: (what) => `回滚 Helm Release ${what}?将选择一个历史版本进行回滚。`,
     },
     scope: (n, what) => `已选 ${n} 个 ${what}`,
     scaleForm: {
@@ -1636,6 +1668,12 @@ export const zh: Dictionary = {
       apply: "开始转发",
       applying: "正在转发…",
       portLabel: "端口",
+    },
+    rollbackForm: {
+      helmTitle: (name) => `回滚 ${name}`,
+      loadingHistory: "加载修订历史…",
+      applying: "正在回滚…",
+      rollbackTo: (rev) => `回滚到 ${rev}`,
     },
     confirming: "…",
     bulk: {

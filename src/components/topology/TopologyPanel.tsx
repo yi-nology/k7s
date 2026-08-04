@@ -1,22 +1,11 @@
 /**
- * TopologyPanel — a Service → Endpoints → Pod → Container relationship
- * graph (Phase 1 Tier-2 of KubePi parity).
- *
- * This is the "ingress-relationship-chart" port: a list view of Services
- * where clicking one fetches its EndpointSlices and the pods those slices
- * point to. We use a card list rather than a true graph layout because
- * the chart in k7s is a single Service at a time, not the whole
- * cluster at once — graph layout is the next step.
- *
- * Why this exists separately: the "what is this Service pointing at"
- * question is the most common debugging pivot, and answering it takes
- * one click here vs. the three-clicks-plus-eyeballs it takes in
- * kubectl. The card layout also reads better on a small window than
- * a force-directed graph would.
+ * TopologyPanel -- wraps the d3 force-directed graph with a slim sidebar
+ * (the Service list), a search box, a header, and a health summary bar.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getProvider } from "../../providers";
 import type { EndpointRow } from "../../providers/types";
+import { useStore } from "../../store";
 import { useTranslation } from "../../hooks/useI18n";
 import { TopologyGraph } from "./TopologyGraph";
 import styles from "./TopologyPanel.module.css";
@@ -27,25 +16,41 @@ interface ServiceTopology {
   slices: EndpointRow[];
 }
 
-/**
- * TopologyPanel — wraps the d3 force-directed graph with a slim sidebar
- * (the Service list) and a header. The previous "card list" implementation
- * lived here too; it was replaced by TopologyGraph because the card
- * layout doesn't scale to whole-cluster views. The sidebar is still
- * handy for finding a Service by name and seeing at a glance which
- * ones have ready backends.
- */
+interface HealthSummary {
+  total: number;
+  healthy: number;
+  unhealthy: number;
+  unknown: number;
+}
+
 export function TopologyPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const [services, setServices] = useState<ServiceTopology[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [focusedService, setFocusedService] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [health, setHealth] = useState<HealthSummary>({
+    total: 0,
+    healthy: 0,
+    unhealthy: 0,
+    unknown: 0,
+  });
+
+  const rows = useStore((s) => s.rows);
 
   useEffect(() => {
     let cancelled = false;
-    getProvider()
-      .listEndpoints()
-      .then((all) => {
+    (async () => {
+      try {
+        // Primary: EndpointSlice-based.
+        let all: EndpointRow[] = [];
+        try {
+          all = await getProvider().listEndpoints();
+        } catch {
+          // EndpointSlice API unavailable -- fall through.
+        }
         if (cancelled) return;
+
         const byService = new Map<string, ServiceTopology>();
         for (const slc of all) {
           if (!slc.service) continue;
@@ -61,15 +66,84 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
           }
           entry.slices.push(slc);
         }
-        setServices([...byService.values()].sort((a, b) =>
-          a.service.localeCompare(b.service),
-        ));
-      })
-      .catch((e: unknown) => !cancelled && setError(String(e)));
+
+        // Fallback: build from Services + Pods when no EndpointSlices.
+        if (byService.size === 0) {
+          const svcRows = rows.services ?? [];
+          const podRows = rows.pods ?? [];
+          for (const svc of svcRows) {
+            const ns = svc.namespace ?? "";
+            const selector = svc.selector ?? {};
+            const hasSelector = Object.keys(selector).length > 0;
+            const matchingPods = podRows.filter((p) => {
+              if (p.namespace !== ns) return false;
+              if (hasSelector) {
+                return Object.entries(selector).every(
+                  ([k, v]) => p.labels?.[k] === v,
+                );
+              }
+              const labels = p.labels ?? {};
+              return (
+                labels["app"] === svc.name ||
+                labels["app.kubernetes.io/name"] === svc.name
+              );
+            });
+            byService.set(`${ns}/${svc.name}`, {
+              service: svc.name,
+              namespace: ns,
+              slices: matchingPods.map((p) => ({
+                name: p.name,
+                namespace: ns,
+                service: svc.name,
+                ready: p.pod?.status === "Running" ? 1 : 0,
+                total: 1,
+                addresses: [],
+                age: "",
+              })),
+            });
+          }
+        }
+
+        if (!cancelled) {
+          setServices(
+            [...byService.values()].sort((a, b) =>
+              a.service.localeCompare(b.service),
+            ),
+          );
+        }
+      } catch (e: unknown) {
+        if (!cancelled) setError(String(e));
+      }
+    })();
     return () => {
       cancelled = true;
     };
+  }, [rows.services, rows.pods]);
+
+  const handleServiceClick = (svc: ServiceTopology) => {
+    const id = `svc:${svc.namespace}/${svc.service}`;
+    setFocusedService(id);
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+  };
+
+  const handleHealthChange = useCallback((h: HealthSummary) => {
+    setHealth(h);
   }, []);
+
+  // Filter sidebar services by search query.
+  const filteredServices =
+    searchQuery.trim() === ""
+      ? services
+      : services.filter((s) =>
+          s.service.toLowerCase().includes(searchQuery.toLowerCase()),
+        );
 
   return (
     <div className={styles.panel}>
@@ -82,35 +156,100 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
         )}
       </header>
       {error && <div className={styles.error}>{error}</div>}
+
+      {/* Health summary bar */}
+      <div className={styles.healthBar}>
+        <div className={styles.healthItem}>
+          <span className={styles.healthCount}>{health.total}</span>
+          <span className={styles.healthLabel}>
+            {t("topology.health.total", "Total")}
+          </span>
+        </div>
+        <div className={styles.healthSeparator} />
+        <div className={styles.healthItem}>
+          <span className={styles.healthCount} style={{ color: "var(--status-ok, #34d399)" }}>
+            {health.healthy}
+          </span>
+          <span className={styles.healthLabel}>
+            {t("topology.health.healthy", "Healthy")}
+          </span>
+        </div>
+        <div className={styles.healthItem}>
+          <span className={styles.healthCount} style={{ color: "var(--status-err, #ef4444)" }}>
+            {health.unhealthy}
+          </span>
+          <span className={styles.healthLabel}>
+            {t("topology.health.unhealthy", "Unhealthy")}
+          </span>
+        </div>
+        <div className={styles.healthItem}>
+          <span className={styles.healthCount} style={{ color: "var(--text-muted, #64748b)" }}>
+            {health.unknown}
+          </span>
+          <span className={styles.healthLabel}>
+            {t("topology.health.unknown", "Unknown")}
+          </span>
+        </div>
+      </div>
+
       <div className={styles.body}>
         <aside className={styles.side}>
+          {/* Search box */}
+          <div className={styles.searchWrap}>
+            <input
+              className={styles.searchInput}
+              type="text"
+              placeholder={t("topology.search.placeholder", "Filter services...")}
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                className={styles.searchClear}
+                onClick={clearSearch}
+                title={t("topology.search.clear", "Clear")}
+              >
+                &times;
+              </button>
+            )}
+          </div>
+
           <h3 className={styles.colHeader}>
             {t("topology.col.service", "Service")}
           </h3>
-          {services.length === 0 ? (
+          {filteredServices.length === 0 ? (
             <div className={styles.empty}>
               {t("topology.empty", "No services with endpoints")}
             </div>
           ) : (
             <ul className={styles.list}>
-              {services.map((s) => (
-                <li
-                  key={`${s.namespace}/${s.service}`}
-                  className={styles.item}
-                >
-                  <div className={styles.itemName}>{s.service}</div>
-                  <div className={styles.itemMeta}>
-                    {s.namespace} · {s.slices.length} slice
-                    {s.slices.length === 1 ? "" : "s"} ·{" "}
-                    {s.slices.reduce((n, sl) => n + sl.ready, 0)} ready
-                  </div>
-                </li>
-              ))}
+              {filteredServices.map((s) => {
+                const id = `svc:${s.namespace}/${s.service}`;
+                const isFocused = focusedService === id;
+                return (
+                  <li
+                    key={`${s.namespace}/${s.service}`}
+                    className={`${styles.item} ${isFocused ? styles.itemFocused : ""}`}
+                    onClick={() => handleServiceClick(s)}
+                  >
+                    <div className={styles.itemName}>{s.service}</div>
+                    <div className={styles.itemMeta}>
+                      {s.namespace} &middot; {s.slices.length} slice
+                      {s.slices.length === 1 ? "" : "s"} &middot;{" "}
+                      {s.slices.reduce((n, sl) => n + sl.ready, 0)} ready
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </aside>
         <main className={styles.main}>
-          <TopologyGraph />
+          <TopologyGraph
+            focusedService={focusedService}
+            searchQuery={searchQuery}
+            onHealthChange={handleHealthChange}
+          />
         </main>
       </div>
     </div>

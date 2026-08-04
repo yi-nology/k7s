@@ -204,6 +204,10 @@ pub struct Alert {
     pub description: String,
     pub active_at: String,
     pub labels: HashMap<String, String>,
+    /// URL to the alert source (Grafana/Prometheus).
+    pub generator_url: String,
+    /// Comma-separated list of alertnames that inhibit this alert.
+    pub inhibited_by: String,
 }
 
 pub async fn list_alerts(name: &str) -> AppResult<Vec<Alert>> {
@@ -240,6 +244,16 @@ fn map_alert(v: serde_json::Value) -> Alert {
         })
         .unwrap_or_default();
     let annotations = v.get("annotations");
+    let inhibited_by: Vec<String> = v
+        .get("status")
+        .and_then(|s| s.get("inhibitedBy"))
+        .and_then(|a| a.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
     Alert {
         fingerprint: v
             .get("fingerprint")
@@ -270,6 +284,12 @@ fn map_alert(v: serde_json::Value) -> Alert {
             .unwrap_or("")
             .to_string(),
         labels,
+        generator_url: v
+            .get("generatorURL")
+            .and_then(|s| s.as_str())
+            .unwrap_or("")
+            .to_string(),
+        inhibited_by: inhibited_by.join(", "),
     }
 }
 
@@ -378,6 +398,254 @@ fn build_client() -> AppResult<reqwest::Client> {
         .user_agent("k7s/alertmanager")
         .build()
         .map_err(|e| AppError::Other(format!("build client: {e}")))
+}
+
+// ---------------------------------------------------------------------------
+// Silence management — create / delete (expire)
+// ---------------------------------------------------------------------------
+
+/// A matcher for creating a silence.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SilenceMatcher {
+    pub name: String,
+    pub value: String,
+    #[serde(default)]
+    pub is_regex: bool,
+}
+
+/// Payload for creating a silence via `POST /api/v2/silences`.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateSilenceRequest {
+    pub matchers: Vec<SilenceMatcher>,
+    pub comment: String,
+    pub created_by: String,
+    /// RFC3339 start time. Empty = now.
+    #[serde(default)]
+    pub starts_at: String,
+    /// RFC3339 end time (required).
+    pub ends_at: String,
+}
+
+/// The response from `POST /api/v2/silences` — contains the silenceID.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct SilenceResponse {
+    #[serde(rename = "silenceID")]
+    silence_id: String,
+}
+
+/// Create a silence on an AlertManager instance. Returns the silence ID.
+pub async fn create_silence(
+    name: &str,
+    request: &CreateSilenceRequest,
+) -> AppResult<String> {
+    let cfg = find(name)?;
+    let client = build_client()?;
+
+    let matchers: Vec<serde_json::Value> = request
+        .matchers
+        .iter()
+        .map(|m| {
+            serde_json::json!({
+                "name": m.name,
+                "value": m.value,
+                "isRegex": m.is_regex,
+                "isEqual": true,
+            })
+        })
+        .collect();
+
+    let starts_at = if request.starts_at.is_empty() {
+        chrono::Utc::now().to_rfc3339()
+    } else {
+        request.starts_at.clone()
+    };
+
+    let body = serde_json::json!({
+        "matchers": matchers,
+        "startsAt": starts_at,
+        "endsAt": request.ends_at,
+        "createdBy": request.created_by,
+        "comment": request.comment,
+    });
+
+    let url = format!("{}/api/v2/silences", cfg.url);
+    let mut req = client.post(&url).json(&body);
+    if !cfg.bearer_token.is_empty() {
+        req = req.bearer_auth(&cfg.bearer_token);
+    }
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("POST {url}: {e}")))?;
+    let status = resp.status();
+    if !status.is_success() {
+        let text = resp.text().await.unwrap_or_default();
+        return Err(AppError::Other(format!("{url}: HTTP {status}: {text}")));
+    }
+    let result: SilenceResponse = resp
+        .json()
+        .await
+        .map_err(|e| AppError::Other(format!("decode response: {e}")))?;
+    Ok(result.silence_id)
+}
+
+/// Delete (expire) a silence on an AlertManager instance.
+pub async fn delete_silence(name: &str, silence_id: &str) -> AppResult<()> {
+    let cfg = find(name)?;
+    let client = build_client()?;
+    let url = format!("{}/api/v2/silence/{}", cfg.url, silence_id);
+    let mut req = client.delete(&url);
+    if !cfg.bearer_token.is_empty() {
+        req = req.bearer_auth(&cfg.bearer_token);
+    }
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("DELETE {url}: {e}")))?;
+    let status = resp.status();
+    if !status.is_success() {
+        let text = resp.text().await.unwrap_or_default();
+        return Err(AppError::Other(format!("{url}: HTTP {status}: {text}")));
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Prometheus alert rules — via /api/v1/rules
+// ---------------------------------------------------------------------------
+
+/// One rule from Prometheus's `/api/v1/rules` response.
+#[derive(Clone, Debug, Serialize)]
+pub struct AlertRule {
+    pub name: String,
+    pub state: String,
+    pub severity: String,
+    pub query: String,
+    pub duration: f64,
+    pub labels: HashMap<String, String>,
+    pub annotations: HashMap<String, String>,
+}
+
+/// A group of rules.
+#[derive(Clone, Debug, Serialize)]
+pub struct RuleGroup {
+    pub name: String,
+    pub file: String,
+    pub interval: f64,
+    pub rules: Vec<AlertRule>,
+}
+
+/// Fetch alert rules from a Prometheus instance.
+pub async fn prometheus_rules(name: &str) -> AppResult<Vec<RuleGroup>> {
+    let cfg = crate::kube::metrics_config::find(name)?;
+    let client = build_client()?;
+    let url = format!("{}/api/v1/rules", cfg.url);
+    let mut req = client.get(&url);
+    if !cfg.username.is_empty() {
+        req = req.basic_auth(&cfg.username, Some(&cfg.password));
+    }
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("GET {url}: {e}")))?;
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(AppError::Other(format!("{url}: HTTP {status}")));
+    }
+    let raw: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| AppError::Other(format!("decode: {e}")))?;
+
+    let groups = raw
+        .get("data")
+        .and_then(|d| d.get("groups"))
+        .and_then(|g| g.as_array())
+        .cloned()
+        .unwrap_or_default();
+
+    Ok(groups
+        .iter()
+        .map(|g| {
+            let rules = g
+                .get("rules")
+                .and_then(|r| r.as_array())
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .filter(|r| {
+                    r.get("type")
+                        .and_then(|t| t.as_str())
+                        == Some("alerting")
+                })
+                .map(|r| {
+                    let labels: HashMap<String, String> = r
+                        .get("labels")
+                        .and_then(|l| l.as_object())
+                        .map(|m| {
+                            m.iter()
+                                .map(|(k, v)| {
+                                    (k.clone(), v.as_str().unwrap_or_default().to_string())
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let annotations: HashMap<String, String> = r
+                        .get("annotations")
+                        .and_then(|a| a.as_object())
+                        .map(|m| {
+                            m.iter()
+                                .map(|(k, v)| {
+                                    (k.clone(), v.as_str().unwrap_or_default().to_string())
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    AlertRule {
+                        name: r
+                            .get("name")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("?")
+                            .to_string(),
+                        state: r
+                            .get("state")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("inactive")
+                            .to_string(),
+                        severity: labels.get("severity").cloned().unwrap_or_default(),
+                        query: r
+                            .get("query")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        duration: r
+                            .get("duration")
+                            .and_then(|v| v.as_f64())
+                            .unwrap_or(0.0),
+                        labels,
+                        annotations,
+                    }
+                })
+                .collect();
+            RuleGroup {
+                name: g
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("?")
+                    .to_string(),
+                file: g
+                    .get("file")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                interval: g
+                    .get("interval")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0),
+                rules,
+            }
+        })
+        .collect())
 }
 
 #[cfg(test)]
