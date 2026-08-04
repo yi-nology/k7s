@@ -206,7 +206,7 @@ describe("renderTemplate() clampInt behaviour (number params)", () => {
       port: "99999",
     });
     expect(yaml).toMatch(/containerPort: 65535\b/);
-    expect(yaml).toMatch(/  - port: 65535\b/);
+    expect(yaml).toMatch(/ {2}- port: 65535\b/);
   });
 
   it("deployment.port=abc falls back to the param default (80)", () => {
@@ -230,10 +230,10 @@ describe("renderTemplate() ingress and configmap variants", () => {
     const yaml = renderTemplate(t.id, defaultValuesFor(t));
     expect(yaml).toMatch(/^apiVersion: networking\.k8s\.io\/v1$/m);
     expect(yaml).toMatch(/^kind: Ingress$/m);
-    expect(yaml).toMatch(/^  name: my-app-ingress$/m);
-    expect(yaml).toMatch(/^  namespace: default$/m);
-    expect(yaml).toMatch(/^  - host: app\.example\.com$/m);
-    expect(yaml).toMatch(/^      - path: \/$/m);
+    expect(yaml).toMatch(/^ {2}name: my-app-ingress$/m);
+    expect(yaml).toMatch(/^ {2}namespace: default$/m);
+    expect(yaml).toMatch(/^ {2}- host: app\.example\.com$/m);
+    expect(yaml).toMatch(/^ {6}- path: \/$/m);
   });
 
   it("configmap default values produce a valid ConfigMap document", () => {
@@ -241,16 +241,16 @@ describe("renderTemplate() ingress and configmap variants", () => {
     const yaml = renderTemplate(t.id, defaultValuesFor(t));
     expect(yaml).toMatch(/^apiVersion: v1$/m);
     expect(yaml).toMatch(/^kind: ConfigMap$/m);
-    expect(yaml).toMatch(/^  name: my-config$/m);
+    expect(yaml).toMatch(/^ {2}name: my-config$/m);
     expect(yaml).toMatch(/^data:$/m);
-    expect(yaml).toMatch(/^  log\.level: info$/m);
-    expect(yaml).toMatch(/^  feature\.flag: true$/m);
+    expect(yaml).toMatch(/^ {2}log\.level: info$/m);
+    expect(yaml).toMatch(/^ {2}feature\.flag: true$/m);
   });
 
   it("configmap empty name falls back to the default", () => {
     const t = getTemplate("configmap")!;
     const yaml = renderTemplate(t.id, { ...defaultValuesFor(t), name: "" });
-    expect(yaml).toMatch(/^  name: my-config$/m);
+    expect(yaml).toMatch(/^ {2}name: my-config$/m);
   });
 
   it("configmap custom key/value pair is rendered into the data map", () => {
@@ -260,7 +260,7 @@ describe("renderTemplate() ingress and configmap variants", () => {
       key1: "db.host",
       value1: "postgres.local",
     });
-    expect(yaml).toMatch(/^  db\.host: postgres\.local$/m);
+    expect(yaml).toMatch(/^ {2}db\.host: postgres\.local$/m);
   });
 });
 
@@ -283,10 +283,10 @@ describe("renderTemplate() — Bxx parity templates", () => {
     // (`clusterIP: None`), and its name + the StatefulSet's `serviceName`
     // must agree — that's how StatefulSet gives pods a stable DNS identity.
     expect(yaml).toMatch(/^kind: Service$/m);
-    expect(yaml).toMatch(/^  clusterIP: None$/m);
+    expect(yaml).toMatch(/^ {2}clusterIP: None$/m);
     expect(yaml).toMatch(/^kind: StatefulSet$/m);
-    expect(yaml).toMatch(/^  serviceName: my-app$/m);
-    expect(yaml).toMatch(/^  replicas: 3$/m);
+    expect(yaml).toMatch(/^ {2}serviceName: my-app$/m);
+    expect(yaml).toMatch(/^ {2}replicas: 3$/m);
   });
 
   it("daemonset renders a single DaemonSet document (no Service)", () => {
@@ -297,7 +297,7 @@ describe("renderTemplate() — Bxx parity templates", () => {
     const yaml = renderDefault("daemonset");
     expect(yaml).toMatch(/^kind: DaemonSet$/m);
     expect(yaml).not.toMatch(/^kind: Service$/m);
-    expect(yaml).toMatch(/^  namespace: kube-system$/m);
+    expect(yaml).toMatch(/^ {2}namespace: kube-system$/m);
   });
 
   it("job renders a Job with OnFailure restartPolicy (the only sensible default)", () => {
@@ -307,8 +307,8 @@ describe("renderTemplate() — Bxx parity templates", () => {
     const yaml = renderDefault("job");
     expect(yaml).toMatch(/^kind: Job$/m);
     expect(yaml).toMatch(/^apiVersion: batch\/v1$/m);
-    expect(yaml).toMatch(/^      restartPolicy: OnFailure$/m);
-    expect(yaml).toMatch(/^  completions: 1$/m);
+    expect(yaml).toMatch(/^ {6}restartPolicy: OnFailure$/m);
+    expect(yaml).toMatch(/^ {2}completions: 1$/m);
   });
 
   it("cronjob renders a CronJob with the schedule quoted", () => {
@@ -317,18 +317,18 @@ describe("renderTemplate() — Bxx parity templates", () => {
     // deliberately quotes the value.
     const yaml = renderDefault("cronjob");
     expect(yaml).toMatch(/^kind: CronJob$/m);
-    expect(yaml).toMatch(/^  schedule: "0 \* \* \* \*"$/m);
+    expect(yaml).toMatch(/^ {2}schedule: "0 \* \* \* \*"$/m);
   });
 
   it("service renders a ClusterIP Service with the user's selector", () => {
     const yaml = renderDefault("service");
     expect(yaml).toMatch(/^kind: Service$/m);
-    expect(yaml).toMatch(/^  type: ClusterIP$/m);
+    expect(yaml).toMatch(/^ {2}type: ClusterIP$/m);
     // The default selector is `my-app` (not `my-svc`) — the form's help text
     // makes clear the selector is the *workload's* pod label, not the
     // Service's name. Pinning `my-app` catches a future refactor that
     // accidentally inlines `name` here.
-    expect(yaml).toMatch(/^    app: my-app$/m);
+    expect(yaml).toMatch(/^ {4}app: my-app$/m);
   });
 
   it("secret renders an Opaque secret with stringData (not base64-encoded data)", () => {
@@ -344,9 +344,9 @@ describe("renderTemplate() — Bxx parity templates", () => {
   it("pvc renders a ReadWriteOnce claim with the chosen StorageClass", () => {
     const yaml = renderDefault("pvc");
     expect(yaml).toMatch(/^kind: PersistentVolumeClaim$/m);
-    expect(yaml).toMatch(/^  - ReadWriteOnce$/m);
-    expect(yaml).toMatch(/^  storageClassName: standard$/m);
-    expect(yaml).toMatch(/^      storage: 10Gi$/m);
+    expect(yaml).toMatch(/^ {2}- ReadWriteOnce$/m);
+    expect(yaml).toMatch(/^ {2}storageClassName: standard$/m);
+    expect(yaml).toMatch(/^ {6}storage: 10Gi$/m);
   });
 
   it("namespace renders a minimal Namespace manifest", () => {
@@ -355,7 +355,7 @@ describe("renderTemplate() — Bxx parity templates", () => {
     // in the YAML editor.
     const yaml = renderDefault("namespace");
     expect(yaml).toMatch(/^kind: Namespace$/m);
-    expect(yaml).toMatch(/^  name: my-namespace$/m);
+    expect(yaml).toMatch(/^ {2}name: my-namespace$/m);
     expect(yaml).not.toMatch(/^spec:$/m);
   });
 
@@ -478,12 +478,12 @@ describe("Template.extras integration (Bxx)", () => {
       labels: { app: "wiki", tier: "web" },
     };
     const yaml = renderTemplate(t.id, values);
-    expect(yaml).toMatch(/^      labels:$/m);
+    expect(yaml).toMatch(/^ {6}labels:$/m);
     // Sorted by key (the wizard sorts the editor for stability) — but
     // the renderer doesn't sort itself, it iterates the dict. We only
     // assert the keys are present, not their order.
-    expect(yaml).toMatch(/^        app: wiki$/m);
-    expect(yaml).toMatch(/^        tier: web$/m);
+    expect(yaml).toMatch(/^ {8}app: wiki$/m);
+    expect(yaml).toMatch(/^ {8}tier: web$/m);
   });
 
   it("user resources show up in `spec.template.spec.containers[0].resources`", () => {
@@ -495,10 +495,10 @@ describe("Template.extras integration (Bxx)", () => {
     const yaml = renderTemplate(t.id, values);
     // The block sits between `image:` and `ports:`, indented to match
     // the container's field column.
-    expect(yaml).toMatch(/^        resources:$/m);
-    expect(yaml).toMatch(/^          requests:$/m);
-    expect(yaml).toMatch(/^            cpu: 250m$/m);
-    expect(yaml).toMatch(/^            memory: 256Mi$/m);
+    expect(yaml).toMatch(/^ {8}resources:$/m);
+    expect(yaml).toMatch(/^ {10}requests:$/m);
+    expect(yaml).toMatch(/^ {12}cpu: 250m$/m);
+    expect(yaml).toMatch(/^ {12}memory: 256Mi$/m);
   });
 
   it("empty resources object omits the resources: block entirely", () => {
@@ -508,6 +508,6 @@ describe("Template.extras integration (Bxx)", () => {
       resources: {},
     };
     const yaml = renderTemplate(t.id, values);
-    expect(yaml).not.toMatch(/^        resources:$/m);
+    expect(yaml).not.toMatch(/^ {8}resources:$/m);
   });
 });

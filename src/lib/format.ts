@@ -30,7 +30,7 @@ export function formatAge(creationTs: string, now: number = Date.now()): string 
   if (Number.isNaN(start)) return "";
 
   // Clamp negatives (clock skew) to zero.
-  let secs = Math.max(0, Math.floor((now - start) / 1000));
+  const secs = Math.max(0, Math.floor((now - start) / 1000));
 
   const DAY = 86400;
   const HOUR = 3600;

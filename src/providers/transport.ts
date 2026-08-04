@@ -123,7 +123,7 @@ const sharedEventBus = (() => {
         l(payload);
       } catch (e) {
         // A buggy listener shouldn't take down its peers.
-        // eslint-disable-next-line no-console
+         
         console.error(`[transport] listener for "${event}" threw:`, e);
       }
     }
@@ -169,7 +169,7 @@ const sharedEventBus = (() => {
         }
       } catch (e) {
         if ((e as Error).name === "AbortError") return; // intentional
-        // eslint-disable-next-line no-console
+         
         console.warn(`[transport] SSE dropped, reconnecting:`, e);
         scheduleReconnect();
       }

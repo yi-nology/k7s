@@ -78,13 +78,13 @@ export function useTableKeys(
   // Clear the highlight when the kind changes (rows are a different set).
   useEffect(() => {
     setHighlight(-1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [resetKey]);
 
   // Keep the highlight in range as rows shrink (filter/live updates).
   useEffect(() => {
     if (hlRef.current >= rows.length) setHighlight(rows.length - 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [rows.length]);
 
   return highlight;

@@ -61,7 +61,7 @@ describe("connectTo — single call", () => {
 
   it("passes a non-Error throw through `String(e)`", async () => {
     const provider = providerWith(async () => {
-      // eslint-disable-next-line @typescript-eslint/no-throw-literal
+       
       throw "raw string";
     });
     await connectTo("A", provider);

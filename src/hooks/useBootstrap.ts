@@ -173,6 +173,6 @@ export function useBootstrap(): void {
       clearTimeout(saveTimer);
     };
     // Empty deps: run exactly once for the app's lifetime.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 }
