@@ -389,6 +389,75 @@
   font-family: var(--font-mono);
 }
 
+/* ---- Consolidated overview card (health ring + CPU/MEM bars) ---- */
+
+.overviewCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.overviewRing {
+  flex-shrink: 0;
+  height: 80px;
+  position: relative;
+  width: 80px;
+}
+
+.overviewStats {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.overviewMeta {
+  margin-bottom: 4px;
+}
+
+.overviewStat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overviewLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.overviewBar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-terminal);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.overviewFill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.overviewValue {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
 /* ---- Resource Quotas section ---- */
 
 .quotaSection {

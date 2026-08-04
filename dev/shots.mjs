@@ -36,7 +36,7 @@ const HEIGHT = 900;
 
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
-/** The six shots: a label, and the page script that puts the UI in that state. */
+/** The seven shots: a label, and the page script that puts the UI in that state. */
 const SHOTS = [
   {
     name: "01-pods-table",
@@ -69,6 +69,11 @@ const SHOTS = [
     caption: "node metrics",
     script: `nav("Nodes"); await sleep(400); row(0); await sleep(500); tab("Metrics");`,
   },
+  {
+    name: "07-dashboard",
+    caption: "dashboard",
+    script: `await openOverlay("dashboard"); await sleep(800);`,
+  },
 ];
 
 /** Helpers injected into the page; the app has no routing, so state is set by clicking. */
@@ -86,6 +91,10 @@ const HELPERS = `
     );
   const closePanel = () =>
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  const openOverlay = (key) => {
+    const labels = { dashboard: "Dashboard", metrics: "Metrics", grafana: "Grafana", topology: "Topology", alerting: "Alerting", audit: "Audit" };
+    leaf(labels[key] ?? key)?.click();
+  };
 `;
 
 // ---- minimal CDP client ----

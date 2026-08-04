@@ -62,7 +62,7 @@
   --text-muted:     #6E6E80; /* namespace/age cells, muted metadata */
   --text-faint:     #56566A; /* section headers, faint labels, empty state */
   --text-linenum:   #34343c; /* yaml line numbers (also scrollbar hover) */
-  --text-log-ts:    #4c4c55; /* log timestamp column */
+  --text-log-ts:    #5C5C66; /* log timestamp column */
   --text-nav-inactive: #9595A6; /* inactive nav item label */
 
   /* ================ Accent (Linear-style indigo) ================ */
@@ -175,6 +175,7 @@
 
   /* ================ TopBar glass ================ */
   --bg-topbar-glass: rgba(10, 10, 15, 0.72);
+  --bg-topbar-glass-light: rgba(10, 10, 15, 0.72);
 
   /* ================ Elevation ================ */
   --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.5);
@@ -380,5 +381,9 @@
   --shadow-glow:  0 0 0 3px var(--accent-soft);
 
   --gradient-badge: linear-gradient(135deg, #3A3A48 0%, #26262F 100%);
+  --glow-ok: rgba(78, 201, 176, 0.35);
+  --glow-warn: rgba(224, 175, 104, 0.35);
+  --glow-err: rgba(247, 118, 142, 0.4);
+  --bg-topbar-glass-light: rgba(10, 10, 15, 0.72);
   --bg-footer: rgba(0, 0, 0, 0.15);
 }

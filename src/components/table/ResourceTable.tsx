@@ -320,12 +320,12 @@ export function ResourceTable() {
         </button>
       </div>
       <div className={styles.wrap} ref={scrollRef}>
-        <table className={`${styles.table} ${virtual ? styles.tableFixed : ""}`}>
+        <table className={`${styles.table} ${styles.tableFixed}`}>
         {/* Fixed layout takes its widths from <col>, and divides the width
             equally when there are none — which would squeeze NAME to the same
-            share as RESTARTS. Only needed in the windowed path; auto layout
-            sizes to content on its own. */}
-        {virtual && (
+            share as RESTARTS. Always rendered so columns stay consistent
+            regardless of row count. */}
+        {(
           <colgroup>
             {columns.map((col) => (
               <col key={col} style={{ width: columnWidth(col) }} />
@@ -436,9 +436,9 @@ export function ResourceTable() {
 /**
  * Row height used by the windowing math (B21), and the single source of it: it's
  * applied to windowed rows inline, so the spacer arithmetic and the real layout
- * cannot disagree. The design's rows are 28px.
+ * cannot disagree. The design's rows are 26px.
  */
-const ROW_HEIGHT = 28;
+const ROW_HEIGHT = 26;
 
 /** Rows kept beyond each edge of the viewport, so fast scrolling stays filled. */
 const OVERSCAN = 20;
@@ -460,12 +460,12 @@ function headerHeight(scrollEl: HTMLElement): number {
 }
 
 /**
- * Width for a column in the windowed path, keyed by header name (B21).
+ * Width for a column, keyed by header name (B21).
  *
- * Windowing forces `table-layout: fixed`, which sizes columns from `<col>` and
- * splits the width *equally* when there are none — so without this, a pod name
- * would get the same share as its restart count. Auto layout does this by
- * measuring content, which is exactly what windowing takes away.
+ * `table-layout: fixed` sizes columns from `<col>` and splits the width
+ * *equally* when there are none — so without this, a pod name would get the
+ * same share as its restart count. NAME and MESSAGE use `"auto"` so they fill
+ * whatever space remains after the fixed-percentage columns.
  *
  * Names and free text get the room; short, bounded values get only what they
  * need. Anything unlisted (including CRD columns) falls back to a middling share.
@@ -474,7 +474,7 @@ function columnWidth(header: string): string {
   switch (header) {
     case "NAME":
     case "MESSAGE":
-      return "22%";
+      return "auto";
     case "OBJECT":
     case "HOSTS":
     case "IMAGE":

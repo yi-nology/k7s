@@ -940,7 +940,7 @@ const TEMPLATES: Template[] = [
         default: "default",
         kind: "text",
         help: "Namespace whose pods may send traffic. Leave empty to skip ingress rules.",
-        required: false,
+        required: true,
       },
       {
         key: "egressToNs",
@@ -948,7 +948,7 @@ const TEMPLATES: Template[] = [
         default: "",
         kind: "text",
         help: "Namespace whose pods may receive traffic. Leave empty to skip egress rules.",
-        required: false,
+        required: true,
       },
     ],
     render: (v) => {

@@ -125,17 +125,17 @@
   font-size: var(--text-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: var(--bg-app);
-  background: var(--accent);
-  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent-soft);
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.1s ease, border-color 0.1s ease;
 }
 .newBtn:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: var(--accent-softer);
+  border-color: var(--accent);
 }
 .newBtn:focus-visible {
   outline: 2px solid var(--accent);
@@ -195,6 +195,7 @@
    windowed table. Small tables keep auto layout and are unaffected. */
 .tableFixed {
   table-layout: fixed;
+  min-width: 900px;
 }
 .tableFixed .td {
   overflow: hidden;
@@ -238,7 +239,7 @@
 }
 
 .td {
-  padding: 11px 18px;
+  padding: 8px 18px;
   border-bottom: 1px solid var(--border-row);
   white-space: nowrap;
 }

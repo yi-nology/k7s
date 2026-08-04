@@ -7,6 +7,39 @@
  * prototype's `resourceDefs` and the Pods branch of its render (design/K8s Monitor.dc.html).
  */
 
+import type { ReactNode } from "react";
+import {
+  Circle,
+  Rocket,
+  Copy,
+  Layers,
+  RefreshCw,
+  Timer,
+  Clock,
+  TrendingUp,
+  Zap,
+  ArrowRightFromLine,
+  Network,
+  Shield,
+  FileText,
+  KeyRound,
+  User,
+  Gauge,
+  Database,
+  HardDrive,
+  FolderArchive,
+  Lock,
+  Link,
+  Server,
+  LayoutGrid,
+  Activity,
+  Package,
+  SlidersHorizontal,
+  ShieldAlert,
+  Webhook,
+  ServerCog,
+  Box,
+} from "lucide-react";
 import type { CustomKind, KindId, ResourceKind } from "../providers/types";
 
 // Re-export so consumers can pull the kind type and its metadata from one module.
@@ -39,8 +72,8 @@ export interface KindMeta {
   group: NavGroup;
   /** Sidebar + breadcrumb label, e.g. "StatefulSets". */
   label: string;
-  /** Unicode glyph icon (11px in the sidebar), per the prototype. */
-  icon: string;
+  /** Lucide icon element (14px in the sidebar). */
+  icon: ReactNode;
   /** Table column headers, in order. Row cells must align to this. */
   columns: string[];
 }
@@ -54,13 +87,13 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
   pods: {
     group: "workloads",
     label: "Pods",
-    icon: "◉",
+    icon: <Circle size={14} />,
     columns: ["NAME", "NAMESPACE", "READY", "RESTARTS", "CPU", "MEM", "AGE", "STATUS"],
   },
   deployments: {
     group: "workloads",
     label: "Deployments",
-    icon: "▲",
+    icon: <Rocket size={14} />,
     columns: ["NAME", "NAMESPACE", "READY", "UP-TO-DATE", "AVAILABLE", "CPU", "MEM", "AGE"],
   },
   // A Deployment's actual generation, and a pod's immediate owner — the object
@@ -68,64 +101,64 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
   replicasets: {
     group: "workloads",
     label: "ReplicaSets",
-    icon: "❐",
+    icon: <Copy size={14} />,
     columns: ["NAME", "NAMESPACE", "DESIRED", "CURRENT", "READY", "AGE"],
   },
   statefulsets: {
     group: "workloads",
     label: "StatefulSets",
-    icon: "≡",
+    icon: <Layers size={14} />,
     columns: ["NAME", "NAMESPACE", "READY", "CPU", "MEM", "AGE"],
   },
   daemonsets: {
     group: "workloads",
     label: "DaemonSets",
-    icon: "⦿",
+    icon: <RefreshCw size={14} />,
     columns: ["NAME", "NAMESPACE", "DESIRED", "READY", "CPU", "MEM", "AGE"],
   },
   jobs: {
     group: "workloads",
     label: "Jobs",
-    icon: "▸",
+    icon: <Timer size={14} />,
     columns: ["NAME", "NAMESPACE", "COMPLETIONS", "DURATION", "AGE"],
   },
   cronjobs: {
     group: "workloads",
     label: "CronJobs",
-    icon: "↻",
+    icon: <Clock size={14} />,
     columns: ["NAME", "NAMESPACE", "SCHEDULE", "LAST RUN", "AGE"],
   },
   // ---- Network ----
   services: {
     group: "network",
     label: "Services",
-    icon: "⇄",
+    icon: <Zap size={14} />,
     columns: ["NAME", "NAMESPACE", "TYPE", "CLUSTER-IP", "PORTS", "AGE"],
   },
   ingresses: {
     group: "network",
     label: "Ingresses",
-    icon: "⇥",
+    icon: <ArrowRightFromLine size={14} />,
     columns: ["NAME", "NAMESPACE", "HOSTS", "CLASS", "AGE"],
   },
   // Cluster-scoped; the default is marked in the NAME, as kubectl does.
   ingressclasses: {
     group: "network",
     label: "IngressClasses",
-    icon: "⇉",
+    icon: <Network size={14} />,
     columns: ["NAME", "CONTROLLER", "PARAMETERS", "AGE"],
   },
   // ---- Config ----
   configmaps: {
     group: "config",
     label: "ConfigMaps",
-    icon: "☰",
+    icon: <FileText size={14} />,
     columns: ["NAME", "NAMESPACE", "DATA", "AGE"],
   },
   secrets: {
     group: "config",
     label: "Secrets",
-    icon: "⚿",
+    icon: <KeyRound size={14} />,
     columns: ["NAME", "NAMESPACE", "TYPE", "DATA", "AGE"],
   },
   // The identity a pod runs as. Filed under Config rather than a group of its
@@ -135,7 +168,7 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
   serviceaccounts: {
     group: "config",
     label: "ServiceAccounts",
-    icon: "☺",
+    icon: <User size={14} />,
     columns: ["NAME", "NAMESPACE", "SECRETS", "AGE"],
   },
   // ---- Storage ----
@@ -144,34 +177,34 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
   persistentvolumeclaims: {
     group: "storage",
     label: "PersistentVolumeClaims",
-    icon: "⛁",
+    icon: <Database size={14} />,
     columns: ["NAME", "NAMESPACE", "STATUS", "VOLUME", "CAPACITY", "ACCESS", "CLASS", "AGE"],
   },
   // Cluster-scoped, so no NAMESPACE column — CLAIM carries "namespace/name".
   persistentvolumes: {
     group: "storage",
     label: "PersistentVolumes",
-    icon: "⛃",
+    icon: <HardDrive size={14} />,
     columns: ["NAME", "CAPACITY", "ACCESS", "RECLAIM", "STATUS", "CLAIM", "CLASS", "AGE"],
   },
   // Cluster-scoped. The default class is marked in the NAME, as kubectl does.
   storageclasses: {
     group: "storage",
     label: "StorageClasses",
-    icon: "▧",
+    icon: <FolderArchive size={14} />,
     columns: ["NAME", "PROVISIONER", "RECLAIM", "BINDING", "EXPANSION", "AGE"],
   },
   // ---- Cluster (cluster-scoped: no NAMESPACE column) ----
   nodes: {
     group: "cluster",
     label: "Nodes",
-    icon: "▢",
+    icon: <Server size={14} />,
     columns: ["NAME", "STATUS", "ROLES", "CPU", "MEMORY", "VERSION"],
   },
   namespaces: {
     group: "cluster",
     label: "Namespaces",
-    icon: "◫",
+    icon: <LayoutGrid size={14} />,
     columns: ["NAME", "STATUS", "PODS", "AGE"],
   },
   // Phase 2 Tier-2 of KubePi parity: NetworkPolicy / HPA / ResourceQuota /
@@ -182,74 +215,74 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
   networkpolicies: {
     group: "network",
     label: "NetworkPolicies",
-    icon: "▦",
+    icon: <Shield size={14} />,
     columns: ["NAME", "NAMESPACE", "POD_SELECTOR", "AGE"],
   },
   horizontalpodautoscalers: {
     group: "workloads",
     label: "HPAs",
-    icon: "↕",
+    icon: <TrendingUp size={14} />,
     columns: ["NAME", "NAMESPACE", "TARGET", "MIN", "MAX", "REPLICAS", "AGE"],
   },
   resourcequotas: {
     group: "config",
     label: "ResourceQuotas",
-    icon: "∑",
+    icon: <Gauge size={14} />,
     columns: ["NAME", "NAMESPACE", "HARD", "USED", "AGE"],
   },
   limitranges: {
     group: "config",
     label: "LimitRanges",
-    icon: "≤",
+    icon: <SlidersHorizontal size={14} />,
     columns: ["NAME", "NAMESPACE", "LIMITS", "AGE"],
   },
   // ---- Access (RBAC) ----
   roles: {
     group: "access",
     label: "Roles",
-    icon: "⚷",
+    icon: <Lock size={14} />,
     columns: ["NAME", "NAMESPACE", "AGE"],
   },
   clusterroles: {
     group: "access",
     label: "ClusterRoles",
-    icon: "⚷",
+    icon: <Lock size={14} />,
     columns: ["NAME", "AGE"],
   },
   rolebindings: {
     group: "access",
     label: "RoleBindings",
-    icon: "⚿",
+    icon: <Link size={14} />,
     columns: ["NAME", "NAMESPACE", "ROLE", "AGE"],
   },
   clusterrolebindings: {
     group: "access",
     label: "ClusterRoleBindings",
-    icon: "⚿",
+    icon: <Link size={14} />,
     columns: ["NAME", "ROLE", "AGE"],
   },
   poddisruptionbudgets: {
     group: "config",
     label: "PDBs",
-    icon: "⊡",
+    icon: <ShieldAlert size={14} />,
     columns: ["NAME", "NAMESPACE", "MIN AVAILABLE", "MAX UNAVAILABLE", "ALLOWED DISRUPTIONS", "AGE"],
   },
   mutatingwebhookconfigurations: {
     group: "config",
     label: "MutatingWebhooks",
-    icon: "⟁",
+    icon: <Webhook size={14} />,
     columns: ["NAME", "WEBHOOKS", "AGE"],
   },
   validatingwebhookconfigurations: {
     group: "config",
     label: "ValidatingWebhooks",
-    icon: "⟁",
+    icon: <Webhook size={14} />,
     columns: ["NAME", "WEBHOOKS", "AGE"],
   },
   apiservices: {
     group: "config",
     label: "APIServices",
-    icon: "⊡",
+    icon: <ServerCog size={14} />,
     columns: ["NAME", "SERVICE", "AVAILABLE", "AGE"],
   },
   // A read-only feed rather than a managed resource, but it lives in the Cluster
@@ -258,7 +291,7 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
   events: {
     group: "cluster",
     label: "Events",
-    icon: "☲",
+    icon: <Activity size={14} />,
     columns: ["TYPE", "REASON", "OBJECT", "NAMESPACE", "AGE", "COUNT", "MESSAGE"],
   },
   // ---- Helm (B26) ----
@@ -268,7 +301,7 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
   helm: {
     group: "helm",
     label: "Releases",
-    icon: "⎈",
+    icon: <Package size={14} />,
     columns: ["NAME", "NAMESPACE", "CHART", "APP VERSION", "REVISION", "STATUS", "UPDATED"],
   },
 };
@@ -294,11 +327,11 @@ const CLUSTER_SCOPED: ReadonlySet<string> = new Set<string>([
 export const GROUP_ORDER: NavGroup[] = [
   "workloads",
   "network",
+  "storage",
   "config",
   "access",
-  "storage",
-  "cluster",
   "helm",
+  "cluster",
   "custom",
 ];
 
@@ -482,7 +515,7 @@ export function navIdForKind(
 }
 
 /** Icon for every custom kind (they have no per-kind glyph of their own). */
-const CUSTOM_ICON = "◈";
+const CUSTOM_ICON = <Box size={14} />;
 
 /**
  * Generic columns for a CRD-backed kind. A CRD's schema is arbitrary, so there's
