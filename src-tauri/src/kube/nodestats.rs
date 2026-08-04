@@ -17,12 +17,12 @@
 
 use super::events;
 use super::exporter::{self, NodeSample, Sampler};
+use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::{Api, ListParams};
 use kube::{Client, ResourceExt};
 use serde::Serialize;
-use crate::core::events::EventSink;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{interval, Duration, MissedTickBehavior};
 
@@ -55,7 +55,10 @@ pub struct NodeStatsError {
 pub async fn find_exporter(client: Client, node: &str) -> AppResult<(String, String)> {
     let pods: Api<Pod> = Api::all(client);
     let lp = ListParams::default().fields(&format!("spec.nodeName={node},status.phase=Running"));
-    let list = pods.list(&lp).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let list = pods
+        .list(&lp)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
 
     for p in list.items {
         let serves_9100 = p
@@ -104,7 +107,11 @@ pub async fn run_node_stats(client: Client, sink: EventSink, node: String, every
         }
         Err(_) => {
             pf.abort();
-            return fail(&sink, &node, "port-forward ended before it was ready".into());
+            return fail(
+                &sink,
+                &node,
+                "port-forward ended before it was ready".into(),
+            );
         }
     };
 
@@ -133,7 +140,13 @@ pub async fn run_node_stats(client: Client, sink: EventSink, node: String, every
                 let raw = exporter::parse(&text, now_ms());
                 // The first scrape only establishes a baseline for the counters.
                 if let Some(sample) = sampler.push(raw) {
-                    let _ = sink.emit(events::NODE_STATS, &NodeStats { node: node.clone(), sample });
+                    sink.emit(
+                        events::NODE_STATS,
+                        &NodeStats {
+                            node: node.clone(),
+                            sample,
+                        },
+                    );
                 }
             }
             Err(e) => {
@@ -166,8 +179,13 @@ async fn scrape(http: &reqwest::Client, url: &str) -> Result<String, String> {
 /// Tell the UI why this node has no plots (best-effort).
 fn fail(sink: &EventSink, node: &str, message: String) {
     tracing::warn!("node stats for {node}: {message}");
-    let _ =
-        sink.emit(events::NODE_STATS_ERROR, &NodeStatsError { node: node.to_string(), message });
+    sink.emit(
+        events::NODE_STATS_ERROR,
+        &NodeStatsError {
+            node: node.to_string(),
+            message,
+        },
+    );
 }
 
 /// Epoch milliseconds.

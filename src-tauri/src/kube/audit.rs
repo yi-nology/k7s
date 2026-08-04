@@ -304,19 +304,22 @@ pub async fn query_audit_events(query: &AuditQuery) -> AppResult<Vec<AuditEvent>
 
         for entry in &values {
             // Each entry is [timestamp_ns, log_line]
-            let log_line = entry
-                .get(1)
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let log_line = entry.get(1).and_then(|v| v.as_str()).unwrap_or("");
             if let Some(event) = parse_audit_line(log_line) {
                 // Apply client-side filters
                 if !query.resource.is_empty()
-                    && !event.resource.to_lowercase().contains(&query.resource.to_lowercase())
+                    && !event
+                        .resource
+                        .to_lowercase()
+                        .contains(&query.resource.to_lowercase())
                 {
                     continue;
                 }
                 if !query.user.is_empty()
-                    && !event.user.to_lowercase().contains(&query.user.to_lowercase())
+                    && !event
+                        .user
+                        .to_lowercase()
+                        .contains(&query.user.to_lowercase())
                 {
                     continue;
                 }
@@ -333,7 +336,7 @@ fn parse_audit_line(line: &str) -> Option<AuditEvent> {
     let ts = v
         .get("requestReceivedTimestamp")
         .or_else(|| v.get("stageTimestamp"))
-        .or_else(|| v.get("auditID").and_then(|_| None))
+        .or_else(|| v.get("auditID").and(None))
         .and_then(|t| t.as_str())
         .unwrap_or("")
         .to_string();

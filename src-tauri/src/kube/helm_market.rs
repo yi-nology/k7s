@@ -39,8 +39,16 @@ use std::time::{Duration, SystemTime};
 /// Default well-known repos seeded on first run. The classic two — KubePi ships
 /// these by default too.
 pub const SEED_REPOS: &[(&str, &str, &str)] = &[
-    ("bitnami", "https://charts.bitnami.com/bitnami", "Bitnami catalog (broad coverage, well-tested defaults)"),
-    ("stable", "https://charts.helm.sh/stable", "Helm stable chart repository (community-maintained, frozen)"),
+    (
+        "bitnami",
+        "https://charts.bitnami.com/bitnami",
+        "Bitnami catalog (broad coverage, well-tested defaults)",
+    ),
+    (
+        "stable",
+        "https://charts.helm.sh/stable",
+        "Helm stable chart repository (community-maintained, frozen)",
+    ),
 ];
 
 /// How long a cached `index.yaml` is considered fresh. After this we re-fetch
@@ -154,7 +162,8 @@ fn config_dir() -> Option<PathBuf> {
     // hand-roll platform paths in commands.rs; doing the same here keeps the
     // project free of an extra dependency for a single call.
     #[cfg(target_os = "macos")]
-    return std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Application Support/k7s"));
+    return std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h).join("Library/Application Support/k7s"));
     #[cfg(target_os = "linux")]
     return std::env::var_os("XDG_CONFIG_HOME")
         .map(|p| PathBuf::from(p).join("k7s"))
@@ -167,11 +176,14 @@ fn config_dir() -> Option<PathBuf> {
 
 pub(crate) fn cache_dir() -> Option<PathBuf> {
     #[cfg(target_os = "macos")]
-    return std::env::var_os("HOME").map(|h| PathBuf::from(h).join("Library/Caches/k7s/helm-index"));
+    return std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h).join("Library/Caches/k7s/helm-index"));
     #[cfg(target_os = "linux")]
     return std::env::var_os("XDG_CACHE_HOME")
         .map(|p| PathBuf::from(p).join("k7s/helm-index"))
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/k7s/helm-index")));
+        .or_else(|| {
+            std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/k7s/helm-index"))
+        });
     #[cfg(target_os = "windows")]
     {
         std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("k7s/cache/helm-index"))
@@ -179,16 +191,17 @@ pub(crate) fn cache_dir() -> Option<PathBuf> {
 }
 
 fn repos_path() -> AppResult<PathBuf> {
-    let dir = config_dir()
-        .ok_or_else(|| AppError::Other("cannot resolve config directory (no HOME / XDG_CONFIG_HOME)".into()))?;
+    let dir = config_dir().ok_or_else(|| {
+        AppError::Other("cannot resolve config directory (no HOME / XDG_CONFIG_HOME)".into())
+    })?;
     std::fs::create_dir_all(&dir)
         .map_err(|e| AppError::Other(format!("create config dir {}: {e}", dir.display())))?;
     Ok(dir.join("helm-repos.json"))
 }
 
 fn index_path(repo: &str) -> AppResult<PathBuf> {
-    let dir = cache_dir()
-        .ok_or_else(|| AppError::Other("cannot resolve cache directory".into()))?;
+    let dir =
+        cache_dir().ok_or_else(|| AppError::Other("cannot resolve cache directory".into()))?;
     std::fs::create_dir_all(&dir)
         .map_err(|e| AppError::Other(format!("create cache dir {}: {e}", dir.display())))?;
     // Repo names can have slashes in OCI URLs; sanitise so they all map to a
@@ -214,7 +227,9 @@ fn read_repos_file() -> AppResult<Vec<HelmRepo>> {
 
 fn write_repos_file(repos: &[HelmRepo]) -> AppResult<()> {
     let path = repos_path()?;
-    let file = HelmRepoFile { repos: repos.to_vec() };
+    let file = HelmRepoFile {
+        repos: repos.to_vec(),
+    };
     let text = serde_json::to_string_pretty(&file)
         .map_err(|e| AppError::Other(format!("serialize repos: {e}")))?;
     // Atomic write: write to a sibling temp file, then rename. Avoids a half-
@@ -297,7 +312,9 @@ pub fn add_repo(name: &str, url: &str, description: &str) -> AppResult<HelmRepo>
     // resolve a chart — is just the repo's `name`. Helm itself forbids slashes
     // and spaces; we mirror that.
     if name.contains(['/', ' ', '\\']) {
-        return Err(AppError::Other("repo name must not contain '/', ' ', or '\\'".into()));
+        return Err(AppError::Other(
+            "repo name must not contain '/', ' ', or '\\'".into(),
+        ));
     }
     let mut repos = read_repos_file()?;
     if repos.iter().any(|r| r.name == name) {
@@ -411,7 +428,9 @@ pub fn search_charts(query: &str) -> AppResult<Vec<ChartSummary>> {
             if versions.is_empty() {
                 continue;
             }
-            let Some(latest) = versions.first() else { continue };
+            let Some(latest) = versions.first() else {
+                continue;
+            };
             if !q.is_empty() {
                 let hay = format!(
                     "{} {} {}",
@@ -447,10 +466,15 @@ pub fn chart_versions(repo: &str, chart: &str) -> AppResult<Vec<ChartVersionEntr
     let Some(r) = repos.iter().find(|r| r.name == repo) else {
         return Err(AppError::NotFound(format!("repo '{repo}' not found")));
     };
-    let index = load_index_if_fresh(&r.name, &r.url)
-        .ok_or_else(|| AppError::Other(format!("index for repo '{repo}' is stale or missing — refresh it first")))?;
+    let index = load_index_if_fresh(&r.name, &r.url).ok_or_else(|| {
+        AppError::Other(format!(
+            "index for repo '{repo}' is stale or missing — refresh it first"
+        ))
+    })?;
     let Some(versions) = index.entries.get(chart) else {
-        return Err(AppError::NotFound(format!("chart '{chart}' not in repo '{repo}'")));
+        return Err(AppError::NotFound(format!(
+            "chart '{chart}' not in repo '{repo}'"
+        )));
     };
     Ok(versions
         .iter()
@@ -505,9 +529,7 @@ async fn fetch_index(url: &str) -> AppResult<HelmIndex> {
             "OCI registries have no index.yaml — search not supported, install via the OCI URL directly".into(),
         ));
     }
-    let index_url = if url.ends_with("/index.yaml") {
-        url.to_string()
-    } else if url.ends_with("index.yaml") {
+    let index_url = if url.ends_with("/index.yaml") || url.ends_with("index.yaml") {
         url.to_string()
     } else {
         format!("{}/index.yaml", url.trim_end_matches('/'))
@@ -580,8 +602,8 @@ pub async fn export_chart(
     version: &str,
     output_dir: &str,
 ) -> AppResult<PathBuf> {
-    let helm = super::helm_ops::which_helm()
-        .ok_or_else(|| AppError::Other("helm not found".into()))?;
+    let helm =
+        super::helm_ops::which_helm().ok_or_else(|| AppError::Other("helm not found".into()))?;
 
     let output = std::path::PathBuf::from(output_dir);
     std::fs::create_dir_all(&output)
@@ -630,8 +652,7 @@ pub fn import_chart(file_path: &str, repo_name: &str) -> AppResult<PathBuf> {
         .map_err(|e| AppError::Other(format!("mkdir {}: {e}", cache_dir.display())))?;
 
     let dest = cache_dir.join(src.file_name().unwrap_or_default());
-    std::fs::copy(&src, &dest)
-        .map_err(|e| AppError::Other(format!("copy: {e}")))?;
+    std::fs::copy(&src, &dest).map_err(|e| AppError::Other(format!("copy: {e}")))?;
 
     Ok(dest)
 }

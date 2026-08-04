@@ -6,14 +6,14 @@
 //! The parser (splitting the RFC3339 prefix and detecting a level) is unit-tested.
 
 use super::events;
+use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
 use chrono::{DateTime, Utc};
+use futures::{AsyncBufReadExt, StreamExt};
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::{Api, LogParams};
 use kube::Client;
 use serde::Serialize;
-use futures::{AsyncBufReadExt, StreamExt};
-use crate::core::events::EventSink;
 use tokio::time::{interval, Duration};
 
 /// Flush cadence for batched log lines.
@@ -72,15 +72,18 @@ pub async fn run_log_stream(
     let result = if container.is_empty() {
         stream_all(client, &sink, &stream_id, &namespace, &pod, opts).await
     } else {
-        stream_one(client, &sink, &stream_id, &namespace, &pod, &container, opts).await
+        stream_one(
+            client, &sink, &stream_id, &namespace, &pod, &container, opts,
+        )
+        .await
     };
     match result {
         Ok(reason) => {
-            let _ = sink.emit(&closed_event, &reason);
+            sink.emit(&closed_event, &reason);
         }
         Err(e) => {
             // Surface the API error as the close reason so the UI can show it.
-            let _ = sink.emit(&closed_event, &e.to_string());
+            sink.emit(&closed_event, &e.to_string());
         }
     }
 }
@@ -149,15 +152,15 @@ async fn stream_one(
                     batch.push(line);
                 }
                 None => {
-                    flush_batch(&sink, &line_event, &mut batch);
+                    flush_batch(sink, &line_event, &mut batch);
                     return Ok("stream ended".to_string());
                 }
                 Some(Err(e)) => {
-                    flush_batch(&sink, &line_event, &mut batch);
+                    flush_batch(sink, &line_event, &mut batch);
                     return Err(AppError::Kube(e.to_string()));
                 }
             },
-            _ = flush.tick() => flush_batch(&sink, &line_event, &mut batch),
+            _ = flush.tick() => flush_batch(sink, &line_event, &mut batch),
         }
     }
 }
@@ -214,11 +217,11 @@ async fn stream_all(
             got = rx.recv() => match got {
                 Some(line) => batch.push(line),
                 None => {
-                    flush_batch(&sink, &line_event, &mut batch);
+                    flush_batch(sink, &line_event, &mut batch);
                     return Ok("stream ended".to_string());
                 }
             },
-            _ = flush.tick() => flush_batch(&sink, &line_event, &mut batch),
+            _ = flush.tick() => flush_batch(sink, &line_event, &mut batch),
         }
     }
 }
@@ -226,7 +229,12 @@ async fn stream_all(
 /// Emit and clear the batch if non-empty.
 fn flush_batch(sink: &EventSink, line_event: &str, batch: &mut Vec<LogLine>) {
     if !batch.is_empty() {
-        let _ = sink.emit(line_event, &LogBatch { lines: std::mem::take(batch) });
+        sink.emit(
+            line_event,
+            &LogBatch {
+                lines: std::mem::take(batch),
+            },
+        );
     }
 }
 
@@ -237,13 +245,21 @@ pub fn parse_log_line(raw: &str) -> LogLine {
     // kube prefixes "<rfc3339> <message>"; split on the first space.
     let (ts, msg) = match raw.split_once(' ') {
         Some((maybe_ts, rest)) => match DateTime::parse_from_rfc3339(maybe_ts) {
-            Ok(dt) => (dt.with_timezone(&Utc).format("%H:%M:%S%.3f").to_string(), rest),
+            Ok(dt) => (
+                dt.with_timezone(&Utc).format("%H:%M:%S%.3f").to_string(),
+                rest,
+            ),
             // No parseable timestamp: keep the whole line as the message.
             Err(_) => (String::new(), raw),
         },
         None => (String::new(), raw),
     };
-    LogLine { ts, level: detect_level(msg), msg: msg.to_string(), container: String::new() }
+    LogLine {
+        ts,
+        level: detect_level(msg),
+        msg: msg.to_string(),
+        container: String::new(),
+    }
 }
 
 /// Detect a log level from the message: a JSON `"level"` field first, then a
@@ -344,10 +360,22 @@ mod tests {
 
     #[test]
     fn detects_klog_style_levels() {
-        assert_eq!(parse_log_line("2026-07-15T13:04:05Z INFO started ok").level, "INFO");
-        assert_eq!(parse_log_line("2026-07-15T13:04:05Z ERROR boom").level, "ERROR");
-        assert_eq!(parse_log_line("2026-07-15T13:04:05Z WARN careful").level, "WARN");
-        assert_eq!(parse_log_line("2026-07-15T13:04:05Z DEBUG noisy").level, "DEBUG");
+        assert_eq!(
+            parse_log_line("2026-07-15T13:04:05Z INFO started ok").level,
+            "INFO"
+        );
+        assert_eq!(
+            parse_log_line("2026-07-15T13:04:05Z ERROR boom").level,
+            "ERROR"
+        );
+        assert_eq!(
+            parse_log_line("2026-07-15T13:04:05Z WARN careful").level,
+            "WARN"
+        );
+        assert_eq!(
+            parse_log_line("2026-07-15T13:04:05Z DEBUG noisy").level,
+            "DEBUG"
+        );
     }
 
     #[test]
@@ -378,7 +406,13 @@ mod tests {
     /// The default read follows the running container, seeded by tail.
     #[test]
     fn default_params_follow_the_current_container() {
-        let lp = log_params("app", &LogStreamOptions { tail: Some(200), ..Default::default() });
+        let lp = log_params(
+            "app",
+            &LogStreamOptions {
+                tail: Some(200),
+                ..Default::default()
+            },
+        );
         assert!(lp.follow);
         assert!(!lp.previous);
         assert_eq!(lp.tail_lines, Some(200));
@@ -390,9 +424,18 @@ mod tests {
     /// another line, so following it would hang the task instead of ending it.
     #[test]
     fn previous_never_follows() {
-        let lp = log_params("app", &LogStreamOptions { previous: true, ..Default::default() });
+        let lp = log_params(
+            "app",
+            &LogStreamOptions {
+                previous: true,
+                ..Default::default()
+            },
+        );
         assert!(lp.previous);
-        assert!(!lp.follow, "a terminated container is a snapshot, not a stream");
+        assert!(
+            !lp.follow,
+            "a terminated container is a snapshot, not a stream"
+        );
     }
 
     /// The API rejects since_time and since_seconds together, so only one is set.
@@ -427,7 +470,13 @@ mod tests {
     /// A window with no anchor is the plain "last 5 minutes" case.
     #[test]
     fn a_window_alone_sets_since_seconds() {
-        let lp = log_params("app", &LogStreamOptions { since_seconds: Some(300), ..Default::default() });
+        let lp = log_params(
+            "app",
+            &LogStreamOptions {
+                since_seconds: Some(300),
+                ..Default::default()
+            },
+        );
         assert_eq!(lp.since_seconds, Some(300));
         assert!(lp.since_time.is_none());
     }
@@ -436,7 +485,13 @@ mod tests {
     /// worst case is re-showing a few lines, which beats no logs at all.
     #[test]
     fn a_malformed_anchor_is_ignored() {
-        let lp = log_params("app", &LogStreamOptions { since_time: Some("nonsense".into()), ..Default::default() });
+        let lp = log_params(
+            "app",
+            &LogStreamOptions {
+                since_time: Some("nonsense".into()),
+                ..Default::default()
+            },
+        );
         assert!(lp.since_time.is_none());
         assert!(lp.follow);
     }

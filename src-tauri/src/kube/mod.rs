@@ -23,19 +23,19 @@ pub mod imageimport;
 pub mod imagerepo;
 pub mod logs;
 pub mod manager;
-pub mod metrics_config;
-pub mod pod_files;
-pub mod saved_queries;
-pub mod templates;
 pub mod mappers;
 pub mod metrics;
+pub mod metrics_config;
 pub mod nodeshell;
 pub mod nodestats;
+pub mod pod_files;
 pub mod portforward;
 pub mod promql;
 pub mod properties;
 pub mod restart;
 pub mod rollout;
+pub mod saved_queries;
+pub mod templates;
 pub mod watchers;
 
 use serde::{Deserialize, Serialize};
@@ -143,20 +143,32 @@ impl ResourceKind {
     /// The API group (e.g. "apps", "autoscaling", "" for core/v1).
     pub fn group(&self) -> &'static str {
         match self {
-            ResourceKind::Pods | ResourceKind::Services | ResourceKind::Configmaps
-            | ResourceKind::Secrets | ResourceKind::Serviceaccounts
-            | ResourceKind::Persistentvolumeclaims | ResourceKind::Persistentvolumes
-            | ResourceKind::Nodes | ResourceKind::Namespaces | ResourceKind::Events
-            | ResourceKind::Resourcequotas | ResourceKind::Limitranges => "",
-            ResourceKind::Deployments | ResourceKind::Replicasets
-            | ResourceKind::Statefulsets | ResourceKind::Daemonsets => "apps",
+            ResourceKind::Pods
+            | ResourceKind::Services
+            | ResourceKind::Configmaps
+            | ResourceKind::Secrets
+            | ResourceKind::Serviceaccounts
+            | ResourceKind::Persistentvolumeclaims
+            | ResourceKind::Persistentvolumes
+            | ResourceKind::Nodes
+            | ResourceKind::Namespaces
+            | ResourceKind::Events
+            | ResourceKind::Resourcequotas
+            | ResourceKind::Limitranges => "",
+            ResourceKind::Deployments
+            | ResourceKind::Replicasets
+            | ResourceKind::Statefulsets
+            | ResourceKind::Daemonsets => "apps",
             ResourceKind::Jobs | ResourceKind::Cronjobs => "batch",
-            ResourceKind::Ingresses | ResourceKind::Ingressclasses
+            ResourceKind::Ingresses
+            | ResourceKind::Ingressclasses
             | ResourceKind::Networkpolicies => "networking.k8s.io",
             ResourceKind::Storageclasses => "storage.k8s.io",
             ResourceKind::Horizontalpodautoscalers => "autoscaling",
-            ResourceKind::Roles | ResourceKind::Clusterroles
-            | ResourceKind::Rolebindings | ResourceKind::Clusterrolebindings => "rbac.authorization.k8s.io",
+            ResourceKind::Roles
+            | ResourceKind::Clusterroles
+            | ResourceKind::Rolebindings
+            | ResourceKind::Clusterrolebindings => "rbac.authorization.k8s.io",
             ResourceKind::Helm => "",
             ResourceKind::Poddisruptionbudgets => "policy",
             ResourceKind::Mutatingwebhookconfigurations
@@ -218,16 +230,20 @@ impl ResourceKind {
 
     /// Whether this kind is namespaced.
     pub fn is_namespaced(&self) -> bool {
-        match self {
-            ResourceKind::Nodes | ResourceKind::Persistentvolumes
-            | ResourceKind::Storageclasses | ResourceKind::Namespaces
-            | ResourceKind::Events | ResourceKind::Helm
-            | ResourceKind::Clusterroles | ResourceKind::Clusterrolebindings
-            | ResourceKind::Mutatingwebhookconfigurations
-            | ResourceKind::Validatingwebhookconfigurations
-            | ResourceKind::Apiservices => false,
-            _ => true,
-        }
+        !matches!(
+            self,
+            ResourceKind::Nodes
+                | ResourceKind::Persistentvolumes
+                | ResourceKind::Storageclasses
+                | ResourceKind::Namespaces
+                | ResourceKind::Events
+                | ResourceKind::Helm
+                | ResourceKind::Clusterroles
+                | ResourceKind::Clusterrolebindings
+                | ResourceKind::Mutatingwebhookconfigurations
+                | ResourceKind::Validatingwebhookconfigurations
+                | ResourceKind::Apiservices
+        )
     }
 
     /// Create an ApiResource for DynamicObject-based watchers.

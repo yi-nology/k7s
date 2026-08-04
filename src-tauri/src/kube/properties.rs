@@ -13,13 +13,14 @@
 
 use super::dto::{Cell, NavTarget, Tone};
 use super::helm;
+use super::ResourceKind;
 use crate::error::{AppError, AppResult};
 use k8s_openapi::api::apps::v1::{Deployment, ReplicaSet, StatefulSet};
 use k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler;
 use k8s_openapi::api::batch::v1::{CronJob, Job};
 use k8s_openapi::api::core::v1::{
-    ConfigMap, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod, ResourceQuota, Secret,
-    Service, ServiceAccount,
+    ConfigMap, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod, ResourceQuota,
+    Secret, Service, ServiceAccount,
 };
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use k8s_openapi::api::networking::v1::{Ingress, NetworkPolicy};
@@ -30,7 +31,6 @@ use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::api::{Api, ListParams};
 use kube::core::DynamicObject;
 use kube::{Client, ResourceExt};
-use super::ResourceKind;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -66,7 +66,10 @@ pub enum Body {
     /// A label/value grid (the "Overview" shape).
     Fields { fields: Vec<Field> },
     /// A table. The frontend shows the row count beside the section title.
-    Table { columns: Vec<String>, rows: Vec<Vec<Cell>> },
+    Table {
+        columns: Vec<String>,
+        rows: Vec<Vec<Cell>>,
+    },
     /// key=value chips (labels/annotations).
     Chips { chips: Vec<KeyValue> },
 }
@@ -131,7 +134,11 @@ impl Properties {
         if chips.is_empty() {
             return;
         }
-        self.push(Section { title: title.into(), empty_note: None, body: Body::Chips { chips } });
+        self.push(Section {
+            title: title.into(),
+            empty_note: None,
+            body: Body::Chips { chips },
+        });
     }
 }
 
@@ -159,12 +166,20 @@ fn muted(text: impl Into<String>) -> Cell {
 
 /// A field with a secondary-toned value.
 fn field(label: &str, value: impl Into<String>) -> Field {
-    Field { label: label.into(), value: c(value.into()), nav: None }
+    Field {
+        label: label.into(),
+        value: c(value.into()),
+        nav: None,
+    }
 }
 
 /// A field whose value carries a tone (e.g. a status).
 fn field_toned(label: &str, value: impl Into<String>, tone: Tone) -> Field {
-    Field { label: label.into(), value: Cell::new(value.into(), tone), nav: None }
+    Field {
+        label: label.into(),
+        value: Cell::new(value.into(), tone),
+        nav: None,
+    }
 }
 
 /// A cell naming another object that may not exist: link it when it does, say so
@@ -231,9 +246,17 @@ pub fn builtin_nav_id(kind: &str) -> Option<&'static str> {
 /// workload the user thinks of as the owner, and it stays the more useful
 /// destination even now that ReplicaSets are listed (B40). A bare ReplicaSet (no
 /// Deployment above it, or an RBAC-denied lookup) links to the ReplicaSet itself.
-pub async fn resolve_owner(client: &Client, namespace: &str, pod: &Pod) -> (String, Option<NavTarget>) {
+pub async fn resolve_owner(
+    client: &Client,
+    namespace: &str,
+    pod: &Pod,
+) -> (String, Option<NavTarget>) {
     let refs = pod.metadata.owner_references.as_ref();
-    let owner = refs.and_then(|o| o.iter().find(|r| r.controller == Some(true)).or_else(|| o.first()));
+    let owner = refs.and_then(|o| {
+        o.iter()
+            .find(|r| r.controller == Some(true))
+            .or_else(|| o.first())
+    });
     let Some(owner) = owner else {
         return (DASH.into(), None);
     };
@@ -262,7 +285,11 @@ pub async fn resolve_owner(client: &Client, namespace: &str, pod: &Pod) -> (Stri
         // the dead end it used to be.
         return (
             format!("ReplicaSet/{}", owner.name),
-            Some(NavTarget::namespaced("replicasets", namespace, owner.name.clone())),
+            Some(NavTarget::namespaced(
+                "replicasets",
+                namespace,
+                owner.name.clone(),
+            )),
         );
     }
 
@@ -272,7 +299,14 @@ pub async fn resolve_owner(client: &Client, namespace: &str, pod: &Pod) -> (Stri
         // shares the pod's namespace.
         Some(nav) => {
             let namespace = (nav != "nodes").then(|| namespace.to_string());
-            (display, Some(NavTarget { kind: nav.into(), namespace, name: owner.name.clone() }))
+            (
+                display,
+                Some(NavTarget {
+                    kind: nav.into(),
+                    namespace,
+                    name: owner.name.clone(),
+                }),
+            )
         }
         None => (display, None),
     }
@@ -280,16 +314,25 @@ pub async fn resolve_owner(client: &Client, namespace: &str, pod: &Pod) -> (Stri
 
 /// Map a BTreeMap of labels/annotations into a KeyValue list (sorted by BTreeMap).
 fn to_kv(map: Option<&BTreeMap<String, String>>) -> Vec<KeyValue> {
-    map.map(|m| m.iter().map(|(k, v)| KeyValue { key: k.clone(), value: v.clone() }).collect())
-        .unwrap_or_default()
+    map.map(|m| {
+        m.iter()
+            .map(|(k, v)| KeyValue {
+                key: k.clone(),
+                value: v.clone(),
+            })
+            .collect()
+    })
+    .unwrap_or_default()
 }
 
 /// Render a selector map as `k=v,k2=v2` (the form kubectl prints and accepts).
 fn selector_text(map: Option<&BTreeMap<String, String>>) -> String {
     match map {
-        Some(m) if !m.is_empty() => {
-            m.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(",")
-        }
+        Some(m) if !m.is_empty() => m
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join(","),
         _ => DASH.into(),
     }
 }
@@ -320,11 +363,7 @@ fn ready_tone(ready: i32, desired: i32) -> Tone {
 fn condition_tone(type_: &str, status: &str) -> Tone {
     let good_when_true = !matches!(
         type_,
-        "MemoryPressure"
-            | "DiskPressure"
-            | "PIDPressure"
-            | "NetworkUnavailable"
-            | "ReplicaFailure"
+        "MemoryPressure" | "DiskPressure" | "PIDPressure" | "NetworkUnavailable" | "ReplicaFailure"
     );
     match (status, good_when_true) {
         ("True", true) | ("False", false) => Tone::Good,
@@ -445,7 +484,10 @@ fn backend_port(p: Option<&k8s_openapi::api::networking::v1::ServiceBackendPort>
 /// isn't there is one of the most common ways this breaks.
 async fn gather_ingress(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<Ingress> = Api::namespaced(client.clone(), namespace);
-    let ing = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let ing = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = ing.spec.clone().unwrap_or_default();
     let mut props = Properties::default();
 
@@ -462,7 +504,11 @@ async fn gather_ingress(client: Client, namespace: &str, name: &str) -> AppResul
         .flatten()
         .flat_map(|r| r.http.iter().flat_map(|h| h.paths.iter()))
         .filter_map(|p| p.backend.service.as_ref())
-        .chain(spec.default_backend.iter().filter_map(|b| b.service.as_ref()))
+        .chain(
+            spec.default_backend
+                .iter()
+                .filter_map(|b| b.service.as_ref()),
+        )
         .map(|b| b.name.clone())
         .filter(|n| !n.is_empty())
         .collect::<std::collections::BTreeSet<_>>();
@@ -478,7 +524,10 @@ async fn gather_ingress(client: Client, namespace: &str, name: &str) -> AppResul
     }
 
     // ---- overview ----
-    let class = spec.ingress_class_name.clone().unwrap_or_else(|| DASH.into());
+    let class = spec
+        .ingress_class_name
+        .clone()
+        .unwrap_or_else(|| DASH.into());
     let default_backend = spec
         .default_backend
         .as_ref()
@@ -523,7 +572,11 @@ async fn gather_ingress(client: Client, namespace: &str, name: &str) -> AppResul
     let mut rule_rows: Vec<Vec<Cell>> = Vec::new();
     for rule in spec.rules.iter().flatten() {
         // No host is a catch-all, which kubectl prints as "*".
-        let host = rule.host.clone().filter(|h| !h.is_empty()).unwrap_or_else(|| "*".into());
+        let host = rule
+            .host
+            .clone()
+            .filter(|h| !h.is_empty())
+            .unwrap_or_else(|| "*".into());
         for path in rule.http.iter().flat_map(|h| h.paths.iter()) {
             let svc = path.backend.service.as_ref();
             let svc_name = svc.map(|b| b.name.clone()).unwrap_or_else(|| DASH.into());
@@ -572,7 +625,12 @@ async fn gather_ingress(client: Client, namespace: &str, name: &str) -> AppResul
             ]
         })
         .collect();
-    props.push_table("TLS", Some("no TLS — served over HTTP"), &["HOSTS", "SECRET"], tls_rows);
+    props.push_table(
+        "TLS",
+        Some("no TLS — served over HTTP"),
+        &["HOSTS", "SECRET"],
+        tls_rows,
+    );
 
     meta_sections(&mut props, &ing);
     Ok(props)
@@ -594,12 +652,20 @@ async fn gather_helm(client: Client, namespace: &str, name: &str) -> AppResult<P
     // Helm labels every release Secret with owner + release name; filtering here
     // avoids decoding every Secret in the namespace.
     let lp = ListParams::default().labels(&format!("owner=helm,name={name}"));
-    let secrets = api.list(&lp).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let secrets = api
+        .list(&lp)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
 
-    let releases: Vec<helm::Release> =
-        secrets.items.iter().filter_map(helm::decode_release).collect();
+    let releases: Vec<helm::Release> = secrets
+        .items
+        .iter()
+        .filter_map(helm::decode_release)
+        .collect();
     if releases.is_empty() {
-        return Err(AppError::NotFound(format!("no Helm release {name} in {namespace}")));
+        return Err(AppError::NotFound(format!(
+            "no Helm release {name} in {namespace}"
+        )));
     }
     Ok(build_helm_properties(releases))
 }
@@ -620,7 +686,11 @@ fn build_helm_properties(mut releases: Vec<helm::Release>) -> Properties {
         vec![
             field("chart", current.chart.clone()),
             field("app version", current.app_version.clone()),
-            field_toned("status", current.status.clone(), helm::status_tone(&current.status)),
+            field_toned(
+                "status",
+                current.status.clone(),
+                helm::status_tone(&current.status),
+            ),
             field("revision", current.revision.to_string()),
             Field {
                 label: "first deployed".into(),
@@ -679,7 +749,10 @@ fn build_helm_properties(mut releases: Vec<helm::Release>) -> Properties {
 
 async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let pods: Api<Pod> = Api::namespaced(client.clone(), namespace);
-    let pod = pods.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let pod = pods
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
 
     let spec = pod.spec.clone().unwrap_or_default();
     let status = pod.status.clone().unwrap_or_default();
@@ -698,7 +771,10 @@ async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResult<Pr
                 "node",
                 or_dash(spec.node_name.clone()),
                 // Nodes are cluster-scoped, so no namespace on the target.
-                spec.node_name.clone().filter(|n| !n.is_empty()).map(|n| NavTarget::cluster("nodes", n)),
+                spec.node_name
+                    .clone()
+                    .filter(|n| !n.is_empty())
+                    .map(|n| NavTarget::cluster("nodes", n)),
             ),
             field("pod IP", or_dash(status.pod_ip.clone())),
             field("host IP", or_dash(status.host_ip.clone())),
@@ -760,8 +836,16 @@ async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResult<Pr
             let (cpu, memory) = match &ct.resources {
                 Some(r) => {
                     let fmt = |key: &str| {
-                        let req = r.requests.as_ref().and_then(|m| m.get(key)).map(|q| q.0.clone());
-                        let lim = r.limits.as_ref().and_then(|m| m.get(key)).map(|q| q.0.clone());
+                        let req = r
+                            .requests
+                            .as_ref()
+                            .and_then(|m| m.get(key))
+                            .map(|q| q.0.clone());
+                        let lim = r
+                            .limits
+                            .as_ref()
+                            .and_then(|m| m.get(key))
+                            .map(|q| q.0.clone());
                         match (&req, &lim) {
                             (None, None) => DASH.to_string(),
                             _ => format!(
@@ -800,10 +884,17 @@ async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResult<Pr
                 name_cell(ct.name.clone()),
                 c(ct.image.clone().unwrap_or_else(|| DASH.into())),
                 Cell::new(state, state_tone),
-                Cell::new(if ready { "yes" } else { "no" }, if ready { Tone::Good } else { Tone::Warn }),
+                Cell::new(
+                    if ready { "yes" } else { "no" },
+                    if ready { Tone::Good } else { Tone::Warn },
+                ),
                 Cell::new(
                     restarts.to_string(),
-                    if restarts > 5 { Tone::Bad } else { Tone::Secondary },
+                    if restarts > 5 {
+                        Tone::Bad
+                    } else {
+                        Tone::Secondary
+                    },
                 ),
                 c(cpu),
                 c(memory),
@@ -814,18 +905,30 @@ async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResult<Pr
     props.push_table(
         "Containers",
         Some("no containers"),
-        &["NAME", "IMAGE", "STATE", "READY", "RESTARTS", "CPU R/L", "MEM R/L", "PORTS"],
+        &[
+            "NAME", "IMAGE", "STATE", "READY", "RESTARTS", "CPU R/L", "MEM R/L", "PORTS",
+        ],
         rows,
     );
 
     // ---- volumes (resolving PVC → PV) ----
     let volumes = gather_volumes(&client, namespace, &spec).await;
-    let (pvc_vols, other_vols): (Vec<_>, Vec<_>) = volumes.into_iter().partition(|v| v.kind == "PVC");
+    let (pvc_vols, other_vols): (Vec<_>, Vec<_>) =
+        volumes.into_iter().partition(|v| v.kind == "PVC");
 
     props.push_table(
         "Storage",
         Some("no persistent volumes attached"),
-        &["VOLUME", "CLAIM", "PV", "CAPACITY", "CLASS", "ACCESS", "PHASE", "MOUNTED AT"],
+        &[
+            "VOLUME",
+            "CLAIM",
+            "PV",
+            "CAPACITY",
+            "CLASS",
+            "ACCESS",
+            "PHASE",
+            "MOUNTED AT",
+        ],
         pvc_vols
             .iter()
             .map(|v| {
@@ -838,7 +941,11 @@ async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResult<Pr
                     Cell::link(
                         v.claim.clone(),
                         Tone::Secondary,
-                        Some(NavTarget::namespaced("persistentvolumeclaims", namespace, v.claim.clone())),
+                        Some(NavTarget::namespaced(
+                            "persistentvolumeclaims",
+                            namespace,
+                            v.claim.clone(),
+                        )),
                     ),
                     Cell::link(
                         v.pv.clone(),
@@ -849,12 +956,19 @@ async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResult<Pr
                     Cell::link(
                         v.storage_class.clone(),
                         Tone::Secondary,
-                        Some(NavTarget::cluster("storageclasses", v.storage_class.clone())),
+                        Some(NavTarget::cluster(
+                            "storageclasses",
+                            v.storage_class.clone(),
+                        )),
                     ),
                     c(v.access_modes.clone()),
                     Cell::new(
                         v.phase.clone(),
-                        if v.phase == "Bound" { Tone::Good } else { Tone::Warn },
+                        if v.phase == "Bound" {
+                            Tone::Good
+                        } else {
+                            Tone::Warn
+                        },
                     ),
                     c(mount_text(v)),
                 ]
@@ -953,7 +1067,11 @@ async fn gather_volumes(
                 }
             }
         }
-        let mount_paths = if mounts.is_empty() { DASH.to_string() } else { mounts.join(", ") };
+        let mount_paths = if mounts.is_empty() {
+            DASH.to_string()
+        } else {
+            mounts.join(", ")
+        };
 
         let (source, source_nav) = volume_source(v, namespace);
         let mut info = VolumeInfo {
@@ -1149,7 +1267,9 @@ async fn gather_services(
             let selector = spec.selector.as_ref()?;
             // A service selects this pod when every selector entry matches a label.
             if selector.is_empty()
-                || !selector.iter().all(|(k, v)| labels.get(k).map(|lv| lv == v).unwrap_or(false))
+                || !selector
+                    .iter()
+                    .all(|(k, v)| labels.get(k).map(|lv| lv == v).unwrap_or(false))
             {
                 return None;
             }
@@ -1174,7 +1294,13 @@ fn service_ports_text(spec: &k8s_openapi::api::core::v1::ServiceSpec) -> String 
         .as_ref()
         .map(|ps| {
             ps.iter()
-                .map(|p| format!("{}/{}", p.port, p.protocol.clone().unwrap_or_else(|| "TCP".into())))
+                .map(|p| {
+                    format!(
+                        "{}/{}",
+                        p.port,
+                        p.protocol.clone().unwrap_or_else(|| "TCP".into())
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join(", ")
         })
@@ -1188,7 +1314,10 @@ fn service_ports_text(spec: &k8s_openapi::api::core::v1::ServiceSpec) -> String 
 
 async fn gather_deployment(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<Deployment> = Api::namespaced(client.clone(), namespace);
-    let dep = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let dep = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = dep.spec.clone().unwrap_or_default();
     let status = dep.status.clone().unwrap_or_default();
     let mut props = Properties::default();
@@ -1204,9 +1333,16 @@ async fn gather_deployment(client: Client, namespace: &str, name: &str) -> AppRe
             let type_ = s.type_.clone().unwrap_or_else(|| "RollingUpdate".into());
             match &s.rolling_update {
                 Some(ru) => {
-                    let surge = ru.max_surge.as_ref().map(int_or_string).unwrap_or_else(|| "—".into());
-                    let unavail =
-                        ru.max_unavailable.as_ref().map(int_or_string).unwrap_or_else(|| "—".into());
+                    let surge = ru
+                        .max_surge
+                        .as_ref()
+                        .map(int_or_string)
+                        .unwrap_or_else(|| "—".into());
+                    let unavail = ru
+                        .max_unavailable
+                        .as_ref()
+                        .map(int_or_string)
+                        .unwrap_or_else(|| "—".into());
                     format!("{type_} (max surge {surge}, max unavailable {unavail})")
                 }
                 None => type_,
@@ -1217,21 +1353,49 @@ async fn gather_deployment(client: Client, namespace: &str, name: &str) -> AppRe
     props.fields(
         "Overview",
         vec![
-            field_toned("replicas", format!("{ready}/{desired} ready"), ready_tone(ready, desired)),
-            field("up-to-date", status.updated_replicas.unwrap_or(0).to_string()),
-            field("available", status.available_replicas.unwrap_or(0).to_string()),
+            field_toned(
+                "replicas",
+                format!("{ready}/{desired} ready"),
+                ready_tone(ready, desired),
+            ),
+            field(
+                "up-to-date",
+                status.updated_replicas.unwrap_or(0).to_string(),
+            ),
+            field(
+                "available",
+                status.available_replicas.unwrap_or(0).to_string(),
+            ),
             field_toned(
                 "unavailable",
                 status.unavailable_replicas.unwrap_or(0).to_string(),
-                if status.unavailable_replicas.unwrap_or(0) > 0 { Tone::Warn } else { Tone::Secondary },
+                if status.unavailable_replicas.unwrap_or(0) > 0 {
+                    Tone::Warn
+                } else {
+                    Tone::Secondary
+                },
             ),
             field("strategy", strategy),
-            field("selector", selector_text(spec.selector.match_labels.as_ref())),
-            field("generation", dep.metadata.generation.unwrap_or(0).to_string()),
+            field(
+                "selector",
+                selector_text(spec.selector.match_labels.as_ref()),
+            ),
+            field(
+                "generation",
+                dep.metadata.generation.unwrap_or(0).to_string(),
+            ),
             field_toned(
                 "paused",
-                if spec.paused.unwrap_or(false) { "yes" } else { "no" },
-                if spec.paused.unwrap_or(false) { Tone::Warn } else { Tone::Secondary },
+                if spec.paused.unwrap_or(false) {
+                    "yes"
+                } else {
+                    "no"
+                },
+                if spec.paused.unwrap_or(false) {
+                    Tone::Warn
+                } else {
+                    Tone::Secondary
+                },
             ),
         ],
     );
@@ -1269,9 +1433,15 @@ async fn gather_deployment(client: Client, namespace: &str, name: &str) -> AppRe
                         Cell::link(
                             rs.name_any(),
                             Tone::Primary,
-                            Some(NavTarget::namespaced("replicasets", namespace, rs.name_any())),
+                            Some(NavTarget::namespaced(
+                                "replicasets",
+                                namespace,
+                                rs.name_any(),
+                            )),
                         ),
-                        c(revision_of(rs).map(|r| r.to_string()).unwrap_or_else(|| DASH.into())),
+                        c(revision_of(rs)
+                            .map(|r| r.to_string())
+                            .unwrap_or_else(|| DASH.into())),
                         c(want.to_string()),
                         c(s.replicas.to_string()),
                         Cell::new(rs_ready.to_string(), ready_tone(rs_ready, want)),
@@ -1334,7 +1504,10 @@ fn int_or_string(v: &k8s_openapi::apimachinery::pkg::util::intstr::IntOrString) 
 
 async fn gather_service(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<Service> = Api::namespaced(client.clone(), namespace);
-    let svc = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let svc = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = svc.spec.clone().unwrap_or_default();
     let mut props = Properties::default();
 
@@ -1356,7 +1529,10 @@ async fn gather_service(client: Client, namespace: &str, name: &str) -> AppResul
     props.fields(
         "Overview",
         vec![
-            field("type", spec.type_.clone().unwrap_or_else(|| "ClusterIP".into())),
+            field(
+                "type",
+                spec.type_.clone().unwrap_or_else(|| "ClusterIP".into()),
+            ),
             field("cluster IP", or_dash(spec.cluster_ip.clone())),
             field("load balancer", lb),
             field(
@@ -1369,7 +1545,10 @@ async fn gather_service(client: Client, namespace: &str, name: &str) -> AppResul
             ),
             field("selector", selector_text(spec.selector.as_ref())),
             field("session affinity", or_dash(spec.session_affinity.clone())),
-            field("traffic policy", or_dash(spec.external_traffic_policy.clone())),
+            field(
+                "traffic policy",
+                or_dash(spec.external_traffic_policy.clone()),
+            ),
         ],
     );
 
@@ -1385,8 +1564,13 @@ async fn gather_service(client: Client, namespace: &str, name: &str) -> AppResul
                 vec![
                     name_cell(p.name.clone().unwrap_or_else(|| DASH.into())),
                     c(p.port.to_string()),
-                    c(p.target_port.as_ref().map(int_or_string).unwrap_or_else(|| p.port.to_string())),
-                    c(p.node_port.map(|n| n.to_string()).unwrap_or_else(|| DASH.into())),
+                    c(p.target_port
+                        .as_ref()
+                        .map(int_or_string)
+                        .unwrap_or_else(|| p.port.to_string())),
+                    c(p.node_port
+                        .map(|n| n.to_string())
+                        .unwrap_or_else(|| DASH.into())),
                     c(p.protocol.clone().unwrap_or_else(|| "TCP".into())),
                 ]
             })
@@ -1403,7 +1587,11 @@ async fn gather_service(client: Client, namespace: &str, name: &str) -> AppResul
     if let Ok(list) = slices {
         for slice in list.items {
             for ep in slice.endpoints {
-                let ready = ep.conditions.as_ref().and_then(|c0| c0.ready).unwrap_or(true);
+                let ready = ep
+                    .conditions
+                    .as_ref()
+                    .and_then(|c0| c0.ready)
+                    .unwrap_or(true);
                 let target = ep
                     .target_ref
                     .as_ref()
@@ -1451,7 +1639,10 @@ async fn gather_service(client: Client, namespace: &str, name: &str) -> AppResul
 
 async fn gather_statefulset(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<StatefulSet> = Api::namespaced(client.clone(), namespace);
-    let sts = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let sts = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = sts.spec.clone().unwrap_or_default();
     let status = sts.status.clone().unwrap_or_default();
     let mut props = Properties::default();
@@ -1473,11 +1664,17 @@ async fn gather_statefulset(client: Client, namespace: &str, name: &str) -> AppR
         (false, true) => nav_field(
             "service name",
             svc_name.clone(),
-            Some(NavTarget::namespaced("services", namespace, svc_name.clone())),
+            Some(NavTarget::namespaced(
+                "services",
+                namespace,
+                svc_name.clone(),
+            )),
         ),
-        (false, false) => {
-            field_toned("service name", format!("{svc_name} (not found)"), Tone::Warn)
-        }
+        (false, false) => field_toned(
+            "service name",
+            format!("{svc_name} (not found)"),
+            Tone::Warn,
+        ),
     };
 
     let desired = spec.replicas.unwrap_or(1);
@@ -1486,7 +1683,11 @@ async fn gather_statefulset(client: Client, namespace: &str, name: &str) -> AppR
     props.fields(
         "Overview",
         vec![
-            field_toned("replicas", format!("{ready}/{desired} ready"), ready_tone(ready, desired)),
+            field_toned(
+                "replicas",
+                format!("{ready}/{desired} ready"),
+                ready_tone(ready, desired),
+            ),
             field("current", status.current_replicas.unwrap_or(0).to_string()),
             field("updated", status.updated_replicas.unwrap_or(0).to_string()),
             service_field,
@@ -1497,8 +1698,14 @@ async fn gather_statefulset(client: Client, namespace: &str, name: &str) -> AppR
                     .and_then(|u| u.type_.clone())
                     .unwrap_or_else(|| DASH.into()),
             ),
-            field("pod management", or_dash(spec.pod_management_policy.clone())),
-            field("selector", selector_text(spec.selector.match_labels.as_ref())),
+            field(
+                "pod management",
+                or_dash(spec.pod_management_policy.clone()),
+            ),
+            field(
+                "selector",
+                selector_text(spec.selector.match_labels.as_ref()),
+            ),
             field("current revision", or_dash(status.current_revision.clone())),
         ],
     );
@@ -1523,8 +1730,7 @@ async fn gather_statefulset(client: Client, namespace: &str, name: &str) -> AppR
                         Tone::Secondary,
                         Some(NavTarget::cluster("storageclasses", class)),
                     ),
-                    c(ts
-                        .access_modes
+                    c(ts.access_modes
                         .as_ref()
                         .map(|a| a.join(", "))
                         .filter(|s| !s.is_empty())
@@ -1585,9 +1791,16 @@ async fn gather_statefulset(client: Client, namespace: &str, name: &str) -> AppR
                             ),
                             Cell::new(
                                 phase.clone(),
-                                if phase == "Bound" { Tone::Good } else { Tone::Warn },
+                                if phase == "Bound" {
+                                    Tone::Good
+                                } else {
+                                    Tone::Warn
+                                },
                             ),
-                            c(qty(pst.capacity.as_ref().and_then(|cap| cap.get("storage")))),
+                            c(qty(pst
+                                .capacity
+                                .as_ref()
+                                .and_then(|cap| cap.get("storage")))),
                             Cell::link(
                                 class.clone(),
                                 Tone::Secondary,
@@ -1639,7 +1852,10 @@ async fn gather_statefulset(client: Client, namespace: &str, name: &str) -> AppR
 
 async fn gather_node(client: Client, name: &str) -> AppResult<Properties> {
     let api: Api<Node> = Api::all(client);
-    let node = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let node = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = node.spec.clone().unwrap_or_default();
     let status = node.status.clone().unwrap_or_default();
     let info = status.node_info.clone();
@@ -1651,14 +1867,47 @@ async fn gather_node(client: Client, name: &str) -> AppResult<Properties> {
         vec![
             field_toned(
                 "schedulable",
-                if unschedulable { "no (cordoned)" } else { "yes" },
-                if unschedulable { Tone::Warn } else { Tone::Good },
+                if unschedulable {
+                    "no (cordoned)"
+                } else {
+                    "yes"
+                },
+                if unschedulable {
+                    Tone::Warn
+                } else {
+                    Tone::Good
+                },
             ),
-            field("kubelet", info.as_ref().map(|i| i.kubelet_version.clone()).unwrap_or_else(|| DASH.into())),
-            field("runtime", info.as_ref().map(|i| i.container_runtime_version.clone()).unwrap_or_else(|| DASH.into())),
-            field("OS image", info.as_ref().map(|i| i.os_image.clone()).unwrap_or_else(|| DASH.into())),
-            field("kernel", info.as_ref().map(|i| i.kernel_version.clone()).unwrap_or_else(|| DASH.into())),
-            field("architecture", info.as_ref().map(|i| i.architecture.clone()).unwrap_or_else(|| DASH.into())),
+            field(
+                "kubelet",
+                info.as_ref()
+                    .map(|i| i.kubelet_version.clone())
+                    .unwrap_or_else(|| DASH.into()),
+            ),
+            field(
+                "runtime",
+                info.as_ref()
+                    .map(|i| i.container_runtime_version.clone())
+                    .unwrap_or_else(|| DASH.into()),
+            ),
+            field(
+                "OS image",
+                info.as_ref()
+                    .map(|i| i.os_image.clone())
+                    .unwrap_or_else(|| DASH.into()),
+            ),
+            field(
+                "kernel",
+                info.as_ref()
+                    .map(|i| i.kernel_version.clone())
+                    .unwrap_or_else(|| DASH.into()),
+            ),
+            field(
+                "architecture",
+                info.as_ref()
+                    .map(|i| i.architecture.clone())
+                    .unwrap_or_else(|| DASH.into()),
+            ),
             field("pod CIDR", or_dash(spec.pod_cidr.clone())),
             field("provider", or_dash(spec.provider_id.clone())),
         ],
@@ -1749,7 +1998,10 @@ async fn gather_node(client: Client, name: &str) -> AppResult<Properties> {
 
 async fn gather_configmap(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<ConfigMap> = Api::namespaced(client, namespace);
-    let cm = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let cm = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let data = cm.data.as_ref();
     let binary = cm.binary_data.as_ref();
     let mut props = Properties::default();
@@ -1765,7 +2017,11 @@ async fn gather_configmap(client: Client, namespace: &str, name: &str) -> AppRes
             field_toned(
                 "immutable",
                 if immutable { "yes" } else { "no" },
-                if immutable { Tone::Good } else { Tone::Secondary },
+                if immutable {
+                    Tone::Good
+                } else {
+                    Tone::Secondary
+                },
             ),
         ],
     );
@@ -1812,7 +2068,10 @@ async fn gather_configmap(client: Client, namespace: &str, name: &str) -> AppRes
 
 async fn gather_secret(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<Secret> = Api::namespaced(client, namespace);
-    let sec = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let sec = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let data = sec.data.as_ref();
     let string_data = sec.string_data.as_ref();
     let mut props = Properties::default();
@@ -1829,7 +2088,11 @@ async fn gather_secret(client: Client, namespace: &str, name: &str) -> AppResult
             field_toned(
                 "immutable",
                 if immutable { "yes" } else { "no" },
-                if immutable { Tone::Good } else { Tone::Secondary },
+                if immutable {
+                    Tone::Good
+                } else {
+                    Tone::Secondary
+                },
             ),
         ],
     );
@@ -1873,7 +2136,10 @@ async fn gather_secret(client: Client, namespace: &str, name: &str) -> AppResult
 
 async fn gather_namespace(client: Client, name: &str) -> AppResult<Properties> {
     let api: Api<Namespace> = Api::all(client);
-    let ns = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let ns = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let status = ns.status.clone().unwrap_or_default();
     let mut props = Properties::default();
 
@@ -1886,12 +2152,7 @@ async fn gather_namespace(client: Client, name: &str) -> AppResult<Properties> {
         "Terminating" => Tone::Warn,
         _ => Tone::Secondary,
     };
-    let label_count = ns
-        .metadata
-        .labels
-        .as_ref()
-        .map(|m| m.len())
-        .unwrap_or(0);
+    let label_count = ns.metadata.labels.as_ref().map(|m| m.len()).unwrap_or(0);
     props.fields(
         "Overview",
         vec![
@@ -1912,7 +2173,10 @@ async fn gather_namespace(client: Client, name: &str) -> AppResult<Properties> {
 
 async fn gather_storageclass(client: Client, name: &str) -> AppResult<Properties> {
     let api: Api<StorageClass> = Api::all(client);
-    let sc = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let sc = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let mut props = Properties::default();
 
     let allow_expand = sc.allow_volume_expansion.unwrap_or(false);
@@ -1933,7 +2197,11 @@ async fn gather_storageclass(client: Client, name: &str) -> AppResult<Properties
             field_toned(
                 "allow expansion",
                 if allow_expand { "yes" } else { "no" },
-                if allow_expand { Tone::Good } else { Tone::Secondary },
+                if allow_expand {
+                    Tone::Good
+                } else {
+                    Tone::Secondary
+                },
             ),
         ],
     );
@@ -1978,7 +2246,10 @@ async fn gather_serviceaccount(
     name: &str,
 ) -> AppResult<Properties> {
     let api: Api<ServiceAccount> = Api::namespaced(client, namespace);
-    let sa = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let sa = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let mut props = Properties::default();
 
     let ips_count = sa.image_pull_secrets.as_ref().map(|v| v.len()).unwrap_or(0);
@@ -2012,9 +2283,11 @@ async fn gather_serviceaccount(
             // the apiserver allows empty values for backwards-compat — show
             // a dash so the row isn't blank.
             .map(|r| {
-                vec![name_cell(
-                    if r.name.is_empty() { DASH.into() } else { r.name.clone() },
-                )]
+                vec![name_cell(if r.name.is_empty() {
+                    DASH.into()
+                } else {
+                    r.name.clone()
+                })]
             })
             .collect(),
     );
@@ -2041,7 +2314,10 @@ async fn gather_serviceaccount(
 
 async fn gather_pvc(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<PersistentVolumeClaim> = Api::namespaced(client.clone(), namespace);
-    let pvc = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let pvc = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = pvc.spec.clone().unwrap_or_default();
     let status = pvc.status.clone().unwrap_or_default();
     let mut props = Properties::default();
@@ -2122,7 +2398,10 @@ async fn gather_pvc(client: Client, namespace: &str, name: &str) -> AppResult<Pr
 
 async fn gather_pv(client: Client, name: &str) -> AppResult<Properties> {
     let api: Api<PersistentVolume> = Api::all(client);
-    let pv = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let pv = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = pv.spec.clone().unwrap_or_default();
     let status = pv.status.clone().unwrap_or_default();
     let mut props = Properties::default();
@@ -2146,13 +2425,23 @@ async fn gather_pv(client: Client, name: &str) -> AppResult<Properties> {
     let access_modes = spec
         .access_modes
         .as_ref()
-        .map(|a| a.iter().map(|m| format!("{m:?}")).collect::<Vec<_>>().join(", "))
+        .map(|a| {
+            a.iter()
+                .map(|m| format!("{m:?}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| DASH.into());
-    let reclaim = spec.persistent_volume_reclaim_policy.clone().unwrap_or_else(|| DASH.into());
+    let reclaim = spec
+        .persistent_volume_reclaim_policy
+        .clone()
+        .unwrap_or_else(|| DASH.into());
     let claim_ref = spec.claim_ref.as_ref();
     let claim_ns = claim_ref.and_then(|c| c.namespace.clone());
-    let claim_name = claim_ref.map(|c| c.name.clone().unwrap_or_default()).unwrap_or_default();
+    let claim_name = claim_ref
+        .map(|c| c.name.clone().unwrap_or_default())
+        .unwrap_or_default();
 
     props.fields(
         "Overview",
@@ -2169,7 +2458,11 @@ async fn gather_pv(client: Client, name: &str) -> AppResult<Properties> {
             field("volume mode", or_dash(spec.volume_mode.clone())),
             nav_field(
                 "claim",
-                if claim_name.is_empty() { DASH.into() } else { format!("{}/{}", claim_ns.as_deref().unwrap_or(""), claim_name) },
+                if claim_name.is_empty() {
+                    DASH.into()
+                } else {
+                    format!("{}/{}", claim_ns.as_deref().unwrap_or(""), claim_name)
+                },
                 if claim_name.is_empty() {
                     None
                 } else {
@@ -2207,7 +2500,10 @@ async fn gather_pv(client: Client, name: &str) -> AppResult<Properties> {
 
 async fn gather_job(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<Job> = Api::namespaced(client.clone(), namespace);
-    let job = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let job = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = job.spec.clone().unwrap_or_default();
     let status = job.status.clone().unwrap_or_default();
     let mut props = Properties::default();
@@ -2224,11 +2520,10 @@ async fn gather_job(client: Client, namespace: &str, name: &str) -> AppResult<Pr
     };
 
     // Check if this Job is owned by a CronJob.
-    let cronjob_ref = job
-        .metadata
-        .owner_references
-        .as_ref()
-        .and_then(|refs| refs.iter().find(|r| r.controller == Some(true) && r.kind == "CronJob"));
+    let cronjob_ref = job.metadata.owner_references.as_ref().and_then(|refs| {
+        refs.iter()
+            .find(|r| r.controller == Some(true) && r.kind == "CronJob")
+    });
 
     props.fields(
         "Overview",
@@ -2243,7 +2538,9 @@ async fn gather_job(client: Client, namespace: &str, name: &str) -> AppResult<Pr
             field("failed", failed.to_string()),
             nav_field(
                 "cronjob",
-                cronjob_ref.map(|r| r.name.clone()).unwrap_or_else(|| DASH.into()),
+                cronjob_ref
+                    .map(|r| r.name.clone())
+                    .unwrap_or_else(|| DASH.into()),
                 cronjob_ref.map(|r| NavTarget::namespaced("cronjobs", namespace, r.name.clone())),
             ),
         ],
@@ -2276,7 +2573,10 @@ async fn gather_job(client: Client, namespace: &str, name: &str) -> AppResult<Pr
 
 async fn gather_cronjob(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<CronJob> = Api::namespaced(client.clone(), namespace);
-    let cj = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let cj = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = cj.spec.clone().unwrap_or_default();
     let status = cj.status.clone().unwrap_or_default();
     let mut props = Properties::default();
@@ -2286,11 +2586,31 @@ async fn gather_cronjob(client: Client, namespace: &str, name: &str) -> AppResul
         "Overview",
         vec![
             field("schedule", spec.schedule.clone()),
-            field("concurrency policy", spec.concurrency_policy.clone().unwrap_or_else(|| "Allow".into())),
+            field(
+                "concurrency policy",
+                spec.concurrency_policy
+                    .clone()
+                    .unwrap_or_else(|| "Allow".into()),
+            ),
             field("suspend", if suspend { "yes" } else { "no" }),
-            field("successful jobs", spec.successful_jobs_history_limit.map(|n| n.to_string()).unwrap_or_else(|| DASH.into())),
-            field("failed jobs", spec.failed_jobs_history_limit.map(|n| n.to_string()).unwrap_or_else(|| DASH.into())),
-            field("starting deadline", spec.starting_deadline_seconds.map(|n| format!("{n}s")).unwrap_or_else(|| DASH.into())),
+            field(
+                "successful jobs",
+                spec.successful_jobs_history_limit
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| DASH.into()),
+            ),
+            field(
+                "failed jobs",
+                spec.failed_jobs_history_limit
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| DASH.into()),
+            ),
+            field(
+                "starting deadline",
+                spec.starting_deadline_seconds
+                    .map(|n| format!("{n}s"))
+                    .unwrap_or_else(|| DASH.into()),
+            ),
             Field {
                 label: "last schedule".into(),
                 value: Cell::age(status.last_schedule_time.map(|t| t.0.to_rfc3339())),
@@ -2347,7 +2667,7 @@ async fn gather_cronjob(client: Client, namespace: &str, name: &str) -> AppResul
                         Cell::age(
                             s.completion_time
                                 .as_ref()
-                                .or_else(|| s.start_time.as_ref())
+                                .or(s.start_time.as_ref())
                                 .map(|t| t.0.to_rfc3339()),
                         ),
                     ]
@@ -2373,7 +2693,10 @@ async fn gather_cronjob(client: Client, namespace: &str, name: &str) -> AppResul
 
 async fn gather_hpa(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<HorizontalPodAutoscaler> = Api::namespaced(client, namespace);
-    let hpa = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let hpa = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = hpa.spec.clone().unwrap_or_default();
     let status = hpa.status.clone().unwrap_or_default();
     let mut props = Properties::default();
@@ -2383,22 +2706,30 @@ async fn gather_hpa(client: Client, namespace: &str, name: &str) -> AppResult<Pr
     let target_name = target.name.clone();
     let target_nav = builtin_nav_id(&target_kind).map(|nav_id| {
         let ns = (nav_id != "nodes").then(|| namespace.to_string());
-        NavTarget { kind: nav_id.into(), namespace: ns, name: target_name.clone() }
+        NavTarget {
+            kind: nav_id.into(),
+            namespace: ns,
+            name: target_name.clone(),
+        }
     });
 
     props.fields(
         "Overview",
         vec![
-            nav_field(
-                "target",
-                format!("{target_kind}/{target_name}"),
-                target_nav,
+            nav_field("target", format!("{target_kind}/{target_name}"), target_nav),
+            field(
+                "min replicas",
+                spec.min_replicas
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| DASH.into()),
             ),
-            field("min replicas", spec.min_replicas.map(|n| n.to_string()).unwrap_or_else(|| DASH.into())),
             field("max replicas", spec.max_replicas.to_string()),
             field(
                 "current replicas",
-                status.current_replicas.map(|n| n.to_string()).unwrap_or_else(|| DASH.into()),
+                status
+                    .current_replicas
+                    .map(|n| n.to_string())
+                    .unwrap_or_else(|| DASH.into()),
             ),
             field("desired replicas", status.desired_replicas.to_string()),
         ],
@@ -2409,13 +2740,14 @@ async fn gather_hpa(client: Client, namespace: &str, name: &str) -> AppResult<Pr
         .current_metrics
         .iter()
         .flatten()
-        .enumerate()
-        .map(|(_i, m)| {
+        .map(|m| {
             let type_ = m.type_.clone();
             let (resource_name, current, target_val) = match &m.resource {
                 Some(r) => {
                     let name = r.name.clone();
-                    let current = r.current.average_utilization
+                    let current = r
+                        .current
+                        .average_utilization
                         .map(|v| format!("{v}%"))
                         .or_else(|| r.current.average_value.as_ref().map(|q| q.0.clone()))
                         .or_else(|| r.current.value.as_ref().map(|q| q.0.clone()))
@@ -2463,9 +2795,16 @@ async fn gather_hpa(client: Client, namespace: &str, name: &str) -> AppResult<Pr
 // NetworkPolicies (network)
 // ---------------------------------------------------------------------------
 
-async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+async fn gather_networkpolicy(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<NetworkPolicy> = Api::namespaced(client.clone(), namespace);
-    let np = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let np = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = np.spec.clone().unwrap_or_default();
     let mut props = Properties::default();
 
@@ -2486,7 +2825,14 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
         "Overview",
         vec![
             field("pod selector", pod_sel),
-            field("policy types", if policy_types_str.is_empty() { DASH.into() } else { policy_types_str }),
+            field(
+                "policy types",
+                if policy_types_str.is_empty() {
+                    DASH.into()
+                } else {
+                    policy_types_str
+                },
+            ),
         ],
     );
 
@@ -2498,7 +2844,11 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
     let selector_match = spec.pod_selector.match_labels.as_ref();
     let lp = match selector_match {
         Some(m) if !m.is_empty() => {
-            let label_str = m.iter().map(|(k, v)| format!("{k}={v}")).collect::<Vec<_>>().join(",");
+            let label_str = m
+                .iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join(",");
             ListParams::default().labels(&label_str)
         }
         _ => ListParams::default(), // empty selector matches all pods
@@ -2551,7 +2901,10 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
         .flat_map(|rule| {
             let froms = rule.from.iter().flatten().map(|from| {
                 let (peer_text, peer_nav) = if let Some(pod) = &from.pod_selector {
-                    (format!("pod: {}", selector_text(pod.match_labels.as_ref())), None)
+                    (
+                        format!("pod: {}", selector_text(pod.match_labels.as_ref())),
+                        None,
+                    )
                 } else if let Some(ns) = &from.namespace_selector {
                     // If the selector targets a specific namespace by metadata.name,
                     // link directly to it.
@@ -2582,7 +2935,10 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
                     .map(|p| {
                         format!(
                             "{}/{}",
-                            p.port.as_ref().map(int_or_string).unwrap_or_else(|| "*".into()),
+                            p.port
+                                .as_ref()
+                                .map(int_or_string)
+                                .unwrap_or_else(|| "*".into()),
                             p.protocol.clone().unwrap_or_else(|| "TCP".into())
                         )
                     })
@@ -2592,7 +2948,10 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
                     Some(nav) => Cell::link(peer_text, Tone::Secondary, Some(nav)),
                     None => c(peer_text),
                 };
-                vec![from_cell, c(if ports.is_empty() { DASH.into() } else { ports })]
+                vec![
+                    from_cell,
+                    c(if ports.is_empty() { DASH.into() } else { ports }),
+                ]
             });
             froms.collect::<Vec<_>>()
         })
@@ -2612,7 +2971,10 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
         .flat_map(|rule| {
             let tos = rule.to.iter().flatten().map(|to| {
                 let (peer_text, peer_nav) = if let Some(pod) = &to.pod_selector {
-                    (format!("pod: {}", selector_text(pod.match_labels.as_ref())), None)
+                    (
+                        format!("pod: {}", selector_text(pod.match_labels.as_ref())),
+                        None,
+                    )
                 } else if let Some(ns) = &to.namespace_selector {
                     let ns_name = ns
                         .match_labels
@@ -2641,7 +3003,10 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
                     .map(|p| {
                         format!(
                             "{}/{}",
-                            p.port.as_ref().map(int_or_string).unwrap_or_else(|| "*".into()),
+                            p.port
+                                .as_ref()
+                                .map(int_or_string)
+                                .unwrap_or_else(|| "*".into()),
                             p.protocol.clone().unwrap_or_else(|| "TCP".into())
                         )
                     })
@@ -2651,7 +3016,10 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
                     Some(nav) => Cell::link(peer_text, Tone::Secondary, Some(nav)),
                     None => c(peer_text),
                 };
-                vec![to_cell, c(if ports.is_empty() { DASH.into() } else { ports })]
+                vec![
+                    to_cell,
+                    c(if ports.is_empty() { DASH.into() } else { ports }),
+                ]
             });
             tos.collect::<Vec<_>>()
         })
@@ -2671,9 +3039,16 @@ async fn gather_networkpolicy(client: Client, namespace: &str, name: &str) -> Ap
 // ResourceQuotas (config)
 // ---------------------------------------------------------------------------
 
-async fn gather_resourcequota(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+async fn gather_resourcequota(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<ResourceQuota> = Api::namespaced(client, namespace);
-    let rq = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let rq = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let spec = rq.spec.clone().unwrap_or_default();
     let status = rq.status.clone().unwrap_or_default();
     let mut props = Properties::default();
@@ -2682,7 +3057,7 @@ async fn gather_resourcequota(client: Client, namespace: &str, name: &str) -> Ap
         .scopes
         .iter()
         .flatten()
-        .map(|s| s.clone())
+        .cloned()
         .collect::<Vec<_>>()
         .join(", ");
     let scope_selector = spec
@@ -2693,16 +3068,39 @@ async fn gather_resourcequota(client: Client, namespace: &str, name: &str) -> Ap
                 .match_expressions
                 .iter()
                 .flatten()
-                .map(|e| format!("{} {} {}", e.scope_name, e.operator, e.values.iter().flatten().cloned().collect::<Vec<_>>().join(",")))
+                .map(|e| {
+                    format!(
+                        "{} {} {}",
+                        e.scope_name,
+                        e.operator,
+                        e.values
+                            .iter()
+                            .flatten()
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    )
+                })
                 .collect();
-            if exprs.is_empty() { None } else { Some(exprs.join("; ")) }
+            if exprs.is_empty() {
+                None
+            } else {
+                Some(exprs.join("; "))
+            }
         })
         .unwrap_or_else(|| DASH.into());
 
     props.fields(
         "Overview",
         vec![
-            field("scopes", if scopes.is_empty() { DASH.into() } else { scopes }),
+            field(
+                "scopes",
+                if scopes.is_empty() {
+                    DASH.into()
+                } else {
+                    scopes
+                },
+            ),
             field("scope selector", scope_selector),
         ],
     );
@@ -2715,7 +3113,10 @@ async fn gather_resourcequota(client: Client, namespace: &str, name: &str) -> Ap
         .map(|m| m.keys().collect::<Vec<_>>())
         .unwrap_or_default()
         .into_iter()
-        .chain(used.map(|m| m.keys().collect::<Vec<_>>()).unwrap_or_default().into_iter())
+        .chain(
+            used.map(|m| m.keys().collect::<Vec<_>>())
+                .unwrap_or_default(),
+        )
         .collect();
     resource_names.sort();
     resource_names.dedup();
@@ -2723,8 +3124,14 @@ async fn gather_resourcequota(client: Client, namespace: &str, name: &str) -> Ap
     let quota_rows: Vec<Vec<Cell>> = resource_names
         .iter()
         .map(|r| {
-            let hard_val = hard.and_then(|m| m.get(*r)).map(|q| q.0.clone()).unwrap_or_else(|| DASH.into());
-            let used_val = used.and_then(|m| m.get(*r)).map(|q| q.0.clone()).unwrap_or_else(|| DASH.into());
+            let hard_val = hard
+                .and_then(|m| m.get(*r))
+                .map(|q| q.0.clone())
+                .unwrap_or_else(|| DASH.into());
+            let used_val = used
+                .and_then(|m| m.get(*r))
+                .map(|q| q.0.clone())
+                .unwrap_or_else(|| DASH.into());
             // Tone: warn when usage is >= 80% of hard limit (if parseable).
             let tone = match (used_val.parse::<f64>(), hard_val.parse::<f64>()) {
                 (Ok(u), Ok(h)) if h > 0.0 && u / h >= 0.8 => Tone::Warn,
@@ -2754,14 +3161,18 @@ async fn gather_resourcequota(client: Client, namespace: &str, name: &str) -> Ap
 
 async fn gather_role(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<Role> = Api::namespaced(client, namespace);
-    let role = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let role = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let mut props = Properties::default();
 
     props.fields(
         "Overview",
-        vec![
-            field("name", role.metadata.name.clone().unwrap_or_else(|| DASH.into())),
-        ],
+        vec![field(
+            "name",
+            role.metadata.name.clone().unwrap_or_else(|| DASH.into()),
+        )],
     );
 
     let rule_rows: Vec<Vec<Cell>> = role
@@ -2771,9 +3182,24 @@ async fn gather_role(client: Client, namespace: &str, name: &str) -> AppResult<P
         .map(|r| {
             vec![
                 c(r.verbs.join(", ")),
-                c(r.api_groups.iter().flatten().cloned().collect::<Vec<_>>().join(", ")),
-                c(r.resources.iter().flatten().cloned().collect::<Vec<_>>().join(", ")),
-                c(r.resource_names.iter().flatten().cloned().collect::<Vec<_>>().join(", ")),
+                c(r.api_groups
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")),
+                c(r.resources
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")),
+                c(r.resource_names
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")),
             ]
         })
         .collect();
@@ -2790,24 +3216,32 @@ async fn gather_role(client: Client, namespace: &str, name: &str) -> AppResult<P
 
 async fn gather_clusterrole(client: Client, name: &str) -> AppResult<Properties> {
     let api: Api<ClusterRole> = Api::all(client);
-    let role = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let role = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let mut props = Properties::default();
 
     props.fields(
         "Overview",
         vec![
-            field("name", role.metadata.name.clone().unwrap_or_else(|| DASH.into())),
-            field("aggregation", role
-                .aggregation_rule
-                .as_ref()
-                .and_then(|ar| ar.cluster_role_selectors.as_ref())
-                .map(|sels| {
-                    sels.iter()
-                        .map(|s| selector_text(s.match_labels.as_ref()))
-                        .collect::<Vec<_>>()
-                        .join("; ")
-                })
-                .unwrap_or_else(|| DASH.into())),
+            field(
+                "name",
+                role.metadata.name.clone().unwrap_or_else(|| DASH.into()),
+            ),
+            field(
+                "aggregation",
+                role.aggregation_rule
+                    .as_ref()
+                    .and_then(|ar| ar.cluster_role_selectors.as_ref())
+                    .map(|sels| {
+                        sels.iter()
+                            .map(|s| selector_text(s.match_labels.as_ref()))
+                            .collect::<Vec<_>>()
+                            .join("; ")
+                    })
+                    .unwrap_or_else(|| DASH.into()),
+            ),
         ],
     );
 
@@ -2818,9 +3252,24 @@ async fn gather_clusterrole(client: Client, name: &str) -> AppResult<Properties>
         .map(|r| {
             vec![
                 c(r.verbs.join(", ")),
-                c(r.api_groups.iter().flatten().cloned().collect::<Vec<_>>().join(", ")),
-                c(r.resources.iter().flatten().cloned().collect::<Vec<_>>().join(", ")),
-                c(r.resource_names.iter().flatten().cloned().collect::<Vec<_>>().join(", ")),
+                c(r.api_groups
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")),
+                c(r.resources
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")),
+                c(r.resource_names
+                    .iter()
+                    .flatten()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")),
             ]
         })
         .collect();
@@ -2841,12 +3290,19 @@ async fn gather_clusterrole(client: Client, name: &str) -> AppResult<Properties>
 
 async fn gather_rolebinding(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let api: Api<RoleBinding> = Api::namespaced(client.clone(), namespace);
-    let rb = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let rb = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let binding_ns = namespace;
     let mut props = Properties::default();
 
     let role_nav = match rb.role_ref.kind.as_str() {
-        "Role" => Some(NavTarget::namespaced("roles", binding_ns, rb.role_ref.name.clone())),
+        "Role" => Some(NavTarget::namespaced(
+            "roles",
+            binding_ns,
+            rb.role_ref.name.clone(),
+        )),
         "ClusterRole" => Some(NavTarget::cluster("clusterroles", rb.role_ref.name.clone())),
         _ => None,
     };
@@ -2854,7 +3310,10 @@ async fn gather_rolebinding(client: Client, namespace: &str, name: &str) -> AppR
     props.fields(
         "Overview",
         vec![
-            field("name", rb.metadata.name.clone().unwrap_or_else(|| DASH.into())),
+            field(
+                "name",
+                rb.metadata.name.clone().unwrap_or_else(|| DASH.into()),
+            ),
             nav_field(
                 "role",
                 format!("{}/{}", rb.role_ref.kind, rb.role_ref.name),
@@ -2900,11 +3359,17 @@ async fn gather_rolebinding(client: Client, namespace: &str, name: &str) -> AppR
 
 async fn gather_clusterrolebinding(client: Client, name: &str) -> AppResult<Properties> {
     let api: Api<ClusterRoleBinding> = Api::all(client);
-    let crb = api.get(name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+    let crb = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
     let mut props = Properties::default();
 
     let role_nav = match crb.role_ref.kind.as_str() {
-        "ClusterRole" => Some(NavTarget::cluster("clusterroles", crb.role_ref.name.clone())),
+        "ClusterRole" => Some(NavTarget::cluster(
+            "clusterroles",
+            crb.role_ref.name.clone(),
+        )),
         // A ClusterRoleBinding can technically reference a Role, but that's unusual.
         _ => None,
     };
@@ -2912,7 +3377,10 @@ async fn gather_clusterrolebinding(client: Client, name: &str) -> AppResult<Prop
     props.fields(
         "Overview",
         vec![
-            field("name", crb.metadata.name.clone().unwrap_or_else(|| DASH.into())),
+            field(
+                "name",
+                crb.metadata.name.clone().unwrap_or_else(|| DASH.into()),
+            ),
             nav_field(
                 "role",
                 format!("{}/{}", crb.role_ref.kind, crb.role_ref.name),
@@ -2930,11 +3398,7 @@ async fn gather_clusterrolebinding(client: Client, name: &str) -> AppResult<Prop
             let ns = s.namespace.clone().unwrap_or_default();
             let name = s.name.clone();
             let nav = if kind == "ServiceAccount" {
-                Some(NavTarget::namespaced(
-                    "serviceaccounts",
-                    &ns,
-                    name.clone(),
-                ))
+                Some(NavTarget::namespaced("serviceaccounts", &ns, name.clone()))
             } else {
                 None
             };
@@ -3018,7 +3482,11 @@ mod tests {
         assert_eq!(revision.value.text, "3");
 
         // History is newest-first, with the right per-row toning.
-        let history = props.sections.iter().find(|s| s.title == "History").unwrap();
+        let history = props
+            .sections
+            .iter()
+            .find(|s| s.title == "History")
+            .unwrap();
         let rows = match &history.body {
             Body::Table { rows, .. } => rows,
             _ => panic!("History is a table"),
@@ -3037,9 +3505,16 @@ mod tests {
             _ => panic!("Values is a table"),
         };
         let dumped = format!("{vrows:?}");
-        assert!(!dumped.contains("hunter2"), "the password must never reach the payload");
-        assert!(vrows.iter().any(|r| r[0].text == "auth.password" && r[1].text == "<redacted>"));
-        assert!(vrows.iter().any(|r| r[0].text == "replicas" && r[1].text == "3"));
+        assert!(
+            !dumped.contains("hunter2"),
+            "the password must never reach the payload"
+        );
+        assert!(vrows
+            .iter()
+            .any(|r| r[0].text == "auth.password" && r[1].text == "<redacted>"));
+        assert!(vrows
+            .iter()
+            .any(|r| r[0].text == "replicas" && r[1].text == "3"));
     }
 
     /// An Ingress backend port is a number *or* a name; murphy-yi's only Ingress uses
@@ -3049,10 +3524,21 @@ mod tests {
         let port = |v: serde_json::Value| -> k8s_openapi::api::networking::v1::ServiceBackendPort {
             serde_json::from_value(v).unwrap()
         };
-        assert_eq!(backend_port(Some(&port(serde_json::json!({ "number": 8080 })))), "8080");
-        assert_eq!(backend_port(Some(&port(serde_json::json!({ "name": "http" })))), "http");
+        assert_eq!(
+            backend_port(Some(&port(serde_json::json!({ "number": 8080 })))),
+            "8080"
+        );
+        assert_eq!(
+            backend_port(Some(&port(serde_json::json!({ "name": "http" })))),
+            "http"
+        );
         // A number wins when both are somehow set, matching the API's precedence.
-        assert_eq!(backend_port(Some(&port(serde_json::json!({ "number": 80, "name": "http" })))), "80");
+        assert_eq!(
+            backend_port(Some(&port(
+                serde_json::json!({ "number": 80, "name": "http" })
+            ))),
+            "80"
+        );
         assert_eq!(backend_port(None), "—");
     }
 
@@ -3069,7 +3555,10 @@ mod tests {
 
         let missing = ref_cell("api", false, target());
         assert_eq!(missing.text, "api (not found)");
-        assert!(missing.nav.is_none(), "never link to something that isn't there");
+        assert!(
+            missing.nav.is_none(),
+            "never link to something that isn't there"
+        );
         assert_eq!(missing.tone, Tone::Warn);
 
         // "nothing referenced" is not the same as "referenced but missing".
@@ -3090,7 +3579,10 @@ mod tests {
         // Listed as of B40 — these used to be the canonical dead ends.
         assert_eq!(builtin_nav_id("ReplicaSet"), Some("replicasets"));
         assert_eq!(builtin_nav_id("StorageClass"), Some("storageclasses"));
-        assert_eq!(builtin_nav_id("PersistentVolumeClaim"), Some("persistentvolumeclaims"));
+        assert_eq!(
+            builtin_nav_id("PersistentVolumeClaim"),
+            Some("persistentvolumeclaims")
+        );
         assert_eq!(builtin_nav_id("ServiceAccount"), Some("serviceaccounts"));
         // Still unlisted, so still correctly None.
         assert_eq!(builtin_nav_id("Endpoints"), None);
@@ -3109,18 +3601,32 @@ mod tests {
             serde_json::from_value(body).unwrap()
         };
 
-        let (src, nav) = volume_source(&vol(json!({ "name": "cfg", "configMap": { "name": "app-config" } })), "prod");
+        let (src, nav) = volume_source(
+            &vol(json!({ "name": "cfg", "configMap": { "name": "app-config" } })),
+            "prod",
+        );
         assert_eq!(src, "app-config");
         assert!(nav.is_some(), "a ConfigMap is a listed kind, so it links");
 
-        let (src, nav) = volume_source(&vol(json!({ "name": "data", "hostPath": { "path": "/var/lib/data" } })), "prod");
+        let (src, nav) = volume_source(
+            &vol(json!({ "name": "data", "hostPath": { "path": "/var/lib/data" } })),
+            "prod",
+        );
         assert_eq!(src, "/var/lib/data");
         assert!(nav.is_none(), "a host directory is not a cluster object");
 
-        let (src, _) = volume_source(&vol(json!({ "name": "exports", "nfs": { "server": "nfs01", "path": "/exports/prod" } })), "prod");
+        let (src, _) = volume_source(
+            &vol(
+                json!({ "name": "exports", "nfs": { "server": "nfs01", "path": "/exports/prod" } }),
+            ),
+            "prod",
+        );
         assert_eq!(src, "nfs01:/exports/prod", "shown as mount writes it");
 
-        let (src, _) = volume_source(&vol(json!({ "name": "vault", "csi": { "driver": "secrets-store.csi.k8s.io" } })), "prod");
+        let (src, _) = volume_source(
+            &vol(json!({ "name": "vault", "csi": { "driver": "secrets-store.csi.k8s.io" } })),
+            "prod",
+        );
         assert_eq!(src, "secrets-store.csi.k8s.io");
 
         // Nothing to name (e.g. an emptyDir) still falls back to the em dash.
@@ -3155,7 +3661,10 @@ mod tests {
     fn empty_tables_are_dropped_unless_noted() {
         let mut p = Properties::default();
         p.push_table("Gone", None, &["A"], vec![]);
-        assert!(p.sections.is_empty(), "an empty optional section should not render");
+        assert!(
+            p.sections.is_empty(),
+            "an empty optional section should not render"
+        );
 
         p.push_table("Kept", Some("nothing here"), &["A"], vec![]);
         assert_eq!(p.sections.len(), 1);
@@ -3168,7 +3677,13 @@ mod tests {
         let mut p = Properties::default();
         p.chips("Labels", vec![]);
         assert!(p.sections.is_empty());
-        p.chips("Labels", vec![KeyValue { key: "a".into(), value: "b".into() }]);
+        p.chips(
+            "Labels",
+            vec![KeyValue {
+                key: "a".into(),
+                value: "b".into(),
+            }],
+        );
         assert_eq!(p.sections.len(), 1);
     }
 
@@ -3274,11 +3789,7 @@ async fn gather_pdb(client: Client, namespace: &str, name: &str) -> AppResult<Pr
 // Webhook configurations (Mutating / Validating) — Phase 2
 // ---------------------------------------------------------------------------
 
-async fn gather_webhook(
-    client: Client,
-    name: &str,
-    mutating: bool,
-) -> AppResult<Properties> {
+async fn gather_webhook(client: Client, name: &str, mutating: bool) -> AppResult<Properties> {
     let kind = if mutating {
         ResourceKind::Mutatingwebhookconfigurations
     } else {
@@ -3298,17 +3809,17 @@ async fn gather_webhook(
         .unwrap_or_default();
 
     let mut props = Properties::default();
-    props.fields("Overview", vec![field("Name", obj.name_any()), field("Created", created)]);
+    props.fields(
+        "Overview",
+        vec![field("Name", obj.name_any()), field("Created", created)],
+    );
 
     // Webhooks table
     if let Some(wh) = obj.data.get("webhooks").and_then(|w| w.as_array()) {
         let rows: Vec<Vec<Cell>> = wh
             .iter()
             .map(|w| {
-                let name = w
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("?");
+                let name = w.get("name").and_then(|v| v.as_str()).unwrap_or("?");
                 let url = w
                     .get("clientConfig")
                     .and_then(|cc| cc.get("url"))
@@ -3355,7 +3866,8 @@ async fn gather_webhook(
 // ---------------------------------------------------------------------------
 
 async fn gather_api_service(client: Client, name: &str) -> AppResult<Properties> {
-    let api: Api<DynamicObject> = Api::all_with(client.clone(), &ResourceKind::Apiservices.api_resource());
+    let api: Api<DynamicObject> =
+        Api::all_with(client.clone(), &ResourceKind::Apiservices.api_resource());
     let obj = api
         .get(name)
         .await
@@ -3365,13 +3877,13 @@ async fn gather_api_service(client: Client, name: &str) -> AppResult<Properties>
     let status = obj.data.get("status");
 
     let group_version = spec
-        .and_then(|s| {
+        .map(|s| {
             let group = s.get("group").and_then(|v| v.as_str()).unwrap_or("");
             let version = s.get("version").and_then(|v| v.as_str()).unwrap_or("");
             if group.is_empty() {
-                Some(version.to_string())
+                version.to_string()
             } else {
-                Some(format!("{group}/{version}"))
+                format!("{group}/{version}")
             }
         })
         .unwrap_or_else(|| "—".into());
@@ -3489,14 +4001,13 @@ async fn gather_crd_detail(client: Client, kind_id: &str) -> AppResult<Propertie
             field("Group", spec.group.clone()),
             field("Kind", spec.names.kind.clone()),
             field("Plural", spec.names.plural.clone()),
-            field(
-                "Singular",
-                spec.names.singular.clone().unwrap_or_default(),
-            ),
+            field("Singular", spec.names.singular.clone().unwrap_or_default()),
             field("Scope", spec.scope.clone()),
             field(
                 "Storage Version",
-                storage_ver.map(|v| v.name.clone()).unwrap_or_else(|| "-".into()),
+                storage_ver
+                    .map(|v| v.name.clone())
+                    .unwrap_or_else(|| "-".into()),
             ),
             field("Served Versions", served_versions.join(", ")),
             field("Created", created),
@@ -3534,10 +4045,7 @@ async fn gather_crd_detail(client: Client, kind_id: &str) -> AppResult<Propertie
                     let field_rows: Vec<Vec<Cell>> = props_map
                         .iter()
                         .map(|(name, prop)| {
-                            let type_str = prop
-                                .type_
-                                .as_deref()
-                                .unwrap_or("object");
+                            let type_str = prop.type_.as_deref().unwrap_or("object");
                             let desc = prop.description.as_deref().unwrap_or("");
                             let required = openapi
                                 .required
