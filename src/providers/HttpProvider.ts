@@ -582,6 +582,13 @@ export class HttpProvider implements DataProvider {
     return () => sub.unsubscribe();
   }
 
+  onWatchKindStatus(cb: (kind: string, status: "ok" | "forbidden") => void): Unsub {
+    const sub = httpSubscribe<{ kind: string; status: string }>("watch-kind-status", (payload) => {
+      cb(payload.kind, payload.status as "ok" | "forbidden");
+    });
+    return () => sub.unsubscribe();
+  }
+
   onDrainProgress(_cb: (progress: DrainProgress) => void): Unsub {
     // No drain support in the web shell; return a no-op so the UI doesn't
     // have to special-case it.

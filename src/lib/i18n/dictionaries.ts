@@ -42,6 +42,8 @@ export interface Dictionary {
       filterKinds: string;
       importKubeconfig: string;
       noContexts: string;
+      /** Tooltip on the lock icon shown when a kind's watch returns 403. */
+      forbidden: string;
       /** Overlay entries in the sidebar — collapsible groups (Observability,
        *  Images) and flat items (Pod Files, Templates). Some overlays live
        *  inside their resource group instead (Helm Market → Helm, etc.). */
@@ -205,6 +207,8 @@ export interface Dictionary {
      * saying "no resources match filter" would be a lie.
      */
     emptyNone: string;
+    /** Shown when a kind's watch returns 403 Forbidden (RBAC). */
+    forbidden: string;
     /** "N selected" chip shown when multi-select has > 1 row picked. */
     selected: string;
     /**
@@ -769,6 +773,7 @@ export const en: Dictionary = {
       filterKinds: "filter kinds…",
       importKubeconfig: "Import kubeconfig…",
       noContexts: "no contexts",
+      forbidden: "RBAC: no permission",
       tools: {
         helmMarket: "Helm Market",
         podFiles: "Pod Files",
@@ -940,6 +945,7 @@ export const en: Dictionary = {
     filterPlaceholder: "filter…",
     empty: "no resources match filter",
     emptyNone: "no resources",
+    forbidden: "No permission to view this resource (RBAC Forbidden)",
     selected: "selected",
     new: "New",
     newTitle: "Create a resource from a YAML template",
@@ -1448,6 +1454,7 @@ export const zh: Dictionary = {
       filterKinds: "过滤类型…",
       importKubeconfig: "导入 kubeconfig…",
       noContexts: "无 context",
+      forbidden: "RBAC: 无权限",
       tools: {
         helmMarket: "Helm 市场",
         podFiles: "Pod 文件",
@@ -1623,6 +1630,7 @@ export const zh: Dictionary = {
     filterPlaceholder: "过滤…",
     empty: "无匹配资源",
     emptyNone: "无资源",
+    forbidden: "当前账户无权查看此资源 (RBAC Forbidden)",
     selected: "已选",
     new: "新建",
     newTitle: "从 YAML 模板创建资源",

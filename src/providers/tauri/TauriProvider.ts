@@ -330,6 +330,12 @@ export class TauriProvider implements DataProvider {
     return subscribe<number>("watch-status", cb);
   }
 
+  onWatchKindStatus(cb: (kind: string, status: "ok" | "forbidden") => void): Unsub {
+    return subscribe<{ kind: string; status: string }>("watch-kind-status", (payload) => {
+      cb(payload.kind, payload.status as "ok" | "forbidden");
+    });
+  }
+
   onDrainProgress(cb: (progress: DrainProgress) => void): Unsub {
     return subscribe<DrainProgress>("drain-progress", cb);
   }

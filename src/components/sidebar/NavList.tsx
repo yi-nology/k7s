@@ -39,6 +39,7 @@ import {
   PlusSquare,
   GitCompareArrows,
   Plug,
+  Lock,
 } from "lucide-react";
 import styles from "./Sidebar.module.css";
 import { useStore, type OverlayKey } from "../../store";
@@ -59,6 +60,7 @@ export function NavList() {
   const rows = useStore((s) => s.rows);
   const setNav = useStore((s) => s.setNav);
   const customKinds = useStore((s) => s.customKinds);
+  const watchStatus = useStore((s) => s.watchStatus);
   const overlay = useStore((s) => s.overlay);
   const openOverlay = useStore((s) => s.openOverlay);
   const closeOverlay = useStore((s) => s.closeOverlay);
@@ -105,7 +107,13 @@ export function NavList() {
                 >
                   <span className={styles.navIcon}>{meta?.icon}</span>
                   <span className={styles.navLabel}>{label}</span>
-                  <span className={styles.navCount}>{rows[kind].length}</span>
+                  {watchStatus[kind] === "forbidden" ? (
+                    <span className={styles.navForbidden} title={t("chrome.sidebar.forbidden", "RBAC: no permission")}>
+                      <Lock size={12} />
+                    </span>
+                  ) : (
+                    <span className={styles.navCount}>{rows[kind].length}</span>
+                  )}
                 </div>
               );
             })}

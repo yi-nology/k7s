@@ -286,6 +286,8 @@ export interface AppState {
   nodeSamples: Record<string, NodeSample[]>;
   /** Why a node has no samples (no exporter, forward failed), keyed by node. */
   nodeStatsErrors: Record<string, string>;
+  /** Per-kind watch status: "forbidden" when a watch returns 403, "ok" otherwise. */
+  watchStatus: Record<string, "ok" | "forbidden">;
   /**
    * Per-pod usage samples, keyed "namespace/name", oldest first. Live-only like
    * nodeSamples: the series starts when you open a pod's Metrics tab and fills
@@ -362,6 +364,7 @@ export interface AppState {
   setNodeStatsError: (node: string, message: string) => void;
   /** Append a sample to a pod's series, capped at POD_SAMPLE_CAP. */
   addPodSample: (key: string, sample: PodSample) => void;
+  setWatchStatus: (kind: string, status: "ok" | "forbidden") => void;
   /** Merge a settings change (already sanitised by the caller). */
   setSettings: (patch: Partial<Settings>) => void;
   /** Record the OS colour-scheme preference (B52). */
@@ -471,6 +474,7 @@ export const useStore = create<AppState>((set) => ({
   nodeSamples: {},
   nodeStatsErrors: {},
   podSamples: {},
+  watchStatus: {},
 
   selectedRow: null,
   activeTab: "logs",
@@ -616,6 +620,8 @@ export const useStore = create<AppState>((set) => ({
         },
       };
     }),
+  setWatchStatus: (kind, status) =>
+    set((s) => ({ watchStatus: { ...s.watchStatus, [kind]: status } })),
   setSettings: (patch) =>
     set((s) => {
       const settings = { ...s.settings, ...patch };
@@ -686,6 +692,8 @@ export const useStore = create<AppState>((set) => ({
       nodeStatsErrors: {},
       // Pod samples belong to the old connection too — a reconnect starts fresh.
       podSamples: {},
+      // Per-kind RBAC status belongs to the old connection.
+      watchStatus: {},
       selectedRow: null,
       selection: EMPTY_SELECTION,
       logBuffer: [],
