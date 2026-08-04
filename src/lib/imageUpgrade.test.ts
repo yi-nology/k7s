@@ -130,23 +130,23 @@ data:
 describe("rewriteContainerImage", () => {
   it("replaces the named container's image and leaves siblings untouched", () => {
     const out = rewriteContainerImage(SAMPLE_DEPLOYMENT, "sidecar", "envoyproxy/envoy:v1.31");
-    expect(out).toMatch(/^      - name: sidecar$/m);
+    expect(out).toMatch(/^ {6}- name: sidecar$/m);
     // The new image is on the line below `- name: sidecar`, with the
     // same indent as the original. Pinning the exact line keeps the
     // diff to a single field.
-    expect(out).toMatch(/^        image: envoyproxy\/envoy:v1\.31$/m);
+    expect(out).toMatch(/^ {8}image: envoyproxy\/envoy:v1\.31$/m);
     // The other container's image is byte-identical.
-    expect(out).toMatch(/^        image: nginx:1\.25$/m);
+    expect(out).toMatch(/^ {8}image: nginx:1\.25$/m);
     // Surrounding fields survive verbatim — pin a couple as canaries.
-    expect(out).toMatch(/^        ports:$/m);
-    expect(out).toMatch(/^        - containerPort: 80$/m);
+    expect(out).toMatch(/^ {8}ports:$/m);
+    expect(out).toMatch(/^ {8}- containerPort: 80$/m);
   });
 
   it("rewrites the initContainer image when targeted by name", () => {
     const out = rewriteContainerImage(SAMPLE_WITH_INIT, "db-migrate", "busybox:1.37");
-    expect(out).toMatch(/^        image: busybox:1\.37$/m);
+    expect(out).toMatch(/^ {8}image: busybox:1\.37$/m);
     // The standard container is untouched.
-    expect(out).toMatch(/^        image: my-app:1\.2\.3$/m);
+    expect(out).toMatch(/^ {8}image: my-app:1\.2\.3$/m);
   });
 
   it("returns the YAML unchanged when the container name is not found", () => {
@@ -170,7 +170,7 @@ describe("rewriteContainerImage", () => {
     // Service block is byte-identical: the only change is below `---`.
     const [serviceBlock, deployBlock] = out.split("\n---\n");
     expect(serviceBlock).toBe(SAMPLE_MULTI_DOC.split("\n---\n")[0]);
-    expect(deployBlock).toMatch(/^        image: nginx:1\.26$/m);
+    expect(deployBlock).toMatch(/^ {8}image: nginx:1\.26$/m);
   });
 
   it("preserves the line's leading whitespace (no reformatting)", () => {
@@ -187,11 +187,11 @@ describe("rewriteContainerImage", () => {
         image: old:1.0
 `;
     const out = rewriteContainerImage(yaml, "app", "new:2.0");
-    expect(out).toMatch(/^        image: new:2\.0$/m);
+    expect(out).toMatch(/^ {8}image: new:2\.0$/m);
     // Trailing lines survive verbatim — a smoke test that the loop
     // pushed every line it didn't touch.
-    expect(out).toMatch(/^      - name: app$/m);
-    expect(out).toMatch(/^  template:$/m);
+    expect(out).toMatch(/^ {6}- name: app$/m);
+    expect(out).toMatch(/^ {2}template:$/m);
   });
 });
 

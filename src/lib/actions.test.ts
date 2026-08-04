@@ -415,7 +415,7 @@ describe("runBulk", () => {
 
   it("survives a rejection that isn't an Error", async () => {
     const out = await runBulk([row("a")], async () => {
-      throw "plain string"; // eslint-disable-line @typescript-eslint/no-throw-literal
+      throw "plain string";  
     });
     expect(out.failures[0].error).toBe("plain string");
   });
