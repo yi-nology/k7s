@@ -34,6 +34,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "jsdom",
+    setupFiles: "./src/test/setup.ts",
     // Only unit-test the frontend; Rust has its own `cargo test`.
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
