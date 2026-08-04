@@ -7,11 +7,11 @@
  * from the toolbar choice to a keep/drop decision is testable without React.
  */
 
-import type { SinceOption } from "./logview";
-import { sinceSeconds } from "./logview";
+import type { SinceOption } from './logview';
+import { sinceSeconds } from './logview';
 
 export type { SinceOption };
-export { SINCE_OPTIONS } from "./logview";
+export { SINCE_OPTIONS } from './logview';
 
 /**
  * Keep an event whose last-seen epoch (ms) falls inside the chosen window?
@@ -22,11 +22,7 @@ export { SINCE_OPTIONS } from "./logview";
  * boundary (an event exactly `since` old is kept — "1h" should not flicker a
  * 3600.0s-old event in and out).
  */
-export function eventWithinSince(
-  lastSeenMs: number,
-  option: SinceOption,
-  nowMs: number,
-): boolean {
+export function eventWithinSince(lastSeenMs: number, option: SinceOption, nowMs: number): boolean {
   const secs = sinceSeconds(option);
   if (secs === undefined) return true; // "all"
   const cutoffMs = nowMs - secs * 1000;

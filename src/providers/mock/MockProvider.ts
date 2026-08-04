@@ -69,8 +69,8 @@ import type {
   Revision,
   YamlDiff,
   NodeShellHandle,
-} from "../types";
-import { KIND_ORDER } from "../../lib/kinds";
+} from '../types';
+import { KIND_ORDER } from '../../lib/kinds';
 import {
   MOCK_CLUSTERS,
   MOCK_CUSTOM_KINDS,
@@ -78,11 +78,11 @@ import {
   buildCustomRows,
   buildKindRows,
   mockPodUsage,
-} from "./data";
-import { makeLogLine, seedLogLines } from "./logs";
-import { yamlForPodName, yamlForGeneric } from "./yaml";
-import { eventsForPodName } from "./events";
-import { mockProperties } from "./properties";
+} from './data';
+import { makeLogLine, seedLogLines } from './logs';
+import { yamlForPodName, yamlForGeneric } from './yaml';
+import { eventsForPodName } from './events';
+import { mockProperties } from './properties';
 
 /** Interval (ms) between mock log lines, matching the prototype's default. */
 const LOG_TICK_MS = 900;
@@ -90,7 +90,7 @@ const LOG_TICK_MS = 900;
 /** Fixed status matching the prototype's status bar (v1.31, 42ms, 6/6, 41/63%). */
 const MOCK_STATUS: ClusterStatus = {
   connected: true,
-  version: "v1.31",
+  version: 'v1.31',
   apiLatencyMs: 42,
   nodesReady: 6,
   nodesTotal: 6,
@@ -144,7 +144,7 @@ export class MockProvider implements DataProvider {
     this.emitAllRows();
     for (const cb of this.statusCbs) cb({ ...MOCK_STATUS, context });
     for (const cb of this.watchCbs) cb(MOCK_WATCH_COUNT);
-    return { context, clusterName: context, server: "https://mock.local:6443", version: "v1.31" };
+    return { context, clusterName: context, server: 'https://mock.local:6443', version: 'v1.31' };
   }
 
   async importKubeconfig(): Promise<ImportResult | null> {
@@ -152,11 +152,11 @@ export class MockProvider implements DataProvider {
     // is demonstrable. Appended once (idempotent).
     const base = MOCK_CLUSTERS.map((c) => ({ name: c.name, cluster: c.name, current: c.active }));
     const imported: ContextInfo = {
-      name: "imported-team-cluster",
-      cluster: "team-eks",
+      name: 'imported-team-cluster',
+      cluster: 'team-eks',
       current: false,
     };
-    return { contexts: [...base, imported], path: "/mock/team-cluster.kubeconfig" };
+    return { contexts: [...base, imported], path: '/mock/team-cluster.kubeconfig' };
   }
 
   async restoreImports(_paths: string[]): Promise<string[]> {
@@ -179,7 +179,7 @@ export class MockProvider implements DataProvider {
     const cached = this.yamlCache.get(key);
     if (cached) return cached;
     // Pods get the full mock manifest; other kinds get a generic stub.
-    return ref.kind === "pods"
+    return ref.kind === 'pods'
       ? yamlForPodName(ref.name)
       : yamlForGeneric(ref.kind, ref.namespace, ref.name);
   }
@@ -200,14 +200,14 @@ export class MockProvider implements DataProvider {
     let proposed = text;
     // Defaulting: the server fills fields you didn't write.
     if (!/terminationGracePeriodSeconds:/.test(proposed)) {
-      proposed = proposed.replace(/^spec:$/m, "spec:\n  terminationGracePeriodSeconds: 30");
+      proposed = proposed.replace(/^spec:$/m, 'spec:\n  terminationGracePeriodSeconds: 30');
     }
     // A mutating webhook stamping its own annotation — invisible in the text you
     // typed, which is exactly the point of previewing.
     if (!/k7s\.demo\/mutated:/.test(proposed)) {
       proposed = proposed.replace(
         /^ {2}annotations:$/m,
-        "  annotations:\n    k7s.demo/mutated: \"true\"",
+        '  annotations:\n    k7s.demo/mutated: "true"'
       );
     }
     return { current, proposed };
@@ -228,9 +228,9 @@ export class MockProvider implements DataProvider {
   async getSecretData(_namespace: string, _name: string): Promise<SecretEntry[]> {
     // Demo mode: return sample decoded secret data so the toggle is demonstrable.
     return [
-      { key: "username", value: "admin" },
-      { key: "password", value: "s3cret-v4lue!" },
-      { key: "token", value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo" },
+      { key: 'username', value: 'admin' },
+      { key: 'password', value: 's3cret-v4lue!' },
+      { key: 'token', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo' },
     ];
   }
 
@@ -250,7 +250,7 @@ export class MockProvider implements DataProvider {
     return [
       {
         revision: 3,
-        images: [{ name: "app", image: "nginx:1.25.3", init: false }],
+        images: [{ name: 'app', image: 'nginx:1.25.3', init: false }],
         desired: 3,
         ready: 3,
         age: age(2),
@@ -258,7 +258,7 @@ export class MockProvider implements DataProvider {
       },
       {
         revision: 2,
-        images: [{ name: "app", image: "nginx:1.25.2", init: false }],
+        images: [{ name: 'app', image: 'nginx:1.25.2', init: false }],
         desired: 0,
         ready: 0,
         age: age(63),
@@ -266,7 +266,7 @@ export class MockProvider implements DataProvider {
       },
       {
         revision: 1,
-        images: [{ name: "app", image: "nginx:1.25.1", init: false }],
+        images: [{ name: 'app', image: 'nginx:1.25.1', init: false }],
         desired: 0,
         ready: 0,
         age: age(60 * 25),
@@ -277,7 +277,7 @@ export class MockProvider implements DataProvider {
   async undoRollout(_ref: ResourceRef, _toRevision?: number): Promise<void> {}
   async setCordon(_node: string, _unschedulable: boolean): Promise<void> {}
   /** No native window in demo mode — the browser tab owns its own chrome. */
-  async setWindowTheme(_theme: "dark" | "light"): Promise<void> {}
+  async setWindowTheme(_theme: 'dark' | 'light'): Promise<void> {}
 
   /**
    * Simulate a drain (B20): tick evictions out over a couple of seconds so the
@@ -293,7 +293,7 @@ export class MockProvider implements DataProvider {
         evicted += 1;
       } else if (failures.length === 0) {
         failures.push({
-          pod: "prod/yggdrasil-db-0",
+          pod: 'prod/yggdrasil-db-0',
           message:
             "blocked by a PodDisruptionBudget: Cannot evict pod as it would violate the pod's disruption budget.",
           blockedByPdb: true,
@@ -378,7 +378,7 @@ export class MockProvider implements DataProvider {
     };
   }
 
-  onWatchKindStatus(_cb: (kind: string, status: "ok" | "forbidden") => void): Unsub {
+  onWatchKindStatus(_cb: (kind: string, status: 'ok' | 'forbidden') => void): Unsub {
     return () => {}; // mock: no RBAC errors
   }
 
@@ -415,7 +415,7 @@ export class MockProvider implements DataProvider {
    * has no history either — a cluster without the metrics has neither source.
    */
   async nodeHistory(node: string): Promise<NodeSample[]> {
-    if (node.endsWith("06")) return [];
+    if (node.endsWith('06')) return [];
     const step = 30_000;
     const points = 120;
     const now = Date.now();
@@ -447,9 +447,12 @@ export class MockProvider implements DataProvider {
   async watchNodeStats(node: string): Promise<void> {
     if (this.nodeTimers.has(node)) return;
 
-    if (node.endsWith("06")) {
+    if (node.endsWith('06')) {
       this.nodeStatsErrCbs.forEach((cb) =>
-        cb({ node, message: `no node-exporter pod found on ${node} — install one, or its port isn't 9100` }),
+        cb({
+          node,
+          message: `no node-exporter pod found on ${node} — install one, or its port isn't 9100`,
+        })
       );
       return;
     }
@@ -480,9 +483,9 @@ export class MockProvider implements DataProvider {
         load5: load * 0.9,
         load15: load * 0.8,
         filesystems: [
-          { mountpoint: "/", usedBytes: 67e9, sizeBytes: 1920e9 },
-          { mountpoint: "/home", usedBytes: 8e9, sizeBytes: 1861e9 },
-          { mountpoint: "/mnt/data", usedBytes: 9078e9, sizeBytes: 20059e9 },
+          { mountpoint: '/', usedBytes: 67e9, sizeBytes: 1920e9 },
+          { mountpoint: '/home', usedBytes: 8e9, sizeBytes: 1861e9 },
+          { mountpoint: '/mnt/data', usedBytes: 9078e9, sizeBytes: 20059e9 },
         ],
       };
       this.nodeStatsCbs.forEach((cb) => cb(node, sample));
@@ -527,9 +530,17 @@ export class MockProvider implements DataProvider {
 
     const tick = () => {
       // Bounds sit below 2x base, keeping usage under the 2x-base limit line.
-      cpu = clamp(cpu + (Math.random() - 0.5) * baseCpu * 0.18, Math.max(1, baseCpu * 0.4), baseCpu * 2.1);
+      cpu = clamp(
+        cpu + (Math.random() - 0.5) * baseCpu * 0.18,
+        Math.max(1, baseCpu * 0.4),
+        baseCpu * 2.1
+      );
       mem = clamp(mem + (Math.random() - 0.5) * baseMem * 0.12, baseMem * 0.5, baseMem * 2.0);
-      const sample: PodSample = { ts: Date.now(), cpuMillis: Math.round(cpu), memBytes: Math.round(mem) };
+      const sample: PodSample = {
+        ts: Date.now(),
+        cpuMillis: Math.round(cpu),
+        memBytes: Math.round(mem),
+      };
       this.podStatsCbs.forEach((cb) => cb(key, sample));
     };
     // First point promptly so the tab isn't empty while you wait.
@@ -552,13 +563,13 @@ export class MockProvider implements DataProvider {
     container: string,
     _opts: LogOptions,
     onLines: (lines: LogLine[]) => void,
-    _onClosed: (reason: string) => void,
+    _onClosed: (reason: string) => void
   ): Promise<LogHandle> {
     // In "all" mode (container === "") tag each line with a rotating container name.
     const pod = MOCK_PODS.find((p) => p.name === ref.name);
-    const containers = pod?.containers ?? ["app"];
+    const containers = pod?.containers ?? ['app'];
     const tag = () =>
-      container === "" ? containers[Math.floor(Math.random() * containers.length)] : container;
+      container === '' ? containers[Math.floor(Math.random() * containers.length)] : container;
     const withTag = (lines: LogLine[]) => lines.map((l) => ({ ...l, container: tag() }));
 
     // Seed with history immediately, then tick a new line every LOG_TICK_MS.
@@ -587,14 +598,14 @@ export class MockProvider implements DataProvider {
     _ref: ResourceRef,
     container: string,
     onOutput: (data: string) => void,
-    _onClosed: (reason: string) => void,
+    _onClosed: (reason: string) => void
   ): Promise<ShellHandle> {
     const prompt = `\x1b[32m${container}\x1b[0m:/# `;
     onOutput(`demo shell — echoes input (no real container)\r\n${prompt}`);
     return {
       input: (data: string) => {
         // Enter → newline + prompt; otherwise echo the keystroke.
-        onOutput(data === "\r" ? `\r\n${prompt}` : data);
+        onOutput(data === '\r' ? `\r\n${prompt}` : data);
       },
       resize: () => {},
       stop: () => {},
@@ -612,7 +623,7 @@ export class MockProvider implements DataProvider {
   async startNodeShell(
     node: string,
     onOutput: (data: string) => void,
-    _onClosed: (reason: string) => void,
+    _onClosed: (reason: string) => void
   ): Promise<NodeShellHandle> {
     const pod = `k7s-debug-${node}-1`;
     await new Promise((r) => setTimeout(r, 1200));
@@ -620,13 +631,13 @@ export class MockProvider implements DataProvider {
     const prompt = `\x1b[32mroot@${node}\x1b[0m:~# `;
     onOutput(
       `demo node shell — echoes input (no real node)\r\n` +
-        `\x1b[90mreal sessions run in pod ${pod}\x1b[0m\r\n${prompt}`,
+        `\x1b[90mreal sessions run in pod ${pod}\x1b[0m\r\n${prompt}`
     );
     return {
-      namespace: "default",
+      namespace: 'default',
       pod,
       input: (data: string) => {
-        onOutput(data === "\r" ? `\r\n${prompt}` : data);
+        onOutput(data === '\r' ? `\r\n${prompt}` : data);
       },
       resize: () => {},
       stop: () => {},
@@ -637,10 +648,10 @@ export class MockProvider implements DataProvider {
   private forwards: ForwardInfo[] = [];
 
   async startPortForward(ref: ResourceRef, remotePort: number): Promise<ForwardInfo> {
-    const isService = ref.kind === "services";
+    const isService = ref.kind === 'services';
     const fwd: ForwardInfo = {
       id: `pf-${ref.name}-${remotePort}-${this.forwards.length}`,
-      namespace: ref.namespace ?? "",
+      namespace: ref.namespace ?? '',
       // A Service forward resolves to a backing pod; the mock fakes one so the
       // strip shows the same "service (via pod)" shape as the real thing (B16).
       pod: isService ? `${ref.name}-6c8d9-mn4p` : ref.name,
@@ -684,10 +695,10 @@ export class MockProvider implements DataProvider {
     return demoMockRepos();
   }
   async helmAddRepo(_input: HelmRepoUpsert): Promise<HelmRepo> {
-    throw new Error("Helm not available in demo mode");
+    throw new Error('Helm not available in demo mode');
   }
   async helmRemoveRepo(_name: string): Promise<void> {
-    throw new Error("Helm not available in demo mode");
+    throw new Error('Helm not available in demo mode');
   }
   async helmUpdateRepo(name: string): Promise<HelmRepo> {
     const r = (await this.helmListRepos()).find((x) => x.name === name);
@@ -705,42 +716,51 @@ export class MockProvider implements DataProvider {
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.description.toLowerCase().includes(q) ||
-        c.keywords.some((k) => k.toLowerCase().includes(q)),
+        c.keywords.some((k) => k.toLowerCase().includes(q))
     );
   }
   async helmChartVersions(_repo: string, _chart: string): Promise<HelmChartVersionEntry[]> {
     return [
-      { version: "1.2.3", appVersion: "1.0.0", created: "2024-01-01T00:00:00Z", urls: [] },
-      { version: "1.2.2", appVersion: "1.0.0", created: "2023-12-01T00:00:00Z", urls: [] },
-      { version: "1.2.1", appVersion: "0.9.0", created: "2023-11-01T00:00:00Z", urls: [] },
+      { version: '1.2.3', appVersion: '1.0.0', created: '2024-01-01T00:00:00Z', urls: [] },
+      { version: '1.2.2', appVersion: '1.0.0', created: '2023-12-01T00:00:00Z', urls: [] },
+      { version: '1.2.1', appVersion: '0.9.0', created: '2023-11-01T00:00:00Z', urls: [] },
     ];
   }
-  async helmExportChart(_repo: string, _chart: string, _version: string, _outputDir: string): Promise<string> { return "/tmp/chart.tgz"; }
-  async helmImportChart(_filePath: string, _repoName: string): Promise<string> { return "/tmp/imported.tgz"; }
-  async helmLocalCharts(_repoName: string): Promise<string[]> { return []; }
+  async helmExportChart(
+    _repo: string,
+    _chart: string,
+    _version: string,
+    _outputDir: string
+  ): Promise<string> {
+    return '/tmp/chart.tgz';
+  }
+  async helmImportChart(_filePath: string, _repoName: string): Promise<string> {
+    return '/tmp/imported.tgz';
+  }
+  async helmLocalCharts(_repoName: string): Promise<string[]> {
+    return [];
+  }
   async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
-    return "# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n";
+    return '# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n';
   }
   async helmRunOp(_op: HelmOp): Promise<HelmOpResult> {
     return {
-      op: "install",
-      release: "demo",
-      namespace: "default",
+      op: 'install',
+      release: 'demo',
+      namespace: 'default',
       success: true,
       lines: 0,
-      summary: "demo mode: no helm backend",
+      summary: 'demo mode: no helm backend',
     };
   }
   async helmReleaseHistory(
     _release: string,
     _ns: string,
-    _kc?: string,
+    _kc?: string
   ): Promise<HelmRevisionEntry[]> {
     return [];
   }
-  onHelmOpLog(
-    _cb: (line: { stream: "stdout" | "stderr"; line: string }) => void,
-  ): Unsub {
+  onHelmOpLog(_cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub {
     return () => {};
   }
   onHelmOpDone(_cb: (result: HelmOpResult) => void): Unsub {
@@ -751,42 +771,38 @@ export class MockProvider implements DataProvider {
   async podFilesList(
     _ref: ResourceRef,
     _container: string | null,
-    _path: string,
+    _path: string
   ): Promise<PodFileEntry[]> {
     return [
-      { name: "etc", kind: "dir", size: 0, modified: 1700000000, mode: 0o755 },
-      { name: "var", kind: "dir", size: 0, modified: 1700000000, mode: 0o755 },
-      { name: "tmp", kind: "dir", size: 0, modified: 1700000000, mode: 0o1777 },
-      { name: "demo.txt", kind: "file", size: 12, modified: 1700000000, mode: 0o644 },
+      { name: 'etc', kind: 'dir', size: 0, modified: 1700000000, mode: 0o755 },
+      { name: 'var', kind: 'dir', size: 0, modified: 1700000000, mode: 0o755 },
+      { name: 'tmp', kind: 'dir', size: 0, modified: 1700000000, mode: 0o1777 },
+      { name: 'demo.txt', kind: 'file', size: 12, modified: 1700000000, mode: 0o644 },
     ];
   }
-  async podFilesRead(
-    _ref: ResourceRef,
-    _container: string | null,
-    path: string,
-  ): Promise<string> {
+  async podFilesRead(_ref: ResourceRef, _container: string | null, path: string): Promise<string> {
     return `demo file: ${path}\n`;
   }
   async podFilesWrite(
     _ref: ResourceRef,
     _container: string | null,
     _path: string,
-    _content: string,
+    _content: string
   ): Promise<void> {
     // No-op: writes don't actually persist in demo mode.
   }
   async podFilesDownload(
     _ref: ResourceRef,
     _container: string | null,
-    _path: string,
+    _path: string
   ): Promise<Uint8Array> {
-    return new TextEncoder().encode("demo archive\n");
+    return new TextEncoder().encode('demo archive\n');
   }
   async podFilesUpload(
     _ref: ResourceRef,
     _container: string | null,
     _destDir: string,
-    _tar: Uint8Array,
+    _tar: Uint8Array
   ): Promise<void> {
     // No-op.
   }
@@ -795,18 +811,18 @@ export class MockProvider implements DataProvider {
   async imageRegistryList(): Promise<ImageRegistry[]> {
     return [
       {
-        name: "demo",
-        url: "https://registry.demo/v2",
-        username: "",
+        name: 'demo',
+        url: 'https://registry.demo/v2',
+        username: '',
         insecure: false,
-        description: "Demo OCI registry",
+        description: 'Demo OCI registry',
         lastError: null,
         lastRefreshed: new Date().toISOString(),
       },
     ];
   }
   async imageRegistryUpsert(_input: ImageRegistryUpsert): Promise<ImageRegistry> {
-    throw new Error("image registry not available in demo mode");
+    throw new Error('image registry not available in demo mode');
   }
   async imageRegistryRemove(_name: string): Promise<void> {
     // No-op: nothing to remove.
@@ -815,17 +831,28 @@ export class MockProvider implements DataProvider {
     // No-op.
   }
   async imageRegistryRepos(_name: string): Promise<ImageRepo[]> {
-    return [
-      { name: "library/nginx" },
-      { name: "library/redis" },
-      { name: "library/postgres" },
-    ];
+    return [{ name: 'library/nginx' }, { name: 'library/redis' }, { name: 'library/postgres' }];
   }
   async imageRegistryTags(_name: string, _repo: string): Promise<ImageTag[]> {
     return [
-      { name: "1.25", digest: "sha256:" + "a".repeat(64), size: 142000000, created: "2024-01-15T10:00:00Z" },
-      { name: "1.24", digest: "sha256:" + "b".repeat(64), size: 140000000, created: "2023-12-01T10:00:00Z" },
-      { name: "latest", digest: "sha256:" + "c".repeat(64), size: 142000000, created: "2024-01-15T10:00:00Z" },
+      {
+        name: '1.25',
+        digest: 'sha256:' + 'a'.repeat(64),
+        size: 142000000,
+        created: '2024-01-15T10:00:00Z',
+      },
+      {
+        name: '1.24',
+        digest: 'sha256:' + 'b'.repeat(64),
+        size: 140000000,
+        created: '2023-12-01T10:00:00Z',
+      },
+      {
+        name: 'latest',
+        digest: 'sha256:' + 'c'.repeat(64),
+        size: 142000000,
+        created: '2024-01-15T10:00:00Z',
+      },
     ];
   }
 
@@ -833,10 +860,10 @@ export class MockProvider implements DataProvider {
   async applyYamlBundle(_yaml: string): Promise<ApplyResult[]> {
     return [
       {
-        name: "demo",
-        kind: "Deployment",
-        namespace: "default",
-        action: "created",
+        name: 'demo',
+        kind: 'Deployment',
+        namespace: 'default',
+        action: 'created',
         error: null,
       },
     ];
@@ -856,9 +883,9 @@ export class MockProvider implements DataProvider {
       const nameMatch = doc.match(/^\s*name:\s*(\S+)/m);
       const kindMatch = doc.match(/^\s*kind:\s*(\S+)/m);
       return {
-        kind: kindMatch?.[1] ?? "Unknown",
-        namespace: "default",
-        name: nameMatch?.[1] ?? "unknown",
+        kind: kindMatch?.[1] ?? 'Unknown',
+        namespace: 'default',
+        name: nameMatch?.[1] ?? 'unknown',
         proposed: doc,
         error: null,
       };
@@ -869,9 +896,13 @@ export class MockProvider implements DataProvider {
   // isn't read — we just report a plausible loaded image derived from the
   // filename so the result looks real. ----
   async importImageToNode(_node: string, path: string): Promise<ImportImageResult> {
-    const base = path.split("/").pop()?.replace(/\.tar$/i, "") ?? "demo";
+    const base =
+      path
+        .split('/')
+        .pop()
+        ?.replace(/\.tar$/i, '') ?? 'demo';
     return {
-      runtime: "containerd",
+      runtime: 'containerd',
       output: `Loaded image: ${base}:latest\n`,
       images: [`${base}:latest`],
       error: null,
@@ -883,20 +914,24 @@ export class MockProvider implements DataProvider {
   async imageSyncStatus(): Promise<SkopeoAvailability> {
     return {
       available: true,
-      path: "/opt/homebrew/bin/skopeo",
-      version: "skopeo version 1.14.0",
+      path: '/opt/homebrew/bin/skopeo',
+      version: 'skopeo version 1.14.0',
     };
   }
 
   async imageInspectArchive(tarPath: string): Promise<ArchiveInfo> {
-    const base = tarPath.split("/").pop()?.replace(/\.tar$/i, "") ?? "demo";
+    const base =
+      tarPath
+        .split('/')
+        .pop()
+        ?.replace(/\.tar$/i, '') ?? 'demo';
     return {
       name: `docker.io/library/${base}`,
       repoTags: [`${base}:latest`],
-      digest: "sha256:" + "a".repeat(64),
-      architecture: "amd64",
-      os: "linux",
-      created: "2024-01-15T10:00:00Z",
+      digest: 'sha256:' + 'a'.repeat(64),
+      architecture: 'amd64',
+      os: 'linux',
+      created: '2024-01-15T10:00:00Z',
       sizeBytes: 142000000,
     };
   }
@@ -909,13 +944,13 @@ export class MockProvider implements DataProvider {
     _srcCreds: string | null,
     _insecureSrc: boolean,
     _insecureDest: boolean,
-    onLog: (line: string) => void,
+    onLog: (line: string) => void
   ): Promise<ImageSyncResult> {
     // Emit a couple of fake progress lines so the live log looks alive.
-    onLog("Getting image source signatures");
-    onLog("Copying blob sha256:abc123 done");
-    onLog("Copying config sha256:def456 done");
-    onLog("Writing manifest to image destination");
+    onLog('Getting image source signatures');
+    onLog('Copying blob sha256:abc123 done');
+    onLog('Copying config sha256:def456 done');
+    onLog('Writing manifest to image destination');
     const dest = `docker://${destRegistry}/${destRepo}:${destTag}`;
     return {
       source: _source,
@@ -932,88 +967,82 @@ export class MockProvider implements DataProvider {
   async listEndpoints(): Promise<EndpointRow[]> {
     return [
       {
-        name: "nginx-slice-1",
-        namespace: "default",
-        service: "nginx",
+        name: 'nginx-slice-1',
+        namespace: 'default',
+        service: 'nginx',
         ready: 3,
         total: 3,
-        addresses: ["10.1.0.5:80", "10.1.0.6:80", "10.1.0.7:80"],
-        age: "5m",
+        addresses: ['10.1.0.5:80', '10.1.0.6:80', '10.1.0.7:80'],
+        age: '5m',
       },
       {
-        name: "redis-slice-1",
-        namespace: "default",
-        service: "redis",
+        name: 'redis-slice-1',
+        namespace: 'default',
+        service: 'redis',
         ready: 1,
         total: 1,
-        addresses: ["10.1.0.10:6379"],
-        age: "10m",
+        addresses: ['10.1.0.10:6379'],
+        age: '10m',
       },
     ];
   }
-  async listEndpointsForService(
-    _ns: string,
-    _name: string,
-  ): Promise<EndpointRow[]> {
+  async listEndpointsForService(_ns: string, _name: string): Promise<EndpointRow[]> {
     return this.listEndpoints();
   }
-  async listEndpointAddresses(
-    _ns: string,
-    name: string,
-  ): Promise<EndpointAddress[]> {
+  async listEndpointAddresses(_ns: string, name: string): Promise<EndpointAddress[]> {
     // Branch on the slice's parent service so the topology demo shows the
     // right Pod targets for each EndpointSlice, not just nginx addresses
     // for every slice. Without this branch the Service Topology overlay
     // wires the redis service to nginx-1/nginx-2 pods, which makes the
     // graph nonsensical.
-    if (name.startsWith("redis")) {
+    if (name.startsWith('redis')) {
       return [
         {
-          address: "10.1.0.10:6379",
+          address: '10.1.0.10:6379',
           ready: true,
-          nodeName: "node-1",
-          targetRefKind: "Pod",
-          targetRefName: "redis-0",
+          nodeName: 'node-1',
+          targetRefKind: 'Pod',
+          targetRefName: 'redis-0',
         },
       ];
     }
-    if (name.startsWith("nginx")) {
+    if (name.startsWith('nginx')) {
       return [
         {
-          address: "10.1.0.5:80",
+          address: '10.1.0.5:80',
           ready: true,
-          nodeName: "node-1",
-          targetRefKind: "Pod",
-          targetRefName: "nginx-1",
+          nodeName: 'node-1',
+          targetRefKind: 'Pod',
+          targetRefName: 'nginx-1',
         },
         {
-          address: "10.1.0.6:80",
+          address: '10.1.0.6:80',
           ready: true,
-          nodeName: "node-2",
-          targetRefKind: "Pod",
-          targetRefName: "nginx-2",
+          nodeName: 'node-2',
+          targetRefKind: 'Pod',
+          targetRefName: 'nginx-2',
         },
       ];
     }
     return [];
   }
   async triggerCronjob(_ns: string, _name: string): Promise<string> {
-    return "demo-job-1";
+    return 'demo-job-1';
   }
   async metricsList(): Promise<MetricsConfig[]> {
     return [
       {
-        name: "demo",
-        url: "http://prometheus.demo:9090",
-        username: "",
-        description: "Demo Prometheus",
+        name: 'demo',
+        url: 'http://prometheus.demo:9090',
+        username: '',
+        description: 'Demo Prometheus',
         lastError: null,
         lastRefreshed: new Date().toISOString(),
       },
     ];
   }
   async metricsUpsert(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    throw new Error("metrics not available in demo mode");
+    throw new Error('metrics not available in demo mode');
   }
   async metricsRemove(_name: string): Promise<void> {
     /* no-op */
@@ -1029,10 +1058,10 @@ export class MockProvider implements DataProvider {
       value: Math.sin(i / 3) * 10 + 50,
     }));
     return {
-      resultType: "matrix",
+      resultType: 'matrix',
       series: [
         {
-          metric: { __name__: "demo", query: promql },
+          metric: { __name__: 'demo', query: promql },
           samples: series,
         },
       ],
@@ -1042,7 +1071,7 @@ export class MockProvider implements DataProvider {
     _name: string,
     promql: string,
     startMs: number,
-    endMs: number,
+    endMs: number
   ): Promise<PromQueryResult> {
     void startMs;
     void endMs;
@@ -1051,18 +1080,18 @@ export class MockProvider implements DataProvider {
   async grafanaList(): Promise<GrafanaConfig[]> {
     return [
       {
-        name: "demo",
-        url: "http://grafana.demo:3000",
-        username: "",
-        defaultDatasource: "prometheus",
-        description: "Demo Grafana",
+        name: 'demo',
+        url: 'http://grafana.demo:3000',
+        username: '',
+        defaultDatasource: 'prometheus',
+        description: 'Demo Grafana',
         lastError: null,
         lastRefreshed: new Date().toISOString(),
       },
     ];
   }
   async grafanaUpsert(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    throw new Error("grafana not available in demo mode");
+    throw new Error('grafana not available in demo mode');
   }
   async grafanaRemove(_name: string): Promise<void> {
     /* no-op */
@@ -1072,31 +1101,41 @@ export class MockProvider implements DataProvider {
   }
   async grafanaPresets(): Promise<DashboardPreset[]> {
     return [
-      { id: "k7s-nodes", title: "Cluster / Nodes", uid: "demo-1", description: "CPU, memory, disk, network per node" },
-      { id: "k7s-pods", title: "Cluster / Pods", uid: "demo-2", description: "Per-pod CPU and memory" },
+      {
+        id: 'k7s-nodes',
+        title: 'Cluster / Nodes',
+        uid: 'demo-1',
+        description: 'CPU, memory, disk, network per node',
+      },
+      {
+        id: 'k7s-pods',
+        title: 'Cluster / Pods',
+        uid: 'demo-2',
+        description: 'Per-pod CPU and memory',
+      },
     ];
   }
   async grafanaDashboardUrl(
     _name: string,
     _uid: string,
     _fromMs: number,
-    _toMs: number,
+    _toMs: number
   ): Promise<string> {
-    return "https://example.com/d/demo?from=now-1h&to=now&kiosk";
+    return 'https://example.com/d/demo?from=now-1h&to=now&kiosk';
   }
   async alertManagerList(): Promise<AlertManager[]> {
     return [
       {
-        name: "demo",
-        url: "http://alertmanager.demo:9093",
-        description: "Demo AlertManager",
+        name: 'demo',
+        url: 'http://alertmanager.demo:9093',
+        description: 'Demo AlertManager',
         lastError: null,
         lastRefreshed: new Date().toISOString(),
       },
     ];
   }
   async alertManagerUpsert(_input: AlertManagerUpsert): Promise<AlertManager> {
-    throw new Error("alertmanager not available in demo mode");
+    throw new Error('alertmanager not available in demo mode');
   }
   async alertManagerRemove(_name: string): Promise<void> {
     /* no-op */
@@ -1107,51 +1146,65 @@ export class MockProvider implements DataProvider {
   async alertManagerAlerts(_name: string): Promise<Alert[]> {
     return [
       {
-        fingerprint: "abc123",
-        name: "DemoHighCpu",
-        state: "firing",
-        severity: "warning",
-        summary: "CPU > 80% for 5m",
-        description: "demo alert",
+        fingerprint: 'abc123',
+        name: 'DemoHighCpu',
+        state: 'firing',
+        severity: 'warning',
+        summary: 'CPU > 80% for 5m',
+        description: 'demo alert',
         activeAt: new Date().toISOString(),
-        labels: { severity: "warning", instance: "demo" },
-        generatorUrl: "",
-        inhibitedBy: "",
+        labels: { severity: 'warning', instance: 'demo' },
+        generatorUrl: '',
+        inhibitedBy: '',
       },
     ];
   }
   async alertManagerSilences(_name: string): Promise<Silence[]> {
     return [];
   }
-  async alertManagerCreateSilence(_instance: string, _request: import("../types").CreateSilenceRequest): Promise<string> {
-    return "mock-silence-id";
+  async alertManagerCreateSilence(
+    _instance: string,
+    _request: import('../types').CreateSilenceRequest
+  ): Promise<string> {
+    return 'mock-silence-id';
   }
   async alertManagerDeleteSilence(_instance: string, _silenceId: string): Promise<void> {}
-  async prometheusRules(_instance: string): Promise<import("../types").RuleGroup[]> {
+  async prometheusRules(_instance: string): Promise<import('../types').RuleGroup[]> {
     return [];
   }
-  async lokiList(): Promise<import("../types").LokiConfig[]> { return []; }
-  async lokiUpsert(_input: import("../types").LokiUpsert): Promise<import("../types").LokiConfig> {
-    throw new Error("mock");
+  async lokiList(): Promise<import('../types').LokiConfig[]> {
+    return [];
+  }
+  async lokiUpsert(_input: import('../types').LokiUpsert): Promise<import('../types').LokiConfig> {
+    throw new Error('mock');
   }
   async lokiRemove(_name: string): Promise<void> {}
   async lokiTest(_name: string): Promise<void> {}
-  async auditEvents(_query: import("../types").AuditQuery): Promise<import("../types").AuditEvent[]> { return []; }
-  async grafanaSearchDashboards(_name: string, _query: string): Promise<import("../types").GrafanaDashboardSearchResult[]> { return []; }
+  async auditEvents(
+    _query: import('../types').AuditQuery
+  ): Promise<import('../types').AuditEvent[]> {
+    return [];
+  }
+  async grafanaSearchDashboards(
+    _name: string,
+    _query: string
+  ): Promise<import('../types').GrafanaDashboardSearchResult[]> {
+    return [];
+  }
 
   // ---- Saved PromQL queries (demo seeds) ----
   async savedQueriesList(): Promise<SavedQuery[]> {
     return [
       {
-        name: "Node CPU",
-        promql: "rate(node_cpu_seconds_total{mode!=\"idle\"}[5m])",
-        note: "Per-node CPU usage",
+        name: 'Node CPU',
+        promql: 'rate(node_cpu_seconds_total{mode!="idle"}[5m])',
+        note: 'Per-node CPU usage',
         cacheSeconds: 30,
       },
       {
-        name: "Pod restarts",
-        promql: "rate(kube_pod_container_status_restarts_total[15m])",
-        note: "Pods restarting frequently",
+        name: 'Pod restarts',
+        promql: 'rate(kube_pod_container_status_restarts_total[15m])',
+        note: 'Pods restarting frequently',
         cacheSeconds: 0,
       },
     ];
@@ -1168,7 +1221,7 @@ export class MockProvider implements DataProvider {
   async savedQueriesRun(
     query: SavedQuery,
     _instance: string,
-    _force: boolean,
+    _force: boolean
   ): Promise<PromQueryResult> {
     // Synthesize a couple of fake series so the demo isn't empty.
     const now = Date.now();
@@ -1177,10 +1230,10 @@ export class MockProvider implements DataProvider {
       value: Math.sin(i / 3) * 10 + 50,
     }));
     return {
-      resultType: "matrix",
+      resultType: 'matrix',
       series: [
         {
-          metric: { __name__: "demo", query: query.promql },
+          metric: { __name__: 'demo', query: query.promql },
           samples,
         },
       ],
@@ -1188,29 +1241,33 @@ export class MockProvider implements DataProvider {
   }
 
   // ---- Image manifest (demo seed) ----
-  async imageRegistryManifest(
-    _name: string,
-    repo: string,
-    tag: string,
-  ): Promise<ImageManifest> {
+  async imageRegistryManifest(_name: string, repo: string, tag: string): Promise<ImageManifest> {
     return {
       schemaVersion: 2,
-      mediaType: "application/vnd.docker.distribution.manifest.v2+json",
-      digest: `sha256:${tag.padEnd(64, "0")}`,
+      mediaType: 'application/vnd.docker.distribution.manifest.v2+json',
+      digest: `sha256:${tag.padEnd(64, '0')}`,
       size: 7168,
       raw: JSON.stringify(
         {
           schemaVersion: 2,
-          mediaType: "application/vnd.docker.distribution.manifest.v2+json",
+          mediaType: 'application/vnd.docker.distribution.manifest.v2+json',
         },
         null,
-        2,
+        2
       ),
-      configDigest: `sha256:config-${repo}-${tag}`.padEnd(63, "0"),
+      configDigest: `sha256:config-${repo}-${tag}`.padEnd(63, '0'),
       configSize: 1024,
       layers: [
-        { digest: `sha256:layer-1`.padEnd(64, "0"), size: 2048, mediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip" },
-        { digest: `sha256:layer-2`.padEnd(64, "0"), size: 4096, mediaType: "application/vnd.docker.image.rootfs.diff.tar.gzip" },
+        {
+          digest: `sha256:layer-1`.padEnd(64, '0'),
+          size: 2048,
+          mediaType: 'application/vnd.docker.image.rootfs.diff.tar.gzip',
+        },
+        {
+          digest: `sha256:layer-2`.padEnd(64, '0'),
+          size: 4096,
+          mediaType: 'application/vnd.docker.image.rootfs.diff.tar.gzip',
+        },
       ] as ImageLayer[],
     };
   }
@@ -1220,16 +1277,16 @@ export class MockProvider implements DataProvider {
 function demoMockRepos(): HelmRepo[] {
   return [
     {
-      name: "bitnami",
-      url: "https://charts.bitnami.com/bitnami",
-      description: "Bitnami catalog (demo)",
+      name: 'bitnami',
+      url: 'https://charts.bitnami.com/bitnami',
+      description: 'Bitnami catalog (demo)',
       lastRefreshed: null,
       lastError: null,
     },
     {
-      name: "stable",
-      url: "https://charts.helm.sh/stable",
-      description: "Helm stable (demo)",
+      name: 'stable',
+      url: 'https://charts.helm.sh/stable',
+      description: 'Helm stable (demo)',
       lastRefreshed: null,
       lastError: null,
     },
@@ -1239,33 +1296,33 @@ function demoMockRepos(): HelmRepo[] {
 function demoMockCharts(): HelmChartSummary[] {
   return [
     {
-      repo: "bitnami",
-      name: "nginx",
-      version: "15.4.0",
-      appVersion: "1.25.3",
-      description: "Chart for the nginx server",
-      keywords: ["web", "http"],
-      home: "https://example.com",
+      repo: 'bitnami',
+      name: 'nginx',
+      version: '15.4.0',
+      appVersion: '1.25.3',
+      description: 'Chart for the nginx server',
+      keywords: ['web', 'http'],
+      home: 'https://example.com',
       maintainers: [],
     },
     {
-      repo: "bitnami",
-      name: "postgresql",
-      version: "13.2.0",
-      appVersion: "16.1.0",
-      description: "PostgreSQL database",
-      keywords: ["database", "sql"],
-      home: "https://postgresql.org",
+      repo: 'bitnami',
+      name: 'postgresql',
+      version: '13.2.0',
+      appVersion: '16.1.0',
+      description: 'PostgreSQL database',
+      keywords: ['database', 'sql'],
+      home: 'https://postgresql.org',
       maintainers: [],
     },
     {
-      repo: "stable",
-      name: "redis",
-      version: "17.0.0",
-      appVersion: "7.2.0",
-      description: "Redis in-memory store",
-      keywords: ["cache", "kv"],
-      home: "https://redis.io",
+      repo: 'stable',
+      name: 'redis',
+      version: '17.0.0',
+      appVersion: '7.2.0',
+      description: 'Redis in-memory store',
+      keywords: ['cache', 'kv'],
+      home: 'https://redis.io',
       maintainers: [],
     },
   ];

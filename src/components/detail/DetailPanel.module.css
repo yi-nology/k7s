@@ -29,7 +29,7 @@
    sides — feels like a "shelf" between the title and the tabs rather than a
    hard 1px line. */
 .header::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 20px;
   right: 20px;
@@ -100,7 +100,10 @@
   font-size: var(--text-xl);
   background: transparent;
   border: 1px solid transparent;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
   /* Native <button> reset: a <button> otherwise carries user-agent font /
      padding / 2px outset border that the .close class above doesn't cover
      and the design doesn't want. */
@@ -138,7 +141,10 @@
   line-height: 1;
   background: transparent;
   border: 1px solid transparent;
-  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
   /* Native <button> reset — see .close above. */
   font: inherit;
   padding: 0;
@@ -227,7 +233,9 @@
   color: var(--text-muted);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: color 0.12s ease, border-color 0.12s ease;
+  transition:
+    color 0.12s ease,
+    border-color 0.12s ease;
   position: relative;
   /* Native <button> reset — the .tab class is now on a real <button
      role="tab"> so it gets keyboard focus, Enter/Space activation, and the
@@ -255,7 +263,7 @@
 /* The active tab's underline gets a 12px glow centered on it — the same trick
    as the nav active item, scaled to the panel. Visually anchors the tab. */
 .tabActive::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 30%;
   right: 30%;
@@ -273,7 +281,9 @@
   background: var(--bg-control);
   border-radius: 4px;
   font-variant-numeric: tabular-nums;
-  transition: color 0.1s ease, background 0.1s ease;
+  transition:
+    color 0.1s ease,
+    background 0.1s ease;
 }
 .tabActive .tabCount {
   color: var(--accent);

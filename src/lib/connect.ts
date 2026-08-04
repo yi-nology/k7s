@@ -13,22 +13,22 @@
  * the most recent call writes to the store, so a stale resolution is a no-op.
  */
 
-import type { DataProvider } from "../providers/types";
-import { getProvider } from "../providers";
-import { useStore } from "../store";
+import type { DataProvider } from '../providers/types';
+import { getProvider } from '../providers';
+import { useStore } from '../store';
 
 /** Monotonic request id. Bumped on every call; only the latest call writes. */
 let currentToken = 0;
 
 export async function connectTo(
   context: string,
-  provider: DataProvider = getProvider(),
+  provider: DataProvider = getProvider()
 ): Promise<void> {
   const myToken = ++currentToken;
   const store = useStore.getState();
 
   // Enter the connecting state and wipe the previous cluster's rows/metrics/etc.
-  store.setConnection({ phase: "connecting", context, error: undefined });
+  store.setConnection({ phase: 'connecting', context, error: undefined });
   store.resetData();
 
   try {
@@ -40,7 +40,7 @@ export async function connectTo(
     // call to resolve.
     if (myToken !== currentToken) return;
     store.setConnection({
-      phase: "connected",
+      phase: 'connected',
       context: info.context,
       clusterName: info.clusterName,
       error: undefined,
@@ -48,7 +48,7 @@ export async function connectTo(
   } catch (e) {
     if (myToken !== currentToken) return;
     store.setConnection({
-      phase: "error",
+      phase: 'error',
       error: e instanceof Error ? e.message : String(e),
     });
   }

@@ -85,7 +85,7 @@
    so a real <button> actually blocks the click + the keyboard activation.
    The [aria-disabled="true"] selector is kept for any in-flight code path
    that still uses it. */
-.applyBtn[aria-disabled="true"],
+.applyBtn[aria-disabled='true'],
 .applyBtn[disabled] {
   opacity: 0.6;
   pointer-events: none;

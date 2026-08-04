@@ -10,17 +10,17 @@
  * them on serialise. Showing the field as `type=password` makes the
  * intent obvious even though the value isn't reflected after save.
  */
-import { useEffect, useState } from "react";
-import { getProvider } from "../../providers";
+import { useEffect, useState } from 'react';
+import { getProvider } from '../../providers';
 import type {
   ImageManifest,
   ImageRegistry,
   ImageRegistryUpsert,
   ImageRepo,
   ImageTag,
-} from "../../providers/types";
-import { useTranslation } from "../../hooks/useI18n";
-import styles from "./ImageRepoPanel.module.css";
+} from '../../providers/types';
+import { useTranslation } from '../../hooks/useI18n';
+import styles from './ImageRepoPanel.module.css';
 
 export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
@@ -36,12 +36,12 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
 
   // Form state for adding/editing a registry.
   const [form, setForm] = useState<ImageRegistryUpsert>({
-    name: "",
-    url: "",
-    username: "",
-    password: "",
+    name: '',
+    url: '',
+    username: '',
+    password: '',
     insecure: false,
-    description: "",
+    description: '',
   });
 
   const reload = (): Promise<ImageRegistry[]> =>
@@ -107,10 +107,10 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <h2>{t("image.title", "Image registries")}</h2>
+        <h2>{t('image.title', 'Image registries')}</h2>
         {onClose && (
           <button className={styles.btn} onClick={onClose}>
-            {t("image.close", "Close")}
+            {t('image.close', 'Close')}
           </button>
         )}
       </header>
@@ -121,9 +121,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
             {regs.map((r) => (
               <li
                 key={r.name}
-                className={
-                  selected === r.name ? styles.itemActive : styles.item
-                }
+                className={selected === r.name ? styles.itemActive : styles.item}
                 onClick={() => setSelected(r.name)}
               >
                 <div className={styles.itemName}>{r.name}</div>
@@ -150,12 +148,12 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                   }
                 }}
               >
-                {t("image.test", "Test")}
+                {t('image.test', 'Test')}
               </button>
               <button
                 className={styles.btnDanger}
                 onClick={async () => {
-                  if (!confirm(t("image.confirmRemove", "Remove this registry?"))) {
+                  if (!confirm(t('image.confirmRemove', 'Remove this registry?'))) {
                     return;
                   }
                   await getProvider().imageRegistryRemove(selected);
@@ -163,7 +161,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                   reload();
                 }}
               >
-                {t("image.remove", "Remove")}
+                {t('image.remove', 'Remove')}
               </button>
             </div>
           )}
@@ -171,17 +169,17 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
             className={styles.primary}
             onClick={() => {
               setForm({
-                name: "",
-                url: "",
-                username: "",
-                password: "",
+                name: '',
+                url: '',
+                username: '',
+                password: '',
                 insecure: false,
-                description: "",
+                description: '',
               });
               setAdding(true);
             }}
           >
-            {t("image.add", "Add registry")}
+            {t('image.add', 'Add registry')}
           </button>
         </aside>
 
@@ -200,9 +198,9 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                 }
               }}
             >
-              <h3>{t("image.form.title", "Registry")}</h3>
+              <h3>{t('image.form.title', 'Registry')}</h3>
               <label>
-                <span>{t("image.form.name", "Name")}</span>
+                <span>{t('image.form.name', 'Name')}</span>
                 <input
                   required
                   value={form.name}
@@ -210,7 +208,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                 />
               </label>
               <label>
-                <span>{t("image.form.url", "URL")}</span>
+                <span>{t('image.form.url', 'URL')}</span>
                 <input
                   required
                   placeholder="https://registry.example.com"
@@ -219,61 +217,50 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                 />
               </label>
               <label>
-                <span>{t("image.form.username", "Username (optional)")}</span>
+                <span>{t('image.form.username', 'Username (optional)')}</span>
                 <input
                   value={form.username}
-                  onChange={(e) =>
-                    setForm({ ...form, username: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, username: e.target.value })}
                 />
               </label>
               <label>
-                <span>{t("image.form.password", "Password (optional)")}</span>
+                <span>{t('image.form.password', 'Password (optional)')}</span>
                 <input
                   type="password"
                   value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
                 />
               </label>
               <label>
-                <span>{t("image.form.description", "Description")}</span>
+                <span>{t('image.form.description', 'Description')}</span>
                 <input
                   value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
                 />
               </label>
               <div className={styles.formActions}>
                 <button className={styles.primary} type="submit">
-                  {t("image.form.save", "Save")}
+                  {t('image.form.save', 'Save')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setAdding(false)}
-                  className={styles.btn}
-                >
-                  {t("image.form.cancel", "Cancel")}
+                <button type="button" onClick={() => setAdding(false)} className={styles.btn}>
+                  {t('image.form.cancel', 'Cancel')}
                 </button>
               </div>
             </form>
           ) : selected ? (
             <div>
-              <h3>{t("image.repos", "Repositories")}</h3>
+              <h3>{t('image.repos', 'Repositories')}</h3>
               {repos.length === 0 ? (
                 <div className={styles.empty}>
-                  {t("image.reposEmpty", "No repositories (or registry does not support /v2/_catalog)")}
+                  {t(
+                    'image.reposEmpty',
+                    'No repositories (or registry does not support /v2/_catalog)'
+                  )}
                 </div>
               ) : (
                 <ul className={styles.repos}>
                   {repos.map((r) => (
-                    <li
-                      key={r.name}
-                      className={styles.repo}
-                      onClick={() => loadTags(r.name)}
-                    >
+                    <li key={r.name} className={styles.repo} onClick={() => loadTags(r.name)}>
                       <span className={styles.repoName}>{r.name}</span>
                     </li>
                   ))}
@@ -281,20 +268,14 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
               )}
               {tags.length > 0 && (
                 <>
-                  <h3 style={{ marginTop: "var(--space-4)" }}>
-                    {t("image.tags", "Tags")}
-                  </h3>
+                  <h3 style={{ marginTop: 'var(--space-4)' }}>{t('image.tags', 'Tags')}</h3>
                   <ul className={styles.tags}>
                     {tags.map((tt) => (
                       <li
                         key={tt.name}
-                        className={
-                          selectedTag === tt.name
-                            ? styles.tagActive
-                            : styles.tag
-                        }
+                        className={selectedTag === tt.name ? styles.tagActive : styles.tag}
                         onClick={() => loadManifest(tt.name)}
-                        title={t("image.inspectTitle", "Inspect manifest")}
+                        title={t('image.inspectTitle', 'Inspect manifest')}
                       >
                         <span className={styles.tagName}>{tt.name}</span>
                         {/* ImageTag.size / .created are nullable per providers/types.ts
@@ -313,37 +294,36 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
               {manifest && (
                 <div className={styles.manifest}>
                   <h3>
-                    {t("image.manifest", "Manifest")} — {selectedRepo}:
-                    {selectedTag}
+                    {t('image.manifest', 'Manifest')} — {selectedRepo}:{selectedTag}
                   </h3>
                   <table className={styles.manifestTable}>
                     <tbody>
                       <tr>
-                        <th>{t("image.mediaType", "Media type")}</th>
+                        <th>{t('image.mediaType', 'Media type')}</th>
                         <td>{manifest.mediaType}</td>
                       </tr>
                       <tr>
-                        <th>{t("image.digest", "Digest")}</th>
+                        <th>{t('image.digest', 'Digest')}</th>
                         <td className={styles.mono}>{manifest.digest}</td>
                       </tr>
                       <tr>
-                        <th>{t("image.schemaVersion", "Schema")}</th>
+                        <th>{t('image.schemaVersion', 'Schema')}</th>
                         <td>{manifest.schemaVersion}</td>
                       </tr>
                       <tr>
-                        <th>{t("image.size", "Total size")}</th>
+                        <th>{t('image.size', 'Total size')}</th>
                         <td>{humanSize(manifest.size)}</td>
                       </tr>
                     </tbody>
                   </table>
-                  <h4>{t("image.layers", "Layers")}</h4>
+                  <h4>{t('image.layers', 'Layers')}</h4>
                   <table className={styles.manifestTable}>
                     <thead>
                       <tr>
                         <th>#</th>
-                        <th>{t("image.digest", "Digest")}</th>
-                        <th>{t("image.size", "Size")}</th>
-                        <th>{t("image.mediaType", "Media type")}</th>
+                        <th>{t('image.digest', 'Digest')}</th>
+                        <th>{t('image.size', 'Size')}</th>
+                        <th>{t('image.mediaType', 'Media type')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -358,16 +338,14 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                     </tbody>
                   </table>
                   <details>
-                    <summary>{t("image.raw", "Raw JSON")}</summary>
+                    <summary>{t('image.raw', 'Raw JSON')}</summary>
                     <pre className={styles.rawJson}>{manifest.raw}</pre>
                   </details>
                 </div>
               )}
             </div>
           ) : (
-            <div className={styles.empty}>
-              {t("image.pick", "Pick a registry on the left")}
-            </div>
+            <div className={styles.empty}>{t('image.pick', 'Pick a registry on the left')}</div>
           )}
         </main>
       </div>

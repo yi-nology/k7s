@@ -15,13 +15,13 @@
  * ReplicaSets; StatefulSet/DaemonSet keep ControllerRevisions), but the backend
  * collapses them to one `Revision` shape so this component is kind-agnostic.
  */
-import { useCallback, useEffect, useState } from "react";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import type { ContainerImage, Revision } from "../../providers/types";
-import { ModifyImageForm } from "../actions/ModifyImageForm";
-import styles from "./RevisionsTab.module.css";
+import { useCallback, useEffect, useState } from 'react';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import type { ContainerImage, Revision } from '../../providers/types';
+import { ModifyImageForm } from '../actions/ModifyImageForm';
+import styles from './RevisionsTab.module.css';
 
 export function RevisionsTab() {
   const row = useStore((s) => s.selectedRow);
@@ -33,9 +33,7 @@ export function RevisionsTab() {
   const [editing, setEditing] = useState(false);
   const [rollingBack, setRollingBack] = useState<number | null>(null);
 
-  const ref = row
-    ? { kind, namespace: row.namespace, name: row.name }
-    : null;
+  const ref = row ? { kind, namespace: row.namespace, name: row.name } : null;
 
   const load = useCallback(() => {
     if (!ref) return;
@@ -79,11 +77,13 @@ export function RevisionsTab() {
   };
 
   if (!ref) {
-    return <div className={styles.empty}>{t("revisions.noSelection", "No workload selected.")}</div>;
+    return (
+      <div className={styles.empty}>{t('revisions.noSelection', 'No workload selected.')}</div>
+    );
   }
 
   if (revisions === null) {
-    return <div className={styles.empty}>{t("revisions.loading", "Loading history…")}</div>;
+    return <div className={styles.empty}>{t('revisions.loading', 'Loading history…')}</div>;
   }
 
   const current = revisions.find((r) => r.isCurrent) ?? revisions[0] ?? null;
@@ -95,16 +95,10 @@ export function RevisionsTab() {
       {/* ---- current image ---- */}
       <section className={styles.section}>
         <div className={styles.sectionHead}>
-          <h3 className={styles.sectionTitle}>
-            {t("revisions.currentImage", "Current image")}
-          </h3>
+          <h3 className={styles.sectionTitle}>{t('revisions.currentImage', 'Current image')}</h3>
           {!editing && current && current.images.length > 0 && (
-            <button
-              type="button"
-              className={styles.linkBtn}
-              onClick={() => setEditing(true)}
-            >
-              {t("revisions.editImage", "Edit image")}
+            <button type="button" className={styles.linkBtn} onClick={() => setEditing(true)}>
+              {t('revisions.editImage', 'Edit image')}
             </button>
           )}
         </div>
@@ -120,32 +114,25 @@ export function RevisionsTab() {
         ) : current ? (
           <ImageList images={current.images} />
         ) : (
-          <div className={styles.muted}>
-            {t("revisions.noCurrent", "No current revision.")}
-          </div>
+          <div className={styles.muted}>{t('revisions.noCurrent', 'No current revision.')}</div>
         )}
       </section>
 
       {/* ---- revision history ---- */}
       <section className={styles.section}>
-        <h3 className={styles.sectionTitle}>
-          {t("revisions.history", "Revision history")}
-        </h3>
+        <h3 className={styles.sectionTitle}>{t('revisions.history', 'Revision history')}</h3>
         {revisions.length === 0 ? (
           <div className={styles.muted}>
-            {t(
-              "revisions.empty",
-              "No revision history (or not readable with current RBAC).",
-            )}
+            {t('revisions.empty', 'No revision history (or not readable with current RBAC).')}
           </div>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>{t("revisions.col.revision", "Revision")}</th>
-                <th>{t("revisions.col.images", "Images")}</th>
-                <th className={styles.num}>{t("revisions.col.ready", "Ready")}</th>
-                <th>{t("revisions.col.age", "Age")}</th>
+                <th>{t('revisions.col.revision', 'Revision')}</th>
+                <th>{t('revisions.col.images', 'Images')}</th>
+                <th className={styles.num}>{t('revisions.col.ready', 'Ready')}</th>
+                <th>{t('revisions.col.age', 'Age')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -179,7 +166,7 @@ function ImageList({ images }: { images: ContainerImage[] }) {
             {img.name}
             {img.init && <span className={styles.badge}>init</span>}
           </span>
-          <span className={styles.imageValue}>{img.image || "—"}</span>
+          <span className={styles.imageValue}>{img.image || '—'}</span>
         </div>
       ))}
     </div>
@@ -197,23 +184,21 @@ function RevisionRow({
   onRollback: () => void;
   t: (key: string, ...args: unknown[]) => string;
 }) {
-  const label = rev.revision ?? "—";
+  const label = rev.revision ?? '—';
   const busy = rollingBack === rev.revision;
   return (
     <tr className={rev.isCurrent ? styles.currentRow : undefined}>
       <td className={styles.revisionCell}>
         {label}
         {rev.isCurrent && (
-          <span className={styles.currentTag}>
-            {t("revisions.current", "current")}
-          </span>
+          <span className={styles.currentTag}>{t('revisions.current', 'current')}</span>
         )}
       </td>
       <td>
         <div className={styles.cellImages}>
           {rev.images.map((img) => (
             <span key={img.name} className={styles.cellImage} title={img.image}>
-              {img.name}: <span className={styles.cellImageValue}>{img.image || "—"}</span>
+              {img.name}: <span className={styles.cellImageValue}>{img.image || '—'}</span>
             </span>
           ))}
           {rev.images.length === 0 && <span className={styles.muted}>—</span>}
@@ -222,7 +207,7 @@ function RevisionRow({
       <td className={styles.num}>
         {rev.ready}/{rev.desired}
       </td>
-      <td>{rev.age ? relativeAge(rev.age) : "—"}</td>
+      <td>{rev.age ? relativeAge(rev.age) : '—'}</td>
       <td>
         {!rev.isCurrent && rev.revision !== null && (
           <button
@@ -232,8 +217,8 @@ function RevisionRow({
             onClick={onRollback}
           >
             {busy
-              ? t("revisions.rollingBack", "Rolling back…")
-              : t("revisions.rollbackTo", "Rollback")}
+              ? t('revisions.rollingBack', 'Rolling back…')
+              : t('revisions.rollbackTo', 'Rollback')}
           </button>
         )}
       </td>
@@ -244,7 +229,7 @@ function RevisionRow({
 /** Compact "3m / 1h / 2d" age from an RFC3339 timestamp. */
 function relativeAge(iso: string): string {
   const then = Date.parse(iso);
-  if (Number.isNaN(then)) return "—";
+  if (Number.isNaN(then)) return '—';
   const s = Math.max(0, Math.floor((Date.now() - then) / 1000));
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);

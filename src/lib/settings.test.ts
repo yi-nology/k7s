@@ -4,119 +4,119 @@
  * half-typed can reach them.
  */
 
-import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, LIMITS, sanitizeSettings } from "./settings";
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_SETTINGS, LIMITS, sanitizeSettings } from './settings';
 
-describe("sanitizeSettings", () => {
-  it("returns the defaults for nothing at all", () => {
+describe('sanitizeSettings', () => {
+  it('returns the defaults for nothing at all', () => {
     expect(sanitizeSettings(null)).toEqual(DEFAULT_SETTINGS);
     expect(sanitizeSettings(undefined)).toEqual(DEFAULT_SETTINGS);
     expect(sanitizeSettings({})).toEqual(DEFAULT_SETTINGS);
   });
 
-  it("keeps values that are already fine", () => {
+  it('keeps values that are already fine', () => {
     const s = sanitizeSettings({
       logBufferCap: 1000,
       metricsIntervalSecs: 30,
       statusIntervalSecs: 20,
-      defaultNamespace: "prod",
-      shellCommand: "/bin/zsh",
+      defaultNamespace: 'prod',
+      shellCommand: '/bin/zsh',
     });
     expect(s.logBufferCap).toBe(1000);
     expect(s.metricsIntervalSecs).toBe(30);
-    expect(s.defaultNamespace).toBe("prod");
-    expect(s.shellCommand).toBe("/bin/zsh");
+    expect(s.defaultNamespace).toBe('prod');
+    expect(s.shellCommand).toBe('/bin/zsh');
   });
 
-  it("clamps a zero buffer, which would silently discard every log line", () => {
+  it('clamps a zero buffer, which would silently discard every log line', () => {
     expect(sanitizeSettings({ logBufferCap: 0 }).logBufferCap).toBe(LIMITS.logBufferCap.min);
   });
 
-  it("clamps a buffer big enough to be a memory leak", () => {
+  it('clamps a buffer big enough to be a memory leak', () => {
     expect(sanitizeSettings({ logBufferCap: 10_000_000 }).logBufferCap).toBe(
-      LIMITS.logBufferCap.max,
+      LIMITS.logBufferCap.max
     );
   });
 
-  it("refuses to hammer the API server with sub-second polling", () => {
+  it('refuses to hammer the API server with sub-second polling', () => {
     expect(sanitizeSettings({ metricsIntervalSecs: 0 }).metricsIntervalSecs).toBe(
-      LIMITS.metricsIntervalSecs.min,
+      LIMITS.metricsIntervalSecs.min
     );
     expect(sanitizeSettings({ statusIntervalSecs: -5 }).statusIntervalSecs).toBe(
-      LIMITS.statusIntervalSecs.min,
+      LIMITS.statusIntervalSecs.min
     );
   });
 
-  it("falls back to the default for a half-typed or empty number field", () => {
+  it('falls back to the default for a half-typed or empty number field', () => {
     // An emptied input yields NaN; the old value must not become NaN with it.
     expect(sanitizeSettings({ logBufferCap: NaN }).logBufferCap).toBe(
-      DEFAULT_SETTINGS.logBufferCap,
+      DEFAULT_SETTINGS.logBufferCap
     );
     expect(sanitizeSettings({ metricsIntervalSecs: Infinity }).metricsIntervalSecs).toBe(
-      DEFAULT_SETTINGS.metricsIntervalSecs,
+      DEFAULT_SETTINGS.metricsIntervalSecs
     );
   });
 
-  it("rounds fractional input rather than passing it through", () => {
+  it('rounds fractional input rather than passing it through', () => {
     expect(sanitizeSettings({ logBufferCap: 250.7 }).logBufferCap).toBe(251);
   });
 
-  it("treats a blank namespace as no filter", () => {
-    expect(sanitizeSettings({ defaultNamespace: "   " }).defaultNamespace).toBe("all");
-    expect(sanitizeSettings({ defaultNamespace: "  prod " }).defaultNamespace).toBe("prod");
+  it('treats a blank namespace as no filter', () => {
+    expect(sanitizeSettings({ defaultNamespace: '   ' }).defaultNamespace).toBe('all');
+    expect(sanitizeSettings({ defaultNamespace: '  prod ' }).defaultNamespace).toBe('prod');
   });
 
-  it("lets one bad field fall back without discarding the good ones", () => {
-    const s = sanitizeSettings({ logBufferCap: -1, defaultNamespace: "prod" });
+  it('lets one bad field fall back without discarding the good ones', () => {
+    const s = sanitizeSettings({ logBufferCap: -1, defaultNamespace: 'prod' });
     expect(s.logBufferCap).toBe(LIMITS.logBufferCap.min);
-    expect(s.defaultNamespace).toBe("prod");
+    expect(s.defaultNamespace).toBe('prod');
   });
 
-  it("ignores non-string junk in the text fields", () => {
+  it('ignores non-string junk in the text fields', () => {
     // Persisted prefs from an older build, or a hand-edited prefs.json.
     const s = sanitizeSettings({ shellCommand: 42 as unknown as string });
-    expect(s.shellCommand).toBe("");
+    expect(s.shellCommand).toBe('');
   });
 });
 
-describe("theme and node-shell settings", () => {
+describe('theme and node-shell settings', () => {
   /** Older prefs.json files predate both fields entirely. */
-  it("defaults both when absent", () => {
+  it('defaults both when absent', () => {
     const s = sanitizeSettings({});
-    expect(s.theme).toBe("system");
-    expect(s.nodeShellImage).toBe("");
+    expect(s.theme).toBe('system');
+    expect(s.nodeShellImage).toBe('');
   });
 
-  it("keeps a valid theme and rejects anything else", () => {
-    expect(sanitizeSettings({ theme: "light" }).theme).toBe("light");
-    expect(sanitizeSettings({ theme: "solarized" }).theme).toBe("system");
-    expect(sanitizeSettings({ theme: 7 }).theme).toBe("system");
+  it('keeps a valid theme and rejects anything else', () => {
+    expect(sanitizeSettings({ theme: 'light' }).theme).toBe('light');
+    expect(sanitizeSettings({ theme: 'solarized' }).theme).toBe('system');
+    expect(sanitizeSettings({ theme: 7 }).theme).toBe('system');
   });
 
   /**
    * The image is pasted by hand and goes straight into a pod spec, where a stray
    * space is a pull failure rather than a validation error.
    */
-  it("trims the node shell image", () => {
-    expect(sanitizeSettings({ nodeShellImage: "  alpine:3  " }).nodeShellImage).toBe("alpine:3");
-    expect(sanitizeSettings({ nodeShellImage: 12 }).nodeShellImage).toBe("");
+  it('trims the node shell image', () => {
+    expect(sanitizeSettings({ nodeShellImage: '  alpine:3  ' }).nodeShellImage).toBe('alpine:3');
+    expect(sanitizeSettings({ nodeShellImage: 12 }).nodeShellImage).toBe('');
   });
 });
 
-describe("language setting", () => {
-  it("defaults to English when absent", () => {
-    expect(sanitizeSettings({}).language).toBe("en");
+describe('language setting', () => {
+  it('defaults to English when absent', () => {
+    expect(sanitizeSettings({}).language).toBe('en');
   });
 
-  it("keeps a valid locale", () => {
-    expect(sanitizeSettings({ language: "zh" }).language).toBe("zh");
-    expect(sanitizeSettings({ language: "en" }).language).toBe("en");
+  it('keeps a valid locale', () => {
+    expect(sanitizeSettings({ language: 'zh' }).language).toBe('zh');
+    expect(sanitizeSettings({ language: 'en' }).language).toBe('en');
   });
 
   /** An unrecognised string falls back to English, the same rule as `theme`. */
-  it("falls back to English for anything else", () => {
-    expect(sanitizeSettings({ language: "fr" }).language).toBe("en");
-    expect(sanitizeSettings({ language: 7 }).language).toBe("en");
-    expect(sanitizeSettings({ language: null }).language).toBe("en");
+  it('falls back to English for anything else', () => {
+    expect(sanitizeSettings({ language: 'fr' }).language).toBe('en');
+    expect(sanitizeSettings({ language: 7 }).language).toBe('en');
+    expect(sanitizeSettings({ language: null }).language).toBe('en');
   });
 });

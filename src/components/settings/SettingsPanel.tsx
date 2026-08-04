@@ -16,48 +16,49 @@
  * top so the user can see the effect while the panel is still open.
  */
 
-import { useEffect } from "react";
-import styles from "./SettingsPanel.module.css";
-import { useStore } from "../../store";
-import { LIMITS, DEFAULT_SETTINGS, sanitizeSettings, type Settings } from "../../lib/settings";
-import { asTheme, type Theme } from "../../lib/theme";
-import { asLocale, LOCALES, type Locale } from "../../lib/i18n";
-import { useTranslation } from "../../hooks/useI18n";
-import { McpPanel } from "./McpPanel";
+import { useEffect } from 'react';
+import styles from './SettingsPanel.module.css';
+import { useStore } from '../../store';
+import { LIMITS, DEFAULT_SETTINGS, sanitizeSettings, type Settings } from '../../lib/settings';
+import { asTheme, type Theme } from '../../lib/theme';
+import { asLocale, LOCALES, type Locale } from '../../lib/i18n';
+import { useTranslation } from '../../hooks/useI18n';
+import { McpPanel } from './McpPanel';
 
 export function SettingsPanel() {
   const open = useStore((s) => s.settingsOpen);
   const setOpen = useStore((s) => s.setSettingsOpen);
   const settings = useStore((s) => s.settings);
   const setSettings = useStore((s) => s.setSettings);
-  const connected = useStore((s) => s.connection.phase === "connected");
+  const connected = useStore((s) => s.connection.phase === 'connected');
   const { t } = useTranslation();
 
   // Esc closes, matching every other overlay in the app.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         e.stopImmediatePropagation();
         setOpen(false);
       }
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, [open, setOpen]);
 
   if (!open) return null;
 
   /** Apply one field, sanitised against the rest of the current settings. */
-  const update = (patch: Partial<Settings>) => setSettings(sanitizeSettings({ ...settings, ...patch }));
+  const update = (patch: Partial<Settings>) =>
+    setSettings(sanitizeSettings({ ...settings, ...patch }));
 
   // Theme options carry the underlying value as the <option value>, so the
   // values are still "dark" / "light" / "system" — the localised label is just
   // what the user sees. This keeps the pref file format stable across locales.
   const themeOptions: { value: Theme; label: string }[] = [
-    { value: "system", label: t("settings.theme.system") },
-    { value: "dark", label: t("settings.theme.dark") },
-    { value: "light", label: t("settings.theme.light") },
+    { value: 'system', label: t('settings.theme.system') },
+    { value: 'dark', label: t('settings.theme.dark') },
+    { value: 'light', label: t('settings.theme.light') },
   ];
   const langOptions: { value: Locale; label: string }[] = LOCALES.map((l) => ({
     value: l,
@@ -69,8 +70,13 @@ export function SettingsPanel() {
     <div className={styles.backdrop} onClick={() => setOpen(false)}>
       <div className={styles.panel} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
-          <span className={styles.title}>{t("chrome.settings.title")}</span>
-          <button type="button" className={styles.close} title={t("chrome.common.close")} onClick={() => setOpen(false)}>
+          <span className={styles.title}>{t('chrome.settings.title')}</span>
+          <button
+            type="button"
+            className={styles.close}
+            title={t('chrome.common.close')}
+            onClick={() => setOpen(false)}
+          >
             ×
           </button>
         </div>
@@ -79,7 +85,7 @@ export function SettingsPanel() {
           {/* Theme + language at the top: the two settings whose effect is visible
               while the panel is still open, so the user can see what they picked
               without dismissing the dialog. */}
-          <Row label={t("settings.theme.label")} hint={t("settings.theme.hint")}>
+          <Row label={t('settings.theme.label')} hint={t('settings.theme.hint')}>
             <select
               className={styles.select}
               value={settings.theme}
@@ -93,7 +99,7 @@ export function SettingsPanel() {
             </select>
           </Row>
 
-          <Row label={t("settings.language.label")} hint={t("settings.language.hint")}>
+          <Row label={t('settings.language.label')} hint={t('settings.language.hint')}>
             <select
               className={styles.select}
               value={settings.language}
@@ -108,12 +114,8 @@ export function SettingsPanel() {
           </Row>
 
           <Row
-            label={t("settings.logBuffer.label")}
-            hint={t(
-              "settings.logBuffer.hint",
-              LIMITS.logBufferCap.min,
-              LIMITS.logBufferCap.max,
-            )}
+            label={t('settings.logBuffer.label')}
+            hint={t('settings.logBuffer.hint', LIMITS.logBufferCap.min, LIMITS.logBufferCap.max)}
           >
             <input
               className={styles.number}
@@ -126,12 +128,12 @@ export function SettingsPanel() {
           </Row>
 
           <Row
-            label={t("settings.metricsPoll.label")}
+            label={t('settings.metricsPoll.label')}
             hint={t(
-              "settings.metricsPoll.hint",
+              'settings.metricsPoll.hint',
               LIMITS.metricsIntervalSecs.min,
               LIMITS.metricsIntervalSecs.max,
-              connected,
+              connected
             )}
           >
             <input
@@ -145,12 +147,12 @@ export function SettingsPanel() {
           </Row>
 
           <Row
-            label={t("settings.statusPoll.label")}
+            label={t('settings.statusPoll.label')}
             hint={t(
-              "settings.statusPoll.hint",
+              'settings.statusPoll.hint',
               LIMITS.statusIntervalSecs.min,
               LIMITS.statusIntervalSecs.max,
-              connected,
+              connected
             )}
           >
             <input
@@ -163,30 +165,33 @@ export function SettingsPanel() {
             />
           </Row>
 
-          <Row label={t("settings.defaultNamespace.label")} hint={t("settings.defaultNamespace.hint")}>
+          <Row
+            label={t('settings.defaultNamespace.label')}
+            hint={t('settings.defaultNamespace.hint')}
+          >
             <input
               className={styles.text}
               value={settings.defaultNamespace}
               onChange={(e) => update({ defaultNamespace: e.target.value })}
-              placeholder={t("settings.defaultNamespace.placeholder")}
+              placeholder={t('settings.defaultNamespace.placeholder')}
             />
           </Row>
 
-          <Row label={t("settings.shellCommand.label")} hint={t("settings.shellCommand.hint")}>
+          <Row label={t('settings.shellCommand.label')} hint={t('settings.shellCommand.hint')}>
             <input
               className={styles.text}
               value={settings.shellCommand}
               onChange={(e) => update({ shellCommand: e.target.value })}
-              placeholder={t("settings.shellCommand.placeholder")}
+              placeholder={t('settings.shellCommand.placeholder')}
             />
           </Row>
 
-          <Row label={t("settings.nodeShellImage.label")} hint={t("settings.nodeShellImage.hint")}>
+          <Row label={t('settings.nodeShellImage.label')} hint={t('settings.nodeShellImage.hint')}>
             <input
               className={styles.text}
               value={settings.nodeShellImage}
               onChange={(e) => update({ nodeShellImage: e.target.value })}
-              placeholder={t("settings.nodeShellImage.placeholder")}
+              placeholder={t('settings.nodeShellImage.placeholder')}
             />
           </Row>
 
@@ -198,9 +203,13 @@ export function SettingsPanel() {
         </div>
 
         <div className={styles.footer}>
-          <span className={styles.note}>{t("chrome.settings.footerNote")}</span>
-          <button type="button" className={styles.reset} onClick={() => setSettings(DEFAULT_SETTINGS)}>
-            {t("chrome.settings.reset")}
+          <span className={styles.note}>{t('chrome.settings.footerNote')}</span>
+          <button
+            type="button"
+            className={styles.reset}
+            onClick={() => setSettings(DEFAULT_SETTINGS)}
+          >
+            {t('chrome.settings.reset')}
           </button>
         </div>
       </div>

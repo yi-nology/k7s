@@ -15,15 +15,12 @@
  * Why a separate route rather than a sidebar entry: the dashboard
  * *is* the home view, set as the default `nav` when the app boots.
  */
-import { useMemo, useState } from "react";
-import { useStore } from "../../store";
-import { useTranslation } from "../../hooks/useI18n";
-import { kindLabelFor } from "../../lib/i18n";
-import {
-  calculateHealth,
-  gradeColor,
-} from "../../lib/health";
-import styles from "./Dashboard.module.css";
+import { useMemo, useState } from 'react';
+import { useStore } from '../../store';
+import { useTranslation } from '../../hooks/useI18n';
+import { kindLabelFor } from '../../lib/i18n';
+import { calculateHealth, gradeColor } from '../../lib/health';
+import styles from './Dashboard.module.css';
 
 /**
  * The nine resource cards the dashboard surfaces. Order is intentional — it
@@ -40,26 +37,26 @@ import styles from "./Dashboard.module.css";
  */
 const RESOURCE_KINDS: Array<{
   id:
-    | "pods"
-    | "deployments"
-    | "services"
-    | "configmaps"
-    | "secrets"
-    | "jobs"
-    | "cronjobs"
-    | "nodes"
-    | "namespaces";
+    | 'pods'
+    | 'deployments'
+    | 'services'
+    | 'configmaps'
+    | 'secrets'
+    | 'jobs'
+    | 'cronjobs'
+    | 'nodes'
+    | 'namespaces';
   color: string;
 }> = [
-  { id: "pods", color: "var(--accent)" },
-  { id: "deployments", color: "#5cc8ff" },
-  { id: "services", color: "#f7c948" },
-  { id: "configmaps", color: "#a78bfa" },
-  { id: "secrets", color: "#fb7185" },
-  { id: "jobs", color: "#34d399" },
-  { id: "cronjobs", color: "#fb923c" },
-  { id: "nodes", color: "#22d3ee" },
-  { id: "namespaces", color: "#e879f9" },
+  { id: 'pods', color: 'var(--accent)' },
+  { id: 'deployments', color: '#5cc8ff' },
+  { id: 'services', color: '#f7c948' },
+  { id: 'configmaps', color: '#a78bfa' },
+  { id: 'secrets', color: '#fb7185' },
+  { id: 'jobs', color: '#34d399' },
+  { id: 'cronjobs', color: '#fb923c' },
+  { id: 'nodes', color: '#22d3ee' },
+  { id: 'namespaces', color: '#e879f9' },
 ];
 
 export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
@@ -89,16 +86,12 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
   const safePage = Math.min(page, pageCount - 1);
   const pageEvents = useMemo(
     () => events.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
-    [events, safePage],
+    [events, safePage]
   );
 
   // Aggregate node CPU/MEM across all known nodes.
-  const cpuPercent = aggregatePercent(
-    Object.values(nodeMetrics).map((n) => n.cpuPercent),
-  );
-  const memPercent = aggregatePercent(
-    Object.values(nodeMetrics).map((n) => n.memPercent),
-  );
+  const cpuPercent = aggregatePercent(Object.values(nodeMetrics).map((n) => n.cpuPercent));
+  const memPercent = aggregatePercent(Object.values(nodeMetrics).map((n) => n.memPercent));
 
   // Compute cluster health score from live data.
   const health = useMemo(
@@ -112,11 +105,19 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
         rows.persistentvolumeclaims ?? [],
         rows.horizontalpodautoscalers ?? [],
         rows.cronjobs ?? [],
-        rows.daemonsets ?? [],
+        rows.daemonsets ?? []
       ),
-    [rows.nodes, rows.pods, rows.deployments, events, nodeMetrics,
-      rows.persistentvolumeclaims, rows.horizontalpodautoscalers,
-      rows.cronjobs, rows.daemonsets],
+    [
+      rows.nodes,
+      rows.pods,
+      rows.deployments,
+      events,
+      nodeMetrics,
+      rows.persistentvolumeclaims,
+      rows.horizontalpodautoscalers,
+      rows.cronjobs,
+      rows.daemonsets,
+    ]
   );
   const [checksExpanded, setChecksExpanded] = useState(false);
 
@@ -124,25 +125,23 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
     <div className={styles.dashboard}>
       {onClose && (
         <header className={styles.header}>
-          <h2>{t("dashboard.title", "Dashboard")}</h2>
+          <h2>{t('dashboard.title', 'Dashboard')}</h2>
           <button className={styles.close} onClick={onClose}>
-            {t("dashboard.close", "Close")}
+            {t('dashboard.close', 'Close')}
           </button>
         </header>
       )}
       <div className={styles.infoCard}>
         <div>
-          <div className={styles.infoLabel}>{t("dashboard.cluster", "Cluster")}</div>
-          <div className={styles.infoValue}>
-            {connection.context ?? "—"}
-          </div>
+          <div className={styles.infoLabel}>{t('dashboard.cluster', 'Cluster')}</div>
+          <div className={styles.infoValue}>{connection.context ?? '—'}</div>
         </div>
         <div>
-          <div className={styles.infoLabel}>{t("dashboard.phase", "Status")}</div>
+          <div className={styles.infoLabel}>{t('dashboard.phase', 'Status')}</div>
           <div className={styles.infoValue}>{connection.phase}</div>
         </div>
         <div>
-          <div className={styles.infoLabel}>{t("dashboard.nodes", "Nodes")}</div>
+          <div className={styles.infoLabel}>{t('dashboard.nodes', 'Nodes')}</div>
           <div className={styles.infoValue}>
             {Object.keys(nodeMetrics).length || rows.nodes.length}
           </div>
@@ -174,29 +173,20 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
               className={styles.healthRingArc}
             />
           </svg>
-          <div
-            className={styles.healthGrade}
-            style={{ color: gradeColor(health.grade) }}
-          >
+          <div className={styles.healthGrade} style={{ color: gradeColor(health.grade) }}>
             {health.grade}
           </div>
         </div>
         <div className={styles.overviewStats}>
           <div className={styles.overviewMeta}>
             <div className={styles.healthScore}>
-              {health.checks.length > 0 ? health.score : "—"}
-              {health.checks.length > 0 && (
-                <span className={styles.healthScoreUnit}>/100</span>
-              )}
+              {health.checks.length > 0 ? health.score : '—'}
+              {health.checks.length > 0 && <span className={styles.healthScoreUnit}>/100</span>}
             </div>
-            <div className={styles.healthLabel}>
-              {t("dashboard.healthScore", "Cluster Health")}
-            </div>
+            <div className={styles.healthLabel}>{t('dashboard.healthScore', 'Cluster Health')}</div>
           </div>
           <div className={styles.overviewStat}>
-            <span className={styles.overviewLabel}>
-              {t("dashboard.cpu", "CPU")}
-            </span>
+            <span className={styles.overviewLabel}>{t('dashboard.cpu', 'CPU')}</span>
             <span className={styles.overviewBar}>
               <span
                 className={styles.overviewFill}
@@ -206,14 +196,10 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
                 }}
               />
             </span>
-            <span className={styles.overviewValue}>
-              {cpuPercent.toFixed(0)}%
-            </span>
+            <span className={styles.overviewValue}>{cpuPercent.toFixed(0)}%</span>
           </div>
           <div className={styles.overviewStat}>
-            <span className={styles.overviewLabel}>
-              {t("dashboard.mem", "MEM")}
-            </span>
+            <span className={styles.overviewLabel}>{t('dashboard.mem', 'MEM')}</span>
             <span className={styles.overviewBar}>
               <span
                 className={styles.overviewFill}
@@ -223,9 +209,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
                 }}
               />
             </span>
-            <span className={styles.overviewValue}>
-              {memPercent.toFixed(0)}%
-            </span>
+            <span className={styles.overviewValue}>{memPercent.toFixed(0)}%</span>
           </div>
           {health.checks.length > 0 && (
             <button
@@ -234,11 +218,8 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
               onClick={() => setChecksExpanded((v) => !v)}
             >
               {checksExpanded
-                ? t("dashboard.healthHide", "Hide checks")
-                : t(
-                    "dashboard.healthShow",
-                    `Show ${health.checks.length} checks`,
-                  )}
+                ? t('dashboard.healthHide', 'Hide checks')
+                : t('dashboard.healthShow', `Show ${health.checks.length} checks`)}
             </button>
           )}
         </div>
@@ -248,7 +229,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
           {health.checks.map((c) => (
             <li key={c.name} className={styles.healthCheckItem}>
               <span className={styles[`check${capitalize(c.status)}`]}>
-                {c.status === "pass" ? "\u2713" : c.status === "warn" ? "!" : "\u2717"}
+                {c.status === 'pass' ? '\u2713' : c.status === 'warn' ? '!' : '\u2717'}
               </span>
               <span className={styles.checkName}>{c.name}</span>
               <span className={styles.checkMessage}>{c.message}</span>
@@ -279,13 +260,8 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
                 else closeOverlay();
               }}
             >
-              <div className={styles.resourceCount}>
-                {rows[k.id]?.length ?? 0}
-              </div>
-              <div
-                className={styles.resourceLabel}
-                style={{ color: k.color }}
-              >
+              <div className={styles.resourceCount}>{rows[k.id]?.length ?? 0}</div>
+              <div className={styles.resourceLabel} style={{ color: k.color }}>
                 {label}
               </div>
             </div>
@@ -297,16 +273,14 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
           Rendered only when the cluster has at least one ResourceQuota. */}
       {(rows.resourcequotas?.length ?? 0) > 0 && (
         <div className={styles.quotaSection}>
-          <h3 className={styles.panelTitle}>
-            {t("dashboard.quotas", "Resource Quotas")}
-          </h3>
+          <h3 className={styles.panelTitle}>{t('dashboard.quotas', 'Resource Quotas')}</h3>
           <div className={styles.quotaGrid}>
             {rows.resourcequotas!.map((rq) => {
               // Cells: [NAME, NAMESPACE, HARD, USED, AGE]
-              const name = rq.cells[0]?.text ?? "";
-              const ns = rq.cells[1]?.text ?? "";
-              const hardMap = parseQuotaMap(rq.cells[2]?.text ?? "");
-              const usedMap = parseQuotaMap(rq.cells[3]?.text ?? "");
+              const name = rq.cells[0]?.text ?? '';
+              const ns = rq.cells[1]?.text ?? '';
+              const hardMap = parseQuotaMap(rq.cells[2]?.text ?? '');
+              const usedMap = parseQuotaMap(rq.cells[3]?.text ?? '');
 
               // Iterate the HARD keys so we show every resource the quota
               // defines, even when USED hasn't reported it yet (renders 0).
@@ -318,18 +292,15 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
                   <div className={styles.quotaNs}>{ns}</div>
                   {resources.map(([key, hardRaw]) => {
                     const hardVal = parseResourceValue(hardRaw);
-                    const usedRaw = usedMap.get(key) ?? "";
+                    const usedRaw = usedMap.get(key) ?? '';
                     const usedVal = parseResourceValue(usedRaw);
-                    const pct =
-                      hardVal > 0
-                        ? Math.min(100, (usedVal / hardVal) * 100)
-                        : 0;
+                    const pct = hardVal > 0 ? Math.min(100, (usedVal / hardVal) * 100) : 0;
                     return (
                       <div key={key} className={styles.quotaItem}>
                         <div className={styles.quotaItemHeader}>
                           <span className={styles.quotaLabel}>{key}</span>
                           <span className={styles.quotaValues}>
-                            {usedRaw || "0"} / {hardRaw}
+                            {usedRaw || '0'} / {hardRaw}
                           </span>
                         </div>
                         <div className={styles.barOuter}>
@@ -352,31 +323,23 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
       )}
 
       <div className={styles.eventsPanel}>
-        <h3 className={styles.panelTitle}>
-          {t("dashboard.events", "Recent events")}
-        </h3>
+        <h3 className={styles.panelTitle}>{t('dashboard.events', 'Recent events')}</h3>
         {events.length === 0 ? (
-          <div className={styles.empty}>
-            {t("dashboard.eventsEmpty", "No recent events")}
-          </div>
+          <div className={styles.empty}>{t('dashboard.eventsEmpty', 'No recent events')}</div>
         ) : (
           <>
             <ul className={styles.eventList}>
               {pageEvents.map((e) => {
                 // Row cells from map_event: [TYPE, REASON, OBJECT, NS, AGE, COUNT, MESSAGE].
                 const cells = e.cells;
-                const type = cells[0]?.text ?? "Normal";
-                const reason = cells[1]?.text ?? "";
-                const message = cells[6]?.text ?? "";
-                const age = cells[4]?.text ?? "";
+                const type = cells[0]?.text ?? 'Normal';
+                const reason = cells[1]?.text ?? '';
+                const message = cells[6]?.text ?? '';
+                const age = cells[4]?.text ?? '';
                 return (
                   <li
                     key={e.uid ?? `${reason}-${message}`}
-                    className={
-                      type === "Warning"
-                        ? styles.eventWarn
-                        : styles.eventNormal
-                    }
+                    className={type === 'Warning' ? styles.eventWarn : styles.eventNormal}
                   >
                     <span className={styles.eventReason}>{reason}</span>
                     <span className={styles.eventMessage}>{message}</span>
@@ -393,7 +356,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={safePage === 0}
                 >
-                  {t("dashboard.eventsPrev", "‹ Prev")}
+                  {t('dashboard.eventsPrev', '‹ Prev')}
                 </button>
                 <span className={styles.pagerInfo}>
                   {safePage + 1} / {pageCount}
@@ -404,7 +367,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
                   onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
                   disabled={safePage === pageCount - 1}
                 >
-                  {t("dashboard.eventsNext", "Next ›")}
+                  {t('dashboard.eventsNext', 'Next ›')}
                 </button>
               </div>
             )}
@@ -422,9 +385,9 @@ function aggregatePercent(perNode: number[]): number {
 }
 
 function meterColor(p: number): string {
-  if (p < 60) return "var(--status-ok)";
-  if (p < 85) return "var(--status-warn)";
-  return "var(--status-err)";
+  if (p < 60) return 'var(--status-ok)';
+  if (p < 85) return 'var(--status-warn)';
+  return 'var(--status-err)';
 }
 
 function capitalize(s: string): string {
@@ -446,7 +409,7 @@ function parseResourceValue(s: string): number {
   const trimmed = s.trim();
 
   // CPU — millicores ("100m") or cores ("1", "2")
-  if (trimmed.endsWith("m")) {
+  if (trimmed.endsWith('m')) {
     return parseFloat(trimmed) || 0;
   }
 
@@ -455,17 +418,17 @@ function parseResourceValue(s: string): number {
   if (memMatch) {
     const val = parseFloat(memMatch[1]);
     switch (memMatch[2]) {
-      case "Ki":
+      case 'Ki':
         return val / 1024; // normalise to MiB
-      case "Mi":
+      case 'Mi':
         return val;
-      case "Gi":
+      case 'Gi':
         return val * 1024;
-      case "Ti":
+      case 'Ti':
         return val * 1024 * 1024;
-      case "Pi":
+      case 'Pi':
         return val * 1024 * 1024 * 1024;
-      case "Ei":
+      case 'Ei':
         return val * 1024 * 1024 * 1024 * 1024;
     }
   }
@@ -491,8 +454,8 @@ function parseResourceValue(s: string): number {
 function parseQuotaMap(raw: string): Map<string, string> {
   const m = new Map<string, string>();
   if (!raw) return m;
-  for (const pair of raw.split(",")) {
-    const eq = pair.indexOf("=");
+  for (const pair of raw.split(',')) {
+    const eq = pair.indexOf('=');
     if (eq === -1) continue;
     m.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
   }

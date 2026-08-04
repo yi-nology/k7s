@@ -10,10 +10,10 @@
  * where right-clicking the bottom row shows you half a menu.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { ActionList } from "./ActionList";
-import type { KindId, Row } from "../../providers/types";
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { ActionList } from './ActionList';
+import type { KindId, Row } from '../../providers/types';
 
 export interface ContextMenuAt {
   x: number;
@@ -80,43 +80,37 @@ export function RowContextMenu({
       if (ref.current && !ref.current.contains(e.target as Node)) onClose();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         // Consumed here, so Escape closes only the menu and doesn't also run the
         // app-wide cascade behind it (which would clear the selection too).
         e.stopPropagation();
         onClose();
       }
     };
-    document.addEventListener("mousedown", onDown);
+    document.addEventListener('mousedown', onDown);
     // Capture: the app's own Escape handler is on document and would otherwise
     // fire in the same dispatch.
-    document.addEventListener("keydown", onKey, true);
+    document.addEventListener('keydown', onKey, true);
     // Scoped to the table's scroller only — see `scrollHost`.
-    scrollHost?.addEventListener("scroll", onClose);
-    window.addEventListener("resize", onClose);
+    scrollHost?.addEventListener('scroll', onClose);
+    window.addEventListener('resize', onClose);
     return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey, true);
-      scrollHost?.removeEventListener("scroll", onClose);
-      window.removeEventListener("resize", onClose);
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey, true);
+      scrollHost?.removeEventListener('scroll', onClose);
+      window.removeEventListener('resize', onClose);
     };
   }, [onClose, scrollHost]);
 
   return createPortal(
     <div
       ref={ref}
-      style={{ position: "fixed", left: pos.left, top: pos.top, zIndex: 300 }}
+      style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 300 }}
       // A right-click on the menu itself shouldn't open the browser's own menu.
       onContextMenu={(e) => e.preventDefault()}
     >
-      <ActionList
-        kind={kind}
-        rows={rows}
-        onError={onError}
-        onClose={onClose}
-        onGone={onGone}
-      />
+      <ActionList kind={kind} rows={rows} onError={onError} onClose={onClose} onGone={onGone} />
     </div>,
-    document.body,
+    document.body
   );
 }

@@ -35,7 +35,7 @@ export function rowWindow(
   scrollTop: number,
   viewportH: number,
   rowH: number,
-  overscan: number,
+  overscan: number
 ): RowWindow {
   // Degenerate viewport (not yet measured, or a zero-height panel): render nothing
   // rather than dividing the list by zero.
@@ -69,7 +69,7 @@ export function scrollToShow(
   scrollTop: number,
   viewportH: number,
   rowH: number,
-  headerH: number,
+  headerH: number
 ): number | null {
   if (index < 0 || rowH <= 0) return null;
 

@@ -14,7 +14,7 @@
      in sync via the --grad-bg token so a theme change updates both. */
 }
 .sidebar::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   background: var(--grad-bg);
@@ -93,7 +93,9 @@
   border: 1px solid var(--border-control);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 .switcherButton:hover {
   border-color: var(--border-hover);
@@ -279,7 +281,9 @@
   font-size: var(--text-sm);
   color: var(--text-body);
   outline: none;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
 }
 .navFilter:focus {
   border-color: var(--accent);
@@ -363,7 +367,10 @@
   color: var(--text-nav-inactive);
   font-size: var(--text-md);
   font-weight: 500;
-  transition: background 0.1s ease, color 0.1s ease, box-shadow 0.1s ease;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease,
+    box-shadow 0.1s ease;
   position: relative;
 }
 .navItem:hover {
@@ -382,7 +389,7 @@
 /* The 2px bar uses a gradient so it has a soft glow at the same time, instead
    of looking like a paint-stroke. The gradient itself is opaque. */
 .navItemActive::before {
-  content: "";
+  content: '';
   position: absolute;
   left: -2px;
   top: 0;
@@ -419,7 +426,9 @@
   padding: 1px 6px;
   background: var(--bg-control);
   border-radius: 4px;
-  transition: color 0.1s ease, background 0.1s ease;
+  transition:
+    color 0.1s ease,
+    background 0.1s ease;
 }
 .navItemActive .navCount {
   color: var(--accent);
@@ -481,7 +490,9 @@
   line-height: 1;
   padding: 4px 6px;
   border-radius: var(--radius-sm);
-  transition: color 0.1s ease, background 0.1s ease;
+  transition:
+    color 0.1s ease,
+    background 0.1s ease;
 }
 .gear:hover {
   color: var(--text-primary);

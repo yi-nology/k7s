@@ -3,11 +3,11 @@
  * plausible Pod manifest for the YAML tab in demo mode.
  */
 
-import { MOCK_PODS, type MockPod } from "./data";
+import { MOCK_PODS, type MockPod } from './data';
 
 /** Generate the YAML text for a pod, matching the prototype's template. */
 export function yamlForPod(pod: MockPod): string {
-  const appLabel = pod.name.split("-").slice(0, 2).join("-");
+  const appLabel = pod.name.split('-').slice(0, 2).join('-');
   const containers = pod.containers
     .map(
       (c) => `    - name: ${c}
@@ -25,9 +25,9 @@ export function yamlForPod(pod: MockPod): string {
         httpGet:
           path: /healthz
           port: 8080
-        periodSeconds: 10`,
+        periodSeconds: 10`
     )
-    .join("\n");
+    .join('\n');
 
   // podIP is randomized like the prototype so the value looks live.
   const podIp = `10.244.${Math.floor(Math.random() * 5) + 1}.${Math.floor(Math.random() * 200) + 10}`;
@@ -51,7 +51,7 @@ spec:
 ${containers}
   restartPolicy: Always
 status:
-  phase: ${pod.status === "Running" ? "Running" : pod.status}
+  phase: ${pod.status === 'Running' ? 'Running' : pod.status}
   podIP: ${podIp}
   qosClass: Burstable`;
 }
@@ -59,25 +59,25 @@ status:
 /** Look up a pod by name and generate its YAML, or "" if not found. */
 export function yamlForPodName(name: string | null): string {
   const pod = MOCK_PODS.find((p) => p.name === name);
-  return pod ? yamlForPod(pod) : "";
+  return pod ? yamlForPod(pod) : '';
 }
 
 /** Singular Kind name for a resource-kind id (best-effort, for the mock stub). */
 function kindName(kind: string): string {
   const map: Record<string, string> = {
-    deployments: "Deployment",
-    statefulsets: "StatefulSet",
-    daemonsets: "DaemonSet",
-    jobs: "Job",
-    cronjobs: "CronJob",
-    services: "Service",
-    ingresses: "Ingress",
-    configmaps: "ConfigMap",
-    secrets: "Secret",
-    nodes: "Node",
-    namespaces: "Namespace",
+    deployments: 'Deployment',
+    statefulsets: 'StatefulSet',
+    daemonsets: 'DaemonSet',
+    jobs: 'Job',
+    cronjobs: 'CronJob',
+    services: 'Service',
+    ingresses: 'Ingress',
+    configmaps: 'ConfigMap',
+    secrets: 'Secret',
+    nodes: 'Node',
+    namespaces: 'Namespace',
   };
-  return map[kind] ?? "Resource";
+  return map[kind] ?? 'Resource';
 }
 
 /**
@@ -89,7 +89,7 @@ export function yamlForGeneric(kind: string, namespace: string | undefined, name
     ? `metadata:\n  name: ${name}\n  namespace: ${namespace}`
     : `metadata:\n  name: ${name}`;
   const body =
-    kind === "secrets"
+    kind === 'secrets'
       ? `type: Opaque\ndata:\n  username: "<redacted>"\n  password: "<redacted>"`
       : `spec:\n  # (demo stub — real clusters return the full manifest)\n  selector:\n    app: ${name}`;
   return `apiVersion: v1\nkind: ${kindName(kind)}\n${meta}\n  labels:\n    app: ${name}\n${body}`;

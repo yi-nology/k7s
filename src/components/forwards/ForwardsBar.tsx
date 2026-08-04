@@ -15,11 +15,11 @@
  * per-row error join, so error copy reads consistently across the chrome.
  */
 
-import styles from "./ForwardsBar.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import type { ForwardInfo } from "../../providers/types";
+import styles from './ForwardsBar.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import type { ForwardInfo } from '../../providers/types';
 
 export function ForwardsBar() {
   const forwards = useStore((s) => s.portForwards);
@@ -35,17 +35,17 @@ export function ForwardsBar() {
 
   return (
     <div className={styles.bar}>
-      <span className={styles.label}>{t("chrome.forwards.label")}</span>
+      <span className={styles.label}>{t('chrome.forwards.label')}</span>
       {forwards.map((f) => (
         <span
           key={f.id}
-          className={`${styles.item} ${f.error ? styles.itemError : ""}`}
+          className={`${styles.item} ${f.error ? styles.itemError : ''}`}
           title={tooltip(f, t)}
         >
           <button
             type="button"
             className={styles.local}
-            title={t("chrome.forwards.copyAddress")}
+            title={t('chrome.forwards.copyAddress')}
             onClick={() => void copy(`localhost:${f.localPort}`)}
           >
             localhost:{f.localPort}
@@ -55,7 +55,12 @@ export function ForwardsBar() {
             {f.service ?? f.pod}:{f.servicePort ?? f.remotePort}
           </span>
           {f.error && <span className={styles.errorMark}>!</span>}
-          <button type="button" className={styles.stop} title={t("chrome.forwards.stopForward")} onClick={() => void stop(f.id)}>
+          <button
+            type="button"
+            className={styles.stop}
+            title={t('chrome.forwards.stopForward')}
+            onClick={() => void stop(f.id)}
+          >
             ✕
           </button>
         </span>
@@ -65,15 +70,19 @@ export function ForwardsBar() {
 }
 
 /** Full detail on hover: the resolved pod and port for services, and any failure. */
-function tooltip(
-  f: ForwardInfo,
-  t: (key: string, ...args: unknown[]) => string,
-): string {
+function tooltip(f: ForwardInfo, t: (key: string, ...args: unknown[]) => string): string {
   // The strip shows the port asked for; the tooltip is where the resolved
   // targetPort belongs, since that's the detail you'd want when debugging.
   const base = f.service
-    ? t("chrome.forwards.serviceTarget", f.namespace, f.service, f.servicePort ?? f.remotePort, f.pod, f.remotePort)
-    : t("chrome.forwards.podTarget", f.namespace, f.pod, f.remotePort);
+    ? t(
+        'chrome.forwards.serviceTarget',
+        f.namespace,
+        f.service,
+        f.servicePort ?? f.remotePort,
+        f.pod,
+        f.remotePort
+      )
+    : t('chrome.forwards.podTarget', f.namespace, f.pod, f.remotePort);
   // Em-dash separator (not a newline): the `title` attribute collapses \n to a
   // space, so the error would otherwise be glued onto the resolved target with
   // no visual break.

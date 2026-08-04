@@ -6,17 +6,17 @@
  * every supported kind without a cluster.
  */
 
-import type { Cell, Field, KindId, Properties, ResourceRef, Section, Tone } from "../types";
-import { MOCK_HELM, MOCK_PODS } from "./data";
+import type { Cell, Field, KindId, Properties, ResourceRef, Section, Tone } from '../types';
+import { MOCK_HELM, MOCK_PODS } from './data';
 
 /** A plain secondary cell. */
-const c = (text: string, tone: Tone = "secondary"): Cell => ({ text, tone });
+const c = (text: string, tone: Tone = 'secondary'): Cell => ({ text, tone });
 /** A name cell (primary emphasis, first column of every table). */
-const n = (text: string): Cell => ({ text, tone: "primary" });
+const n = (text: string): Cell => ({ text, tone: 'primary' });
 /** An age cell: an RFC3339 timestamp the UI formats. */
-const age = (iso: string): Cell => ({ text: iso, tone: "muted", format: "age" });
+const age = (iso: string): Cell => ({ text: iso, tone: 'muted', format: 'age' });
 /** A field row. */
-const f = (label: string, value: string, tone: Tone = "secondary"): Field => ({
+const f = (label: string, value: string, tone: Tone = 'secondary'): Field => ({
   label,
   value: c(value, tone),
 });
@@ -26,21 +26,21 @@ const link = (
   kind: KindId,
   name: string,
   namespace?: string,
-  tone: Tone = "secondary",
+  tone: Tone = 'secondary'
 ): Cell => ({ text, tone, nav: { kind, namespace, name } });
 
 const table = (title: string, columns: string[], rows: Cell[][], emptyNote?: string): Section => ({
   title,
   emptyNote,
-  body: { type: "table", columns, rows },
+  body: { type: 'table', columns, rows },
 });
 const fields = (title: string, list: Field[]): Section => ({
   title,
-  body: { type: "fields", fields: list },
+  body: { type: 'fields', fields: list },
 });
 const chips = (title: string, kv: [string, string][]): Section => ({
   title,
-  body: { type: "chips", chips: kv.map(([key, value]) => ({ key, value })) },
+  body: { type: 'chips', chips: kv.map(([key, value]) => ({ key, value })) },
 });
 
 /** An ISO timestamp `daysAgo` days in the past, for age cells. */
@@ -54,57 +54,57 @@ function daysAgo(days: number): string {
  */
 export function mockProperties(ref: ResourceRef): Properties | null {
   switch (ref.kind) {
-    case "pods":
+    case 'pods':
       return podProperties(ref);
-    case "deployments":
+    case 'deployments':
       return deploymentProperties(ref);
-    case "services":
+    case 'services':
       return serviceProperties(ref);
-    case "statefulsets":
+    case 'statefulsets':
       return statefulSetProperties(ref);
-    case "nodes":
+    case 'nodes':
       return nodeProperties(ref);
-    case "helm":
+    case 'helm':
       return helmProperties(ref);
-    case "ingresses":
+    case 'ingresses':
       return ingressProperties(ref);
-    case "secrets":
+    case 'secrets':
       return secretProperties(ref);
-    case "serviceaccounts":
+    case 'serviceaccounts':
       return serviceAccountProperties(ref);
-    case "storageclasses":
+    case 'storageclasses':
       return storageClassProperties(ref);
-    case "namespaces":
+    case 'namespaces':
       return namespaceProperties(ref);
-    case "persistentvolumeclaims":
+    case 'persistentvolumeclaims':
       return pvcProperties(ref);
-    case "persistentvolumes":
+    case 'persistentvolumes':
       return pvProperties(ref);
-    case "jobs":
+    case 'jobs':
       return jobProperties(ref);
-    case "cronjobs":
+    case 'cronjobs':
       return cronJobProperties(ref);
-    case "horizontalpodautoscalers":
+    case 'horizontalpodautoscalers':
       return hpaProperties(ref);
-    case "networkpolicies":
+    case 'networkpolicies':
       return networkPolicyProperties(ref);
-    case "resourcequotas":
+    case 'resourcequotas':
       return resourceQuotaProperties(ref);
-    case "roles":
+    case 'roles':
       return roleProperties(ref);
-    case "clusterroles":
+    case 'clusterroles':
       return clusterRoleProperties(ref);
-    case "rolebindings":
+    case 'rolebindings':
       return roleBindingProperties(ref);
-    case "clusterrolebindings":
+    case 'clusterrolebindings':
       return clusterRoleBindingProperties(ref);
-    case "poddisruptionbudgets":
+    case 'poddisruptionbudgets':
       return pdbProperties(ref);
-    case "mutatingwebhookconfigurations":
+    case 'mutatingwebhookconfigurations':
       return mutatingWebhookProperties(ref);
-    case "validatingwebhookconfigurations":
+    case 'validatingwebhookconfigurations':
       return validatingWebhookProperties(ref);
-    case "apiservices":
+    case 'apiservices':
       return apiServiceProperties(ref);
     default:
       return null;
@@ -120,50 +120,55 @@ function ingressProperties(ref: ResourceRef): Properties {
   const ns = ref.namespace;
   return {
     sections: [
-      fields("Overview", [
-        { label: "class", value: c("traefik"), nav: { kind: "ingressclasses", name: "traefik" } },
-        f("default backend", "—"),
-        f("address", "192.168.1.156"),
+      fields('Overview', [
+        { label: 'class', value: c('traefik'), nav: { kind: 'ingressclasses', name: 'traefik' } },
+        f('default backend', '—'),
+        f('address', '192.168.1.156'),
       ]),
       table(
-        "Rules",
-        ["HOST", "PATH", "PATH TYPE", "SERVICE", "PORT"],
+        'Rules',
+        ['HOST', 'PATH', 'PATH TYPE', 'SERVICE', 'PORT'],
         [
           [
             n(`${ref.name}.murphy-yi.io`),
-            c("/"),
-            c("Prefix"),
-            link(ref.name, "services", ref.name, ns),
+            c('/'),
+            c('Prefix'),
+            link(ref.name, 'services', ref.name, ns),
             // A named port, not a number — the case a number-only reading drops.
-            c("http"),
+            c('http'),
           ],
           [
             n(`${ref.name}.murphy-yi.io`),
-            c("/api"),
-            c("Prefix"),
-            c(`${ref.name}-api (not found)`, "warn"),
-            c("8080"),
+            c('/api'),
+            c('Prefix'),
+            c(`${ref.name}-api (not found)`, 'warn'),
+            c('8080'),
           ],
         ],
-        "no rules — this Ingress routes nothing",
+        'no rules — this Ingress routes nothing'
       ),
       table(
-        "TLS",
-        ["HOSTS", "SECRET"],
-        [[n(`${ref.name}.murphy-yi.io`), link(`${ref.name}-tls`, "secrets", `${ref.name}-tls`, ns)]],
-        "no TLS — served over HTTP",
+        'TLS',
+        ['HOSTS', 'SECRET'],
+        [
+          [
+            n(`${ref.name}.murphy-yi.io`),
+            link(`${ref.name}-tls`, 'secrets', `${ref.name}-tls`, ns),
+          ],
+        ],
+        'no TLS — served over HTTP'
       ),
-      chips("Labels", [["app", ref.name]]),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
 
 /** Tone for a Helm release status, matching the backend's status_tone. */
 function helmTone(status: string): Tone {
-  if (status === "deployed") return "ok";
-  if (status === "failed") return "err";
-  if (status === "superseded" || status === "uninstalled") return "muted";
-  return "warn";
+  if (status === 'deployed') return 'ok';
+  if (status === 'failed') return 'err';
+  if (status === 'superseded' || status === 'uninstalled') return 'muted';
+  return 'warn';
 }
 
 /**
@@ -174,21 +179,27 @@ function helmTone(status: string): Tone {
  */
 function helmProperties(ref: ResourceRef): Properties {
   const rel = MOCK_HELM.find(([name, ns]) => name === ref.name && ns === ref.namespace);
-  const [name, , chart, appVersion, revision, status] =
-    rel ?? [ref.name, ref.namespace ?? "", "unknown-0.0.0", "—", 1, "deployed"];
+  const [name, , chart, appVersion, revision, status] = rel ?? [
+    ref.name,
+    ref.namespace ?? '',
+    'unknown-0.0.0',
+    '—',
+    1,
+    'deployed',
+  ];
 
-  const desc = status === "failed" ? "Upgrade \"redis\" failed" : "Upgrade complete";
+  const desc = status === 'failed' ? 'Upgrade "redis" failed' : 'Upgrade complete';
 
   // History: the current revision, then superseded predecessors down to v1
   // (capped at the last 5, as Helm keeps ten but shows recent ones first).
   const history: Cell[][] = [];
   for (let rev = revision; rev >= 1 && revision - rev < 5; rev--) {
-    const st = rev === revision ? status : "superseded";
+    const st = rev === revision ? status : 'superseded';
     history.push([
       n(String(rev)),
       { text: st, tone: helmTone(st), dot: true },
       c(chart),
-      c(rev === revision ? desc : "Upgrade complete"),
+      c(rev === revision ? desc : 'Upgrade complete'),
       age(daysAgo((revision - rev) * 3 + 1)),
     ]);
   }
@@ -196,143 +207,163 @@ function helmProperties(ref: ResourceRef): Properties {
   const overridden = /valkyrie|heimdall/.test(name);
   const values: Cell[][] = overridden
     ? [
-        [n("dbPassword"), c("<redacted>")],
-        [n("image.tag"), c(appVersion)],
-        [n("replicaCount"), c("2")],
-        [n("resources.limits.cpu"), c("500m")],
+        [n('dbPassword'), c('<redacted>')],
+        [n('image.tag'), c(appVersion)],
+        [n('replicaCount'), c('2')],
+        [n('resources.limits.cpu'), c('500m')],
       ]
     : [];
 
   return {
     sections: [
-      fields("Overview", [
-        f("chart", chart),
-        f("app version", appVersion),
-        f("status", status, helmTone(status)),
-        f("revision", String(revision)),
-        { label: "first deployed", value: age(daysAgo(31)) },
-        { label: "last deployed", value: age(daysAgo(revision > 1 ? 1 : 31)) },
-        f("description", desc),
+      fields('Overview', [
+        f('chart', chart),
+        f('app version', appVersion),
+        f('status', status, helmTone(status)),
+        f('revision', String(revision)),
+        { label: 'first deployed', value: age(daysAgo(31)) },
+        { label: 'last deployed', value: age(daysAgo(revision > 1 ? 1 : 31)) },
+        f('description', desc),
       ]),
       table(
-        "History",
-        ["REVISION", "STATUS", "CHART", "DESCRIPTION", "UPDATED"],
+        'History',
+        ['REVISION', 'STATUS', 'CHART', 'DESCRIPTION', 'UPDATED'],
         history,
-        "no revisions",
+        'no revisions'
       ),
-      table("Values", ["KEY", "VALUE"], values, "chart defaults (no overrides)"),
+      table('Values', ['KEY', 'VALUE'], values, 'chart defaults (no overrides)'),
     ],
   };
 }
 
 function podProperties(ref: ResourceRef): Properties {
   const pod = MOCK_PODS.find((p) => p.name === ref.name);
-  const running = pod?.status === "Running";
-  const app = ref.name.split("-").slice(0, 2).join("-");
+  const running = pod?.status === 'Running';
+  const app = ref.name.split('-').slice(0, 2).join('-');
   // Stateful mock pods get a PVC-backed volume so the Storage section is shown.
   const stateful = /db|postgres|prometheus/.test(ref.name);
 
-  const containers = (pod?.containers ?? ["app"]).map((name, i) => {
+  const containers = (pod?.containers ?? ['app']).map((name, i) => {
     const restarts = i === 0 ? (pod?.restarts ?? 0) : 0;
-    const state = running ? "Running" : `Waiting: ${pod?.status ?? "Unknown"}`;
+    const state = running ? 'Running' : `Waiting: ${pod?.status ?? 'Unknown'}`;
     return [
       n(name),
       c(`registry.murphy-yi.io/${name}:v2.4.1`),
-      c(state, running ? "ok" : "warn"),
-      c(running ? "yes" : "no", running ? "ok" : "warn"),
-      c(String(restarts), restarts > 5 ? "err" : "secondary"),
-      c("100m / 1"),
-      c("256Mi / 1Gi"),
-      c("8080/TCP"),
+      c(state, running ? 'ok' : 'warn'),
+      c(running ? 'yes' : 'no', running ? 'ok' : 'warn'),
+      c(String(restarts), restarts > 5 ? 'err' : 'secondary'),
+      c('100m / 1'),
+      c('256Mi / 1Gi'),
+      c('8080/TCP'),
     ];
   });
 
   return {
     sections: [
-      fields("Overview", [
-        { label: "node", value: c(pod?.node ?? "—"), nav: { kind: "nodes", name: pod?.node ?? "" } },
-        f("pod IP", "10.244.2.37"),
-        f("host IP", "192.168.1.153"),
-        f("QoS", "Burstable"),
+      fields('Overview', [
+        {
+          label: 'node',
+          value: c(pod?.node ?? '—'),
+          nav: { kind: 'nodes', name: pod?.node ?? '' },
+        },
+        f('pod IP', '10.244.2.37'),
+        f('host IP', '192.168.1.153'),
+        f('QoS', 'Burstable'),
         // Owner resolves through the ReplicaSet to its workload, with a nav target
         // that makes it a click-through link (B33). Which workload depends on the
         // pod: a `-<ordinal>` pod belongs to a StatefulSet, and pointing every pod
         // at a Deployment would link to one the demo data doesn't have.
         {
-          label: "owner",
+          label: 'owner',
           value: c(stateful ? `StatefulSet/${app}` : `Deployment/${app}`),
           nav: {
-            kind: stateful ? "statefulsets" : "deployments",
+            kind: stateful ? 'statefulsets' : 'deployments',
             namespace: ref.namespace,
             name: app,
           },
         },
-        f("service account", `${ref.namespace}-runtime`),
-        f("restart policy", "Always"),
-        f("priority class", "—"),
-        { label: "started", value: age(daysAgo(4)) },
+        f('service account', `${ref.namespace}-runtime`),
+        f('restart policy', 'Always'),
+        f('priority class', '—'),
+        { label: 'started', value: age(daysAgo(4)) },
       ]),
       table(
-        "Containers",
-        ["NAME", "IMAGE", "STATE", "READY", "RESTARTS", "CPU R/L", "MEM R/L", "PORTS"],
+        'Containers',
+        ['NAME', 'IMAGE', 'STATE', 'READY', 'RESTARTS', 'CPU R/L', 'MEM R/L', 'PORTS'],
         containers,
-        "no containers",
+        'no containers'
       ),
       table(
-        "Storage",
-        ["VOLUME", "CLAIM", "PV", "CAPACITY", "CLASS", "ACCESS", "PHASE", "MOUNTED AT"],
+        'Storage',
+        ['VOLUME', 'CLAIM', 'PV', 'CAPACITY', 'CLASS', 'ACCESS', 'PHASE', 'MOUNTED AT'],
         stateful
           ? [
               [
-                n("data"),
+                n('data'),
                 // Claim, volume and class all link through (B41).
-                link(`data-${ref.name}`, "persistentvolumeclaims", `data-${ref.name}`, ref.namespace),
-                link("pvc-8f2c1a3e-4b7d-11ef-9c21", "persistentvolumes", "pvc-8f2c1a3e-4b7d-11ef-9c21"),
-                c("20Gi"),
-                link("local-path", "storageclasses", "local-path"),
-                c("ReadWriteOnce"),
-                c("Bound", "ok"),
-                c("/var/lib/data"),
+                link(
+                  `data-${ref.name}`,
+                  'persistentvolumeclaims',
+                  `data-${ref.name}`,
+                  ref.namespace
+                ),
+                link(
+                  'pvc-8f2c1a3e-4b7d-11ef-9c21',
+                  'persistentvolumes',
+                  'pvc-8f2c1a3e-4b7d-11ef-9c21'
+                ),
+                c('20Gi'),
+                link('local-path', 'storageclasses', 'local-path'),
+                c('ReadWriteOnce'),
+                c('Bound', 'ok'),
+                c('/var/lib/data'),
               ],
             ]
           : [],
-        "no persistent volumes attached",
+        'no persistent volumes attached'
       ),
       table(
-        "Services",
-        ["NAME", "TYPE", "CLUSTER-IP", "PORTS"],
-        [[link(app, "services", app, ref.namespace, "primary"), c("ClusterIP"), c("10.96.14.22"), c("8080/TCP")]],
-        "no services select this pod",
-      ),
-      table(
-        "Other volumes",
-        ["VOLUME", "KIND", "SOURCE", "MOUNTED AT"],
+        'Services',
+        ['NAME', 'TYPE', 'CLUSTER-IP', 'PORTS'],
         [
           [
-            n("config"),
-            c("ConfigMap"),
-            link(`${app}-config`, "configmaps", `${app}-config`, ref.namespace),
-            c("/etc/config (ro)"),
+            link(app, 'services', app, ref.namespace, 'primary'),
+            c('ClusterIP'),
+            c('10.96.14.22'),
+            c('8080/TCP'),
+          ],
+        ],
+        'no services select this pod'
+      ),
+      table(
+        'Other volumes',
+        ['VOLUME', 'KIND', 'SOURCE', 'MOUNTED AT'],
+        [
+          [
+            n('config'),
+            c('ConfigMap'),
+            link(`${app}-config`, 'configmaps', `${app}-config`, ref.namespace),
+            c('/etc/config (ro)'),
           ],
           // An optional source that doesn't exist: the mount is empty, which is
           // worth saying rather than linking to a 404 (B41).
-          [n("tls"), c("Secret"), c(`${app}-tls (not found)`, "warn"), c("/etc/tls (ro)")],
+          [n('tls'), c('Secret'), c(`${app}-tls (not found)`, 'warn'), c('/etc/tls (ro)')],
           [
-            n("kube-api-access"),
-            c("Projected"),
-            c("—"),
-            c("/var/run/secrets/kubernetes.io/serviceaccount (ro)"),
+            n('kube-api-access'),
+            c('Projected'),
+            c('—'),
+            c('/var/run/secrets/kubernetes.io/serviceaccount (ro)'),
           ],
-        ],
+        ]
       ),
-      chips("Labels", [
-        ["app", app],
-        ["version", "v2.4.1"],
-        ["team", "platform"],
+      chips('Labels', [
+        ['app', app],
+        ['version', 'v2.4.1'],
+        ['team', 'platform'],
       ]),
-      chips("Annotations", [
-        ["prometheus.io/scrape", "true"],
-        ["prometheus.io/port", "9090"],
+      chips('Annotations', [
+        ['prometheus.io/scrape', 'true'],
+        ['prometheus.io/port', '9090'],
       ]),
     ],
   };
@@ -345,71 +376,71 @@ function deploymentProperties(ref: ResourceRef): Properties {
   const ready = degraded ? 0 : 2;
   return {
     sections: [
-      fields("Overview", [
-        f("replicas", `${ready}/${desired} ready`, degraded ? "err" : "ok"),
-        f("up-to-date", String(desired)),
-        f("available", String(ready)),
-        f("unavailable", String(desired - ready), degraded ? "warn" : "secondary"),
-        f("strategy", "RollingUpdate (max surge 25%, max unavailable 25%)"),
-        f("selector", `app=${ref.name}`),
-        f("generation", "7"),
-        f("paused", "no"),
+      fields('Overview', [
+        f('replicas', `${ready}/${desired} ready`, degraded ? 'err' : 'ok'),
+        f('up-to-date', String(desired)),
+        f('available', String(ready)),
+        f('unavailable', String(desired - ready), degraded ? 'warn' : 'secondary'),
+        f('strategy', 'RollingUpdate (max surge 25%, max unavailable 25%)'),
+        f('selector', `app=${ref.name}`),
+        f('generation', '7'),
+        f('paused', 'no'),
       ]),
       table(
-        "ReplicaSets",
-        ["NAME", "REVISION", "DESIRED", "CURRENT", "READY", "AGE"],
+        'ReplicaSets',
+        ['NAME', 'REVISION', 'DESIRED', 'CURRENT', 'READY', 'AGE'],
         [
           [
             n(`${ref.name}-6c8d9`),
-            c("7"),
+            c('7'),
             c(String(desired)),
             c(String(desired)),
-            c(String(ready), degraded ? "err" : "ok"),
+            c(String(ready), degraded ? 'err' : 'ok'),
             age(daysAgo(4)),
           ],
-          [n(`${ref.name}-7d9f8`), c("6"), c("0"), c("0"), c("0", "muted"), age(daysAgo(11))],
+          [n(`${ref.name}-7d9f8`), c('6'), c('0'), c('0'), c('0', 'muted'), age(daysAgo(11))],
         ],
-        "no replica sets (or none readable)",
+        'no replica sets (or none readable)'
       ),
       table(
-        "Conditions",
-        ["TYPE", "STATUS", "REASON", "MESSAGE", "SINCE"],
+        'Conditions',
+        ['TYPE', 'STATUS', 'REASON', 'MESSAGE', 'SINCE'],
         degraded
           ? [
               [
-                n("Available"),
-                c("False", "err"),
-                c("MinimumReplicasUnavailable"),
-                c("Deployment does not have minimum availability."),
+                n('Available'),
+                c('False', 'err'),
+                c('MinimumReplicasUnavailable'),
+                c('Deployment does not have minimum availability.'),
                 age(daysAgo(0.09)),
               ],
               [
-                n("Progressing"),
-                c("False", "err"),
-                c("ProgressDeadlineExceeded"),
+                n('Progressing'),
+                c('False', 'err'),
+                c('ProgressDeadlineExceeded'),
                 c(`ReplicaSet "${ref.name}-6c8d9" has timed out progressing.`),
                 age(daysAgo(0.05)),
               ],
             ]
           : [
               [
-                n("Available"),
-                c("True", "ok"),
-                c("MinimumReplicasAvailable"),
-                c("Deployment has minimum availability."),
+                n('Available'),
+                c('True', 'ok'),
+                c('MinimumReplicasAvailable'),
+                c('Deployment has minimum availability.'),
                 age(daysAgo(4)),
               ],
               [
-                n("Progressing"),
-                c("True", "ok"),
-                c("NewReplicaSetAvailable"),
+                n('Progressing'),
+                c('True', 'ok'),
+                c('NewReplicaSetAvailable'),
                 c(`ReplicaSet "${ref.name}-6c8d9" has successfully progressed.`),
                 age(daysAgo(4)),
               ],
             ],
-        "no conditions reported",
+        'no conditions reported'
       ),
-      chips("Labels", [["app", ref.name]]),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -417,31 +448,31 @@ function deploymentProperties(ref: ResourceRef): Properties {
 function serviceProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("type", "ClusterIP"),
-        f("cluster IP", "10.96.14.22"),
-        f("load balancer", "—"),
-        f("external IPs", "—"),
-        f("selector", `app=${ref.name}`),
-        f("session affinity", "None"),
-        f("traffic policy", "—"),
+      fields('Overview', [
+        f('type', 'ClusterIP'),
+        f('cluster IP', '10.96.14.22'),
+        f('load balancer', '—'),
+        f('external IPs', '—'),
+        f('selector', `app=${ref.name}`),
+        f('session affinity', 'None'),
+        f('traffic policy', '—'),
       ]),
       table(
-        "Ports",
-        ["NAME", "PORT", "TARGET", "NODE PORT", "PROTOCOL"],
-        [[n("http"), c("8080"), c("http"), c("—"), c("TCP")]],
-        "no ports",
+        'Ports',
+        ['NAME', 'PORT', 'TARGET', 'NODE PORT', 'PROTOCOL'],
+        [[n('http'), c('8080'), c('http'), c('—'), c('TCP')]],
+        'no ports'
       ),
       table(
-        "Endpoints",
-        ["ADDRESS", "READY", "POD", "NODE"],
+        'Endpoints',
+        ['ADDRESS', 'READY', 'POD', 'NODE'],
         [
-          [n("10.244.2.37"), c("ready", "ok"), c(`${ref.name}-6c8d9-mn4p`), c("murphy-yi-node-02")],
-          [n("10.244.3.14"), c("ready", "ok"), c(`${ref.name}-6c8d9-qq7z`), c("murphy-yi-node-03")],
+          [n('10.244.2.37'), c('ready', 'ok'), c(`${ref.name}-6c8d9-mn4p`), c('murphy-yi-node-02')],
+          [n('10.244.3.14'), c('ready', 'ok'), c(`${ref.name}-6c8d9-qq7z`), c('murphy-yi-node-03')],
         ],
-        "no endpoints — nothing is backing this service",
+        'no endpoints — nothing is backing this service'
       ),
-      chips("Labels", [["app", ref.name]]),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -449,97 +480,126 @@ function serviceProperties(ref: ResourceRef): Properties {
 function statefulSetProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("replicas", "2/2 ready", "ok"),
-        f("current", "2"),
-        f("updated", "2"),
-        f("service name", `${ref.name}-headless`),
-        f("update strategy", "RollingUpdate"),
-        f("pod management", "OrderedReady"),
-        f("selector", `app=${ref.name}`),
-        f("current revision", `${ref.name}-5f7c8d9b64`),
+      fields('Overview', [
+        f('replicas', '2/2 ready', 'ok'),
+        f('current', '2'),
+        f('updated', '2'),
+        f('service name', `${ref.name}-headless`),
+        f('update strategy', 'RollingUpdate'),
+        f('pod management', 'OrderedReady'),
+        f('selector', `app=${ref.name}`),
+        f('current revision', `${ref.name}-5f7c8d9b64`),
       ]),
       table(
-        "Volume claim templates",
-        ["NAME", "CLASS", "ACCESS", "REQUEST"],
-        [[n("data"), c("local-path"), c("ReadWriteOnce"), c("20Gi")]],
+        'Volume claim templates',
+        ['NAME', 'CLASS', 'ACCESS', 'REQUEST'],
+        [[n('data'), c('local-path'), c('ReadWriteOnce'), c('20Gi')]]
       ),
       table(
-        "Persistent volume claims",
-        ["NAME", "PHASE", "CAPACITY", "CLASS", "PV", "AGE"],
+        'Persistent volume claims',
+        ['NAME', 'PHASE', 'CAPACITY', 'CLASS', 'PV', 'AGE'],
         [0, 1].map((i) => [
           n(`data-${ref.name}-${i}`),
-          c("Bound", "ok"),
-          c("20Gi"),
-          c("local-path"),
+          c('Bound', 'ok'),
+          c('20Gi'),
+          c('local-path'),
           c(`pvc-8f2c1a3e-4b7d-11ef-9c2${i}`),
           age(daysAgo(31)),
         ]),
-        "no claims yet",
+        'no claims yet'
       ),
-      table("Conditions", ["TYPE", "STATUS", "REASON", "MESSAGE", "SINCE"], [], "no conditions reported"),
-      chips("Labels", [["app", ref.name]]),
+      table(
+        'Conditions',
+        ['TYPE', 'STATUS', 'REASON', 'MESSAGE', 'SINCE'],
+        [],
+        'no conditions reported'
+      ),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
 
 function nodeProperties(ref: ResourceRef): Properties {
-  const control = ref.name.endsWith("01");
+  const control = ref.name.endsWith('01');
   return {
     sections: [
-      fields("Overview", [
-        f("schedulable", "yes", "ok"),
-        f("kubelet", "v1.31.2"),
-        f("runtime", "containerd://1.7.22"),
-        f("OS image", "Ubuntu 24.04.1 LTS"),
-        f("kernel", "6.8.0-45-generic"),
-        f("architecture", "arm64"),
-        f("pod CIDR", "10.244.2.0/24"),
-        f("provider", "—"),
+      fields('Overview', [
+        f('schedulable', 'yes', 'ok'),
+        f('kubelet', 'v1.31.2'),
+        f('runtime', 'containerd://1.7.22'),
+        f('OS image', 'Ubuntu 24.04.1 LTS'),
+        f('kernel', '6.8.0-45-generic'),
+        f('architecture', 'arm64'),
+        f('pod CIDR', '10.244.2.0/24'),
+        f('provider', '—'),
       ]),
       table(
-        "Capacity",
-        ["RESOURCE", "CAPACITY", "ALLOCATABLE"],
+        'Capacity',
+        ['RESOURCE', 'CAPACITY', 'ALLOCATABLE'],
         [
-          [n("cpu"), c("8"), c("7910m")],
-          [n("ephemeral-storage"), c("468Gi"), c("431Gi")],
-          [n("memory"), c("16Gi"), c("15.2Gi")],
-          [n("pods"), c("110"), c("110")],
+          [n('cpu'), c('8'), c('7910m')],
+          [n('ephemeral-storage'), c('468Gi'), c('431Gi')],
+          [n('memory'), c('16Gi'), c('15.2Gi')],
+          [n('pods'), c('110'), c('110')],
         ],
-        "not reported",
+        'not reported'
       ),
       table(
-        "Conditions",
-        ["TYPE", "STATUS", "REASON", "MESSAGE", "SINCE"],
+        'Conditions',
+        ['TYPE', 'STATUS', 'REASON', 'MESSAGE', 'SINCE'],
         [
-          [n("Ready"), c("True", "ok"), c("KubeletReady"), c("kubelet is posting ready status"), age(daysAgo(31))],
-          [n("MemoryPressure"), c("False", "ok"), c("KubeletHasSufficientMemory"), c("kubelet has sufficient memory available"), age(daysAgo(31))],
-          [n("DiskPressure"), c("False", "ok"), c("KubeletHasNoDiskPressure"), c("kubelet has no disk pressure"), age(daysAgo(31))],
-          [n("PIDPressure"), c("False", "ok"), c("KubeletHasSufficientPID"), c("kubelet has sufficient PID available"), age(daysAgo(31))],
+          [
+            n('Ready'),
+            c('True', 'ok'),
+            c('KubeletReady'),
+            c('kubelet is posting ready status'),
+            age(daysAgo(31)),
+          ],
+          [
+            n('MemoryPressure'),
+            c('False', 'ok'),
+            c('KubeletHasSufficientMemory'),
+            c('kubelet has sufficient memory available'),
+            age(daysAgo(31)),
+          ],
+          [
+            n('DiskPressure'),
+            c('False', 'ok'),
+            c('KubeletHasNoDiskPressure'),
+            c('kubelet has no disk pressure'),
+            age(daysAgo(31)),
+          ],
+          [
+            n('PIDPressure'),
+            c('False', 'ok'),
+            c('KubeletHasSufficientPID'),
+            c('kubelet has sufficient PID available'),
+            age(daysAgo(31)),
+          ],
         ],
-        "no conditions reported",
+        'no conditions reported'
       ),
       table(
-        "Taints",
-        ["KEY", "VALUE", "EFFECT"],
+        'Taints',
+        ['KEY', 'VALUE', 'EFFECT'],
         control
-          ? [[n("node-role.kubernetes.io/control-plane"), c("—"), c("NoSchedule", "warn")]]
+          ? [[n('node-role.kubernetes.io/control-plane'), c('—'), c('NoSchedule', 'warn')]]
           : [],
-        "no taints",
+        'no taints'
       ),
       table(
-        "Addresses",
-        ["TYPE", "ADDRESS"],
+        'Addresses',
+        ['TYPE', 'ADDRESS'],
         [
-          [n("InternalIP"), c("192.168.50.4")],
-          [n("Hostname"), c(ref.name)],
+          [n('InternalIP'), c('192.168.50.4')],
+          [n('Hostname'), c(ref.name)],
         ],
-        "no addresses",
+        'no addresses'
       ),
-      chips("Labels", [
-        ["kubernetes.io/arch", "arm64"],
-        ["kubernetes.io/hostname", ref.name],
-        ...(control ? ([["node-role.kubernetes.io/control-plane", ""]] as [string, string][]) : []),
+      chips('Labels', [
+        ['kubernetes.io/arch', 'arm64'],
+        ['kubernetes.io/hostname', ref.name],
+        ...(control ? ([['node-role.kubernetes.io/control-plane', '']] as [string, string][]) : []),
       ]),
     ],
   };
@@ -548,17 +608,22 @@ function nodeProperties(ref: ResourceRef): Properties {
 function secretProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("type", "Opaque"),
-        f("data keys", "2"),
-        f("stringData keys", "0"),
-        f("immutable", "no"),
+      fields('Overview', [
+        f('type', 'Opaque'),
+        f('data keys', '2'),
+        f('stringData keys', '0'),
+        f('immutable', 'no'),
       ]),
-      table("Data", ["KEY", "BYTES"], [
-        [n("username"), c("10 bytes")],
-        [n("password"), c("12 bytes")],
-      ], "no data keys"),
-      chips("Labels", [["app", ref.name]]),
+      table(
+        'Data',
+        ['KEY', 'BYTES'],
+        [
+          [n('username'), c('10 bytes')],
+          [n('password'), c('12 bytes')],
+        ],
+        'no data keys'
+      ),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -566,13 +631,9 @@ function secretProperties(ref: ResourceRef): Properties {
 function serviceAccountProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("automount token", "true"),
-      ]),
-      table("Secrets", ["NAME"], [
-        [n(`${ref.name}-token-abc12`)],
-      ], "no secrets"),
-      chips("Labels", [["app", ref.name]]),
+      fields('Overview', [f('automount token', 'true')]),
+      table('Secrets', ['NAME'], [[n(`${ref.name}-token-abc12`)]], 'no secrets'),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -580,12 +641,12 @@ function serviceAccountProperties(ref: ResourceRef): Properties {
 function storageClassProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("provisioner", "rancher.io/local-path"),
-        f("reclaim policy", "Delete"),
-        f("volume binding mode", "WaitForFirstConsumer"),
+      fields('Overview', [
+        f('provisioner', 'rancher.io/local-path'),
+        f('reclaim policy', 'Delete'),
+        f('volume binding mode', 'WaitForFirstConsumer'),
       ]),
-      chips("Labels", []),
+      chips('Labels', []),
     ],
   };
 }
@@ -593,11 +654,8 @@ function storageClassProperties(_ref: ResourceRef): Properties {
 function namespaceProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("status", "Active", "ok"),
-        f("age", daysAgo(31)),
-      ]),
-      chips("Labels", []),
+      fields('Overview', [f('status', 'Active', 'ok'), f('age', daysAgo(31))]),
+      chips('Labels', []),
     ],
   };
 }
@@ -605,14 +663,14 @@ function namespaceProperties(_ref: ResourceRef): Properties {
 function pvcProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("status", "Bound", "ok"),
-        f("volume", "pvc-8f2c1a3e"),
-        f("capacity", "20Gi"),
-        f("access modes", "ReadWriteOnce"),
-        f("storage class", "local-path"),
+      fields('Overview', [
+        f('status', 'Bound', 'ok'),
+        f('volume', 'pvc-8f2c1a3e'),
+        f('capacity', '20Gi'),
+        f('access modes', 'ReadWriteOnce'),
+        f('storage class', 'local-path'),
       ]),
-      chips("Labels", [["app", ref.name]]),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -620,15 +678,15 @@ function pvcProperties(ref: ResourceRef): Properties {
 function pvProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("status", "Bound", "ok"),
-        f("capacity", "20Gi"),
-        f("access modes", "ReadWriteOnce"),
-        f("reclaim policy", "Delete"),
-        f("storage class", "local-path"),
-        f("claim", "default/data-heimdall-db-0"),
+      fields('Overview', [
+        f('status', 'Bound', 'ok'),
+        f('capacity', '20Gi'),
+        f('access modes', 'ReadWriteOnce'),
+        f('reclaim policy', 'Delete'),
+        f('storage class', 'local-path'),
+        f('claim', 'default/data-heimdall-db-0'),
       ]),
-      chips("Labels", []),
+      chips('Labels', []),
     ],
   };
 }
@@ -636,16 +694,19 @@ function pvProperties(_ref: ResourceRef): Properties {
 function jobProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("completions", "1"),
-        f("parallelism", "1"),
-        f("backoff limit", "6"),
-        f("status", "Complete", "ok"),
+      fields('Overview', [
+        f('completions', '1'),
+        f('parallelism', '1'),
+        f('backoff limit', '6'),
+        f('status', 'Complete', 'ok'),
       ]),
-      table("Pods", ["NAME", "STATUS", "READY", "RESTARTS", "AGE"], [
-        [n(`${ref.name}-abc12`), c("Complete", "ok"), c("0/1"), c("0"), age(daysAgo(1))],
-      ], "no pods"),
-      chips("Labels", [["app", ref.name]]),
+      table(
+        'Pods',
+        ['NAME', 'STATUS', 'READY', 'RESTARTS', 'AGE'],
+        [[n(`${ref.name}-abc12`), c('Complete', 'ok'), c('0/1'), c('0'), age(daysAgo(1))]],
+        'no pods'
+      ),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -653,16 +714,19 @@ function jobProperties(ref: ResourceRef): Properties {
 function cronJobProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("schedule", "0 * * * *"),
-        f("suspend", "no"),
-        f("active", "0"),
-        f("last schedule", daysAgo(0.5)),
+      fields('Overview', [
+        f('schedule', '0 * * * *'),
+        f('suspend', 'no'),
+        f('active', '0'),
+        f('last schedule', daysAgo(0.5)),
       ]),
-      table("Jobs", ["NAME", "STATUS", "COMPLETIONS", "AGE"], [
-        [n(`${ref.name}-28000000`), c("Complete", "ok"), c("1/1"), age(daysAgo(0.5))],
-      ], "no jobs"),
-      chips("Labels", [["app", ref.name]]),
+      table(
+        'Jobs',
+        ['NAME', 'STATUS', 'COMPLETIONS', 'AGE'],
+        [[n(`${ref.name}-28000000`), c('Complete', 'ok'), c('1/1'), age(daysAgo(0.5))]],
+        'no jobs'
+      ),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -670,16 +734,26 @@ function cronJobProperties(ref: ResourceRef): Properties {
 function hpaProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("scale target", "Deployment/app"),
-        f("min replicas", "1"),
-        f("max replicas", "10"),
-        f("current replicas", "3"),
+      fields('Overview', [
+        f('scale target', 'Deployment/app'),
+        f('min replicas', '1'),
+        f('max replicas', '10'),
+        f('current replicas', '3'),
       ]),
-      table("Conditions", ["TYPE", "STATUS", "REASON", "MESSAGE"], [
-        [n("AbleToScale"), c("True", "ok"), c("ReadyForNewScale"), c("recommended size matches current size")],
-      ], "no conditions"),
-      chips("Labels", [["app", ref.name]]),
+      table(
+        'Conditions',
+        ['TYPE', 'STATUS', 'REASON', 'MESSAGE'],
+        [
+          [
+            n('AbleToScale'),
+            c('True', 'ok'),
+            c('ReadyForNewScale'),
+            c('recommended size matches current size'),
+          ],
+        ],
+        'no conditions'
+      ),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -687,17 +761,20 @@ function hpaProperties(ref: ResourceRef): Properties {
 function networkPolicyProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("pod selector", "app=my-app"),
-        f("policy types", "Ingress, Egress"),
-      ]),
-      table("Ingress rules", ["FROM", "PORTS"], [
-        [c("namespace: default"), c("8080/TCP")],
-      ], "no ingress rules"),
-      table("Egress rules", ["TO", "PORTS"], [
-        [c("namespace: default"), c("53/TCP, 53/UDP")],
-      ], "no egress rules"),
-      chips("Labels", [["app", ref.name]]),
+      fields('Overview', [f('pod selector', 'app=my-app'), f('policy types', 'Ingress, Egress')]),
+      table(
+        'Ingress rules',
+        ['FROM', 'PORTS'],
+        [[c('namespace: default'), c('8080/TCP')]],
+        'no ingress rules'
+      ),
+      table(
+        'Egress rules',
+        ['TO', 'PORTS'],
+        [[c('namespace: default'), c('53/TCP, 53/UDP')]],
+        'no egress rules'
+      ),
+      chips('Labels', [['app', ref.name]]),
     ],
   };
 }
@@ -705,18 +782,28 @@ function networkPolicyProperties(ref: ResourceRef): Properties {
 function resourceQuotaProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", []),
-      table("Hard", ["RESOURCE", "VALUE"], [
-        [n("requests.cpu"), c("4")],
-        [n("requests.memory"), c("8Gi")],
-        [n("limits.cpu"), c("8")],
-        [n("limits.memory"), c("16Gi")],
-      ], "no hard limits"),
-      table("Used", ["RESOURCE", "VALUE"], [
-        [n("requests.cpu"), c("500m")],
-        [n("requests.memory"), c("1Gi")],
-      ], "no usage"),
-      chips("Labels", []),
+      fields('Overview', []),
+      table(
+        'Hard',
+        ['RESOURCE', 'VALUE'],
+        [
+          [n('requests.cpu'), c('4')],
+          [n('requests.memory'), c('8Gi')],
+          [n('limits.cpu'), c('8')],
+          [n('limits.memory'), c('16Gi')],
+        ],
+        'no hard limits'
+      ),
+      table(
+        'Used',
+        ['RESOURCE', 'VALUE'],
+        [
+          [n('requests.cpu'), c('500m')],
+          [n('requests.memory'), c('1Gi')],
+        ],
+        'no usage'
+      ),
+      chips('Labels', []),
     ],
   };
 }
@@ -724,11 +811,9 @@ function resourceQuotaProperties(_ref: ResourceRef): Properties {
 function roleProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", []),
-      table("Rules", ["API GROUPS", "RESOURCES", "VERBS"], [
-        [c("*"), c("*"), c("*")],
-      ], "no rules"),
-      chips("Labels", []),
+      fields('Overview', []),
+      table('Rules', ['API GROUPS', 'RESOURCES', 'VERBS'], [[c('*'), c('*'), c('*')]], 'no rules'),
+      chips('Labels', []),
     ],
   };
 }
@@ -736,11 +821,9 @@ function roleProperties(_ref: ResourceRef): Properties {
 function clusterRoleProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", []),
-      table("Rules", ["API GROUPS", "RESOURCES", "VERBS"], [
-        [c("*"), c("*"), c("*")],
-      ], "no rules"),
-      chips("Labels", []),
+      fields('Overview', []),
+      table('Rules', ['API GROUPS', 'RESOURCES', 'VERBS'], [[c('*'), c('*'), c('*')]], 'no rules'),
+      chips('Labels', []),
     ],
   };
 }
@@ -748,13 +831,14 @@ function clusterRoleProperties(_ref: ResourceRef): Properties {
 function roleBindingProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("role", "Role/admin"),
-      ]),
-      table("Subjects", ["KIND", "NAME", "NAMESPACE"], [
-        [c("User"), c("admin"), c("default")],
-      ], "no subjects"),
-      chips("Labels", []),
+      fields('Overview', [f('role', 'Role/admin')]),
+      table(
+        'Subjects',
+        ['KIND', 'NAME', 'NAMESPACE'],
+        [[c('User'), c('admin'), c('default')]],
+        'no subjects'
+      ),
+      chips('Labels', []),
     ],
   };
 }
@@ -762,13 +846,14 @@ function roleBindingProperties(_ref: ResourceRef): Properties {
 function clusterRoleBindingProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("role", "ClusterRole/cluster-admin"),
-      ]),
-      table("Subjects", ["KIND", "NAME", "NAMESPACE"], [
-        [c("User"), c("admin"), c("—")],
-      ], "no subjects"),
-      chips("Labels", []),
+      fields('Overview', [f('role', 'ClusterRole/cluster-admin')]),
+      table(
+        'Subjects',
+        ['KIND', 'NAME', 'NAMESPACE'],
+        [[c('User'), c('admin'), c('—')]],
+        'no subjects'
+      ),
+      chips('Labels', []),
     ],
   };
 }
@@ -776,13 +861,13 @@ function clusterRoleBindingProperties(_ref: ResourceRef): Properties {
 function pdbProperties(_ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("min available", "1"),
-        f("selector", "app=my-app"),
-        f("current healthy", "2"),
-        f("desired healthy", "1"),
+      fields('Overview', [
+        f('min available', '1'),
+        f('selector', 'app=my-app'),
+        f('current healthy', '2'),
+        f('desired healthy', '1'),
       ]),
-      chips("Labels", []),
+      chips('Labels', []),
     ],
   };
 }
@@ -790,14 +875,14 @@ function pdbProperties(_ref: ResourceRef): Properties {
 function mutatingWebhookProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("failure policy", "Fail"),
-        f("side effects", "None"),
-      ]),
-      table("Webhooks", ["NAME", "CLIENT CONFIG", "URLS"], [
-        [n(ref.name), c("Service"), c("—")],
-      ], "no webhooks"),
-      chips("Labels", []),
+      fields('Overview', [f('failure policy', 'Fail'), f('side effects', 'None')]),
+      table(
+        'Webhooks',
+        ['NAME', 'CLIENT CONFIG', 'URLS'],
+        [[n(ref.name), c('Service'), c('—')]],
+        'no webhooks'
+      ),
+      chips('Labels', []),
     ],
   };
 }
@@ -805,14 +890,14 @@ function mutatingWebhookProperties(ref: ResourceRef): Properties {
 function validatingWebhookProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("failure policy", "Fail"),
-        f("side effects", "None"),
-      ]),
-      table("Webhooks", ["NAME", "CLIENT CONFIG", "URLS"], [
-        [n(ref.name), c("Service"), c("—")],
-      ], "no webhooks"),
-      chips("Labels", []),
+      fields('Overview', [f('failure policy', 'Fail'), f('side effects', 'None')]),
+      table(
+        'Webhooks',
+        ['NAME', 'CLIENT CONFIG', 'URLS'],
+        [[n(ref.name), c('Service'), c('—')]],
+        'no webhooks'
+      ),
+      chips('Labels', []),
     ],
   };
 }
@@ -820,13 +905,13 @@ function validatingWebhookProperties(ref: ResourceRef): Properties {
 function apiServiceProperties(ref: ResourceRef): Properties {
   return {
     sections: [
-      fields("Overview", [
-        f("service", "kube-system/my-api"),
-        f("group", ref.name.split(".")[0]),
-        f("version", "v1"),
-        f("available", "True", "ok"),
+      fields('Overview', [
+        f('service', 'kube-system/my-api'),
+        f('group', ref.name.split('.')[0]),
+        f('version', 'v1'),
+        f('available', 'True', 'ok'),
       ]),
-      chips("Labels", []),
+      chips('Labels', []),
     ],
   };
 }

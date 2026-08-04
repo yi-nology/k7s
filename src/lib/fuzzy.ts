@@ -58,11 +58,11 @@ function bonusAt(target: string, i: number): number {
   if (i === 0) return MATCH_SLASH; // start of the string reads like a boundary
   const prev = target[i - 1];
   const cur = target[i];
-  if (prev === "/") return MATCH_SLASH;
-  if (prev === "-" || prev === "_" || prev === " ") return MATCH_WORD;
-  if (prev === ".") return MATCH_DOT;
+  if (prev === '/') return MATCH_SLASH;
+  if (prev === '-' || prev === '_' || prev === ' ') return MATCH_WORD;
+  if (prev === '.') return MATCH_DOT;
   // camelCase hump: "IngressRoute" should match "route" at the R.
-  if (prev >= "a" && prev <= "z" && cur >= "A" && cur <= "Z") return MATCH_CAPITAL;
+  if (prev >= 'a' && prev <= 'z' && cur >= 'A' && cur <= 'Z') return MATCH_CAPITAL;
   return 0;
 }
 
@@ -74,7 +74,7 @@ function bonusAt(target: string, i: number): number {
  * same path for "show me the default list".
  */
 export function fuzzyMatch(query: string, target: string): FuzzyMatch | null {
-  if (query === "") return { score: 0, indices: [] };
+  if (query === '') return { score: 0, indices: [] };
   if (query.length > target.length) return null;
   if (target.length > MAX_LEN) return null;
 

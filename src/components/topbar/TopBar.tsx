@@ -9,40 +9,34 @@
  * same control in case the user is in a flow that already has the panel open.
  */
 
-import { useMemo, useRef } from "react";
-import styles from "./TopBar.module.css";
-import { useStore, type OverlayKey } from "../../store";
-import { useClickOutside } from "../../hooks/useClickOutside";
-import { useTranslation } from "../../hooks/useI18n";
-import { kindMeta, type KindId } from "../../lib/kinds";
-import {
-  groupLabel,
-  kindLabelFor,
-  LOCALES,
-  LOCALE_LABELS,
-  type Locale,
-} from "../../lib/i18n";
+import { useMemo, useRef } from 'react';
+import styles from './TopBar.module.css';
+import { useStore, type OverlayKey } from '../../store';
+import { useClickOutside } from '../../hooks/useClickOutside';
+import { useTranslation } from '../../hooks/useI18n';
+import { kindMeta, type KindId } from '../../lib/kinds';
+import { groupLabel, kindLabelFor, LOCALES, LOCALE_LABELS, type Locale } from '../../lib/i18n';
 
 /** Human-readable labels for each overlay key, used in the breadcrumb when an
  *  overlay is active.  Keys not listed here fall back to a title-cased version
  *  of the raw key string. */
 const OVERLAY_LABELS: Partial<Record<OverlayKey, string>> = {
-  "helm-market": "Helm Market",
-  "pod-files": "Pod Files",
-  "image-repos": "Image Repos",
-  "image-import": "Image Import",
-  templates: "Templates",
-  dashboard: "Dashboard",
-  metrics: "Metrics Explorer",
-  grafana: "Grafana",
-  endpoints: "Endpoints",
-  topology: "Topology",
-  "ingress-routes": "Ingress Routes",
-  alerting: "Alerting",
-  audit: "Audit",
-  "ingress-editor": "Ingress Editor",
-  diff: "Diff",
-  plugins: "Plugins",
+  'helm-market': 'Helm Market',
+  'pod-files': 'Pod Files',
+  'image-repos': 'Image Repos',
+  'image-import': 'Image Import',
+  templates: 'Templates',
+  dashboard: 'Dashboard',
+  metrics: 'Metrics Explorer',
+  grafana: 'Grafana',
+  endpoints: 'Endpoints',
+  topology: 'Topology',
+  'ingress-routes': 'Ingress Routes',
+  alerting: 'Alerting',
+  audit: 'Audit',
+  'ingress-editor': 'Ingress Editor',
+  diff: 'Diff',
+  plugins: 'Plugins',
 };
 
 function overlayLabel(key: OverlayKey): string {
@@ -56,7 +50,7 @@ export function TopBar() {
   const connection = useStore((s) => s.connection);
   const nsRows = useStore((s) => s.rows.namespaces);
   const setPaletteOpen = useStore((s) => s.setPaletteOpen);
-  const open = useStore((s) => s.openMenu === "ns");
+  const open = useStore((s) => s.openMenu === 'ns');
   const toggleMenu = useStore((s) => s.toggleMenu);
   const closeMenus = useStore((s) => s.closeMenus);
   const setNamespace = useStore((s) => s.setNamespace);
@@ -71,14 +65,14 @@ export function TopBar() {
   // locale is picked. useClickOutside handles clicks *outside*; the close here
   // is for when the user picks a value, which is an inside-click.
 
-  const cluster = connection.clusterName ?? connection.context ?? "k7s";
+  const cluster = connection.clusterName ?? connection.context ?? 'k7s';
   // Runtime lookup: custom (CRD-backed) kinds aren't in the static table (B15).
   const meta = kindMeta(nav as KindId, customKinds);
   const group = meta?.group;
   // The group header in the breadcrumb is the localised label when we have one;
   // for custom kinds there's no static group label, so we fall back to the
   // raw group name (which is itself the meaningful identifier).
-  const groupText = group === "custom" ? "custom" : group ? groupLabel(group, locale) : "custom";
+  const groupText = group === 'custom' ? 'custom' : group ? groupLabel(group, locale) : 'custom';
   // The kind label in the breadcrumb is localised through `kindLabelFor` (zh
   // ships "Pod" not "Pods", "节点" not "Nodes"). Falls back to the static
   // KIND_META label and finally to the raw nav id if neither resolves.
@@ -87,7 +81,7 @@ export function TopBar() {
   // "all" plus the live namespace names (sorted for stable display).
   const namespaces = useMemo(() => {
     const names = nsRows.map((r) => r.name).sort();
-    return ["all", ...names];
+    return ['all', ...names];
   }, [nsRows]);
 
   return (
@@ -95,14 +89,13 @@ export function TopBar() {
       <div className={styles.breadcrumb}>
         {overlay !== null ? (
           <>
-            {cluster} <span className={styles.sep}>/</span>{" "}
+            {cluster} <span className={styles.sep}>/</span>{' '}
             <span className={styles.kind}>{overlayLabel(overlay)}</span>
           </>
         ) : (
           <>
-            {cluster} <span className={styles.sep}>/</span> {groupText}{" "}
-            <span className={styles.sep}>/</span>{" "}
-            <span className={styles.kind}>{kindText}</span>
+            {cluster} <span className={styles.sep}>/</span> {groupText}{' '}
+            <span className={styles.sep}>/</span> <span className={styles.kind}>{kindText}</span>
           </>
         )}
       </div>
@@ -116,12 +109,16 @@ export function TopBar() {
       <div
         className={styles.cmdBar}
         role="button"
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setPaletteOpen(true); }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') setPaletteOpen(true);
+        }}
         tabIndex={0}
         onClick={() => setPaletteOpen(true)}
       >
-        <span className={styles.cmdIcon} aria-hidden="true">⌕</span>
-        <span className={styles.cmdPlaceholder}>{t("chrome.topbar.searchPlaceholder")}</span>
+        <span className={styles.cmdIcon} aria-hidden="true">
+          ⌕
+        </span>
+        <span className={styles.cmdPlaceholder}>{t('chrome.topbar.searchPlaceholder')}</span>
         <span className={styles.cmdKbd}>⌘</span>
         <span className={styles.cmdKbd}>K</span>
       </div>
@@ -139,8 +136,8 @@ export function TopBar() {
       />
 
       <div className={styles.nsWrap} ref={nsRef}>
-        <button type="button" className={styles.nsButton} onClick={() => toggleMenu("ns")}>
-          <span className={styles.nsPrefix}>{t("chrome.topbar.nsPrefix")}</span>
+        <button type="button" className={styles.nsButton} onClick={() => toggleMenu('ns')}>
+          <span className={styles.nsPrefix}>{t('chrome.topbar.nsPrefix')}</span>
           <span className={styles.nsValue}>{namespace}</span>
           <span className={styles.nsChevron}>▼</span>
         </button>
@@ -153,10 +150,10 @@ export function TopBar() {
                 <button
                   key={ns}
                   type="button"
-                  className={`${styles.nsRow} ${selected ? styles.nsRowSelected : ""}`}
+                  className={`${styles.nsRow} ${selected ? styles.nsRowSelected : ''}`}
                   onClick={() => setNamespace(ns)}
                 >
-                  <span className={styles.nsCheck}>{selected ? "✓" : ""}</span>
+                  <span className={styles.nsCheck}>{selected ? '✓' : ''}</span>
                   {ns}
                 </button>
               );
@@ -181,12 +178,17 @@ function LanguageSwitcher({
   onPick: (l: Locale) => void;
   ref: React.Ref<HTMLDivElement>;
 }) {
-  const open = useStore((s) => s.openMenu === "lang");
+  const open = useStore((s) => s.openMenu === 'lang');
   const toggleMenu = useStore((s) => s.toggleMenu);
 
   return (
     <div className={styles.langWrap} ref={ref}>
-      <button type="button" className={styles.langButton} onClick={() => toggleMenu("lang")} title={LOCALE_LABELS[current]}>
+      <button
+        type="button"
+        className={styles.langButton}
+        onClick={() => toggleMenu('lang')}
+        title={LOCALE_LABELS[current]}
+      >
         <span className={styles.langGlyph}>{shortLabel(current)}</span>
       </button>
       {open && (
@@ -197,10 +199,10 @@ function LanguageSwitcher({
               <button
                 key={l}
                 type="button"
-                className={`${styles.langRow} ${selected ? styles.langRowSelected : ""}`}
+                className={`${styles.langRow} ${selected ? styles.langRowSelected : ''}`}
                 onClick={() => onPick(l)}
               >
-                <span className={styles.langCheck}>{selected ? "✓" : ""}</span>
+                <span className={styles.langCheck}>{selected ? '✓' : ''}</span>
                 {LOCALE_LABELS[l]}
               </button>
             );
@@ -214,9 +216,9 @@ function LanguageSwitcher({
 /** Compact label for the language button. Each locale picks its own glyph. */
 function shortLabel(locale: Locale): string {
   switch (locale) {
-    case "zh":
-      return "中";
-    case "en":
-      return "EN";
+    case 'zh':
+      return '中';
+    case 'en':
+      return 'EN';
   }
 }

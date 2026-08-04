@@ -5,28 +5,28 @@
  * The stream lifecycle lives in useLogStream.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import styles from "./LogsTab.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useLogStream } from "../../hooks/useLogStream";
-import { useTranslation } from "../../hooks/useI18n";
-import { hasPrevious, sinceSeconds, SINCE_OPTIONS } from "../../lib/logview";
-import type { LogLine } from "../../providers/types";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import styles from './LogsTab.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useLogStream } from '../../hooks/useLogStream';
+import { useTranslation } from '../../hooks/useI18n';
+import { hasPrevious, sinceSeconds, SINCE_OPTIONS } from '../../lib/logview';
+import type { LogLine } from '../../providers/types';
 
 /** Color per log level for the level column. */
 const LEVEL_COLOR: Record<string, string> = {
-  INFO: "var(--accent)",
-  WARN: "var(--status-warn)",
-  ERROR: "var(--status-err)",
-  DEBUG: "var(--text-muted)",
+  INFO: 'var(--accent)',
+  WARN: 'var(--status-warn)',
+  ERROR: 'var(--status-err)',
+  DEBUG: 'var(--text-muted)',
 };
 
 /** Message tint: ERROR/WARN get soft tints, everything else is secondary. */
 function msgColor(level: string): string {
-  if (level === "ERROR") return "var(--status-err-msg)";
-  if (level === "WARN") return "var(--status-warn-msg)";
-  return "var(--text-secondary)";
+  if (level === 'ERROR') return 'var(--status-err-msg)';
+  if (level === 'WARN') return 'var(--status-warn-msg)';
+  return 'var(--text-secondary)';
 }
 
 export function LogsTab() {
@@ -55,17 +55,17 @@ export function LogsTab() {
   // Multi-container pods get an "all" option ("") first; "(all)" is its label and
   // turns on the per-line container tag column.
   const containers = pod?.pod?.containers ?? [];
-  const options = containers.length > 1 ? [...containers, ""] : containers;
-  const current = options.length ? options[containerIndex % options.length] : "";
-  const containerLabel = current === "" ? t("logs.containerAll") : current;
-  const showContainerTag = current === "" && containers.length > 1;
+  const options = containers.length > 1 ? [...containers, ''] : containers;
+  const current = options.length ? options[containerIndex % options.length] : '';
+  const containerLabel = current === '' ? t('logs.containerAll') : current;
+  const showContainerTag = current === '' && containers.length > 1;
 
   // Client-side filter on message + level (buffer itself is untouched).
   const filtered = useMemo(() => {
     const q = logSearch.trim().toLowerCase();
     if (!q) return logBuffer;
     return logBuffer.filter(
-      (l) => l.msg.toLowerCase().includes(q) || l.level.toLowerCase().includes(q),
+      (l) => l.msg.toLowerCase().includes(q) || l.level.toLowerCase().includes(q)
     );
   }, [logBuffer, logSearch]);
 
@@ -75,23 +75,23 @@ export function LogsTab() {
   /** Save the *full* log (not the ring buffer) to a file the user picks. */
   async function save() {
     if (!pod) return;
-    setSaveNote(t("logs.saveInProgress"));
+    setSaveNote(t('logs.saveInProgress'));
     try {
       const result = await getProvider().saveLogs(
-        { kind: "pods", namespace: pod.namespace, name: pod.name },
+        { kind: 'pods', namespace: pod.namespace, name: pod.name },
         current,
-        { sinceSeconds: sinceSeconds(since), previous },
+        { sinceSeconds: sinceSeconds(since), previous }
       );
       // null means the dialog was cancelled — not an error, and not worth a note.
-      setSaveNote(result ? t("logs.saved", result.lines) : null);
+      setSaveNote(result ? t('logs.saved', result.lines) : null);
     } catch (e) {
-      setSaveNote(t("logs.saveFailed", e instanceof Error ? e.message : String(e)));
+      setSaveNote(t('logs.saveFailed', e instanceof Error ? e.message : String(e)));
     }
   }
 
   // The note is feedback, not state; it shouldn't linger over the next question.
   useEffect(() => {
-    if (!saveNote || saveNote === t("logs.saveInProgress")) return;
+    if (!saveNote || saveNote === t('logs.saveInProgress')) return;
     const timer = setTimeout(() => setSaveNote(null), 4000);
     return () => clearTimeout(timer);
   }, [saveNote, t]);
@@ -122,12 +122,17 @@ export function LogsTab() {
               className={styles.searchInput}
               value={logSearch}
               onChange={(e) => setLogSearch(e.target.value)}
-              placeholder={t("logs.filterPlaceholder")}
+              placeholder={t('logs.filterPlaceholder')}
             />
           </div>
 
           {/* Container cycler (cycles through the pod's containers, plus "all"). */}
-          <button type="button" className={styles.button} onClick={cycleContainer} title={t("logs.container")}>
+          <button
+            type="button"
+            className={styles.button}
+            onClick={cycleContainer}
+            title={t('logs.container')}
+          >
             <span className={styles.buttonGlyph}>▣</span>
             {containerLabel}
             {options.length > 1 && <span className={styles.buttonChevron}>▼</span>}
@@ -138,10 +143,10 @@ export function LogsTab() {
           {/* Timestamp toggle. */}
           <button
             type="button"
-            className={`${styles.toggle} ${showTimestamps ? styles.toggleActive : ""}`}
+            className={`${styles.toggle} ${showTimestamps ? styles.toggleActive : ''}`}
             onClick={toggleTimestamps}
           >
-            {t("logs.ts")}
+            {t('logs.ts')}
           </button>
 
           {/* How far back to read. */}
@@ -149,11 +154,11 @@ export function LogsTab() {
             className={styles.select}
             value={since}
             onChange={(e) => setLogSince(e.target.value as (typeof SINCE_OPTIONS)[number])}
-            title={t("logs.howFarBack")}
+            title={t('logs.howFarBack')}
           >
             {SINCE_OPTIONS.map((o) => (
               <option key={o} value={o}>
-                {o === "all" ? t("logs.sinceAll") : t("logs.sinceLast", o)}
+                {o === 'all' ? t('logs.sinceAll') : t('logs.sinceLast', o)}
               </option>
             ))}
           </select>
@@ -164,17 +169,22 @@ export function LogsTab() {
           {showPrevious && (
             <button
               type="button"
-              className={`${styles.toggle} ${previous ? styles.toggleActive : ""}`}
+              className={`${styles.toggle} ${previous ? styles.toggleActive : ''}`}
               onClick={() => setLogPrevious(!previous)}
-              title={t("logs.previousTitle")}
+              title={t('logs.previousTitle')}
             >
-              {t("logs.previous")}
+              {t('logs.previous')}
             </button>
           )}
 
-          <button type="button" className={styles.button} onClick={() => void save()} title={t("logs.saveTitle")}>
+          <button
+            type="button"
+            className={styles.button}
+            onClick={() => void save()}
+            title={t('logs.saveTitle')}
+          >
             <span className={styles.buttonGlyph}>⇩</span>
-            {t("logs.save")}
+            {t('logs.save')}
           </button>
 
           {/* Follow / pause. Meaningless for a previous read: that container is
@@ -185,7 +195,7 @@ export function LogsTab() {
               className={`${styles.follow} ${following ? styles.following : styles.paused}`}
               onClick={toggleFollow}
             >
-              {following ? t("logs.pause") : t("logs.follow")}
+              {following ? t('logs.pause') : t('logs.follow')}
             </button>
           )}
         </div>
@@ -198,14 +208,16 @@ export function LogsTab() {
       </div>
 
       <div className={styles.footer}>
-        <span>{t("logs.linesCount", filtered.length)}</span>
-        <span>{t("logs.container")}: {containerLabel}</span>
+        <span>{t('logs.linesCount', filtered.length)}</span>
+        <span>
+          {t('logs.container')}: {containerLabel}
+        </span>
         {saveNote && <span className={styles.saveNote}>{saveNote}</span>}
         {previous ? (
-          <span style={{ color: "var(--status-warn)" }}>{t("logs.previousContainer")}</span>
+          <span style={{ color: 'var(--status-warn)' }}>{t('logs.previousContainer')}</span>
         ) : (
-          <span style={{ color: following ? "var(--status-ok)" : "var(--status-warn)" }}>
-            {following ? t("logs.streaming") : t("logs.paused")}
+          <span style={{ color: following ? 'var(--status-ok)' : 'var(--status-warn)' }}>
+            {following ? t('logs.streaming') : t('logs.paused')}
           </span>
         )}
       </div>
@@ -228,7 +240,10 @@ function LogRow({
     <div className={styles.line}>
       {showTs && <span className={styles.lineTs}>{line.ts}</span>}
       {showContainer && <span className={styles.lineContainer}>{line.container}</span>}
-      <span className={styles.lineLevel} style={{ color: LEVEL_COLOR[line.level] ?? "var(--text-muted)" }}>
+      <span
+        className={styles.lineLevel}
+        style={{ color: LEVEL_COLOR[line.level] ?? 'var(--text-muted)' }}
+      >
         {line.level}
       </span>
       <span className={styles.lineMsg} style={{ color: msgColor(line.level) }}>

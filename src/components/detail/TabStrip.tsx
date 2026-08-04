@@ -8,9 +8,9 @@
  * header handles that case.
  */
 
-import { useStore } from "../../store";
-import { kindMeta, type KindId } from "../../lib/kinds";
-import styles from "./TabStrip.module.css";
+import { useStore } from '../../store';
+import { kindMeta, type KindId } from '../../lib/kinds';
+import styles from './TabStrip.module.css';
 
 export function TabStrip() {
   const tabs = useStore((s) => s.detailTabs);
@@ -26,7 +26,7 @@ export function TabStrip() {
     <div className={styles.strip} role="tablist" aria-label="Detail tabs">
       {tabs.map((tab) => {
         const meta = kindMeta(tab.kind as KindId, customKinds);
-        const icon = meta?.icon ?? "?";
+        const icon = meta?.icon ?? '?';
         const isActive = tab.uid === activeUid;
         return (
           <button
@@ -34,7 +34,7 @@ export function TabStrip() {
             type="button"
             role="tab"
             aria-selected={isActive}
-            className={`${styles.tab} ${isActive ? styles.tabActive : ""}`}
+            className={`${styles.tab} ${isActive ? styles.tabActive : ''}`}
             onClick={() => setActive(tab.uid)}
             onAuxClick={(e) => {
               // Middle-click closes the tab.

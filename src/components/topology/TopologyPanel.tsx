@@ -2,13 +2,13 @@
  * TopologyPanel -- wraps the d3 force-directed graph with a slim sidebar
  * (the Service list), a search box, a header, and a health summary bar.
  */
-import { useCallback, useEffect, useState } from "react";
-import { getProvider } from "../../providers";
-import type { EndpointRow } from "../../providers/types";
-import { useStore } from "../../store";
-import { useTranslation } from "../../hooks/useI18n";
-import { TopologyGraph } from "./TopologyGraph";
-import styles from "./TopologyPanel.module.css";
+import { useCallback, useEffect, useState } from 'react';
+import { getProvider } from '../../providers';
+import type { EndpointRow } from '../../providers/types';
+import { useStore } from '../../store';
+import { useTranslation } from '../../hooks/useI18n';
+import { TopologyGraph } from './TopologyGraph';
+import styles from './TopologyPanel.module.css';
 
 interface ServiceTopology {
   service: string;
@@ -28,7 +28,7 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
   const [services, setServices] = useState<ServiceTopology[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [focusedService, setFocusedService] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [health, setHealth] = useState<HealthSummary>({
     total: 0,
     healthy: 0,
@@ -72,21 +72,16 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
           const svcRows = rows.services ?? [];
           const podRows = rows.pods ?? [];
           for (const svc of svcRows) {
-            const ns = svc.namespace ?? "";
+            const ns = svc.namespace ?? '';
             const selector = svc.selector ?? {};
             const hasSelector = Object.keys(selector).length > 0;
             const matchingPods = podRows.filter((p) => {
               if (p.namespace !== ns) return false;
               if (hasSelector) {
-                return Object.entries(selector).every(
-                  ([k, v]) => p.labels?.[k] === v,
-                );
+                return Object.entries(selector).every(([k, v]) => p.labels?.[k] === v);
               }
               const labels = p.labels ?? {};
-              return (
-                labels["app"] === svc.name ||
-                labels["app.kubernetes.io/name"] === svc.name
-              );
+              return labels['app'] === svc.name || labels['app.kubernetes.io/name'] === svc.name;
             });
             byService.set(`${ns}/${svc.name}`, {
               service: svc.name,
@@ -95,21 +90,17 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
                 name: p.name,
                 namespace: ns,
                 service: svc.name,
-                ready: p.pod?.status === "Running" ? 1 : 0,
+                ready: p.pod?.status === 'Running' ? 1 : 0,
                 total: 1,
                 addresses: [],
-                age: "",
+                age: '',
               })),
             });
           }
         }
 
         if (!cancelled) {
-          setServices(
-            [...byService.values()].sort((a, b) =>
-              a.service.localeCompare(b.service),
-            ),
-          );
+          setServices([...byService.values()].sort((a, b) => a.service.localeCompare(b.service)));
         }
       } catch (e: unknown) {
         if (!cancelled) setError(String(e));
@@ -130,7 +121,7 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
   };
 
   const clearSearch = () => {
-    setSearchQuery("");
+    setSearchQuery('');
   };
 
   const handleHealthChange = useCallback((h: HealthSummary) => {
@@ -139,19 +130,17 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
 
   // Filter sidebar services by search query.
   const filteredServices =
-    searchQuery.trim() === ""
+    searchQuery.trim() === ''
       ? services
-      : services.filter((s) =>
-          s.service.toLowerCase().includes(searchQuery.toLowerCase()),
-        );
+      : services.filter((s) => s.service.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <h2>{t("topology.title", "Service Topology")}</h2>
+        <h2>{t('topology.title', 'Service Topology')}</h2>
         {onClose && (
           <button className={styles.btn} onClick={onClose}>
-            {t("topology.close", "Close")}
+            {t('topology.close', 'Close')}
           </button>
         )}
       </header>
@@ -161,34 +150,26 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
       <div className={styles.healthBar}>
         <div className={styles.healthItem}>
           <span className={styles.healthCount}>{health.total}</span>
-          <span className={styles.healthLabel}>
-            {t("topology.health.total", "Total")}
-          </span>
+          <span className={styles.healthLabel}>{t('topology.health.total', 'Total')}</span>
         </div>
         <div className={styles.healthSeparator} />
         <div className={styles.healthItem}>
-          <span className={styles.healthCount} style={{ color: "var(--status-ok, #34d399)" }}>
+          <span className={styles.healthCount} style={{ color: 'var(--status-ok, #34d399)' }}>
             {health.healthy}
           </span>
-          <span className={styles.healthLabel}>
-            {t("topology.health.healthy", "Healthy")}
-          </span>
+          <span className={styles.healthLabel}>{t('topology.health.healthy', 'Healthy')}</span>
         </div>
         <div className={styles.healthItem}>
-          <span className={styles.healthCount} style={{ color: "var(--status-err, #ef4444)" }}>
+          <span className={styles.healthCount} style={{ color: 'var(--status-err, #ef4444)' }}>
             {health.unhealthy}
           </span>
-          <span className={styles.healthLabel}>
-            {t("topology.health.unhealthy", "Unhealthy")}
-          </span>
+          <span className={styles.healthLabel}>{t('topology.health.unhealthy', 'Unhealthy')}</span>
         </div>
         <div className={styles.healthItem}>
-          <span className={styles.healthCount} style={{ color: "var(--text-muted, #64748b)" }}>
+          <span className={styles.healthCount} style={{ color: 'var(--text-muted, #64748b)' }}>
             {health.unknown}
           </span>
-          <span className={styles.healthLabel}>
-            {t("topology.health.unknown", "Unknown")}
-          </span>
+          <span className={styles.healthLabel}>{t('topology.health.unknown', 'Unknown')}</span>
         </div>
       </div>
 
@@ -199,7 +180,7 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
             <input
               className={styles.searchInput}
               type="text"
-              placeholder={t("topology.search.placeholder", "Filter services...")}
+              placeholder={t('topology.search.placeholder', 'Filter services...')}
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
             />
@@ -207,20 +188,16 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
               <button
                 className={styles.searchClear}
                 onClick={clearSearch}
-                title={t("topology.search.clear", "Clear")}
+                title={t('topology.search.clear', 'Clear')}
               >
                 &times;
               </button>
             )}
           </div>
 
-          <h3 className={styles.colHeader}>
-            {t("topology.col.service", "Service")}
-          </h3>
+          <h3 className={styles.colHeader}>{t('topology.col.service', 'Service')}</h3>
           {filteredServices.length === 0 ? (
-            <div className={styles.empty}>
-              {t("topology.empty", "No services with endpoints")}
-            </div>
+            <div className={styles.empty}>{t('topology.empty', 'No services with endpoints')}</div>
           ) : (
             <ul className={styles.list}>
               {filteredServices.map((s) => {
@@ -229,13 +206,13 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
                 return (
                   <li
                     key={`${s.namespace}/${s.service}`}
-                    className={`${styles.item} ${isFocused ? styles.itemFocused : ""}`}
+                    className={`${styles.item} ${isFocused ? styles.itemFocused : ''}`}
                     onClick={() => handleServiceClick(s)}
                   >
                     <div className={styles.itemName}>{s.service}</div>
                     <div className={styles.itemMeta}>
                       {s.namespace} &middot; {s.slices.length} slice
-                      {s.slices.length === 1 ? "" : "s"} &middot;{" "}
+                      {s.slices.length === 1 ? '' : 's'} &middot;{' '}
                       {s.slices.reduce((n, sl) => n + sl.ready, 0)} ready
                     </div>
                   </li>

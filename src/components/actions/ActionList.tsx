@@ -14,13 +14,13 @@
  * rendered in one place (here).
  */
 
-import { useState } from "react";
-import styles from "./ActionList.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import { translate } from "../../lib/i18n";
-import { selectorFilter } from "../../lib/filter";
+import { useState } from 'react';
+import styles from './ActionList.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import { translate } from '../../lib/i18n';
+import { selectorFilter } from '../../lib/filter';
 import {
   actionsFor,
   bulkErrorText,
@@ -30,10 +30,10 @@ import {
   runBulk,
   type ActionDef,
   type ActionId,
-} from "../../lib/actions";
-import type { KindId, ResourceRef, Row } from "../../providers/types";
-import { ModifyImageForm } from "./ModifyImageForm";
-import { HelmRollbackForm } from "./HelmRollbackForm";
+} from '../../lib/actions';
+import type { KindId, ResourceRef, Row } from '../../providers/types';
+import { ModifyImageForm } from './ModifyImageForm';
+import { HelmRollbackForm } from './HelmRollbackForm';
 
 interface ActionListProps {
   kind: KindId;
@@ -51,7 +51,7 @@ interface ActionListProps {
   onGone: () => void;
 }
 
-type Mode = { kind: "menu" } | { kind: "confirm"; id: ActionId } | { kind: "form"; id: ActionId };
+type Mode = { kind: 'menu' } | { kind: 'confirm'; id: ActionId } | { kind: 'form'; id: ActionId };
 
 /** Replicas shown as the starting value: the desired count from a "3/3" cell. */
 function currentReplicas(row: Row): number {
@@ -64,7 +64,7 @@ function currentReplicas(row: Row): number {
 
 /** A sensible default port: the service's first, else the usual HTTP guess. */
 function defaultPort(row: Row, kind: KindId): number {
-  if (kind === "services") {
+  if (kind === 'services') {
     for (const cell of row.cells) {
       const m = /(\d{2,5})/.exec(cell.text);
       if (m) return Number(m[1]);
@@ -93,9 +93,9 @@ async function copyToClipboard(text: string): Promise<void> {
  * returns — the browser has already snapshotted the blob reference.
  */
 function downloadText(filename: string, text: string): void {
-  const blob = new Blob([text], { type: "application/x-yaml" });
+  const blob = new Blob([text], { type: 'application/x-yaml' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
+  const a = document.createElement('a');
   a.href = url;
   a.download = filename;
   a.click();
@@ -107,9 +107,7 @@ function downloadText(filename: string, text: string): void {
  *  YamlTab uses (kinds.ts), so the file a user downloads matches the path
  *  they see in the Yaml editor. */
 function yamlFilename(kind: KindId, row: Row): string {
-  return row.namespace
-    ? `${kind}/${row.namespace}/${row.name}.yaml`
-    : `${kind}/${row.name}.yaml`;
+  return row.namespace ? `${kind}/${row.namespace}/${row.name}.yaml` : `${kind}/${row.name}.yaml`;
 }
 
 export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListProps) {
@@ -122,14 +120,15 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   // understand: takes the locale, the dotted key, and positional args, and
   // returns a string. The action-library functions take this signature; the
   // component uses `tr` for everything else.
-  const tx = (l: import("../../lib/i18n").Locale, k: string, ...a: unknown[]) => translate(l, k, ...a);
+  const tx = (l: import('../../lib/i18n').Locale, k: string, ...a: unknown[]) =>
+    translate(l, k, ...a);
 
-  const [mode, setMode] = useState<Mode>({ kind: "menu" });
+  const [mode, setMode] = useState<Mode>({ kind: 'menu' });
   const [busy, setBusy] = useState(false);
-  const [replicas, setReplicas] = useState(() => currentReplicas(rows[0] ?? { cells: [] } as never));
-  const [port, setPort] = useState(() =>
-    rows[0] ? defaultPort(rows[0], kind) : 8080,
+  const [replicas, setReplicas] = useState(() =>
+    currentReplicas(rows[0] ?? ({ cells: [] } as never))
   );
+  const [port, setPort] = useState(() => (rows[0] ? defaultPort(rows[0], kind) : 8080));
 
   const actions = actionsFor(kind, rows, locale, tx);
   if (actions.length === 0) return null;
@@ -149,7 +148,7 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
       // selection must still be dropped — leaving it would point at deleted rows.
       if (gone && outcome.ok > 0) onGone();
       if (!err) onClose();
-      else setMode({ kind: "menu" });
+      else setMode({ kind: 'menu' });
     } finally {
       setBusy(false);
     }
@@ -157,39 +156,36 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
 
   /** Click on a menu item: run it, ask first, or open its form. */
   function pick(action: ActionDef) {
-    if (action.mode !== "immediate") {
-      setMode({ kind: action.mode === "confirm" ? "confirm" : "form", id: action.id });
+    if (action.mode !== 'immediate') {
+      setMode({ kind: action.mode === 'confirm' ? 'confirm' : 'form', id: action.id });
       return;
     }
     switch (action.id) {
-      case "cordon":
+      case 'cordon':
         void execute((row) => getProvider().setCordon(row.name, true), false);
         break;
-      case "uncordon":
+      case 'uncordon':
         void execute((row) => getProvider().setCordon(row.name, false), false);
         break;
-      case "view-pods":
+      case 'view-pods':
         // Navigation, not a mutation: drop the selector into the filter box as
         // editable text rather than a hidden mode the user can't get out of.
         viewPods(single.namespace, selectorFilter(single.selector ?? {}));
         onClose();
         break;
-      case "download-yaml":
+      case 'download-yaml':
         // Read-only: the action's `gone` is false because nothing is mutated
         // and the provider call doesn't make the row disappear. A failure
         // surfaces through `execute`'s bulk error banner (e.g. RBAC denying
         // get on a Secret the user happens to be able to list).
-        void execute(
-          async (row) => {
-            const text = await getProvider().getYaml(refOf(row));
-            downloadText(yamlFilename(kind, row), text);
-          },
-          false,
-        );
+        void execute(async (row) => {
+          const text = await getProvider().getYaml(refOf(row));
+          downloadText(yamlFilename(kind, row), text);
+        }, false);
         break;
-      case "files":
-        openOverlay("pod-files", {
-          namespace: single.namespace ?? "",
+      case 'files':
+        openOverlay('pod-files', {
+          namespace: single.namespace ?? '',
           name: single.name,
           container: null,
         });
@@ -201,10 +197,10 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   /** Run a confirmed action. */
   function confirmed(id: ActionId) {
     switch (id) {
-      case "delete":
+      case 'delete':
         void execute((row) => getProvider().deleteResource(refOf(row)), true);
         break;
-      case "restart":
+      case 'restart':
         // A restarted pod is deleted and recreated under a new name, so it's gone
         // from this table; a rolled workload keeps its identity.
         void execute(
@@ -212,14 +208,14 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
             isRolloutKind(kind)
               ? getProvider().restartRollout(refOf(row))
               : getProvider().restartPod(refOf(row)),
-          !isRolloutKind(kind),
+          !isRolloutKind(kind)
         );
         break;
-      case "rollback":
+      case 'rollback':
         // Rollback is now handled through the form path (HelmRollbackForm).
         // This case is unreachable but kept for type completeness.
         break;
-      case "drain":
+      case 'drain':
         // Resolves once cordoned; the eviction progress streams to the banner.
         void execute((row) => getProvider().drainNode(row.name), false);
         break;
@@ -227,14 +223,12 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   }
 
   // ---- confirmations ----
-  if (mode.kind === "confirm") {
+  if (mode.kind === 'confirm') {
     const danger = actions.find((a) => a.id === mode.id)?.danger;
     return (
       <div className={styles.menu}>
         <div className={styles.confirm}>
-          <div className={styles.confirmText}>
-            {confirmText(mode.id, kind, rows, locale, tx)}
-          </div>
+          <div className={styles.confirmText}>{confirmText(mode.id, kind, rows, locale, tx)}</div>
           <div className={styles.confirmRow}>
             <button
               type="button"
@@ -242,10 +236,10 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
               disabled={busy}
               onClick={() => {
                 if (busy) return;
-                setMode({ kind: "menu" });
+                setMode({ kind: 'menu' });
               }}
             >
-              {tr("chrome.common.cancel")}
+              {tr('chrome.common.cancel')}
             </button>
             <button
               type="button"
@@ -256,7 +250,7 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
                 confirmed(mode.id);
               }}
             >
-              {busy ? tr("actions.confirming", "…") : confirmLabel(mode.id, locale)}
+              {busy ? tr('actions.confirming', '…') : confirmLabel(mode.id, locale)}
             </button>
           </div>
         </div>
@@ -265,7 +259,7 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   }
 
   // ---- scale ----
-  if (mode.kind === "form" && mode.id === "scale") {
+  if (mode.kind === 'form' && mode.id === 'scale') {
     return (
       <div className={styles.menu}>
         <form
@@ -276,8 +270,8 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
           }}
         >
           <div className={styles.confirm}>
-            <div className={styles.confirmText}>{tr("actions.scaleForm.title", single.name)}</div>
-            <div className={styles.confirmRow} style={{ justifyContent: "center", gap: 10 }}>
+            <div className={styles.confirmText}>{tr('actions.scaleForm.title', single.name)}</div>
+            <div className={styles.confirmRow} style={{ justifyContent: 'center', gap: 10 }}>
               <button
                 type="button"
                 className={styles.cancelBtn}
@@ -302,15 +296,15 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
                   setReplicas(Number.isNaN(n) ? 0 : Math.max(0, n));
                 }}
                 style={{
-                  background: "var(--bg-terminal)",
-                  border: "1px solid var(--border-control)",
-                  borderRadius: "var(--radius-sm)",
-                  color: "var(--text-body)",
-                  fontFamily: "var(--font-mono)",
+                  background: 'var(--bg-terminal)',
+                  border: '1px solid var(--border-control)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-body)',
+                  fontFamily: 'var(--font-mono)',
                   fontSize: 13,
-                  padding: "4px 8px",
+                  padding: '4px 8px',
                   width: 64,
-                  textAlign: "center",
+                  textAlign: 'center',
                 }}
               />
               <button
@@ -324,8 +318,8 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
               >
                 +
               </button>
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {tr("actions.scaleForm.replicasLabel", "replicas")}
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {tr('actions.scaleForm.replicasLabel', 'replicas')}
               </span>
             </div>
             <div className={styles.confirmRow}>
@@ -335,19 +329,13 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
                 disabled={busy}
                 onClick={() => {
                   if (busy) return;
-                  setMode({ kind: "menu" });
+                  setMode({ kind: 'menu' });
                 }}
               >
-                {tr("chrome.common.cancel")}
+                {tr('chrome.common.cancel')}
               </button>
-              <button
-                type="submit"
-                className={styles.applyBtn}
-                disabled={busy}
-              >
-                {busy
-                  ? tr("actions.scaleForm.applying", "Applying…")
-                  : tr("chrome.common.apply")}
+              <button type="submit" className={styles.applyBtn} disabled={busy}>
+                {busy ? tr('actions.scaleForm.applying', 'Applying…') : tr('chrome.common.apply')}
               </button>
             </div>
           </div>
@@ -357,7 +345,7 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   }
 
   // ---- port-forward ----
-  if (mode.kind === "form" && mode.id === "forward") {
+  if (mode.kind === 'form' && mode.id === 'forward') {
     return (
       <div className={styles.menu}>
         <form
@@ -374,10 +362,12 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
           <div className={styles.confirm}>
             <div className={styles.confirmText}>
               {tr(
-                kind === "services" ? "actions.forwardForm.titleService" : "actions.forwardForm.titlePod",
+                kind === 'services'
+                  ? 'actions.forwardForm.titleService'
+                  : 'actions.forwardForm.titlePod'
               )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input
                 type="number"
                 min={1}
@@ -396,18 +386,18 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
                   setPort(Math.max(1, Math.min(65535, n)));
                 }}
                 style={{
-                  background: "var(--bg-terminal)",
-                  border: "1px solid var(--border-control)",
-                  borderRadius: "var(--radius-sm)",
-                  color: "var(--text-body)",
-                  fontFamily: "var(--font-mono)",
+                  background: 'var(--bg-terminal)',
+                  border: '1px solid var(--border-control)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--text-body)',
+                  fontFamily: 'var(--font-mono)',
                   fontSize: 11.5,
-                  padding: "4px 8px",
+                  padding: '4px 8px',
                   width: 80,
                 }}
               />
-              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                {tr("actions.forwardForm.portLabel", "port")}
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {tr('actions.forwardForm.portLabel', 'port')}
               </span>
             </div>
             <div className={styles.confirmRow}>
@@ -417,19 +407,15 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
                 disabled={busy}
                 onClick={() => {
                   if (busy) return;
-                  setMode({ kind: "menu" });
+                  setMode({ kind: 'menu' });
                 }}
               >
-                {tr("chrome.common.cancel")}
+                {tr('chrome.common.cancel')}
               </button>
-              <button
-                type="submit"
-                className={styles.applyBtn}
-                disabled={busy}
-              >
+              <button type="submit" className={styles.applyBtn} disabled={busy}>
                 {busy
-                  ? tr("actions.forwardForm.applying", "Forwarding…")
-                  : tr("actions.forwardForm.apply")}
+                  ? tr('actions.forwardForm.applying', 'Forwarding…')
+                  : tr('actions.forwardForm.apply')}
               </button>
             </div>
           </div>
@@ -443,20 +429,14 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   // The form fetches the YAML on mount, lets the user pick a new
   // image:tag per container, and applies via the existing
   // `dryRunYaml` → `applyYaml` path. See ModifyImageForm.tsx.
-  if (mode.kind === "form" && mode.id === "modify-image") {
-    return (
-      <ModifyImageForm
-        ref={refOf(single)}
-        onError={onError}
-        onClose={onClose}
-      />
-    );
+  if (mode.kind === 'form' && mode.id === 'modify-image') {
+    return <ModifyImageForm ref={refOf(single)} onError={onError} onClose={onClose} />;
   }
 
   // ---- rollback ----
   // Routes to HelmRollbackForm which handles both Helm releases
   // (revision history picker) and workloads (simple confirm + undoRollout).
-  if (mode.kind === "form" && mode.id === "rollback") {
+  if (mode.kind === 'form' && mode.id === 'rollback') {
     return (
       <HelmRollbackForm
         kind={kind}
@@ -477,7 +457,7 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
     <div className={styles.menu}>
       {rows.length > 1 && (
         <div className={styles.scope}>
-          {tr("actions.scope", rows.length, plural(kind, rows.length))}
+          {tr('actions.scope', rows.length, plural(kind, rows.length))}
         </div>
       )}
       {safe.map((a) => (
@@ -487,7 +467,12 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
       ))}
       {safe.length > 0 && dangerous.length > 0 && <div className={styles.separator} />}
       {dangerous.map((a) => (
-        <button key={a.id} type="button" className={`${styles.row} ${styles.danger}`} onClick={() => pick(a)}>
+        <button
+          key={a.id}
+          type="button"
+          className={`${styles.row} ${styles.danger}`}
+          onClick={() => pick(a)}
+        >
           {a.label}
         </button>
       ))}
@@ -496,20 +481,20 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
 }
 
 /** The confirm button's verb — the menu label minus its trailing ellipsis. */
-function confirmLabel(id: ActionId, locale: import("../../lib/i18n").Locale): string {
+function confirmLabel(id: ActionId, locale: import('../../lib/i18n').Locale): string {
   const dict: Record<ActionId, string> = {
-    "view-pods": "actions.labels.viewPods",
-    forward: "actions.labels.forward",
-    scale: "actions.labels.scale",
-    restart: "actions.labels.restart",
-    rollback: "actions.labels.rollback",
-    cordon: "actions.labels.cordon",
-    uncordon: "actions.labels.uncordon",
-    drain: "actions.labels.drain",
-    delete: "actions.labels.delete",
-    "download-yaml": "actions.labels.downloadYaml",
-    "modify-image": "actions.labels.modifyImage",
-    files: "actions.labels.files",
+    'view-pods': 'actions.labels.viewPods',
+    forward: 'actions.labels.forward',
+    scale: 'actions.labels.scale',
+    restart: 'actions.labels.restart',
+    rollback: 'actions.labels.rollback',
+    cordon: 'actions.labels.cordon',
+    uncordon: 'actions.labels.uncordon',
+    drain: 'actions.labels.drain',
+    delete: 'actions.labels.delete',
+    'download-yaml': 'actions.labels.downloadYaml',
+    'modify-image': 'actions.labels.modifyImage',
+    files: 'actions.labels.files',
   };
-  return translate(locale, dict[id]).replace(/…$/, "").trim();
+  return translate(locale, dict[id]).replace(/…$/, '').trim();
 }

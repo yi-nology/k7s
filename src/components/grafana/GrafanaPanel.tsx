@@ -12,17 +12,21 @@
  * iframe's origin is the Grafana host, which is the only place that
  * needs its own auth.
  */
-import { useCallback, useEffect, useState } from "react";
-import { getProvider } from "../../providers";
-import type { DashboardPreset, GrafanaConfig, GrafanaDashboardSearchResult } from "../../providers/types";
-import { useTranslation } from "../../hooks/useI18n";
-import styles from "./GrafanaPanel.module.css";
+import { useCallback, useEffect, useState } from 'react';
+import { getProvider } from '../../providers';
+import type {
+  DashboardPreset,
+  GrafanaConfig,
+  GrafanaDashboardSearchResult,
+} from '../../providers/types';
+import { useTranslation } from '../../hooks/useI18n';
+import styles from './GrafanaPanel.module.css';
 
 const RANGE_OPTIONS = [
-  { label: "Last 1h", minutes: 60 },
-  { label: "Last 6h", minutes: 360 },
-  { label: "Last 24h", minutes: 1440 },
-  { label: "Last 7d", minutes: 10080 },
+  { label: 'Last 1h', minutes: 60 },
+  { label: 'Last 6h', minutes: 360 },
+  { label: 'Last 24h', minutes: 1440 },
+  { label: 'Last 7d', minutes: 10080 },
 ];
 
 export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
@@ -36,7 +40,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   // Dashboard search
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GrafanaDashboardSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
 
@@ -59,16 +63,16 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
           setSearching(false);
         });
     },
-    [selected],
+    [selected]
   );
   const [form, setForm] = useState({
-    name: "",
-    url: "",
-    username: "",
-    password: "",
-    apiToken: "",
-    defaultDatasource: "Prometheus",
-    description: "",
+    name: '',
+    url: '',
+    username: '',
+    password: '',
+    apiToken: '',
+    defaultDatasource: 'Prometheus',
+    description: '',
   });
 
   const reload = () =>
@@ -112,10 +116,10 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <h2>{t("grafana.title", "Grafana")}</h2>
+        <h2>{t('grafana.title', 'Grafana')}</h2>
         {onClose && (
           <button className={styles.btn} onClick={onClose}>
-            {t("grafana.close", "Close")}
+            {t('grafana.close', 'Close')}
           </button>
         )}
       </header>
@@ -123,17 +127,13 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
       <div className={styles.body}>
         <aside className={styles.side}>
           {instances.length === 0 ? (
-            <div className={styles.empty}>
-              {t("grafana.none", "No Grafana instances yet")}
-            </div>
+            <div className={styles.empty}>{t('grafana.none', 'No Grafana instances yet')}</div>
           ) : (
             <ul className={styles.list}>
               {instances.map((i) => (
                 <li
                   key={i.name}
-                  className={
-                    selected === i.name ? styles.itemActive : styles.item
-                  }
+                  className={selected === i.name ? styles.itemActive : styles.item}
                   onClick={() => setSelected(i.name)}
                 >
                   <div className={styles.itemName}>{i.name}</div>
@@ -156,12 +156,12 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                   }
                 }}
               >
-                {t("grafana.test", "Test")}
+                {t('grafana.test', 'Test')}
               </button>
               <button
                 className={styles.btnDanger}
                 onClick={async () => {
-                  if (!confirm(t("grafana.confirmRemove", "Remove this instance?"))) {
+                  if (!confirm(t('grafana.confirmRemove', 'Remove this instance?'))) {
                     return;
                   }
                   await getProvider().grafanaRemove(selected);
@@ -169,7 +169,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                   reload();
                 }}
               >
-                {t("grafana.remove", "Remove")}
+                {t('grafana.remove', 'Remove')}
               </button>
             </div>
           )}
@@ -177,18 +177,18 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
             className={styles.primary}
             onClick={() => {
               setForm({
-                name: "",
-                url: "",
-                username: "",
-                password: "",
-                apiToken: "",
-                defaultDatasource: "Prometheus",
-                description: "",
+                name: '',
+                url: '',
+                username: '',
+                password: '',
+                apiToken: '',
+                defaultDatasource: 'Prometheus',
+                description: '',
               });
               setAdding(true);
             }}
           >
-            {t("grafana.add", "Add instance")}
+            {t('grafana.add', 'Add instance')}
           </button>
         </aside>
 
@@ -207,9 +207,9 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                 }
               }}
             >
-              <h3>{t("grafana.form.title", "Grafana instance")}</h3>
+              <h3>{t('grafana.form.title', 'Grafana instance')}</h3>
               <label>
-                <span>{t("grafana.form.name", "Name")}</span>
+                <span>{t('grafana.form.name', 'Name')}</span>
                 <input
                   required
                   value={form.name}
@@ -217,7 +217,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                 />
               </label>
               <label>
-                <span>{t("grafana.form.url", "URL")}</span>
+                <span>{t('grafana.form.url', 'URL')}</span>
                 <input
                   required
                   placeholder="https://grafana.example.com"
@@ -226,7 +226,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                 />
               </label>
               <label>
-                <span>{t("grafana.form.apiToken", "API token (optional)")}</span>
+                <span>{t('grafana.form.apiToken', 'API token (optional)')}</span>
                 <input
                   type="password"
                   value={form.apiToken}
@@ -234,39 +234,31 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                 />
               </label>
               <label>
-                <span>{t("grafana.form.ds", "Default datasource")}</span>
+                <span>{t('grafana.form.ds', 'Default datasource')}</span>
                 <input
                   value={form.defaultDatasource}
-                  onChange={(e) =>
-                    setForm({ ...form, defaultDatasource: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, defaultDatasource: e.target.value })}
                 />
               </label>
               <div className={styles.formActions}>
                 <button className={styles.primary} type="submit">
-                  {t("grafana.form.save", "Save")}
+                  {t('grafana.form.save', 'Save')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setAdding(false)}
-                  className={styles.btn}
-                >
-                  {t("grafana.form.cancel", "Cancel")}
+                <button type="button" onClick={() => setAdding(false)} className={styles.btn}>
+                  {t('grafana.form.cancel', 'Cancel')}
                 </button>
               </div>
             </form>
           ) : selected ? (
             <>
               <div className={styles.dashHeader}>
-                <h3>{t("grafana.dashboards", "Preset dashboards")}</h3>
+                <h3>{t('grafana.dashboards', 'Preset dashboards')}</h3>
                 <div className={styles.rangePresets}>
                   {RANGE_OPTIONS.map((r) => (
                     <button
                       key={r.label}
                       className={
-                        rangeMinutes === r.minutes
-                          ? styles.activeRange
-                          : styles.rangePreset
+                        rangeMinutes === r.minutes ? styles.activeRange : styles.rangePreset
                       }
                       onClick={() => setRangeMinutes(r.minutes)}
                     >
@@ -279,11 +271,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                 {presets.map((p) => (
                   <li
                     key={p.uid}
-                    className={
-                      activePreset === p.uid
-                        ? styles.presetActive
-                        : styles.preset
-                    }
+                    className={activePreset === p.uid ? styles.presetActive : styles.preset}
                     onClick={() => setActivePreset(p.uid)}
                   >
                     <div className={styles.presetTitle}>{p.title}</div>
@@ -292,25 +280,25 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                 ))}
               </ul>
               {/* Dashboard search */}
-              <div style={{ margin: "8px 0" }}>
+              <div style={{ margin: '8px 0' }}>
                 <input
                   type="text"
-                  placeholder={t("grafana.searchPlaceholder", "Search dashboards…")}
+                  placeholder={t('grafana.searchPlaceholder', 'Search dashboards…')}
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
                   style={{
-                    width: "100%",
-                    background: "var(--bg-terminal)",
-                    border: "1px solid var(--border-control)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text-body)",
-                    padding: "4px 8px",
+                    width: '100%',
+                    background: 'var(--bg-terminal)',
+                    border: '1px solid var(--border-control)',
+                    borderRadius: 'var(--radius-sm)',
+                    color: 'var(--text-body)',
+                    padding: '4px 8px',
                     fontSize: 12,
                   }}
                 />
                 {searching && (
-                  <div style={{ fontSize: 11, color: "var(--text-muted)", padding: "4px 0" }}>
-                    {t("grafana.searching", "Searching…")}
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '4px 0' }}>
+                    {t('grafana.searching', 'Searching…')}
                   </div>
                 )}
                 {searchResults.length > 0 && (
@@ -318,16 +306,12 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                     {searchResults.map((d) => (
                       <li
                         key={d.uid}
-                        className={
-                          activePreset === d.uid
-                            ? styles.presetActive
-                            : styles.preset
-                        }
+                        className={activePreset === d.uid ? styles.presetActive : styles.preset}
                         onClick={() => setActivePreset(d.uid)}
                       >
                         <div className={styles.presetTitle}>{d.title}</div>
                         <div className={styles.presetDesc}>
-                          {d.tags.length > 0 && `[${d.tags.join(", ")}]`}
+                          {d.tags.length > 0 && `[${d.tags.join(', ')}]`}
                         </div>
                       </li>
                     ))}
@@ -345,7 +329,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
             </>
           ) : (
             <div className={styles.empty}>
-              {t("grafana.pick", "Add a Grafana instance to get started")}
+              {t('grafana.pick', 'Add a Grafana instance to get started')}
             </div>
           )}
         </main>

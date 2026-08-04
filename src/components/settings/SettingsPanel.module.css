@@ -292,7 +292,9 @@
   border: 1px solid var(--border-control);
   border-radius: 3px;
   cursor: pointer;
-  transition: color 80ms, border-color 80ms;
+  transition:
+    color 80ms,
+    border-color 80ms;
 }
 
 .mcpCopy:hover {

@@ -17,7 +17,7 @@
  * so existing muscle memory is untouched.
  */
 
-import type { KindId, Row } from "../providers/types";
+import type { KindId, Row } from '../providers/types';
 
 /** A filter split into its label selectors and its free-text remainder. */
 export interface ParsedFilter {
@@ -39,16 +39,16 @@ export function parseFilter(raw: string): ParsedFilter {
   const words: string[] = [];
   for (const tok of raw.trim().split(/[\s,]+/)) {
     if (!tok) continue;
-    const eq = tok.indexOf("=");
+    const eq = tok.indexOf('=');
     if (eq > 0) labels.push([tok.slice(0, eq), tok.slice(eq + 1)]);
     else words.push(tok);
   }
-  return { text: words.join(" ").toLowerCase(), labels };
+  return { text: words.join(' ').toLowerCase(), labels };
 }
 
 /** True if the raw filter contains anything to match on. */
 export function isEmptyFilter(f: ParsedFilter): boolean {
-  return f.text === "" && f.labels.length === 0;
+  return f.text === '' && f.labels.length === 0;
 }
 
 /**
@@ -68,7 +68,7 @@ export function matchesFilter(row: Row, f: ParsedFilter, _nav: KindId): boolean 
       if (labels[k] !== v) return false;
     }
   }
-  if (f.text === "") return true;
+  if (f.text === '') return true;
   // Match against name, namespace, and every visible cell. `name` and
   // `namespace` are explicit (and ordered) so a user typing "kube" for a pod
   // in `kube-system` gets a hit even if the row's first cell has been
@@ -87,5 +87,5 @@ export function selectorFilter(matchLabels: Record<string, string>): string {
   return Object.keys(matchLabels)
     .sort()
     .map((k) => `${k}=${matchLabels[k]}`)
-    .join(",");
+    .join(',');
 }

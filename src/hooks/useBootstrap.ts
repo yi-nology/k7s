@@ -7,13 +7,13 @@
  * hot reload or window close doesn't leak listeners.
  */
 
-import { useEffect } from "react";
-import { getProvider, IS_DEMO } from "../providers";
-import { useStore } from "../store";
-import { connectTo } from "../lib/connect";
-import { reconcileClusterStatus } from "../lib/clusterStatus";
-import { isCustomKind, KIND_META } from "../lib/kinds";
-import { sanitizeSettings } from "../lib/settings";
+import { useEffect } from 'react';
+import { getProvider, IS_DEMO } from '../providers';
+import { useStore } from '../store';
+import { connectTo } from '../lib/connect';
+import { reconcileClusterStatus } from '../lib/clusterStatus';
+import { isCustomKind, KIND_META } from '../lib/kinds';
+import { sanitizeSettings } from '../lib/settings';
 
 export function useBootstrap(): void {
   useEffect(() => {
@@ -74,7 +74,7 @@ export function useBootstrap(): void {
     ];
 
     // Discover contexts, restore saved preferences, then connect (B11).
-    setConnection({ phase: "connecting" });
+    setConnection({ phase: 'connecting' });
     void (async () => {
       try {
         // Prefs first: imported kubeconfigs must be re-registered *before* the
@@ -114,36 +114,39 @@ export function useBootstrap(): void {
           } else {
             // No persisted nav preference: land on the Dashboard overlay instead
             // of defaulting to the Pods table.
-            restore.overlay = "dashboard";
+            restore.overlay = 'dashboard';
           }
           // Where you left off wins; the configured default is what a fresh
           // profile (or a cleared namespace) falls back to.
           restore.namespace =
-            typeof prefs.namespace === "string" ? prefs.namespace : restore.settings.defaultNamespace;
-          if (typeof prefs.showTimestamps === "boolean") restore.showTimestamps = prefs.showTimestamps;
+            typeof prefs.namespace === 'string'
+              ? prefs.namespace
+              : restore.settings.defaultNamespace;
+          if (typeof prefs.showTimestamps === 'boolean')
+            restore.showTimestamps = prefs.showTimestamps;
           if (Array.isArray(prefs.hotbar)) restore.hotbar = prefs.hotbar;
           if (Object.keys(restore).length) useStore.setState(restore);
         } else {
           // No prefs at all (first launch): land on the Dashboard overlay.
-          useStore.setState({ overlay: "dashboard" });
+          useStore.setState({ overlay: 'dashboard' });
         }
 
         // Prefer the saved context if it still exists, else the current-context.
         const saved = prefs?.context ? contexts.find((c) => c.name === prefs.context) : undefined;
         const target = saved ?? contexts.find((c) => c.current) ?? contexts[0];
         if (!target) {
-          setConnection({ phase: "error", error: "no kubeconfig contexts found" });
+          setConnection({ phase: 'error', error: 'no kubeconfig contexts found' });
           return;
         }
         await connectTo(target.name);
       } catch (e) {
-        setConnection({ phase: "error", error: e instanceof Error ? e.message : String(e) });
+        setConnection({ phase: 'error', error: e instanceof Error ? e.message : String(e) });
       }
     })();
 
     // Persist relevant state changes (debounced). No-op in demo mode.
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
-    let lastSaved = "";
+    let lastSaved = '';
     const unsubSave = IS_DEMO
       ? () => {}
       : useStore.subscribe((s) => {
@@ -173,6 +176,5 @@ export function useBootstrap(): void {
       clearTimeout(saveTimer);
     };
     // Empty deps: run exactly once for the app's lifetime.
-     
   }, []);
 }

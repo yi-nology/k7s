@@ -11,7 +11,7 @@
  * other — MetricsTab keys its plots on the resolved theme to force a rebuild.
  */
 
-import { plotColors } from "../../lib/theme";
+import { plotColors } from '../../lib/theme';
 
 export { plotColors };
 
@@ -19,22 +19,22 @@ export { plotColors };
 export function baseLayout(
   title: string,
   height: number,
-  el?: Element | null,
+  el?: Element | null
 ): Record<string, unknown> {
   const PLOT_COLORS = plotColors(el);
   return {
     height,
-    title: { text: title, font: { size: 11, color: PLOT_COLORS.axis }, x: 0, xanchor: "left" },
+    title: { text: title, font: { size: 11, color: PLOT_COLORS.axis }, x: 0, xanchor: 'left' },
     // Transparent so the panel's own background shows through.
-    paper_bgcolor: "rgba(0,0,0,0)",
+    paper_bgcolor: 'rgba(0,0,0,0)',
     plot_bgcolor: PLOT_COLORS.surface,
-    font: { family: "JetBrains Mono, ui-monospace, monospace", size: 10, color: PLOT_COLORS.axis },
+    font: { family: 'JetBrains Mono, ui-monospace, monospace', size: 10, color: PLOT_COLORS.axis },
     // Tight: these are small panels, not a dashboard with room to breathe.
     margin: { l: 52, r: 12, t: 26, b: 28 },
     showlegend: false,
     xaxis: { gridcolor: PLOT_COLORS.grid, zeroline: false, color: PLOT_COLORS.axis },
     yaxis: { gridcolor: PLOT_COLORS.grid, zeroline: false, color: PLOT_COLORS.axis },
-    hovermode: "x unified",
+    hovermode: 'x unified',
   };
 }
 
@@ -50,7 +50,7 @@ export const PLOT_CONFIG = {
 
 /** Bytes as a short human string ("3.2 GiB"). */
 export function humanBytes(v: number): string {
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB'];
   let n = Math.abs(v);
   let u = 0;
   while (n >= 1024 && u < units.length - 1) {

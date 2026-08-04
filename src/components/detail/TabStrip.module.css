@@ -33,7 +33,10 @@
   border: none;
   border-right: 1px solid var(--border-default);
   border-bottom: 2px solid transparent;
-  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  transition:
+    color 0.12s ease,
+    background 0.12s ease,
+    border-color 0.12s ease;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -50,7 +53,7 @@
   background: var(--bg-control);
 }
 .tabActive::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 20%;
   right: 20%;
@@ -94,7 +97,9 @@
   cursor: pointer;
   padding: 0;
   font: inherit;
-  transition: color 0.1s ease, background 0.1s ease;
+  transition:
+    color 0.1s ease,
+    background 0.1s ease;
 }
 .tabClose:hover {
   color: var(--text-primary);

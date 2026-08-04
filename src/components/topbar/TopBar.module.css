@@ -19,7 +19,7 @@
   position: relative;
   z-index: var(--z-topbar);
 }
-[data-theme="light"] .topbar {
+[data-theme='light'] .topbar {
   background: var(--bg-topbar-glass-light);
 }
 
@@ -66,7 +66,10 @@
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
-  transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease,
+    box-shadow 0.12s ease;
   user-select: none;
 }
 .cmdBar:hover {
@@ -120,7 +123,9 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 .nsButton:hover {
   border-color: var(--border-hover);
@@ -205,7 +210,9 @@
   color: var(--text-secondary);
   min-width: 40px;
   justify-content: center;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 .langButton:hover {
   border-color: var(--border-hover);

@@ -15,20 +15,20 @@
  * spawning a side panel, so the user can scroll back through what the
  * backend said.
  */
-import { useEffect, useMemo, useState } from "react";
-import { getProvider } from "../../providers";
-import type { HelmChartSummary, HelmRepo } from "../../providers/types";
-import { useTranslation } from "../../hooks/useI18n";
-import { HelmInstallWizard } from "./HelmInstallWizard";
-import styles from "./HelmMarket.module.css";
+import { useEffect, useMemo, useState } from 'react';
+import { getProvider } from '../../providers';
+import type { HelmChartSummary, HelmRepo } from '../../providers/types';
+import { useTranslation } from '../../hooks/useI18n';
+import { HelmInstallWizard } from './HelmInstallWizard';
+import styles from './HelmMarket.module.css';
 
-type Tab = "charts" | "repos";
+type Tab = 'charts' | 'repos';
 
 export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>("charts");
+  const [tab, setTab] = useState<Tab>('charts');
   const [repos, setRepos] = useState<HelmRepo[]>([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [charts, setCharts] = useState<HelmChartSummary[]>([]);
   const [loadingCharts, setLoadingCharts] = useState(false);
   const [selected, setSelected] = useState<HelmChartSummary | null>(null);
@@ -42,7 +42,7 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
         .then(setRepos)
         .catch((e: unknown) => setError(String(e)));
     },
-    [],
+    []
   );
   useEffect(reloadRepos, [reloadRepos]);
 
@@ -67,40 +67,40 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
     <div className={styles.market}>
       {onClose && (
         <header className={styles.header}>
-          <h2>{t("helm.title", "Helm Market")}</h2>
+          <h2>{t('helm.title', 'Helm Market')}</h2>
           <button className={styles.close} onClick={onClose}>
-            {t("helm.close", "Close")}
+            {t('helm.close', 'Close')}
           </button>
         </header>
       )}
       <div className={styles.tabs} role="tablist">
         <button
           role="tab"
-          aria-selected={tab === "charts"}
-          className={tab === "charts" ? styles.tabActive : styles.tab}
-          onClick={() => setTab("charts")}
+          aria-selected={tab === 'charts'}
+          className={tab === 'charts' ? styles.tabActive : styles.tab}
+          onClick={() => setTab('charts')}
         >
-          {t("helm.tabs.charts", "Charts")}
+          {t('helm.tabs.charts', 'Charts')}
         </button>
         <button
           role="tab"
-          aria-selected={tab === "repos"}
-          className={tab === "repos" ? styles.tabActive : styles.tab}
-          onClick={() => setTab("repos")}
+          aria-selected={tab === 'repos'}
+          className={tab === 'repos' ? styles.tabActive : styles.tab}
+          onClick={() => setTab('repos')}
         >
-          {t("helm.tabs.repos", "Repositories")}
+          {t('helm.tabs.repos', 'Repositories')}
           <span className={styles.count}>({repos.length})</span>
         </button>
         <div className={styles.spacer} />
-        {tab === "charts" && (
+        {tab === 'charts' && (
           <input
             className={styles.search}
-            placeholder={t("helm.search.placeholder", "Search charts…")}
+            placeholder={t('helm.search.placeholder', 'Search charts…')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         )}
-        {tab === "repos" && (
+        {tab === 'repos' && (
           <button
             className={styles.primary}
             onClick={async () => {
@@ -112,14 +112,14 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
               }
             }}
           >
-            {t("helm.repos.refreshAll", "Refresh all")}
+            {t('helm.repos.refreshAll', 'Refresh all')}
           </button>
         )}
       </div>
 
       {error && <div className={styles.error}>{error}</div>}
 
-      {tab === "charts" ? (
+      {tab === 'charts' ? (
         <div className={styles.split}>
           <div className={styles.list}>
             {loadingCharts && charts.length === 0 ? (
@@ -127,8 +127,8 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
             ) : charts.length === 0 ? (
               <div className={styles.empty}>
                 {query
-                  ? t("helm.empty.noMatch", "No charts match this search")
-                  : t("helm.empty.noRepos", "No repos yet — add one in Repositories")}
+                  ? t('helm.empty.noMatch', 'No charts match this search')
+                  : t('helm.empty.noRepos', 'No repos yet — add one in Repositories')}
               </div>
             ) : (
               <ul className={styles.charts}>
@@ -145,13 +145,9 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
                     <div className={styles.chartName}>{c.name}</div>
                     <div className={styles.chartMeta}>
                       <span className={styles.chartRepo}>{c.repo}</span>
-                      <span className={styles.chartVersion}>
-                        v{c.version}
-                      </span>
+                      <span className={styles.chartVersion}>v{c.version}</span>
                     </div>
-                    <div className={styles.chartDesc}>
-                      {c.description || ""}
-                    </div>
+                    <div className={styles.chartDesc}>{c.description || ''}</div>
                   </li>
                 ))}
               </ul>
@@ -159,23 +155,16 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
           </div>
           <div className={styles.detail}>
             {selected ? (
-              <HelmInstallWizard
-                chart={selected}
-                onDone={() => setSelected(null)}
-              />
+              <HelmInstallWizard chart={selected} onDone={() => setSelected(null)} />
             ) : (
               <div className={styles.empty}>
-                {t("helm.detail.pickChart", "Pick a chart on the left to install")}
+                {t('helm.detail.pickChart', 'Pick a chart on the left to install')}
               </div>
             )}
           </div>
         </div>
       ) : (
-        <HelmRepos
-          repos={repos}
-          onChange={reloadRepos}
-          onError={setError}
-        />
+        <HelmRepos repos={repos} onChange={reloadRepos} onError={setError} />
       )}
     </div>
   );
@@ -193,16 +182,14 @@ function HelmRepos({
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState('');
+  const [url, setUrl] = useState('');
+  const [description, setDescription] = useState('');
 
   return (
     <div className={styles.repos}>
       {repos.length === 0 ? (
-        <div className={styles.empty}>
-          {t("helm.repos.empty", "No repos yet")}
-        </div>
+        <div className={styles.empty}>{t('helm.repos.empty', 'No repos yet')}</div>
       ) : (
         <ul className={styles.repoList}>
           {repos.map((r) => (
@@ -210,23 +197,17 @@ function HelmRepos({
               <div className={styles.repoMain}>
                 <div className={styles.repoName}>{r.name}</div>
                 <div className={styles.repoUrl}>{r.url}</div>
-                {r.description && (
-                  <div className={styles.repoDesc}>{r.description}</div>
-                )}
+                {r.description && <div className={styles.repoDesc}>{r.description}</div>}
               </div>
               <div className={styles.repoStatus}>
                 {r.lastError ? (
                   <span className={styles.err} title={r.lastError}>
-                    ● {t("helm.repos.error", "error")}
+                    ● {t('helm.repos.error', 'error')}
                   </span>
                 ) : r.lastRefreshed ? (
-                  <span className={styles.ok}>
-                    ● {t("helm.repos.ok", "fresh")}
-                  </span>
+                  <span className={styles.ok}>● {t('helm.repos.ok', 'fresh')}</span>
                 ) : (
-                  <span className={styles.muted}>
-                    ● {t("helm.repos.never", "never refreshed")}
-                  </span>
+                  <span className={styles.muted}>● {t('helm.repos.never', 'never refreshed')}</span>
                 )}
               </div>
               <div className={styles.repoActions}>
@@ -242,12 +223,12 @@ function HelmRepos({
                     }
                   }}
                 >
-                  {t("helm.repos.refresh", "Refresh")}
+                  {t('helm.repos.refresh', 'Refresh')}
                 </button>
                 <button
                   className={styles.btnDanger}
                   onClick={async () => {
-                    if (!confirm(t("helm.repos.confirmRemove", `Remove repo "${r.name}"?`))) {
+                    if (!confirm(t('helm.repos.confirmRemove', `Remove repo "${r.name}"?`))) {
                       return;
                     }
                     try {
@@ -258,7 +239,7 @@ function HelmRepos({
                     }
                   }}
                 >
-                  {t("helm.repos.remove", "Remove")}
+                  {t('helm.repos.remove', 'Remove')}
                 </button>
               </div>
             </li>
@@ -279,9 +260,9 @@ function HelmRepos({
             setSubmitting(true);
             try {
               await getProvider().helmAddRepo({ name, url, description });
-              setName("");
-              setUrl("");
-              setDescription("");
+              setName('');
+              setUrl('');
+              setDescription('');
               setAdding(false);
               onChange();
             } catch (err) {
@@ -299,8 +280,8 @@ function HelmRepos({
             // send `my repo /` to the backend (which fails the provider-side
             // validation with a less helpful error).
             pattern="[a-z0-9][a-z0-9-]*"
-            title={t("helm.repos.form.nameTitle", "lowercase letters, digits, and '-'")}
-            placeholder={t("helm.repos.form.name", "name")}
+            title={t('helm.repos.form.nameTitle', "lowercase letters, digits, and '-'")}
+            placeholder={t('helm.repos.form.name', 'name')}
             value={name}
             disabled={submitting}
             onChange={(e) => setName(e.target.value)}
@@ -308,41 +289,31 @@ function HelmRepos({
           <input
             required
             type="url"
-            placeholder={t("helm.repos.form.url", "https://charts.example.com")}
+            placeholder={t('helm.repos.form.url', 'https://charts.example.com')}
             value={url}
             disabled={submitting}
             onChange={(e) => setUrl(e.target.value)}
           />
           <input
-            placeholder={t("helm.repos.form.desc", "description (optional)")}
+            placeholder={t('helm.repos.form.desc', 'description (optional)')}
             value={description}
             disabled={submitting}
             onChange={(e) => setDescription(e.target.value)}
           />
-          <button
-            className={styles.primary}
-            type="submit"
-            disabled={submitting}
-          >
-            {submitting
-              ? t("helm.repos.form.adding", "Adding…")
-              : t("helm.repos.form.add", "Add")}
+          <button className={styles.primary} type="submit" disabled={submitting}>
+            {submitting ? t('helm.repos.form.adding', 'Adding…') : t('helm.repos.form.add', 'Add')}
           </button>
-          <button
-            type="button"
-            disabled={submitting}
-            onClick={() => setAdding(false)}
-          >
-            {t("helm.repos.form.cancel", "Cancel")}
+          <button type="button" disabled={submitting} onClick={() => setAdding(false)}>
+            {t('helm.repos.form.cancel', 'Cancel')}
           </button>
         </form>
       ) : (
         <button
           className={styles.primary}
           onClick={() => setAdding(true)}
-          style={{ marginTop: "var(--space-3)" }}
+          style={{ marginTop: 'var(--space-3)' }}
         >
-          {t("helm.repos.add", "Add repository")}
+          {t('helm.repos.add', 'Add repository')}
         </button>
       )}
     </div>

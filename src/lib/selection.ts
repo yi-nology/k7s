@@ -49,7 +49,7 @@ export function applyClick(
   state: SelectionState,
   orderedUids: string[],
   uid: string,
-  mods: ClickMods,
+  mods: ClickMods
 ): SelectionState {
   if (mods.range && state.anchor !== null) {
     const from = orderedUids.indexOf(state.anchor);
@@ -79,10 +79,7 @@ export function applyClick(
  * mouse. Right-clicking outside collapses to the clicked row, so the menu can
  * never act on rows you can't see you've selected.
  */
-export function selectionForContextMenu(
-  state: SelectionState,
-  uid: string,
-): SelectionState {
+export function selectionForContextMenu(state: SelectionState, uid: string): SelectionState {
   if (state.selected.includes(uid)) return state;
   return { selected: [uid], anchor: uid };
 }
@@ -110,7 +107,7 @@ export function pruneSelection(state: SelectionState, presentUids: string[]): Se
 /** Selected rows in display order, which is the order a confirmation must list. */
 export function selectedInOrder<T extends { uid: string }>(
   state: SelectionState,
-  ordered: T[],
+  ordered: T[]
 ): T[] {
   const sel = new Set(state.selected);
   return ordered.filter((r) => sel.has(r.uid));

@@ -13,17 +13,17 @@
  * Both paths are live-only and start empty; the first point takes one poll.
  */
 
-import { useRef } from "react";
-import styles from "./MetricsTab.module.css";
-import { useStore } from "../../store";
-import { useNodeStats } from "../../hooks/useNodeStats";
-import { useNodeMetricsSeries } from "../../hooks/useNodeMetricsSeries";
-import { useTranslation } from "../../hooks/useI18n";
-import { IS_TAURI } from "../../providers";
-import { humanBytes, humanBps, plotColors } from "./plot";
-import { Plot, useHostPlotColors } from "./PlotChart";
-import { withAlpha } from "../../lib/theme";
-import type { NodeSample } from "../../providers/types";
+import { useRef } from 'react';
+import styles from './MetricsTab.module.css';
+import { useStore } from '../../store';
+import { useNodeStats } from '../../hooks/useNodeStats';
+import { useNodeMetricsSeries } from '../../hooks/useNodeMetricsSeries';
+import { useTranslation } from '../../hooks/useI18n';
+import { IS_TAURI } from '../../providers';
+import { humanBytes, humanBps, plotColors } from './plot';
+import { Plot, useHostPlotColors } from './PlotChart';
+import { withAlpha } from '../../lib/theme';
+import type { NodeSample } from '../../providers/types';
 
 export function MetricsTab() {
   // Desktop keeps the node-exporter path; the browser uses metrics.k8s.io.
@@ -51,7 +51,7 @@ function NodeExporterMetrics() {
     return (
       <div className={styles.wrap} ref={wrapRef}>
         <div className={styles.state}>
-          <div className={styles.stateTitle}>{t("metrics.noMetrics", node)}</div>
+          <div className={styles.stateTitle}>{t('metrics.noMetrics', node)}</div>
           <div className={styles.stateBody}>{error}</div>
         </div>
       </div>
@@ -62,7 +62,7 @@ function NodeExporterMetrics() {
     return (
       <div className={styles.wrap} ref={wrapRef}>
         <div className={styles.state}>
-          <div className={styles.stateTitle}>{t("metrics.waitingSamples")}</div>
+          <div className={styles.stateTitle}>{t('metrics.waitingSamples')}</div>
           <div className={styles.stateBody}>
             Rates need two scrapes to compare, so the first point takes a couple of polls. The
             history starts now — node-exporter reports counters, not the past.
@@ -78,69 +78,130 @@ function NodeExporterMetrics() {
   return (
     <div className={styles.wrap} ref={wrapRef}>
       <Plot
-        title={t("metrics.cpuTitle", latest.cpuPercent.toFixed(1))}
+        title={t('metrics.cpuTitle', latest.cpuPercent.toFixed(1))}
         data={[
           {
             x: tArr,
             y: samples.map((s) => s.cpuPercent),
-            type: "scatter",
-            mode: "lines",
-            line: { color: PLOT_COLORS.accent, width: 1.5, shape: "spline", smoothing: 0.4 },
-            fill: "tozeroy",
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: PLOT_COLORS.accent, width: 1.5, shape: 'spline', smoothing: 0.4 },
+            fill: 'tozeroy',
             fillcolor: withAlpha(PLOT_COLORS.accent, 0.12),
-            hovertemplate: "%{y:.1f}%<extra></extra>",
+            hovertemplate: '%{y:.1f}%<extra></extra>',
           },
         ]}
-        layoutExtra={{ yaxis: { range: [0, 100], ticksuffix: "%", gridcolor: PLOT_COLORS.grid } }}
+        layoutExtra={{ yaxis: { range: [0, 100], ticksuffix: '%', gridcolor: PLOT_COLORS.grid } }}
       />
 
       <Plot
-        title={t("metrics.memTitle", humanBytes(latest.memUsedBytes), humanBytes(latest.memTotalBytes), pct(latest.memUsedBytes, latest.memTotalBytes))}
+        title={t(
+          'metrics.memTitle',
+          humanBytes(latest.memUsedBytes),
+          humanBytes(latest.memTotalBytes),
+          pct(latest.memUsedBytes, latest.memTotalBytes)
+        )}
         data={[
           {
             x: tArr,
             y: samples.map((s) => s.memUsedBytes),
-            type: "scatter",
-            mode: "lines",
+            type: 'scatter',
+            mode: 'lines',
             line: { color: PLOT_COLORS.ok, width: 1.5 },
-            fill: "tozeroy",
+            fill: 'tozeroy',
             fillcolor: withAlpha(PLOT_COLORS.ok, 0.12),
-            hovertemplate: "%{y:.3s}B<extra></extra>",
+            hovertemplate: '%{y:.3s}B<extra></extra>',
           },
         ]}
         layoutExtra={{
-          yaxis: { range: [0, latest.memTotalBytes], tickformat: ".3s", ticksuffix: "B", gridcolor: PLOT_COLORS.grid },
+          yaxis: {
+            range: [0, latest.memTotalBytes],
+            tickformat: '.3s',
+            ticksuffix: 'B',
+            gridcolor: PLOT_COLORS.grid,
+          },
         }}
       />
 
       <Plot
-        title={t("metrics.netTitle", humanBps(latest.netRxBps), humanBps(latest.netTxBps))}
+        title={t('metrics.netTitle', humanBps(latest.netRxBps), humanBps(latest.netTxBps))}
         data={[
-          { x: tArr, y: samples.map((s) => s.netRxBps), name: "rx", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.accent, width: 1.5 }, hovertemplate: "↓ %{y:.3s}B/s<extra></extra>" },
-          { x: tArr, y: samples.map((s) => s.netTxBps), name: "tx", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.warn, width: 1.5 }, hovertemplate: "↑ %{y:.3s}B/s<extra></extra>" },
+          {
+            x: tArr,
+            y: samples.map((s) => s.netRxBps),
+            name: 'rx',
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: PLOT_COLORS.accent, width: 1.5 },
+            hovertemplate: '↓ %{y:.3s}B/s<extra></extra>',
+          },
+          {
+            x: tArr,
+            y: samples.map((s) => s.netTxBps),
+            name: 'tx',
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: PLOT_COLORS.warn, width: 1.5 },
+            hovertemplate: '↑ %{y:.3s}B/s<extra></extra>',
+          },
         ]}
         layoutExtra={{
           showlegend: true,
-          legend: { orientation: "h", y: 1.16, x: 1, xanchor: "right", font: { size: 9 } },
-          yaxis: { rangemode: "tozero", tickformat: ".3s", ticksuffix: "B/s", gridcolor: PLOT_COLORS.grid },
+          legend: { orientation: 'h', y: 1.16, x: 1, xanchor: 'right', font: { size: 9 } },
+          yaxis: {
+            rangemode: 'tozero',
+            tickformat: '.3s',
+            ticksuffix: 'B/s',
+            gridcolor: PLOT_COLORS.grid,
+          },
         }}
       />
 
       <Plot
-        title={t("metrics.loadTitle", latest.load1.toFixed(2), latest.load5.toFixed(2), latest.load15.toFixed(2))}
+        title={t(
+          'metrics.loadTitle',
+          latest.load1.toFixed(2),
+          latest.load5.toFixed(2),
+          latest.load15.toFixed(2)
+        )}
         data={[
-          { x: tArr, y: samples.map((s) => s.load1), name: "1m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.accent, width: 1.5 } },
-          { x: tArr, y: samples.map((s) => s.load5), name: "5m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.accent2, width: 1.2 } },
-          { x: tArr, y: samples.map((s) => s.load15), name: "15m", type: "scatter", mode: "lines", line: { color: PLOT_COLORS.axis, width: 1, dash: "dot" } },
+          {
+            x: tArr,
+            y: samples.map((s) => s.load1),
+            name: '1m',
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: PLOT_COLORS.accent, width: 1.5 },
+          },
+          {
+            x: tArr,
+            y: samples.map((s) => s.load5),
+            name: '5m',
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: PLOT_COLORS.accent2, width: 1.2 },
+          },
+          {
+            x: tArr,
+            y: samples.map((s) => s.load15),
+            name: '15m',
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: PLOT_COLORS.axis, width: 1, dash: 'dot' },
+          },
         ]}
         layoutExtra={{
           showlegend: true,
-          legend: { orientation: "h", y: 1.16, x: 1, xanchor: "right", font: { size: 9 } },
-          yaxis: { rangemode: "tozero", gridcolor: PLOT_COLORS.grid },
+          legend: { orientation: 'h', y: 1.16, x: 1, xanchor: 'right', font: { size: 9 } },
+          yaxis: { rangemode: 'tozero', gridcolor: PLOT_COLORS.grid },
         }}
       />
 
-      <Filesystems sample={latest} colors={PLOT_COLORS} title={t("metrics.filesystemsTitle", latest.filesystems.length)} />
+      <Filesystems
+        sample={latest}
+        colors={PLOT_COLORS}
+        title={t('metrics.filesystemsTitle', latest.filesystems.length)}
+      />
     </div>
   );
 }
@@ -164,8 +225,8 @@ function KubeMetricsIoMetrics() {
     return (
       <div className={styles.wrap} ref={wrapRef}>
         <div className={styles.state}>
-          <div className={styles.stateTitle}>{t("metrics.waitingSamples")}</div>
-          <div className={styles.stateBody}>{t("metrics.waitingSamplesBody")}</div>
+          <div className={styles.stateTitle}>{t('metrics.waitingSamples')}</div>
+          <div className={styles.stateBody}>{t('metrics.waitingSamplesBody')}</div>
         </div>
       </div>
     );
@@ -178,42 +239,52 @@ function KubeMetricsIoMetrics() {
   return (
     <div className={styles.wrap} ref={wrapRef}>
       <Plot
-        title={t("metrics.cpuTitle", latest.cpuPercent.toFixed(1))}
+        title={t('metrics.cpuTitle', latest.cpuPercent.toFixed(1))}
         data={[
           {
             x: tArr,
             y: series.map((s) => s.cpuPercent),
-            type: "scatter",
-            mode: "lines",
-            line: { color: PLOT_COLORS.accent, width: 1.5, shape: "spline", smoothing: 0.4 },
-            fill: "tozeroy",
+            type: 'scatter',
+            mode: 'lines',
+            line: { color: PLOT_COLORS.accent, width: 1.5, shape: 'spline', smoothing: 0.4 },
+            fill: 'tozeroy',
             fillcolor: withAlpha(PLOT_COLORS.accent, 0.12),
-            hovertemplate: "%{y:.1f}%<extra></extra>",
+            hovertemplate: '%{y:.1f}%<extra></extra>',
           },
         ]}
-        layoutExtra={{ yaxis: { range: [0, 100], ticksuffix: "%", gridcolor: PLOT_COLORS.grid } }}
+        layoutExtra={{ yaxis: { range: [0, 100], ticksuffix: '%', gridcolor: PLOT_COLORS.grid } }}
       />
 
       <Plot
-        title={t("metrics.memTitle", humanBytes(latest.memBytes), humanBytes(latest.memTotalBytes), pct(latest.memBytes, memTotal))}
+        title={t(
+          'metrics.memTitle',
+          humanBytes(latest.memBytes),
+          humanBytes(latest.memTotalBytes),
+          pct(latest.memBytes, memTotal)
+        )}
         data={[
           {
             x: tArr,
             y: series.map((s) => s.memBytes),
-            type: "scatter",
-            mode: "lines",
+            type: 'scatter',
+            mode: 'lines',
             line: { color: PLOT_COLORS.ok, width: 1.5 },
-            fill: "tozeroy",
+            fill: 'tozeroy',
             fillcolor: withAlpha(PLOT_COLORS.ok, 0.12),
-            hovertemplate: "%{y:.3s}B<extra></extra>",
+            hovertemplate: '%{y:.3s}B<extra></extra>',
           },
         ]}
         layoutExtra={{
-          yaxis: { range: [0, memTotal], tickformat: ".3s", ticksuffix: "B", gridcolor: PLOT_COLORS.grid },
+          yaxis: {
+            range: [0, memTotal],
+            tickformat: '.3s',
+            ticksuffix: 'B',
+            gridcolor: PLOT_COLORS.grid,
+          },
         }}
       />
 
-      <div className={styles.footnote}>{t("metrics.kubeMetricsFootnote")}</div>
+      <div className={styles.footnote}>{t('metrics.kubeMetricsFootnote')}</div>
     </div>
   );
 }
@@ -243,21 +314,21 @@ function Filesystems({
       height={Math.max(120, 26 * fs.length + 40)}
       data={[
         {
-          type: "bar",
-          orientation: "h",
+          type: 'bar',
+          orientation: 'h',
           x: fs.map((f) => f.pct),
           y: fs.map((f) => f.mountpoint),
           marker: { color: fs.map((f) => color(f.pct)) },
           text: fs.map((f) => `${humanBytes(f.usedBytes)} / ${humanBytes(f.sizeBytes)}`),
-          textposition: "auto",
+          textposition: 'auto',
           insidetextfont: { color: PLOT_COLORS.surface, size: 9 },
           outsidetextfont: { color: PLOT_COLORS.axis, size: 9 },
-          hovertemplate: "%{y}: %{x:.1f}%<extra></extra>",
+          hovertemplate: '%{y}: %{x:.1f}%<extra></extra>',
         },
       ]}
       layoutExtra={{
-        xaxis: { range: [0, 100], ticksuffix: "%", gridcolor: PLOT_COLORS.grid },
-        yaxis: { automargin: true, gridcolor: "rgba(0,0,0,0)" },
+        xaxis: { range: [0, 100], ticksuffix: '%', gridcolor: PLOT_COLORS.grid },
+        yaxis: { automargin: true, gridcolor: 'rgba(0,0,0,0)' },
         margin: { l: 8, r: 12, t: 26, b: 28 },
         bargap: 0.35,
       }}

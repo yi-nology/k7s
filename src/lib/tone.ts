@@ -5,15 +5,15 @@
  * detail panel.
  */
 
-import type { Tone } from "../providers/types";
+import type { Tone } from '../providers/types';
 
 const TONE_VAR: Record<Tone, string> = {
-  primary: "var(--text-primary)",
-  secondary: "var(--text-secondary)",
-  muted: "var(--text-muted)",
-  ok: "var(--status-ok)",
-  warn: "var(--status-warn)",
-  err: "var(--status-err)",
+  primary: 'var(--text-primary)',
+  secondary: 'var(--text-secondary)',
+  muted: 'var(--text-muted)',
+  ok: 'var(--status-ok)',
+  warn: 'var(--status-warn)',
+  err: 'var(--status-err)',
 };
 
 /** CSS color value for a tone. */

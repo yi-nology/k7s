@@ -14,13 +14,13 @@
  * tab's cycler index, so cycling log containers silently moved your shell.
  */
 
-import { useEffect, useState } from "react";
-import styles from "./ShellTab.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import { useTerminal } from "./useTerminal";
-import type { ShellHandle } from "../../providers/types";
+import { useEffect, useState } from 'react';
+import styles from './ShellTab.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import { useTerminal } from './useTerminal';
+import type { ShellHandle } from '../../providers/types';
 
 export function ShellTab() {
   const pod = useStore((s) => s.selectedRow);
@@ -29,9 +29,9 @@ export function ShellTab() {
   const containers = pod?.pod?.containers ?? [];
 
   // The tab's own container choice, defaulting to the first.
-  const [container, setContainer] = useState("");
+  const [container, setContainer] = useState('');
   useEffect(() => {
-    setContainer(containers[0] ?? "");
+    setContainer(containers[0] ?? '');
     // Only on pod change: `containers` is a fresh array each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pod?.uid]);
@@ -43,7 +43,7 @@ export function ShellTab() {
 
   // The terminal is rebuilt only when the target changes; a reconnect reuses it.
   const { hostRef, termRef, sessionRef } = useTerminal(
-    pod && container ? `${pod.uid}:${container}` : null,
+    pod && container ? `${pod.uid}:${container}` : null
   );
 
   // ---- the session: re-runs on reconnect, writing into the existing terminal ----
@@ -60,12 +60,12 @@ export function ShellTab() {
 
     void getProvider()
       .startShell(
-        { kind: "pods", namespace: pod.namespace, name: pod.name },
+        { kind: 'pods', namespace: pod.namespace, name: pod.name },
         container,
         (data) => term.write(data),
         (reason) => {
-          if (!cancelled) setEnded(reason || t("shell.endedFallback", "session ended"));
-        },
+          if (!cancelled) setEnded(reason || t('shell.endedFallback', 'session ended'));
+        }
       )
       .then((h) => {
         if (cancelled) {
@@ -94,7 +94,7 @@ export function ShellTab() {
 
   /** Start a fresh session in the same terminal, marking the break in scrollback. */
   const reconnect = () => {
-    termRef.current?.write("\r\n\x1b[90m── reconnecting ──\x1b[0m\r\n");
+    termRef.current?.write('\r\n\x1b[90m── reconnecting ──\x1b[0m\r\n');
     setAttempt((n) => n + 1);
   };
 
@@ -103,7 +103,7 @@ export function ShellTab() {
       {/* Only worth a picker when there's a choice to make. */}
       {containers.length > 1 && (
         <div className={styles.header}>
-          <span className={styles.headerLabel}>{t("shell.container")}</span>
+          <span className={styles.headerLabel}>{t('shell.container')}</span>
           <select
             className={styles.picker}
             value={container}
@@ -123,8 +123,13 @@ export function ShellTab() {
       {ended !== null && (
         <div className={styles.endedBar}>
           <span className={styles.endedReason}>{ended}</span>
-          <button type="button" className={styles.reconnect} onClick={reconnect} title={t("shell.reconnectTitle")}>
-            {t("shell.reconnect", "↻ reconnect")}
+          <button
+            type="button"
+            className={styles.reconnect}
+            onClick={reconnect}
+            title={t('shell.reconnectTitle')}
+          >
+            {t('shell.reconnect', '↻ reconnect')}
           </button>
         </div>
       )}

@@ -16,11 +16,11 @@
  * Mounted by LogsTab, so the stream also stops when the user leaves the Logs tab.
  */
 
-import { useEffect, useRef } from "react";
-import { getProvider } from "../providers";
-import { useStore, LOG_BUFFER_CAP } from "../store";
-import { sinceSeconds } from "../lib/logview";
-import type { LogHandle } from "../providers/types";
+import { useEffect, useRef } from 'react';
+import { getProvider } from '../providers';
+import { useStore, LOG_BUFFER_CAP } from '../store';
+import { sinceSeconds } from '../lib/logview';
+import type { LogHandle } from '../providers/types';
 
 export function useLogStream(): void {
   const pod = useStore((s) => s.selectedRow);
@@ -34,7 +34,7 @@ export function useLogStream(): void {
   // For multi-container pods, add an "all" option ("") after each container, so the
   // default (index 0) is still the first container.
   const containers = pod?.pod?.containers ?? [];
-  const options = containers.length > 1 ? [...containers, ""] : containers;
+  const options = containers.length > 1 ? [...containers, ''] : containers;
   // null → no pod; "" → all containers; else a specific container name.
   const container = options.length ? options[containerIndex % options.length] : null;
 
@@ -66,7 +66,7 @@ export function useLogStream(): void {
 
     void (async () => {
       handle = await provider.startLogs(
-        { kind: "pods", namespace: pod.namespace, name: pod.name },
+        { kind: 'pods', namespace: pod.namespace, name: pod.name },
         container,
         {
           tail: sinceTime ? undefined : LOG_BUFFER_CAP,
@@ -84,14 +84,14 @@ export function useLogStream(): void {
           if (previous) {
             // Reaching the end of a dead container's log is the expected outcome,
             // not a failure — say so, and leave the follow state alone.
-            appendLogs([{ ts: "", level: "", msg: "— end of previous container's log" }]);
+            appendLogs([{ ts: '', level: '', msg: "— end of previous container's log" }]);
             return;
           }
           // Surface the close reason as a muted line and flip to paused so the
           // user can retry (Story 6.2).
-          appendLogs([{ ts: "", level: "", msg: `— stream closed: ${reason}` }]);
+          appendLogs([{ ts: '', level: '', msg: `— stream closed: ${reason}` }]);
           setFollowing(false);
-        },
+        }
       );
       // If the effect was torn down before the stream attached, stop it now.
       if (cancelled) handle.stop();

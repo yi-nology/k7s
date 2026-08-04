@@ -9,30 +9,30 @@
  * and node drain progress (B20).
  */
 
-import { useEffect, useState } from "react";
-import styles from "./DetailPanel.module.css";
-import { useStore } from "../../store";
-import { useNow } from "../../hooks/useNow";
-import { useTranslation } from "../../hooks/useI18n";
-import { formatAge } from "../../lib/format";
-import { toneColor } from "../../lib/tone";
-import { DETAIL_TABS, kindMeta, KINDS_WITH_PROPERTIES, tabsFor } from "../../lib/kinds";
-import { tabLabel, kindLabelFor } from "../../lib/i18n";
-import { drainErrors, drainSummary, drainTone, pdbBlocked } from "../../lib/drain";
-import { LogsTab } from "./LogsTab";
-import { PropertiesTab } from "./PropertiesTab";
-import { MetricsTab } from "./MetricsTab";
-import { PodMetricsTab } from "./PodMetricsTab";
-import { NodePodsTab } from "./NodePodsTab";
-import { RevisionsTab } from "./RevisionsTab";
-import { ShellTab } from "./ShellTab";
-import { NodeShellTab } from "./NodeShellTab";
-import { YamlTab } from "./YamlTab";
-import { EventsTab } from "./EventsTab";
-import { CronJobTimeline } from "./CronJobTimeline";
-import { ActionsMenu } from "./ActionsMenu";
-import { TabStrip } from "./TabStrip";
-import type { DrainProgress } from "../../providers/types";
+import { useEffect, useState } from 'react';
+import styles from './DetailPanel.module.css';
+import { useStore } from '../../store';
+import { useNow } from '../../hooks/useNow';
+import { useTranslation } from '../../hooks/useI18n';
+import { formatAge } from '../../lib/format';
+import { toneColor } from '../../lib/tone';
+import { DETAIL_TABS, kindMeta, KINDS_WITH_PROPERTIES, tabsFor } from '../../lib/kinds';
+import { tabLabel, kindLabelFor } from '../../lib/i18n';
+import { drainErrors, drainSummary, drainTone, pdbBlocked } from '../../lib/drain';
+import { LogsTab } from './LogsTab';
+import { PropertiesTab } from './PropertiesTab';
+import { MetricsTab } from './MetricsTab';
+import { PodMetricsTab } from './PodMetricsTab';
+import { NodePodsTab } from './NodePodsTab';
+import { RevisionsTab } from './RevisionsTab';
+import { ShellTab } from './ShellTab';
+import { NodeShellTab } from './NodeShellTab';
+import { YamlTab } from './YamlTab';
+import { EventsTab } from './EventsTab';
+import { CronJobTimeline } from './CronJobTimeline';
+import { ActionsMenu } from './ActionsMenu';
+import { TabStrip } from './TabStrip';
+import type { DrainProgress } from '../../providers/types';
 
 export function DetailPanel() {
   const row = useStore((s) => s.selectedRow);
@@ -69,7 +69,7 @@ export function DetailPanel() {
   if (!row) return null;
 
   // Drain progress for this node, if one has run this session (B20).
-  const drain = nav === "nodes" ? drains[row.name] : undefined;
+  const drain = nav === 'nodes' ? drains[row.name] : undefined;
 
   const meta = row.pod; // present only for pods
   const isPod = !!meta;
@@ -77,19 +77,20 @@ export function DetailPanel() {
   // and the keyboard can't disagree about what exists (see lib/kinds.ts).
   const tabIds = tabsFor(nav, isPod);
   const tabs = DETAIL_TABS.filter((t) => tabIds.includes(t.id));
-  const statusColor = meta ? toneColor(meta.statusTone) : "var(--text-muted)";
+  const statusColor = meta ? toneColor(meta.statusTone) : 'var(--text-muted)';
   // Status dot: tone-driven halo + (for err) a slow pulse so the eye lands on
   // the failing pod at a glance. The base .statusDot is the green/ok version.
   const statusDotCls =
-    meta?.statusTone === "err"
+    meta?.statusTone === 'err'
       ? `${styles.statusDot} ${styles.statusDotFailed}`
-      : meta?.statusTone === "warn"
+      : meta?.statusTone === 'warn'
         ? `${styles.statusDot} ${styles.statusDotPending}`
         : styles.statusDot;
   // Custom kinds resolve their label from discovery, so this is a runtime lookup.
   // Localised through `kindLabelFor` so a Chinese UI reads "Deployment" /
   // "节点" / "ConfigMap" rather than the raw English KIND_META label.
-  const kindLabel = kindLabelFor(nav, customKinds, locale) ?? kindMeta(nav, customKinds)?.label ?? nav;
+  const kindLabel =
+    kindLabelFor(nav, customKinds, locale) ?? kindMeta(nav, customKinds)?.label ?? nav;
 
   // data-surface="panel": in light mode the inspector is dark chrome (tokens.css).
   return (
@@ -114,8 +115,8 @@ export function DetailPanel() {
               if (activeDetailTabUid) closeDetailTab(activeDetailTabUid);
               else closeDetail();
             }}
-            title={t("detail.header.closeTitle")}
-            aria-label={t("detail.header.closeTitle")}
+            title={t('detail.header.closeTitle')}
+            aria-label={t('detail.header.closeTitle')}
           >
             ×
           </button>
@@ -128,7 +129,7 @@ export function DetailPanel() {
             type="button"
             className={styles.actionError}
             onClick={() => setActionError(null)}
-            aria-label={t("detail.header.dismissError", "Dismiss error")}
+            aria-label={t('detail.header.dismissError', 'Dismiss error')}
           >
             {actionError}
           </button>
@@ -141,24 +142,27 @@ export function DetailPanel() {
         {isPod ? (
           <div className={styles.meta}>
             <span className={styles.metaChip}>
-              {t("detail.header.ns")} <span className={styles.metaVal}>{row.namespace}</span>
+              {t('detail.header.ns')} <span className={styles.metaVal}>{row.namespace}</span>
             </span>
             <span className={styles.metaChip}>
-              {t("detail.header.node")} <span className={styles.metaVal}>{meta.node}</span>
+              {t('detail.header.node')} <span className={styles.metaVal}>{meta.node}</span>
             </span>
             <span className={styles.metaChip}>
-              {t("detail.header.age")} <span className={styles.metaVal}>{ageText(meta.creationTs, now)}</span>
+              {t('detail.header.age')}{' '}
+              <span className={styles.metaVal}>{ageText(meta.creationTs, now)}</span>
             </span>
-            <span className={styles.metaChip} style={{ color: statusColor }}>{meta.status}</span>
+            <span className={styles.metaChip} style={{ color: statusColor }}>
+              {meta.status}
+            </span>
           </div>
         ) : (
           <div className={styles.meta}>
             <span className={styles.metaChip}>
-              {t("detail.header.kind")} <span className={styles.metaVal}>{kindLabel}</span>
+              {t('detail.header.kind')} <span className={styles.metaVal}>{kindLabel}</span>
             </span>
             {row.namespace && (
               <span className={styles.metaChip}>
-                {t("detail.header.ns")} <span className={styles.metaVal}>{row.namespace}</span>
+                {t('detail.header.ns')} <span className={styles.metaVal}>{row.namespace}</span>
               </span>
             )}
           </div>
@@ -176,7 +180,7 @@ export function DetailPanel() {
               type="button"
               role="tab"
               aria-selected={activeTab === tt.id}
-              className={`${styles.tab} ${activeTab === tt.id ? styles.tabActive : ""}`}
+              className={`${styles.tab} ${activeTab === tt.id ? styles.tabActive : ''}`}
               onClick={() => setActiveTab(tt.id)}
             >
               {tabLabel(tt.id, locale)}
@@ -185,29 +189,29 @@ export function DetailPanel() {
         </div>
       </div>
 
-      {activeTab === "logs" && isPod && <LogsTab />}
+      {activeTab === 'logs' && isPod && <LogsTab />}
       {/* Mirrors the tab list above: Properties is no longer pod-only (B18). */}
-      {activeTab === "properties" && KINDS_WITH_PROPERTIES.has(nav) && <PropertiesTab />}
+      {activeTab === 'properties' && KINDS_WITH_PROPERTIES.has(nav) && <PropertiesTab />}
       {/* Revision history + rollback — Deployment/StatefulSet/DaemonSet only. */}
-      {activeTab === "revisions" &&
-        (nav === "deployments" || nav === "statefulsets" || nav === "daemonsets") && (
+      {activeTab === 'revisions' &&
+        (nav === 'deployments' || nav === 'statefulsets' || nav === 'daemonsets') && (
           <RevisionsTab />
         )}
       {/* Mounting is what starts the scraper, so this must mirror the tab list. A
           node's Metrics come from its node-exporter; a pod's from metrics.k8s.io. */}
-      {activeTab === "metrics" && nav === "nodes" && <MetricsTab />}
-      {activeTab === "metrics" && isPod && <PodMetricsTab />}
+      {activeTab === 'metrics' && nav === 'nodes' && <MetricsTab />}
+      {activeTab === 'metrics' && isPod && <PodMetricsTab />}
       {/* Node-only: the pods scheduled on this node + their live CPU/MEM, for
           diagnosing "what's eating this node's resources". */}
-      {activeTab === "pods" && nav === "nodes" && <NodePodsTab />}
-      {activeTab === "shell" && isPod && <ShellTab />}
+      {activeTab === 'pods' && nav === 'nodes' && <NodePodsTab />}
+      {activeTab === 'shell' && isPod && <ShellTab />}
       {/* A node's shell is a privileged debug pod rather than a container exec
           (B53), so it's a different component behind the same tab. */}
-      {activeTab === "shell" && nav === "nodes" && <NodeShellTab />}
-      {activeTab === "yaml" && <YamlTab />}
-      {activeTab === "events" && <EventsTab />}
+      {activeTab === 'shell' && nav === 'nodes' && <NodeShellTab />}
+      {activeTab === 'yaml' && <YamlTab />}
+      {activeTab === 'events' && <EventsTab />}
       {/* CronJob timeline — Job execution history for CronJobs. */}
-      {activeTab === "timeline" && nav === "cronjobs" && <CronJobTimeline />}
+      {activeTab === 'timeline' && nav === 'cronjobs' && <CronJobTimeline />}
     </div>
   );
 }
@@ -217,7 +221,13 @@ export function DetailPanel() {
  * The judgement about how it reads (a PDB block is not a failure) lives in
  * lib/drain.ts, where it's tested.
  */
-function DrainBanner({ progress, t }: { progress: DrainProgress; t: (key: string, ...args: unknown[]) => string }) {
+function DrainBanner({
+  progress,
+  t,
+}: {
+  progress: DrainProgress;
+  t: (key: string, ...args: unknown[]) => string;
+}) {
   const tone = drainTone(progress);
   const blocked = pdbBlocked(progress);
   const errored = drainErrors(progress);
@@ -230,11 +240,11 @@ function DrainBanner({ progress, t }: { progress: DrainProgress; t: (key: string
       </div>
       {blocked.length > 0 && (
         <div className={styles.drainDetail}>
-          {t("detail.drain.pdbBlocked", blocked.length, blocked.map((f) => f.pod).join(", "))}
+          {t('detail.drain.pdbBlocked', blocked.length, blocked.map((f) => f.pod).join(', '))}
         </div>
       )}
       {errored.map((f) => (
-        <div key={f.pod} className={styles.drainDetail} style={{ color: toneColor("err") }}>
+        <div key={f.pod} className={styles.drainDetail} style={{ color: toneColor('err') }}>
           {f.pod}: {f.message}
         </div>
       ))}

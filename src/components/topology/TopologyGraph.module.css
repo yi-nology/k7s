@@ -61,7 +61,9 @@
   line-height: 1;
   min-width: 28px;
   padding: 0 var(--space-2, 8px);
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .zoomBtn:hover {
@@ -112,7 +114,8 @@
 }
 
 @keyframes focusPulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.25;
   }
   50% {
@@ -411,7 +414,9 @@
   font: inherit;
   font-size: 11px;
   padding: 4px 10px;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .actionBtn:hover {

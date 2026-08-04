@@ -18,18 +18,22 @@
  * "工作负载 / Pod" in a Chinese UI.
  */
 
-import type { NavGroup, ResourceKind, KindMeta, DetailTabId } from "../kinds";
-import { GROUP_LABELS as EN_GROUP_LABELS, KIND_META as EN_KIND_META, DETAIL_TABS as EN_DETAIL_TABS } from "../kinds";
-import { en, zh, type Dictionary, type Parameters } from "./dictionaries";
+import type { NavGroup, ResourceKind, KindMeta, DetailTabId } from '../kinds';
+import {
+  GROUP_LABELS as EN_GROUP_LABELS,
+  KIND_META as EN_KIND_META,
+  DETAIL_TABS as EN_DETAIL_TABS,
+} from '../kinds';
+import { en, zh, type Dictionary, type Parameters } from './dictionaries';
 
 /** The two locales the app ships. */
-export type Locale = "en" | "zh";
-export const LOCALES: Locale[] = ["en", "zh"];
+export type Locale = 'en' | 'zh';
+export const LOCALES: Locale[] = ['en', 'zh'];
 
 /** Human-readable label for a locale — used by the language switcher UI. */
 export const LOCALE_LABELS: Record<Locale, string> = {
-  en: "English",
-  zh: "中文",
+  en: 'English',
+  zh: '中文',
 };
 
 /**
@@ -37,11 +41,11 @@ export const LOCALE_LABELS: Record<Locale, string> = {
  * HTML's inline script can set `<html lang>` before the first paint and React's
  * first render already agrees with what the user picked.
  */
-export const LOCALE_STORAGE_KEY = "k7s.locale";
+export const LOCALE_STORAGE_KEY = 'k7s.locale';
 
 /** Narrow arbitrary persisted junk to a Locale, defaulting to English. */
 export function asLocale(value: unknown): Locale {
-  return LOCALES.includes(value as Locale) ? (value as Locale) : "en";
+  return LOCALES.includes(value as Locale) ? (value as Locale) : 'en';
 }
 
 /**
@@ -54,19 +58,19 @@ export function cachedLocale(): Locale {
   // it's the same one the inline script in index.html writes to. Plain
   // `localStorage` falls back to a (possibly experimental) Node global in tests,
   // which is not what we want — we want to read the same key the page would.
-  const store = typeof window !== "undefined" && window.localStorage ? window.localStorage : null;
-  if (!store) return "en";
+  const store = typeof window !== 'undefined' && window.localStorage ? window.localStorage : null;
+  if (!store) return 'en';
   try {
     const v = store.getItem(LOCALE_STORAGE_KEY);
-    return v === "zh" ? "zh" : "en";
+    return v === 'zh' ? 'zh' : 'en';
   } catch {
-    return "en";
+    return 'en';
   }
 }
 
 /** Persist the choice for the paint-time cache. Prefs remain canonical. */
 export function cacheLocale(locale: Locale): void {
-  const store = typeof window !== "undefined" && window.localStorage ? window.localStorage : null;
+  const store = typeof window !== 'undefined' && window.localStorage ? window.localStorage : null;
   if (!store) return;
   try {
     store.setItem(LOCALE_STORAGE_KEY, locale);
@@ -77,7 +81,7 @@ export function cacheLocale(locale: Locale): void {
 
 /** Look up the bundled dictionary for a locale. Always defined; unknown → en. */
 export function dict(locale: Locale): Dictionary {
-  return locale === "zh" ? zh : en;
+  return locale === 'zh' ? zh : en;
 }
 
 // ---- message lookup ----
@@ -101,36 +105,36 @@ export function dict(locale: Locale): Dictionary {
 export function translate(locale: Locale, key: string, ...args: unknown[]): string {
   const fromLocale = resolve(locale, key, args);
   if (fromLocale !== undefined) return fromLocale;
-  const fromEnglish = resolve("en", key, args);
+  const fromEnglish = resolve('en', key, args);
   if (fromEnglish !== undefined) return fromEnglish;
   // Fallback: a leading string in `args` is treated as the default copy for an
   // untranslated key. A function with the right arity would have consumed it,
   // so by here we know the function-args case didn't fire.
-  if (args.length > 0 && typeof args[0] === "string") return args[0];
+  if (args.length > 0 && typeof args[0] === 'string') return args[0];
   return key;
 }
 
 /** Walk a dotted path, invoking a function leaf when found. */
 function resolve(locale: Locale, path: string, args: unknown[]): string | undefined {
   let cur: unknown = dict(locale);
-  for (const seg of path.split(".")) {
-    if (cur && typeof cur === "object" && seg in (cur as Record<string, unknown>)) {
+  for (const seg of path.split('.')) {
+    if (cur && typeof cur === 'object' && seg in (cur as Record<string, unknown>)) {
       cur = (cur as Record<string, unknown>)[seg];
     } else {
       return undefined;
     }
   }
-  if (typeof cur === "function") {
+  if (typeof cur === 'function') {
     try {
       const out = cur(...args);
-      return typeof out === "string" ? out : undefined;
+      return typeof out === 'string' ? out : undefined;
     } catch {
       // A function with the wrong arity is a dictionary bug, not a runtime
       // problem to surface to the user. Return undefined so the fallback fires.
       return undefined;
     }
   }
-  return typeof cur === "string" ? cur : undefined;
+  return typeof cur === 'string' ? cur : undefined;
 }
 
 // ---- labels that decorate the static kind registry ----
@@ -143,85 +147,85 @@ function resolve(locale: Locale, path: string, args: unknown[]): string | undefi
  * the locale says, so the chrome adapts without forking the registry.
  */
 const GROUP_LABELS_ZH: Record<NavGroup, string> = {
-  workloads: "工作负载",
-  network: "网络",
-  config: "配置",
-  access: "访问控制",
-  storage: "存储",
-  cluster: "集群",
-  helm: "Helm",
-  custom: "自定义",
+  workloads: '工作负载',
+  network: '网络',
+  config: '配置',
+  access: '访问控制',
+  storage: '存储',
+  cluster: '集群',
+  helm: 'Helm',
+  custom: '自定义',
 };
 
 const KIND_LABELS_ZH: Record<ResourceKind, string> = {
-  pods: "Pod",
-  deployments: "Deployment",
-  replicasets: "ReplicaSet",
-  statefulsets: "StatefulSet",
-  daemonsets: "DaemonSet",
-  jobs: "Job",
-  cronjobs: "CronJob",
-  services: "Service",
-  ingresses: "Ingress",
-  ingressclasses: "IngressClass",
-  configmaps: "ConfigMap",
-  secrets: "Secret",
-  serviceaccounts: "ServiceAccount",
-  persistentvolumeclaims: "PersistentVolumeClaim",
-  persistentvolumes: "PersistentVolume",
-  storageclasses: "StorageClass",
-  nodes: "节点",
-  namespaces: "命名空间",
-  events: "事件",
-  helm: "发布",
-  networkpolicies: "网络策略",
-  horizontalpodautoscalers: "HPA",
-  resourcequotas: "资源配额",
-  limitranges: "限制范围",
-  roles: "角色",
-  clusterroles: "集群角色",
-  rolebindings: "角色绑定",
-  clusterrolebindings: "集群角色绑定",
-  poddisruptionbudgets: "Pod中断预算",
-  mutatingwebhookconfigurations: "变更Webhook",
-  validatingwebhookconfigurations: "验证Webhook",
-  apiservices: "API服务",
+  pods: 'Pod',
+  deployments: 'Deployment',
+  replicasets: 'ReplicaSet',
+  statefulsets: 'StatefulSet',
+  daemonsets: 'DaemonSet',
+  jobs: 'Job',
+  cronjobs: 'CronJob',
+  services: 'Service',
+  ingresses: 'Ingress',
+  ingressclasses: 'IngressClass',
+  configmaps: 'ConfigMap',
+  secrets: 'Secret',
+  serviceaccounts: 'ServiceAccount',
+  persistentvolumeclaims: 'PersistentVolumeClaim',
+  persistentvolumes: 'PersistentVolume',
+  storageclasses: 'StorageClass',
+  nodes: '节点',
+  namespaces: '命名空间',
+  events: '事件',
+  helm: '发布',
+  networkpolicies: '网络策略',
+  horizontalpodautoscalers: 'HPA',
+  resourcequotas: '资源配额',
+  limitranges: '限制范围',
+  roles: '角色',
+  clusterroles: '集群角色',
+  rolebindings: '角色绑定',
+  clusterrolebindings: '集群角色绑定',
+  poddisruptionbudgets: 'Pod中断预算',
+  mutatingwebhookconfigurations: '变更Webhook',
+  validatingwebhookconfigurations: '验证Webhook',
+  apiservices: 'API服务',
 };
 
 const TAB_LABELS_ZH: Record<DetailTabId, string> = {
-  logs: "日志",
-  properties: "属性",
-  revisions: "版本历史",
-  metrics: "指标",
-  shell: "终端",
-  yaml: "YAML",
-  events: "事件",
-  pods: "Pod 列表",
-  timeline: "时间线",
+  logs: '日志',
+  properties: '属性',
+  revisions: '版本历史',
+  metrics: '指标',
+  shell: '终端',
+  yaml: 'YAML',
+  events: '事件',
+  pods: 'Pod 列表',
+  timeline: '时间线',
 };
 
 /** Translated group header (or English on en/unknown). */
 export function groupLabel(group: NavGroup, locale: Locale): string {
-  if (locale === "zh") return GROUP_LABELS_ZH[group];
+  if (locale === 'zh') return GROUP_LABELS_ZH[group];
   return EN_GROUP_LABELS[group];
 }
 
 /** Translated kind label for built-in kinds. Custom kinds should use kindMeta(). */
 export function kindLabel(kind: ResourceKind, locale: Locale): string {
-  if (locale === "zh") return KIND_LABELS_ZH[kind];
+  if (locale === 'zh') return KIND_LABELS_ZH[kind];
   return EN_KIND_META[kind].label;
 }
 
 /** Translated detail-tab label, falling back to the English registry. */
 export function tabLabel(tab: DetailTabId, locale: Locale): string {
-  if (locale === "zh") return TAB_LABELS_ZH[tab];
+  if (locale === 'zh') return TAB_LABELS_ZH[tab];
   return EN_DETAIL_TABS.find((t) => t.id === tab)?.label ?? tab;
 }
 
 /** Localised kind meta (label only — columns stay English by design). */
 export function localizedKindMeta(kind: ResourceKind, locale: Locale): KindMeta {
   const base = EN_KIND_META[kind];
-  if (locale === "zh") {
+  if (locale === 'zh') {
     return { ...base, label: KIND_LABELS_ZH[kind] };
   }
   return base;
@@ -242,9 +246,9 @@ export function localizedKindMeta(kind: ResourceKind, locale: Locale): KindMeta 
 export function kindLabelFor(
   id: string,
   customKinds: { id: string; kind: string }[],
-  locale: Locale,
+  locale: Locale
 ): string | undefined {
-  if (id.includes("/")) {
+  if (id.includes('/')) {
     const ck = customKinds.find((k) => k.id === id);
     return ck ? ck.kind : undefined;
   }
@@ -264,16 +268,16 @@ export function kindLabelFor(
 export function localizedKindMetaFor(
   id: string,
   customKinds: { id: string; kind: string; namespaced: boolean; group: string }[],
-  locale: Locale,
+  locale: Locale
 ): KindMeta | undefined {
-  if (id.includes("/")) {
+  if (id.includes('/')) {
     const ck = customKinds.find((k) => k.id === id);
     if (!ck) return undefined;
     return {
-      group: "custom",
+      group: 'custom',
       label: ck.kind,
-      icon: "◈",
-      columns: ck.namespaced ? ["NAME", "NAMESPACE", "AGE"] : ["NAME", "AGE"],
+      icon: '◈',
+      columns: ck.namespaced ? ['NAME', 'NAMESPACE', 'AGE'] : ['NAME', 'AGE'],
     };
   }
   if (id in EN_KIND_META) {

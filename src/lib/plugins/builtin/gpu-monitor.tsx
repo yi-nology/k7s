@@ -14,9 +14,9 @@
  * this plugin.
  */
 
-import { useEffect, useState } from "react";
-import type { K7sPlugin, PluginAPI } from "../types";
-import { getProvider } from "../../../providers";
+import { useEffect, useState } from 'react';
+import type { K7sPlugin, PluginAPI } from '../types';
+import { getProvider } from '../../../providers';
 
 // ---------------------------------------------------------------------------
 // Prometheus query helpers
@@ -43,7 +43,7 @@ async function tryQuery(promql: string): Promise<string | null> {
 
 interface GpuState {
   loading: boolean;
-  available: boolean;        // GPU metrics exist at all
+  available: boolean; // GPU metrics exist at all
   prometheusConfigured: boolean;
   count: string;
   utilAvg: string;
@@ -55,10 +55,10 @@ const INITIAL_STATE: GpuState = {
   loading: true,
   available: false,
   prometheusConfigured: true,
-  count: "0",
-  utilAvg: "0%",
-  memUsed: "0 MiB",
-  memTotal: "0 MiB",
+  count: '0',
+  utilAvg: '0%',
+  memUsed: '0 MiB',
+  memTotal: '0 MiB',
 };
 
 function GpuDashboardCard() {
@@ -83,10 +83,12 @@ function GpuDashboardCard() {
       }
 
       // 2. Probe for GPU count — the simplest DCGM/nvidia query.
-      const countStr = await tryQuery("count(DCGM_FI_DEV_GPU_TEMP) or count(nvidia_gpu_utilization_gpu)");
+      const countStr = await tryQuery(
+        'count(DCGM_FI_DEV_GPU_TEMP) or count(nvidia_gpu_utilization_gpu)'
+      );
       if (cancelled) return;
 
-      if (!countStr || countStr === "0") {
+      if (!countStr || countStr === '0') {
         // No GPU metrics at all — the NVIDIA device plugin is not installed.
         setState({ ...INITIAL_STATE, loading: false, available: false });
         return;
@@ -94,14 +96,16 @@ function GpuDashboardCard() {
 
       // 3. GPU metrics exist — pull the three headline numbers.
       const [utilStr, memUsedStr, memTotalStr] = await Promise.all([
-        tryQuery("avg(DCGM_FI_DEV_GPU_UTIL or nvidia_gpu_utilization_gpu)"),
-        tryQuery("sum(DCGM_FI_DEV_FB_USED or nvidia_gpu_memory_used_bytes) / 1024 / 1024"),
-        tryQuery("sum(DCGM_FI_DEV_FB_FREE or nvidia_gpu_memory_free_bytes + DCGM_FI_DEV_FB_USED or nvidia_gpu_memory_used_bytes) / 1024 / 1024"),
+        tryQuery('avg(DCGM_FI_DEV_GPU_UTIL or nvidia_gpu_utilization_gpu)'),
+        tryQuery('sum(DCGM_FI_DEV_FB_USED or nvidia_gpu_memory_used_bytes) / 1024 / 1024'),
+        tryQuery(
+          'sum(DCGM_FI_DEV_FB_FREE or nvidia_gpu_memory_free_bytes + DCGM_FI_DEV_FB_USED or nvidia_gpu_memory_used_bytes) / 1024 / 1024'
+        ),
       ]);
       if (cancelled) return;
 
       const formatMiB = (v: string | null) => {
-        const n = parseFloat(v ?? "0");
+        const n = parseFloat(v ?? '0');
         if (n >= 1024) return `${(n / 1024).toFixed(1)} GiB`;
         return `${Math.round(n)} MiB`;
       };
@@ -111,74 +115,85 @@ function GpuDashboardCard() {
         available: true,
         prometheusConfigured: true,
         count: countStr,
-        utilAvg: `${Math.round(parseFloat(utilStr ?? "0"))}%`,
+        utilAvg: `${Math.round(parseFloat(utilStr ?? '0'))}%`,
         memUsed: formatMiB(memUsedStr),
         memTotal: formatMiB(memTotalStr),
       });
     }
 
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ---- render ----
   const cardStyle: React.CSSProperties = {
-    padding: "16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: "12px",
-    fontSize: "13px",
-    color: "var(--text-primary, #e0e0e0)",
-    minWidth: "200px",
+    padding: '16px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+    fontSize: '13px',
+    color: 'var(--text-primary, #e0e0e0)',
+    minWidth: '200px',
   };
   const rowStyle: React.CSSProperties = {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   };
   const labelStyle: React.CSSProperties = {
-    color: "var(--text-muted, #888)",
-    fontSize: "12px",
+    color: 'var(--text-muted, #888)',
+    fontSize: '12px',
   };
   const valueStyle: React.CSSProperties = {
     fontWeight: 600,
-    fontFamily: "var(--font-mono, monospace)",
+    fontFamily: 'var(--font-mono, monospace)',
   };
   const mutedStyle: React.CSSProperties = {
-    padding: "16px",
-    color: "var(--text-muted, #888)",
-    fontSize: "13px",
-    textAlign: "center" as const,
+    padding: '16px',
+    color: 'var(--text-muted, #888)',
+    fontSize: '13px',
+    textAlign: 'center' as const,
   };
 
   if (state.loading) {
-    return { type: "div", props: { style: mutedStyle, children: "Loading GPU metrics..." } } as any;
+    return { type: 'div', props: { style: mutedStyle, children: 'Loading GPU metrics...' } } as any;
   }
   if (!state.prometheusConfigured) {
-    return { type: "div", props: { style: mutedStyle, children: "No Prometheus instance configured." } } as any;
+    return {
+      type: 'div',
+      props: { style: mutedStyle, children: 'No Prometheus instance configured.' },
+    } as any;
   }
   if (!state.available) {
-    return { type: "div", props: { style: mutedStyle, children: "No GPU resources detected. Install the NVIDIA device plugin to see GPU metrics." } } as any;
+    return {
+      type: 'div',
+      props: {
+        style: mutedStyle,
+        children: 'No GPU resources detected. Install the NVIDIA device plugin to see GPU metrics.',
+      },
+    } as any;
   }
 
   const rows = [
-    { label: "GPUs", value: state.count },
-    { label: "Avg Utilization", value: state.utilAvg },
-    { label: "Memory Used", value: state.memUsed },
-    { label: "Memory Total", value: state.memTotal },
+    { label: 'GPUs', value: state.count },
+    { label: 'Avg Utilization', value: state.utilAvg },
+    { label: 'Memory Used', value: state.memUsed },
+    { label: 'Memory Total', value: state.memTotal },
   ];
 
   return {
-    type: "div",
+    type: 'div',
     props: {
       style: cardStyle,
       children: rows.map((r) => ({
-        type: "div",
+        type: 'div',
         props: {
           style: rowStyle,
           children: [
-            { type: "span", props: { style: labelStyle, children: r.label }, key: r.label },
-            { type: "span", props: { style: valueStyle, children: r.value }, key: r.label + "-v" },
+            { type: 'span', props: { style: labelStyle, children: r.label }, key: r.label },
+            { type: 'span', props: { style: valueStyle, children: r.value }, key: r.label + '-v' },
           ],
         },
         key: r.label,
@@ -192,17 +207,17 @@ function GpuDashboardCard() {
 // ---------------------------------------------------------------------------
 
 export const gpuMonitorPlugin: K7sPlugin = {
-  id: "gpu-monitor",
-  name: "GPU Monitor",
-  version: "0.1.0",
+  id: 'gpu-monitor',
+  name: 'GPU Monitor',
+  version: '0.1.0',
   description:
-    "Cluster-wide GPU utilisation overview. Queries NVIDIA DCGM / device-plugin metrics via Prometheus.",
-  author: "k7s",
+    'Cluster-wide GPU utilisation overview. Queries NVIDIA DCGM / device-plugin metrics via Prometheus.',
+  author: 'k7s',
 
   activate(api: PluginAPI) {
     api.registerDashboardCard({
-      id: "gpu-overview",
-      title: "GPU Overview",
+      id: 'gpu-overview',
+      title: 'GPU Overview',
       component: GpuDashboardCard,
     });
   },

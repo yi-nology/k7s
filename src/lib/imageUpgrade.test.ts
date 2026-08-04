@@ -5,11 +5,8 @@
  * (init containers, multi-document YAML, missing containers) that would
  * silently corrupt the manifest if mishandled.
  */
-import { describe, expect, it } from "vitest";
-import {
-  extractContainerImages,
-  rewriteContainerImage,
-} from "./imageUpgrade";
+import { describe, expect, it } from 'vitest';
+import { extractContainerImages, rewriteContainerImage } from './imageUpgrade';
 
 const SAMPLE_DEPLOYMENT = `apiVersion: apps/v1
 kind: Deployment
@@ -82,40 +79,40 @@ spec:
             image: cleanup:0.4
 `;
 
-describe("extractContainerImages", () => {
-  it("returns an empty array for empty input", () => {
-    expect(extractContainerImages("")).toEqual([]);
+describe('extractContainerImages', () => {
+  it('returns an empty array for empty input', () => {
+    expect(extractContainerImages('')).toEqual([]);
   });
 
-  it("picks up every container in a Deployment", () => {
+  it('picks up every container in a Deployment', () => {
     const got = extractContainerImages(SAMPLE_DEPLOYMENT);
     expect(got).toEqual([
-      { name: "app", kind: "standard", image: "nginx:1.25" },
-      { name: "sidecar", kind: "standard", image: "envoyproxy/envoy:v1.30" },
+      { name: 'app', kind: 'standard', image: 'nginx:1.25' },
+      { name: 'sidecar', kind: 'standard', image: 'envoyproxy/envoy:v1.30' },
     ]);
   });
 
-  it("distinguishes initContainers from containers", () => {
+  it('distinguishes initContainers from containers', () => {
     const got = extractContainerImages(SAMPLE_WITH_INIT);
     expect(got).toEqual([
-      { name: "db-migrate", kind: "init", image: "busybox:1.36" },
-      { name: "main", kind: "standard", image: "my-app:1.2.3" },
+      { name: 'db-migrate', kind: 'init', image: 'busybox:1.36' },
+      { name: 'main', kind: 'standard', image: 'my-app:1.2.3' },
     ]);
   });
 
-  it("stops at `---` and only walks the workload document", () => {
+  it('stops at `---` and only walks the workload document', () => {
     // The first document is a Service (no `containers:`), the second is
     // a Deployment. Only the Deployment's `app` should be returned.
     const got = extractContainerImages(SAMPLE_MULTI_DOC);
-    expect(got).toEqual([{ name: "app", kind: "standard", image: "nginx:1.25" }]);
+    expect(got).toEqual([{ name: 'app', kind: 'standard', image: 'nginx:1.25' }]);
   });
 
-  it("ignores `image:` lines in annotations", () => {
+  it('ignores `image:` lines in annotations', () => {
     const got = extractContainerImages(SAMPLE_CRONJOB_WITH_ANNOTATION);
-    expect(got).toEqual([{ name: "janitor", kind: "standard", image: "cleanup:0.4" }]);
+    expect(got).toEqual([{ name: 'janitor', kind: 'standard', image: 'cleanup:0.4' }]);
   });
 
-  it("handles a manifest with no containers", () => {
+  it('handles a manifest with no containers', () => {
     const yaml = `apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -127,9 +124,9 @@ data:
   });
 });
 
-describe("rewriteContainerImage", () => {
+describe('rewriteContainerImage', () => {
   it("replaces the named container's image and leaves siblings untouched", () => {
-    const out = rewriteContainerImage(SAMPLE_DEPLOYMENT, "sidecar", "envoyproxy/envoy:v1.31");
+    const out = rewriteContainerImage(SAMPLE_DEPLOYMENT, 'sidecar', 'envoyproxy/envoy:v1.31');
     expect(out).toMatch(/^ {6}- name: sidecar$/m);
     // The new image is on the line below `- name: sidecar`, with the
     // same indent as the original. Pinning the exact line keeps the
@@ -142,34 +139,34 @@ describe("rewriteContainerImage", () => {
     expect(out).toMatch(/^ {8}- containerPort: 80$/m);
   });
 
-  it("rewrites the initContainer image when targeted by name", () => {
-    const out = rewriteContainerImage(SAMPLE_WITH_INIT, "db-migrate", "busybox:1.37");
+  it('rewrites the initContainer image when targeted by name', () => {
+    const out = rewriteContainerImage(SAMPLE_WITH_INIT, 'db-migrate', 'busybox:1.37');
     expect(out).toMatch(/^ {8}image: busybox:1\.37$/m);
     // The standard container is untouched.
     expect(out).toMatch(/^ {8}image: my-app:1\.2\.3$/m);
   });
 
-  it("returns the YAML unchanged when the container name is not found", () => {
-    const out = rewriteContainerImage(SAMPLE_DEPLOYMENT, "ghost", "nope:1");
+  it('returns the YAML unchanged when the container name is not found', () => {
+    const out = rewriteContainerImage(SAMPLE_DEPLOYMENT, 'ghost', 'nope:1');
     expect(out).toBe(SAMPLE_DEPLOYMENT);
   });
 
-  it("refuses to write an empty image value", () => {
-    expect(() => rewriteContainerImage(SAMPLE_DEPLOYMENT, "app", "")).toThrow(
-      /image must not be empty/i,
+  it('refuses to write an empty image value', () => {
+    expect(() => rewriteContainerImage(SAMPLE_DEPLOYMENT, 'app', '')).toThrow(
+      /image must not be empty/i
     );
-    expect(() => rewriteContainerImage(SAMPLE_DEPLOYMENT, "app", "   ")).toThrow(
-      /image must not be empty/i,
+    expect(() => rewriteContainerImage(SAMPLE_DEPLOYMENT, 'app', '   ')).toThrow(
+      /image must not be empty/i
     );
   });
 
-  it("does not touch the `---`-separated Service in a multi-doc YAML", () => {
+  it('does not touch the `---`-separated Service in a multi-doc YAML', () => {
     // The Service document has no `containers:` so nothing should change
     // there; the Deployment's `app` image should still be rewritten.
-    const out = rewriteContainerImage(SAMPLE_MULTI_DOC, "app", "nginx:1.26");
+    const out = rewriteContainerImage(SAMPLE_MULTI_DOC, 'app', 'nginx:1.26');
     // Service block is byte-identical: the only change is below `---`.
-    const [serviceBlock, deployBlock] = out.split("\n---\n");
-    expect(serviceBlock).toBe(SAMPLE_MULTI_DOC.split("\n---\n")[0]);
+    const [serviceBlock, deployBlock] = out.split('\n---\n');
+    expect(serviceBlock).toBe(SAMPLE_MULTI_DOC.split('\n---\n')[0]);
     expect(deployBlock).toMatch(/^ {8}image: nginx:1\.26$/m);
   });
 
@@ -186,7 +183,7 @@ describe("rewriteContainerImage", () => {
       - name: app
         image: old:1.0
 `;
-    const out = rewriteContainerImage(yaml, "app", "new:2.0");
+    const out = rewriteContainerImage(yaml, 'app', 'new:2.0');
     expect(out).toMatch(/^ {8}image: new:2\.0$/m);
     // Trailing lines survive verbatim — a smoke test that the loop
     // pushed every line it didn't touch.
@@ -203,21 +200,18 @@ describe("rewriteContainerImage", () => {
  * and the result is parse-equivalent (same container images, same other
  * fields) to the input.
  */
-describe("extract + rewrite round-trip", () => {
-  it("rewriting every extracted image yields the same image set as the input", () => {
+describe('extract + rewrite round-trip', () => {
+  it('rewriting every extracted image yields the same image set as the input', () => {
     const newImages: Record<string, string> = {
-      app: "nginx:1.26",
-      sidecar: "envoyproxy/envoy:v1.31",
+      app: 'nginx:1.26',
+      sidecar: 'envoyproxy/envoy:v1.31',
     };
     let out = SAMPLE_DEPLOYMENT;
     for (const c of extractContainerImages(SAMPLE_DEPLOYMENT)) {
       out = rewriteContainerImage(out, c.name, newImages[c.name]!);
     }
     const after = extractContainerImages(out);
-    expect(after.map((c) => c.image)).toEqual([
-      "nginx:1.26",
-      "envoyproxy/envoy:v1.31",
-    ]);
+    expect(after.map((c) => c.image)).toEqual(['nginx:1.26', 'envoyproxy/envoy:v1.31']);
   });
 });
 
@@ -239,23 +233,24 @@ spec:
         - containerPort: 80
 `;
 
-describe("field order: image before name", () => {
-  it("extracts container when image appears before name", () => {
+describe('field order: image before name', () => {
+  it('extracts container when image appears before name', () => {
     const out = extractContainerImages(YAML_IMAGE_BEFORE_NAME);
     expect(out).toEqual([
       {
-        name: "kylin-insights-frontend",
-        kind: "standard",
-        image: "cr.kylinos.cn/kylin-insight/kylin-insights-frontend:main_v3-20260728-a3e77b36-gitlabci",
+        name: 'kylin-insights-frontend',
+        kind: 'standard',
+        image:
+          'cr.kylinos.cn/kylin-insight/kylin-insights-frontend:main_v3-20260728-a3e77b36-gitlabci',
       },
     ]);
   });
 
-  it("rewrites the image even when name comes after image", () => {
+  it('rewrites the image even when name comes after image', () => {
     const out = rewriteContainerImage(
       YAML_IMAGE_BEFORE_NAME,
-      "kylin-insights-frontend",
-      "cr.kylinos.cn/kylin-insight/kylin-insights-frontend:v2.0.0",
+      'kylin-insights-frontend',
+      'cr.kylinos.cn/kylin-insight/kylin-insights-frontend:v2.0.0'
     );
     expect(out).toMatch(/image: cr\.kylinos\.cn\/kylin-insight\/kylin-insights-frontend:v2\.0\.0/m);
     // The name line is preserved verbatim.

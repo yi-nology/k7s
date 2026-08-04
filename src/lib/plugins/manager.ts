@@ -7,8 +7,8 @@
  * in the app's settings alongside other user prefs.
  */
 
-import type { K7sPlugin, PluginAPI } from "./types";
-import { PluginAPIImpl } from "./api";
+import type { K7sPlugin, PluginAPI } from './types';
+import { PluginAPIImpl } from './api';
 
 export class PluginManager {
   private plugins: Map<string, K7sPlugin> = new Map();

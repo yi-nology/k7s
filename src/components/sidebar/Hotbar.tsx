@@ -6,17 +6,17 @@
  * the current context.
  */
 
-import { useCallback, useRef, useState } from "react";
-import styles from "./Hotbar.module.css";
-import { useStore } from "../../store";
-import { useClickOutside } from "../../hooks/useClickOutside";
-import { connectTo } from "../../lib/connect";
+import { useCallback, useRef, useState } from 'react';
+import styles from './Hotbar.module.css';
+import { useStore } from '../../store';
+import { useClickOutside } from '../../hooks/useClickOutside';
+import { connectTo } from '../../lib/connect';
 
 const MAX_SLOTS = 8;
 
 /** First two letters of the context name, uppercased. */
 function initials(name: string): string {
-  return name.slice(0, 2).toUpperCase() || "??";
+  return name.slice(0, 2).toUpperCase() || '??';
 }
 
 export function Hotbar() {
@@ -34,23 +34,20 @@ export function Hotbar() {
     (context: string) => {
       if (context !== connection.context) void connectTo(context);
     },
-    [connection.context],
+    [connection.context]
   );
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, context: string) => {
-      e.preventDefault();
-      setMenuTarget(context);
-    },
-    [],
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent, context: string) => {
+    e.preventDefault();
+    setMenuTarget(context);
+  }, []);
 
   const handleRemove = useCallback(
     (context: string) => {
       removeHotbarItem(context);
       setMenuTarget(null);
     },
-    [removeHotbarItem],
+    [removeHotbarItem]
   );
 
   const handleAdd = useCallback(() => {
@@ -65,9 +62,9 @@ export function Hotbar() {
       {hotbar.map((ctx) => {
         const isActive = ctx === connection.context;
         return (
-          <div key={ctx} style={{ position: "relative" }}>
+          <div key={ctx} style={{ position: 'relative' }}>
             <div
-              className={`${styles.slot} ${isActive ? styles.slotActive : ""}`}
+              className={`${styles.slot} ${isActive ? styles.slotActive : ''}`}
               title={ctx}
               onClick={() => handleSlotClick(ctx)}
               onContextMenu={(e) => handleContextMenu(e, ctx)}

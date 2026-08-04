@@ -10,12 +10,12 @@
  * lib/fuzzy.ts; this file is the shell around them: focus, keys, and dispatch.
  */
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import styles from "./CommandPalette.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import { buildPalette, type ActionId, type PaletteItem } from "../../lib/palette";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import styles from './CommandPalette.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import { buildPalette, type ActionId, type PaletteItem } from '../../lib/palette';
 
 export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
@@ -26,25 +26,22 @@ export function CommandPalette() {
   const nav = useStore((s) => s.nav);
   const selectedRow = useStore((s) => s.selectedRow);
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const { locale, t } = useTranslation();
 
   const items = useMemo(
-    () =>
-      open
-        ? buildPalette(query, { rows, customKinds, nav, selectedRow, locale })
-        : [],
-    [open, query, rows, customKinds, nav, selectedRow, locale],
+    () => (open ? buildPalette(query, { rows, customKinds, nav, selectedRow, locale }) : []),
+    [open, query, rows, customKinds, nav, selectedRow, locale]
   );
 
   // A fresh palette every time: the last query is rarely the next one, and
   // reopening onto stale text means deleting it first.
   useEffect(() => {
     if (open) {
-      setQuery("");
+      setQuery('');
       setCursor(0);
       inputRef.current?.focus();
     }
@@ -58,21 +55,21 @@ export function CommandPalette() {
 
   // Keep the cursor on screen while paging through with the keyboard.
   useEffect(() => {
-    listRef.current?.querySelector(`[data-i="${cursor}"]`)?.scrollIntoView({ block: "nearest" });
+    listRef.current?.querySelector(`[data-i="${cursor}"]`)?.scrollIntoView({ block: 'nearest' });
   }, [cursor]);
 
   if (!open) return null;
 
   const run = (item: PaletteItem) => {
     switch (item.type) {
-      case "kind":
+      case 'kind':
         jumpTo(item.id);
         break;
-      case "object":
+      case 'object':
         // Atomic: nav + namespace + selection in one update (see store.jumpTo).
         jumpTo(item.kind, item.row);
         break;
-      case "action":
+      case 'action':
         runAction(item.id);
         setOpen(false);
         break;
@@ -81,22 +78,22 @@ export function CommandPalette() {
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
-      case "Escape":
+      case 'Escape':
         e.preventDefault();
         // Stop the app-level Esc cascade from also firing and clearing the
         // filter or closing the detail panel behind the palette.
         e.stopPropagation();
         setOpen(false);
         break;
-      case "ArrowDown":
+      case 'ArrowDown':
         e.preventDefault();
         setCursor((c) => Math.min(items.length - 1, c + 1));
         break;
-      case "ArrowUp":
+      case 'ArrowUp':
         e.preventDefault();
         setCursor((c) => Math.max(0, c - 1));
         break;
-      case "Enter":
+      case 'Enter':
         e.preventDefault();
         if (items[cursor]) run(items[cursor]);
         break;
@@ -119,7 +116,7 @@ export function CommandPalette() {
               setCursor(0);
             }}
             onKeyDown={onKeyDown}
-            placeholder={t("chrome.palette.placeholder")}
+            placeholder={t('chrome.palette.placeholder')}
             spellCheck={false}
             autoComplete="off"
           />
@@ -127,7 +124,7 @@ export function CommandPalette() {
 
         {items.length === 0 ? (
           <div className={styles.empty}>
-            {query ? t("chrome.palette.nothingMatches") : t("chrome.palette.typeToSearch")}
+            {query ? t('chrome.palette.nothingMatches') : t('chrome.palette.typeToSearch')}
           </div>
         ) : (
           <div className={styles.list} ref={listRef}>
@@ -135,7 +132,7 @@ export function CommandPalette() {
               <div
                 key={itemKey(item)}
                 data-i={i}
-                className={`${styles.item} ${i === cursor ? styles.itemActive : ""}`}
+                className={`${styles.item} ${i === cursor ? styles.itemActive : ''}`}
                 // Mouse and keyboard drive the same cursor, so hovering then
                 // pressing Enter does what the highlight says it will.
                 onMouseMove={() => setCursor(i)}
@@ -152,9 +149,9 @@ export function CommandPalette() {
         )}
 
         <div className={styles.footer}>
-          <span>{t("chrome.palette.move")}</span>
-          <span>{t("chrome.palette.open")}</span>
-          <span>{t("chrome.palette.escClose")}</span>
+          <span>{t('chrome.palette.move')}</span>
+          <span>{t('chrome.palette.open')}</span>
+          <span>{t('chrome.palette.escClose')}</span>
         </div>
       </div>
     </div>
@@ -165,10 +162,10 @@ export function CommandPalette() {
 function runAction(id: ActionId) {
   const s = useStore.getState();
   switch (id) {
-    case "settings":
+    case 'settings':
       s.setSettingsOpen(true);
       break;
-    case "import-kubeconfig":
+    case 'import-kubeconfig':
       void getProvider()
         .importKubeconfig()
         .then((result) => {
@@ -176,19 +173,19 @@ function runAction(id: ActionId) {
           s.setContexts(result.contexts);
           s.addImportedFile(result.path);
         })
-        .catch((e) => console.warn("import failed:", e));
+        .catch((e) => console.warn('import failed:', e));
       break;
-    case "cordon":
-    case "uncordon":
+    case 'cordon':
+    case 'uncordon':
       if (s.selectedRow) {
         void getProvider()
-          .setCordon(s.selectedRow.name, id === "cordon")
+          .setCordon(s.selectedRow.name, id === 'cordon')
           .catch((e) => console.warn(`${id} failed:`, e));
       }
       break;
     // Overlay views and tools — open the corresponding sidebar panel.
     default:
-      s.openOverlay(id as import("../../store").OverlayKey);
+      s.openOverlay(id as import('../../store').OverlayKey);
       break;
   }
 }
@@ -206,7 +203,7 @@ function Highlight({ text, indices }: { text: string; indices: number[] }) {
           </span>
         ) : (
           ch
-        ),
+        )
       )}
     </>
   );
@@ -215,11 +212,11 @@ function Highlight({ text, indices }: { text: string; indices: number[] }) {
 /** A key that's stable across queries, so React reuses rows as the list reorders. */
 function itemKey(item: PaletteItem): string {
   switch (item.type) {
-    case "kind":
+    case 'kind':
       return `kind:${item.id}`;
-    case "object":
+    case 'object':
       return `obj:${item.row.uid}`;
-    case "action":
+    case 'action':
       return `act:${item.id}`;
   }
 }
@@ -227,11 +224,11 @@ function itemKey(item: PaletteItem): string {
 /** Glyph per result, matching the sidebar's vocabulary. */
 function iconFor(item: PaletteItem): ReactNode {
   switch (item.type) {
-    case "kind":
+    case 'kind':
       return item.icon;
-    case "object":
-      return "›";
-    case "action":
-      return "⚡";
+    case 'object':
+      return '›';
+    case 'action':
+      return '⚡';
   }
 }

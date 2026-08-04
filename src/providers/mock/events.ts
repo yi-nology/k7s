@@ -4,8 +4,8 @@
  * Normal Scheduled/Pulled/Started sequence.
  */
 
-import type { EventItem } from "../types";
-import { MOCK_PODS } from "./data";
+import type { EventItem } from '../types';
+import { MOCK_PODS } from './data';
 
 /** RFC3339 timestamp `secs` seconds before now — for mock `lastTimestamp`s. */
 function isoSecsAgo(secs: number): string {
@@ -19,18 +19,68 @@ export function eventsForPodName(name: string | null): EventItem[] {
 
   const containers = pod.containers;
 
-  if (pod.status === "CrashLoopBackOff") {
+  if (pod.status === 'CrashLoopBackOff') {
     return [
-      { type: "Warning", reason: "BackOff", age: "2m", count: 14, lastTimestamp: isoSecsAgo(120), message: `Back-off restarting failed container heimdall-auth in pod ${pod.name}` },
-      { type: "Warning", reason: "Unhealthy", age: "3m", count: 9, lastTimestamp: isoSecsAgo(180), message: "Liveness probe failed: HTTP probe failed with statuscode: 503" },
-      { type: "Normal", reason: "Pulled", age: "2h", count: 1, lastTimestamp: isoSecsAgo(7200), message: 'Container image "registry.murphy-yi.io/heimdall-auth:v2.4.1" already present on machine' },
-      { type: "Normal", reason: "Scheduled", age: "2h", count: 1, lastTimestamp: isoSecsAgo(7200), message: `Successfully assigned prod/${pod.name} to ${pod.node}` },
+      {
+        type: 'Warning',
+        reason: 'BackOff',
+        age: '2m',
+        count: 14,
+        lastTimestamp: isoSecsAgo(120),
+        message: `Back-off restarting failed container heimdall-auth in pod ${pod.name}`,
+      },
+      {
+        type: 'Warning',
+        reason: 'Unhealthy',
+        age: '3m',
+        count: 9,
+        lastTimestamp: isoSecsAgo(180),
+        message: 'Liveness probe failed: HTTP probe failed with statuscode: 503',
+      },
+      {
+        type: 'Normal',
+        reason: 'Pulled',
+        age: '2h',
+        count: 1,
+        lastTimestamp: isoSecsAgo(7200),
+        message:
+          'Container image "registry.murphy-yi.io/heimdall-auth:v2.4.1" already present on machine',
+      },
+      {
+        type: 'Normal',
+        reason: 'Scheduled',
+        age: '2h',
+        count: 1,
+        lastTimestamp: isoSecsAgo(7200),
+        message: `Successfully assigned prod/${pod.name} to ${pod.node}`,
+      },
     ];
   }
 
   return [
-    { type: "Normal", reason: "Started", age: pod.age, count: 1, lastTimestamp: isoSecsAgo(3600), message: `Started container ${containers[0]}` },
-    { type: "Normal", reason: "Pulled", age: pod.age, count: 1, lastTimestamp: isoSecsAgo(3600), message: `Container image "registry.murphy-yi.io/${containers[0]}:v2.4.1" already present on machine` },
-    { type: "Normal", reason: "Scheduled", age: pod.age, count: 1, lastTimestamp: isoSecsAgo(3600), message: `Successfully assigned ${pod.ns}/${pod.name} to ${pod.node}` },
+    {
+      type: 'Normal',
+      reason: 'Started',
+      age: pod.age,
+      count: 1,
+      lastTimestamp: isoSecsAgo(3600),
+      message: `Started container ${containers[0]}`,
+    },
+    {
+      type: 'Normal',
+      reason: 'Pulled',
+      age: pod.age,
+      count: 1,
+      lastTimestamp: isoSecsAgo(3600),
+      message: `Container image "registry.murphy-yi.io/${containers[0]}:v2.4.1" already present on machine`,
+    },
+    {
+      type: 'Normal',
+      reason: 'Scheduled',
+      age: pod.age,
+      count: 1,
+      lastTimestamp: isoSecsAgo(3600),
+      message: `Successfully assigned ${pod.ns}/${pod.name} to ${pod.node}`,
+    },
   ];
 }

@@ -15,38 +15,38 @@
  * row/table plumbing as the rest.
  */
 export type ResourceKind =
-  | "pods"
-  | "deployments"
-  | "replicasets"
-  | "statefulsets"
-  | "daemonsets"
-  | "jobs"
-  | "cronjobs"
-  | "services"
-  | "ingresses"
-  | "ingressclasses"
-  | "configmaps"
-  | "secrets"
-  | "serviceaccounts"
-  | "persistentvolumeclaims"
-  | "persistentvolumes"
-  | "storageclasses"
-  | "networkpolicies"
-  | "horizontalpodautoscalers"
-  | "resourcequotas"
-  | "limitranges"
-  | "nodes"
-  | "namespaces"
-  | "events"
-  | "roles"
-  | "clusterroles"
-  | "rolebindings"
-  | "clusterrolebindings"
-  | "poddisruptionbudgets"
-  | "mutatingwebhookconfigurations"
-  | "validatingwebhookconfigurations"
-  | "apiservices"
-  | "helm";
+  | 'pods'
+  | 'deployments'
+  | 'replicasets'
+  | 'statefulsets'
+  | 'daemonsets'
+  | 'jobs'
+  | 'cronjobs'
+  | 'services'
+  | 'ingresses'
+  | 'ingressclasses'
+  | 'configmaps'
+  | 'secrets'
+  | 'serviceaccounts'
+  | 'persistentvolumeclaims'
+  | 'persistentvolumes'
+  | 'storageclasses'
+  | 'networkpolicies'
+  | 'horizontalpodautoscalers'
+  | 'resourcequotas'
+  | 'limitranges'
+  | 'nodes'
+  | 'namespaces'
+  | 'events'
+  | 'roles'
+  | 'clusterroles'
+  | 'rolebindings'
+  | 'clusterrolebindings'
+  | 'poddisruptionbudgets'
+  | 'mutatingwebhookconfigurations'
+  | 'validatingwebhookconfigurations'
+  | 'apiservices'
+  | 'helm';
 
 /**
  * A CRD-backed kind discovered on connect (B15).
@@ -86,7 +86,7 @@ export type KindId = ResourceKind | (string & {});
  * secondary → --text-secondary (metrics/data), muted → --text-muted
  * (namespace/age), ok/warn/err → the semantic status colors.
  */
-export type Tone = "primary" | "secondary" | "muted" | "ok" | "warn" | "err";
+export type Tone = 'primary' | 'secondary' | 'muted' | 'ok' | 'warn' | 'err';
 
 /** A single table cell. */
 export interface Cell {
@@ -100,7 +100,7 @@ export interface Cell {
    * When "age", the UI formats `text` (an ISO timestamp) into a k8s-style age
    * ("4d2h") and re-renders it on a periodic tick instead of showing it literally.
    */
-  format?: "age";
+  format?: 'age';
   /**
    * Optional numeric sort key for columns whose display text can't be compared
    * directly (CPU/MEM, where "3.2Gi" and "486Mi" don't order lexically). Most
@@ -175,7 +175,7 @@ export interface Row {
 
 /** A Kubernetes Event as shown in the detail panel's Events tab. */
 export interface EventItem {
-  type: "Normal" | "Warning";
+  type: 'Normal' | 'Warning';
   reason: string;
   message: string;
   count: number;
@@ -236,7 +236,7 @@ export interface LogLine {
   /** "HH:MM:SS.mmm", or "" when timestamps are unavailable. */
   ts: string;
   /** Normalized level; "" when no level could be detected. */
-  level: "" | "DEBUG" | "INFO" | "WARN" | "ERROR";
+  level: '' | 'DEBUG' | 'INFO' | 'WARN' | 'ERROR';
   msg: string;
   /** Source container — set only when streaming all containers (B7). */
   container?: string;
@@ -311,9 +311,9 @@ export interface Field {
  * the backend's tagged enum.
  */
 export type SectionBody =
-  | { type: "fields"; fields: Field[] }
-  | { type: "table"; columns: string[]; rows: Cell[][] }
-  | { type: "chips"; chips: KeyValue[] };
+  | { type: 'fields'; fields: Field[] }
+  | { type: 'table'; columns: string[]; rows: Cell[][] }
+  | { type: 'chips'; chips: KeyValue[] };
 
 /** One section of the Properties tab. */
 export interface Section {
@@ -622,7 +622,7 @@ export interface DataProvider {
    * provider rather than importing Tauri into a hook, which would break demo mode
    * in a plain browser. A no-op where there is no native window.
    */
-  setWindowTheme(theme: "dark" | "light"): Promise<void>;
+  setWindowTheme(theme: 'dark' | 'light'): Promise<void>;
 
   /**
    * Open a root shell on a node's host OS (B53).
@@ -639,7 +639,7 @@ export interface DataProvider {
   startNodeShell(
     node: string,
     onOutput: (data: string) => void,
-    onClosed: (reason: string) => void,
+    onClosed: (reason: string) => void
   ): Promise<NodeShellHandle>;
 
   // ---- node-exporter statistics (B27) ----
@@ -692,7 +692,7 @@ export interface DataProvider {
   onClusterStatus(cb: (status: ClusterStatus) => void): Unsub;
   onWatchStatus(cb: (activeStreams: number) => void): Unsub;
   /** Per-kind watch status: "ok" when watching succeeds, "forbidden" on 403. */
-  onWatchKindStatus(cb: (kind: string, status: "ok" | "forbidden") => void): Unsub;
+  onWatchKindStatus(cb: (kind: string, status: 'ok' | 'forbidden') => void): Unsub;
   /** Progress of running node drains (B20). */
   onDrainProgress(cb: (progress: DrainProgress) => void): Unsub;
   /** node-exporter samples for nodes being watched (B27). */
@@ -708,7 +708,7 @@ export interface DataProvider {
     container: string,
     opts: LogOptions,
     onLines: (lines: LogLine[]) => void,
-    onClosed: (reason: string) => void,
+    onClosed: (reason: string) => void
   ): Promise<LogHandle>;
 
   /**
@@ -721,7 +721,7 @@ export interface DataProvider {
   saveLogs(
     ref: ResourceRef,
     container: string,
-    opts: { sinceSeconds?: number; previous?: boolean },
+    opts: { sinceSeconds?: number; previous?: boolean }
   ): Promise<SavedLog | null>;
 
   // ---- shell / exec (B4) ----
@@ -729,7 +729,7 @@ export interface DataProvider {
     ref: ResourceRef,
     container: string,
     onOutput: (data: string) => void,
-    onClosed: (reason: string) => void,
+    onClosed: (reason: string) => void
   ): Promise<ShellHandle>;
 
   // ---- port-forwarding (B6, B16) ----
@@ -764,52 +764,36 @@ export interface DataProvider {
   /** List locally imported chart archives for a repo. */
   helmLocalCharts(repoName: string): Promise<string[]>;
   /** Default values.yaml from the chart itself (via `helm show values`). */
-  helmRenderDefaultValues(
-    chart: string,
-    version: string,
-    kubeconfig?: string,
-  ): Promise<string>;
+  helmRenderDefaultValues(chart: string, version: string, kubeconfig?: string): Promise<string>;
   /** Run install/upgrade/uninstall/rollback to completion. Live logs and the
    * final result stream back through `onHelmOpLog` and `onHelmOpDone`. */
   helmRunOp(op: HelmOp): Promise<HelmOpResult>;
   helmReleaseHistory(
     release: string,
     namespace: string,
-    kubeconfig?: string,
+    kubeconfig?: string
   ): Promise<HelmRevisionEntry[]>;
-  onHelmOpLog(cb: (line: { stream: "stdout" | "stderr"; line: string }) => void): Unsub;
+  onHelmOpLog(cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub;
   onHelmOpDone(cb: (result: HelmOpResult) => void): Unsub;
 
   // ---- Pod file management (Phase 2 of KubePi parity) ----
-  podFilesList(
-    ref: ResourceRef,
-    container: string | null,
-    path: string,
-  ): Promise<PodFileEntry[]>;
-  podFilesRead(
-    ref: ResourceRef,
-    container: string | null,
-    path: string,
-  ): Promise<string>;
+  podFilesList(ref: ResourceRef, container: string | null, path: string): Promise<PodFileEntry[]>;
+  podFilesRead(ref: ResourceRef, container: string | null, path: string): Promise<string>;
   podFilesWrite(
     ref: ResourceRef,
     container: string | null,
     path: string,
-    content: string,
+    content: string
   ): Promise<void>;
   /** Returns the tar archive bytes (base64 in transit). The UI turns these
    * into a user-saved file. */
-  podFilesDownload(
-    ref: ResourceRef,
-    container: string | null,
-    path: string,
-  ): Promise<Uint8Array>;
+  podFilesDownload(ref: ResourceRef, container: string | null, path: string): Promise<Uint8Array>;
   /** Upload a tar archive (base64) into a directory inside the container. */
   podFilesUpload(
     ref: ResourceRef,
     container: string | null,
     destDir: string,
-    tarBytes: Uint8Array,
+    tarBytes: Uint8Array
   ): Promise<void>;
 
   // ---- Image registry management (Phase 5 of KubePi parity) ----
@@ -851,7 +835,7 @@ export interface DataProvider {
     srcCreds: string | null,
     insecureSrc: boolean,
     insecureDest: boolean,
-    onLog: (line: string) => void,
+    onLog: (line: string) => void
   ): Promise<ImageSyncResult>;
 
   /** Inspect a local `docker save` tarball: name, tags, digest, arch, os, size. */
@@ -863,10 +847,7 @@ export interface DataProvider {
   /** EndpointSlices for one Service. */
   listEndpointsForService(namespace: string, name: string): Promise<EndpointRow[]>;
   /** Per-address detail for one slice. */
-  listEndpointAddresses(
-    namespace: string,
-    name: string,
-  ): Promise<EndpointAddress[]>;
+  listEndpointAddresses(namespace: string, name: string): Promise<EndpointAddress[]>;
 
   // ---- CronJob manual trigger (Phase 2 Tier-2) ----
   /** Create a Job from a CronJob. Returns the new Job's name. */
@@ -885,7 +866,7 @@ export interface DataProvider {
     promql: string,
     startMs: number,
     endMs: number,
-    stepSeconds: number,
+    stepSeconds: number
   ): Promise<PromQueryResult>;
 
   // ---- Grafana ----
@@ -895,12 +876,7 @@ export interface DataProvider {
   grafanaTest(name: string): Promise<void>;
   grafanaPresets(): Promise<DashboardPreset[]>;
   /** Build the iframe URL for a given dashboard uid. */
-  grafanaDashboardUrl(
-    name: string,
-    uid: string,
-    fromMs: number,
-    toMs: number,
-  ): Promise<string>;
+  grafanaDashboardUrl(name: string, uid: string, fromMs: number, toMs: number): Promise<string>;
 
   // ---- AlertManager ----
   alertManagerList(): Promise<AlertManager[]>;
@@ -931,15 +907,11 @@ export interface DataProvider {
   savedQueriesRun(
     query: SavedQuery,
     instance: string,
-    forceRefresh: boolean,
+    forceRefresh: boolean
   ): Promise<PromQueryResult>;
 
   // ---- Image manifest drill-down ----
-  imageRegistryManifest(
-    name: string,
-    repo: string,
-    tag: string,
-  ): Promise<ImageManifest>;
+  imageRegistryManifest(name: string, repo: string, tag: string): Promise<ImageManifest>;
 }
 
 // ---------------------------------------------------------------------------
@@ -984,10 +956,10 @@ export interface HelmChartVersionEntry {
 /** One of the four helm operations. The `tag` discriminates which fields
  * apply (matching the backend's `enum HelmOp`). */
 export type HelmOp =
-  | { op: "install"; args: HelmInstallArgs }
-  | { op: "upgrade"; args: HelmUpgradeArgs }
-  | { op: "uninstall"; args: HelmUninstallArgs }
-  | { op: "rollback"; args: HelmRollbackArgs };
+  | { op: 'install'; args: HelmInstallArgs }
+  | { op: 'upgrade'; args: HelmUpgradeArgs }
+  | { op: 'uninstall'; args: HelmUninstallArgs }
+  | { op: 'rollback'; args: HelmRollbackArgs };
 
 export interface HelmInstallArgs {
   release: string;

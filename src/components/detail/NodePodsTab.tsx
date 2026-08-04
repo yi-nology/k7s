@@ -10,12 +10,12 @@
  * and `podMetrics` is keyed by `namespace/name`, so the tab is just a join of
  * two store slices filtered to the selected node.
  */
-import { useMemo } from "react";
-import { useStore } from "../../store";
-import { useTranslation } from "../../hooks/useI18n";
-import { formatCpu, formatMem } from "../../lib/format";
-import type { PodMetrics, Row } from "../../providers/types";
-import styles from "./NodePodsTab.module.css";
+import { useMemo } from 'react';
+import { useStore } from '../../store';
+import { useTranslation } from '../../hooks/useI18n';
+import { formatCpu, formatMem } from '../../lib/format';
+import type { PodMetrics, Row } from '../../providers/types';
+import styles from './NodePodsTab.module.css';
 
 export function NodePodsTab() {
   const { t } = useTranslation();
@@ -24,7 +24,7 @@ export function NodePodsTab() {
   const podMetrics = useStore((s) => s.podMetrics);
   const navigateTo = useStore((s) => s.navigateTo);
 
-  const nodeName = row?.name ?? "";
+  const nodeName = row?.name ?? '';
 
   // Join pods-on-this-node with their metrics. Sorted by CPU desc so the
   // heaviest consumer is first — that's the diagnostic question this tab exists
@@ -55,38 +55,32 @@ export function NodePodsTab() {
   }, [pods]);
 
   if (!nodeName) {
-    return <div className={styles.empty}>{t("nodePods.noNode", "No node selected.")}</div>;
+    return <div className={styles.empty}>{t('nodePods.noNode', 'No node selected.')}</div>;
   }
 
   if (pods.length === 0) {
     return (
-      <div className={styles.empty}>
-        {t("nodePods.empty", "No pods scheduled on this node.")}
-      </div>
+      <div className={styles.empty}>{t('nodePods.empty', 'No pods scheduled on this node.')}</div>
     );
   }
 
   return (
     <div className={styles.wrap}>
       <div className={styles.summary}>
-        {totals.count} {t("nodePods.pods", "pods")} ·{" "}
-        <span className={styles.summaryMetric}>
-          Σ CPU {formatCpu(totals.cpu)}
-        </span>
-        {" · "}
-        <span className={styles.summaryMetric}>
-          Σ MEM {formatMem(totals.mem)}
-        </span>
+        {totals.count} {t('nodePods.pods', 'pods')} ·{' '}
+        <span className={styles.summaryMetric}>Σ CPU {formatCpu(totals.cpu)}</span>
+        {' · '}
+        <span className={styles.summaryMetric}>Σ MEM {formatMem(totals.mem)}</span>
       </div>
       <table className={styles.table}>
         <thead>
           <tr>
-            <th>{t("nodePods.col.namespace", "Namespace")}</th>
-            <th>{t("nodePods.col.pod", "Pod")}</th>
-            <th>{t("nodePods.col.status", "Status")}</th>
-            <th className={styles.num}>{t("nodePods.col.cpu", "CPU")}</th>
-            <th className={styles.num}>{t("nodePods.col.memory", "Memory")}</th>
-            <th className={styles.num}>{t("nodePods.col.restarts", "Restarts")}</th>
+            <th>{t('nodePods.col.namespace', 'Namespace')}</th>
+            <th>{t('nodePods.col.pod', 'Pod')}</th>
+            <th>{t('nodePods.col.status', 'Status')}</th>
+            <th className={styles.num}>{t('nodePods.col.cpu', 'CPU')}</th>
+            <th className={styles.num}>{t('nodePods.col.memory', 'Memory')}</th>
+            <th className={styles.num}>{t('nodePods.col.restarts', 'Restarts')}</th>
           </tr>
         </thead>
         <tbody>
@@ -95,9 +89,7 @@ export function NodePodsTab() {
               key={pod.uid ?? pod.name}
               pod={pod}
               metrics={metrics}
-              onJump={() =>
-                navigateTo({ kind: "pods", namespace: pod.namespace, name: pod.name })
-              }
+              onJump={() => navigateTo({ kind: 'pods', namespace: pod.namespace, name: pod.name })}
             />
           ))}
         </tbody>
@@ -119,16 +111,16 @@ function PodRow({
   // status/ready from PodMeta when present (more reliable than the cell text)
   // and restarts from the cell.
   const cells = pod.cells;
-  const ready = pod.pod?.ready ?? cells[1]?.text ?? "";
-  const status = pod.pod?.status ?? cells[5]?.text ?? "";
-  const restarts = cells[2]?.text ?? "0";
-  const cpu = metrics ? formatCpu(metrics.cpuMillis) : "—";
-  const mem = metrics ? formatMem(metrics.memBytes) : "—";
-  const warn = status === "CrashLoopBackOff" || status === "Error" || status === "Failed";
+  const ready = pod.pod?.ready ?? cells[1]?.text ?? '';
+  const status = pod.pod?.status ?? cells[5]?.text ?? '';
+  const restarts = cells[2]?.text ?? '0';
+  const cpu = metrics ? formatCpu(metrics.cpuMillis) : '—';
+  const mem = metrics ? formatMem(metrics.memBytes) : '—';
+  const warn = status === 'CrashLoopBackOff' || status === 'Error' || status === 'Failed';
 
   return (
     <tr>
-      <td className={styles.ns}>{pod.namespace ?? ""}</td>
+      <td className={styles.ns}>{pod.namespace ?? ''}</td>
       <td>
         <button type="button" className={styles.podLink} onClick={onJump} title={pod.name}>
           {pod.name}

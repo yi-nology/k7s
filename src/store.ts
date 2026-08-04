@@ -5,7 +5,7 @@
  * (wired in app bootstrap) call the setters.
  */
 
-import { create } from "zustand";
+import { create } from 'zustand';
 import type {
   ClusterStatus,
   ContextInfo,
@@ -20,13 +20,13 @@ import type {
   PodMetricsMap,
   PodSample,
   Row,
-} from "./providers/types";
-import { KIND_ORDER } from "./lib/kinds";
-import { DEFAULT_SETTINGS, type Settings } from "./lib/settings";
-import { cachedTheme, prefersDark } from "./lib/theme";
-import { cachedLocale } from "./lib/i18n";
-import { EMPTY_SELECTION, type SelectionState } from "./lib/selection";
-import type { SinceOption } from "./lib/logview";
+} from './providers/types';
+import { KIND_ORDER } from './lib/kinds';
+import { DEFAULT_SETTINGS, type Settings } from './lib/settings';
+import { cachedTheme, prefersDark } from './lib/theme';
+import { cachedLocale } from './lib/i18n';
+import { EMPTY_SELECTION, type SelectionState } from './lib/selection';
+import type { SinceOption } from './lib/logview';
 
 /**
  * Ring-buffer cap for the log view (the design default, and the starting value
@@ -36,15 +36,15 @@ export const LOG_BUFFER_CAP = DEFAULT_SETTINGS.logBufferCap;
 
 /** Detail-panel tab identifiers. */
 export type DetailTab =
-  | "logs"
-  | "properties"
-  | "revisions"
-  | "metrics"
-  | "shell"
-  | "yaml"
-  | "events"
-  | "pods"
-  | "timeline";
+  | 'logs'
+  | 'properties'
+  | 'revisions'
+  | 'metrics'
+  | 'shell'
+  | 'yaml'
+  | 'events'
+  | 'pods'
+  | 'timeline';
 
 /**
  * Multi-tab entry: one open resource in the detail panel's tab strip.
@@ -58,7 +58,7 @@ export interface DetailTab2 {
 }
 
 /** Which dropdown menu (if any) is currently open — only one at a time. */
-export type OpenMenu = "cluster" | "ns" | "lang" | null;
+export type OpenMenu = 'cluster' | 'ns' | 'lang' | null;
 
 /** Which feature overlay is open above the resource table. Each value maps
  * to one of the feature panels added in the KubePi-parity phases:
@@ -66,26 +66,26 @@ export type OpenMenu = "cluster" | "ns" | "lang" | null;
  *  - Tier 2 (Dashboard, Metrics, Grafana, Endpoints, Topology, Alerting)
  * `null` means the regular resource table is showing. */
 export type OverlayKey =
-  | "helm-market"
-  | "pod-files"
-  | "image-repos"
-  | "image-import"
-  | "templates"
-  | "dashboard"
-  | "metrics"
-  | "grafana"
-  | "endpoints"
-  | "topology"
-  | "ingress-routes"
-  | "alerting"
-  | "audit"
-  | "ingress-editor"
-  | "diff"
-  | "plugins";
+  | 'helm-market'
+  | 'pod-files'
+  | 'image-repos'
+  | 'image-import'
+  | 'templates'
+  | 'dashboard'
+  | 'metrics'
+  | 'grafana'
+  | 'endpoints'
+  | 'topology'
+  | 'ingress-routes'
+  | 'alerting'
+  | 'audit'
+  | 'ingress-editor'
+  | 'diff'
+  | 'plugins';
 
 /** Connection lifecycle for the active cluster/context. */
 export interface ConnectionState {
-  phase: "idle" | "connecting" | "connected" | "error";
+  phase: 'idle' | 'connecting' | 'connected' | 'error';
   /** kubeconfig context name currently selected. */
   context: string | null;
   /** Cluster display name (from connect result). */
@@ -137,15 +137,15 @@ function selectionPatch(row: Row) {
     // menu acts on rows the panel isn't showing.
     selection: { selected: [row.uid], anchor: row.uid } as SelectionState,
     // Pods open on Logs; every other kind lacks that tab, so YAML is the default.
-    activeTab: (row.pod ? "logs" : "yaml") as DetailTab,
+    activeTab: (row.pod ? 'logs' : 'yaml') as DetailTab,
     // Closing the edit session also drops the draft. Otherwise it lives in the
     // store as dead state: the editor is now read-only, the user can't see it,
     // and the next Edit click on any row overwrites it with the fresh fetch —
     // silently discarding every keystroke they typed.
     yamlEditing: false,
-    yamlDraft: "",
+    yamlDraft: '',
     logBuffer: [] as LogLine[],
-    logSearch: "",
+    logSearch: '',
     containerIndex: 0,
     following: true,
     // A different pod is a different question: "previous" and a narrow window
@@ -153,7 +153,7 @@ function selectionPatch(row: Row) {
     // them over would show the next pod's logs through a filter you'd forgotten
     // you set.
     logPrevious: false,
-    logSince: "all" as SinceOption,
+    logSince: 'all' as SinceOption,
     // NOTE: eventsSince is intentionally NOT reset here. It is a cluster-wide
     // filter shared by the Events table and the EventsTab — clicking a pod
     // should not clear the user's time-range filter on the cluster events view.
@@ -171,9 +171,9 @@ function jumpPatch(current: { namespace: string }, kind: KindId, row?: Row) {
   const base = {
     nav: kind,
     openMenu: null,
-    tableFilter: "",
+    tableFilter: '',
     sortCol: null,
-    sortDir: "asc" as const,
+    sortDir: 'asc' as const,
     paletteOpen: false,
   };
   if (!row) return { ...base, selectedRow: null, selection: EMPTY_SELECTION };
@@ -182,7 +182,7 @@ function jumpPatch(current: { namespace: string }, kind: KindId, row?: Row) {
   // Jumping somewhere and landing on an empty table because of a filter set ten
   // minutes ago is worse than the filter changing under you.
   const namespace =
-    row.namespace && current.namespace !== "all" && current.namespace !== row.namespace
+    row.namespace && current.namespace !== 'all' && current.namespace !== row.namespace
       ? row.namespace
       : current.namespace;
 
@@ -222,7 +222,7 @@ export interface AppState {
   /** Column index the table is sorted by, or null for server order. */
   sortCol: number | null;
   /** Sort direction when `sortCol` is set. */
-  sortDir: "asc" | "desc";
+  sortDir: 'asc' | 'desc';
   /** Which dropdown is open (cluster switcher or ns menu). */
   openMenu: OpenMenu;
 
@@ -287,7 +287,7 @@ export interface AppState {
   /** Why a node has no samples (no exporter, forward failed), keyed by node. */
   nodeStatsErrors: Record<string, string>;
   /** Per-kind watch status: "forbidden" when a watch returns 403, "ok" otherwise. */
-  watchStatus: Record<string, "ok" | "forbidden">;
+  watchStatus: Record<string, 'ok' | 'forbidden'>;
   /**
    * Per-pod usage samples, keyed "namespace/name", oldest first. Live-only like
    * nodeSamples: the series starts when you open a pod's Metrics tab and fills
@@ -364,7 +364,7 @@ export interface AppState {
   setNodeStatsError: (node: string, message: string) => void;
   /** Append a sample to a pod's series, capped at POD_SAMPLE_CAP. */
   addPodSample: (key: string, sample: PodSample) => void;
-  setWatchStatus: (kind: string, status: "ok" | "forbidden") => void;
+  setWatchStatus: (kind: string, status: 'ok' | 'forbidden') => void;
   /** Merge a settings change (already sanitised by the caller). */
   setSettings: (patch: Partial<Settings>) => void;
   /** Record the OS colour-scheme preference (B52). */
@@ -433,25 +433,25 @@ export interface AppState {
   // ---------- overlays (Phase 1/2/4/5 entry points) ----------
   openOverlay: (
     key: OverlayKey,
-    podRef?: { namespace: string; name: string; container: string | null } | null,
+    podRef?: { namespace: string; name: string; container: string | null } | null
   ) => void;
   closeOverlay: () => void;
 }
 
 export const useStore = create<AppState>((set) => ({
   // ---------- initial state ----------
-  connection: { phase: "idle", context: null, clusterName: null },
+  connection: { phase: 'idle', context: null, clusterName: null },
   clusterStatus: null,
   watchCount: 0,
   contexts: [],
   importedFiles: [],
   hotbar: [],
 
-  nav: "pods",
-  namespace: "all",
-  tableFilter: "",
+  nav: 'pods',
+  namespace: 'all',
+  tableFilter: '',
   sortCol: null,
-  sortDir: "asc",
+  sortDir: 'asc',
   openMenu: null,
   overlay: null,
   overlayPodRef: null,
@@ -477,22 +477,22 @@ export const useStore = create<AppState>((set) => ({
   watchStatus: {},
 
   selectedRow: null,
-  activeTab: "logs",
+  activeTab: 'logs',
 
   detailTabs: [],
   activeDetailTabUid: null,
 
-  logSearch: "",
+  logSearch: '',
   containerIndex: 0,
   showTimestamps: true,
   following: true,
   logBuffer: [],
   logPrevious: false,
-  logSince: "all",
-  eventsSince: "all",
+  logSince: 'all',
+  eventsSince: 'all',
 
   yamlEditing: false,
-  yamlDraft: "",
+  yamlDraft: '',
 
   // ---------- navigation ----------
   // Switching kind clears the pod selection, any open menu, the name filter, and
@@ -503,9 +503,9 @@ export const useStore = create<AppState>((set) => ({
       selectedRow: null,
       selection: EMPTY_SELECTION,
       openMenu: null,
-      tableFilter: "",
+      tableFilter: '',
       sortCol: null,
-      sortDir: "asc",
+      sortDir: 'asc',
     }),
   // Changing namespace also clears selection (a pod may no longer be visible).
   setNamespace: (ns) =>
@@ -514,8 +514,8 @@ export const useStore = create<AppState>((set) => ({
   toggleSort: (col) =>
     set((s) =>
       s.sortCol === col
-        ? { sortDir: s.sortDir === "asc" ? "desc" : "asc" }
-        : { sortCol: col, sortDir: "asc" },
+        ? { sortDir: s.sortDir === 'asc' ? 'desc' : 'asc' }
+        : { sortCol: col, sortDir: 'asc' }
     ),
   // Toggle a menu; opening one closes the other (only one open at a time).
   toggleMenu: (menu) => set((s) => ({ openMenu: s.openMenu === menu ? null : menu })),
@@ -536,7 +536,7 @@ export const useStore = create<AppState>((set) => ({
   setImportedFiles: (paths) => set({ importedFiles: paths }),
   addImportedFile: (path) =>
     set((s) =>
-      s.importedFiles.includes(path) ? s : { importedFiles: [...s.importedFiles, path] },
+      s.importedFiles.includes(path) ? s : { importedFiles: [...s.importedFiles, path] }
     ),
   setHotbar: (items) => set({ hotbar: items }),
   addHotbarItem: (context) =>
@@ -544,8 +544,7 @@ export const useStore = create<AppState>((set) => ({
       if (s.hotbar.includes(context) || s.hotbar.length >= 8) return s;
       return { hotbar: [...s.hotbar, context] };
     }),
-  removeHotbarItem: (context) =>
-    set((s) => ({ hotbar: s.hotbar.filter((c) => c !== context) })),
+  removeHotbarItem: (context) => set((s) => ({ hotbar: s.hotbar.filter((c) => c !== context) })),
   setClusterStatus: (status) => set({ clusterStatus: status }),
   setWatchCount: (n) => set({ watchCount: n }),
   setRows: (kind, rows) =>
@@ -555,7 +554,7 @@ export const useStore = create<AppState>((set) => ({
       let nextTabs = s.detailTabs;
       if (s.detailTabs.length > 0 && rows.length > 0) {
         const filtered = s.detailTabs.filter(
-          (t) => t.kind !== kind || rows.some((r) => r.uid === t.row.uid),
+          (t) => t.kind !== kind || rows.some((r) => r.uid === t.row.uid)
         );
         if (filtered.length !== s.detailTabs.length) nextTabs = filtered;
       }
@@ -646,23 +645,22 @@ export const useStore = create<AppState>((set) => ({
       // (e.g. a not-yet-watched CRD). The detail panel fetches YAML/properties by
       // ref either way, so a synthetic row still opens a working panel.
       const found = rowsFor(s.rows, target.kind).find(
-        (r) => r.name === target.name && (!target.namespace || r.namespace === target.namespace),
+        (r) => r.name === target.name && (!target.namespace || r.namespace === target.namespace)
       );
-      const row =
-        found ?? {
-          uid: `${target.namespace ?? ""}/${target.name}`,
-          name: target.name,
-          namespace: target.namespace,
-          cells: [],
-        };
+      const row = found ?? {
+        uid: `${target.namespace ?? ''}/${target.name}`,
+        name: target.name,
+        namespace: target.namespace,
+        cells: [],
+      };
       return jumpPatch(s, target.kind, row);
     }),
   viewPods: (namespace, selector) =>
     set((s) => ({
-      nav: "pods",
+      nav: 'pods',
       openMenu: null,
       sortCol: null,
-      sortDir: "asc",
+      sortDir: 'asc',
       paletteOpen: false,
       selectedRow: null,
       selection: EMPTY_SELECTION,
@@ -722,19 +720,22 @@ export const useStore = create<AppState>((set) => ({
             activeDetailTabUid: null,
             selectedRow: null,
             logBuffer: [],
-            logSearch: "",
+            logSearch: '',
             containerIndex: 0,
             following: true,
             logPrevious: false,
-            logSince: "all",
+            logSince: 'all',
             yamlEditing: false,
-            yamlDraft: "",
+            yamlDraft: '',
           };
         }
-        const newActive = next[Math.min(
-          s.detailTabs.findIndex((t) => t.uid === s.activeDetailTabUid),
-          next.length - 1,
-        )];
+        const newActive =
+          next[
+            Math.min(
+              s.detailTabs.findIndex((t) => t.uid === s.activeDetailTabUid),
+              next.length - 1
+            )
+          ];
         return {
           detailTabs: next,
           activeDetailTabUid: newActive.uid,
@@ -742,25 +743,25 @@ export const useStore = create<AppState>((set) => ({
           selectedRow: newActive.row,
           activeTab: newActive.activeTab,
           yamlEditing: false,
-          yamlDraft: "",
+          yamlDraft: '',
           logBuffer: [],
-          logSearch: "",
+          logSearch: '',
           containerIndex: 0,
           following: true,
           logPrevious: false,
-          logSince: "all",
+          logSince: 'all',
         };
       }
       return {
         selectedRow: null,
         logBuffer: [],
-        logSearch: "",
+        logSearch: '',
         containerIndex: 0,
         following: true,
         logPrevious: false,
-        logSince: "all",
+        logSince: 'all',
         yamlEditing: false,
-        yamlDraft: "",
+        yamlDraft: '',
       };
     }),
   // Switching tabs cancels any in-progress YAML edit (design behavior) and
@@ -772,10 +773,10 @@ export const useStore = create<AppState>((set) => ({
       let detailTabs = s.detailTabs;
       if (s.activeDetailTabUid) {
         detailTabs = s.detailTabs.map((t) =>
-          t.uid === s.activeDetailTabUid ? { ...t, activeTab: tab } : t,
+          t.uid === s.activeDetailTabUid ? { ...t, activeTab: tab } : t
         );
       }
-      return { activeTab: tab, yamlEditing: false, yamlDraft: "", detailTabs };
+      return { activeTab: tab, yamlEditing: false, yamlDraft: '', detailTabs };
     }),
 
   // ---------- multi-tab system ----------
@@ -786,7 +787,7 @@ export const useStore = create<AppState>((set) => ({
       const existing = s.detailTabs.find((t) => t.row.uid === row.uid);
       if (existing) return { activeDetailTabUid: existing.uid, selectedRow: null };
       const uid = crypto.randomUUID();
-      const activeTab: DetailTab = row.pod ? "logs" : "yaml";
+      const activeTab: DetailTab = row.pod ? 'logs' : 'yaml';
       return {
         detailTabs: [...s.detailTabs, { uid, kind, row, activeTab }],
         activeDetailTabUid: uid,
@@ -813,13 +814,13 @@ export const useStore = create<AppState>((set) => ({
         selectedRow: tab.row,
         activeTab: tab.activeTab,
         yamlEditing: false,
-        yamlDraft: "",
+        yamlDraft: '',
         logBuffer: [],
-        logSearch: "",
+        logSearch: '',
         containerIndex: 0,
         following: true,
         logPrevious: false,
-        logSince: "all",
+        logSince: 'all',
       };
     }),
   cycleDetailTab: (direction) =>
@@ -834,13 +835,13 @@ export const useStore = create<AppState>((set) => ({
         selectedRow: next.row,
         activeTab: next.activeTab,
         yamlEditing: false,
-        yamlDraft: "",
+        yamlDraft: '',
         logBuffer: [],
-        logSearch: "",
+        logSearch: '',
         containerIndex: 0,
         following: true,
         logPrevious: false,
-        logSince: "all",
+        logSince: 'all',
       };
     }),
   openSelectedInTab: () =>
@@ -851,7 +852,7 @@ export const useStore = create<AppState>((set) => ({
       const existing = s.detailTabs.find((t) => t.row.uid === row.uid);
       if (existing) return { activeDetailTabUid: existing.uid, selectedRow: null };
       const uid = crypto.randomUUID();
-      const activeTab: DetailTab = row.pod ? "logs" : "yaml";
+      const activeTab: DetailTab = row.pod ? 'logs' : 'yaml';
       return {
         detailTabs: [...s.detailTabs, { uid, kind, row, activeTab }],
         activeDetailTabUid: uid,
@@ -888,6 +889,6 @@ export const useStore = create<AppState>((set) => ({
   startYamlEdit: (initial) => set({ yamlEditing: true, yamlDraft: initial }),
   // Cancel is "abandon this edit" — including the draft. See selectionPatch /
   // setActiveTab for the reasoning.
-  cancelYaml: () => set({ yamlEditing: false, yamlDraft: "" }),
+  cancelYaml: () => set({ yamlEditing: false, yamlDraft: '' }),
   setYamlDraft: (text) => set({ yamlDraft: text }),
 }));

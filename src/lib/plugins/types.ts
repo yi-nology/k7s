@@ -8,7 +8,7 @@
  * for the static case, though `PluginAPI` also allows runtime registration.
  */
 
-import type { KindId } from "../../providers/types";
+import type { KindId } from '../../providers/types';
 
 // ---------------------------------------------------------------------------
 // Plugin definition
@@ -59,7 +59,7 @@ export interface PluginAPI {
   navigate(kind: KindId, name?: string, namespace?: string): void;
 
   /** Show a toast / notification. */
-  notify(message: string, level?: "info" | "warn" | "error"): void;
+  notify(message: string, level?: 'info' | 'warn' | 'error'): void;
 
   /** Read the current rows for a kind from the store. */
   getResources(kind: KindId): any[];

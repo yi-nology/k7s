@@ -7,12 +7,12 @@
  *     confirm dialog, then calls `undoRollout` (previous revision).
  */
 
-import { useCallback, useEffect, useState } from "react";
-import styles from "./ActionList.module.css";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import type { KindId, ResourceRef, Row, HelmRevisionEntry } from "../../providers/types";
-import { isRolloutKind } from "../../lib/actions";
+import { useCallback, useEffect, useState } from 'react';
+import styles from './ActionList.module.css';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import type { KindId, ResourceRef, Row, HelmRevisionEntry } from '../../providers/types';
+import { isRolloutKind } from '../../lib/actions';
 
 interface HelmRollbackFormProps {
   kind: KindId;
@@ -49,14 +49,7 @@ export function HelmRollbackForm({
   }
 
   // ---- Helm release rollback (revision picker) ----
-  return (
-    <HelmRevisionPicker
-      row={row}
-      onError={onError}
-      onClose={onClose}
-      tr={tr}
-    />
-  );
+  return <HelmRevisionPicker row={row} onError={onError} onClose={onClose} tr={tr} />;
 }
 
 // ---------------------------------------------------------------------------
@@ -96,27 +89,29 @@ function WorkloadRollbackConfirm({
   return (
     <div className={styles.menu}>
       <div className={styles.confirm}>
-        <div className={styles.confirmText}>
-          {tr("actions.confirm.rollback", name)}
-        </div>
+        <div className={styles.confirmText}>{tr('actions.confirm.rollback', name)}</div>
         <div className={styles.confirmRow}>
           <button
             type="button"
             className={styles.cancelBtn}
             disabled={busy}
-            onClick={() => { if (!busy) onClose(); }}
+            onClick={() => {
+              if (!busy) onClose();
+            }}
           >
-            {tr("chrome.common.cancel")}
+            {tr('chrome.common.cancel')}
           </button>
           <button
             type="button"
             className={styles.applyBtn}
             disabled={busy}
-            onClick={() => { void handleRollback(); }}
+            onClick={() => {
+              void handleRollback();
+            }}
           >
             {busy
-              ? tr("actions.rollbackForm.applying", "Rolling back…")
-              : tr("actions.labels.rollback").replace(/…$/, "").trim()}
+              ? tr('actions.rollbackForm.applying', 'Rolling back…')
+              : tr('actions.labels.rollback').replace(/…$/, '').trim()}
           </button>
         </div>
       </div>
@@ -146,7 +141,7 @@ function HelmRevisionPicker({
   const [selected, setSelected] = useState<number | null>(null);
 
   const release = row.name;
-  const namespace = row.namespace ?? "";
+  const namespace = row.namespace ?? '';
 
   // Fetch revision history on mount.
   useEffect(() => {
@@ -168,7 +163,9 @@ function HelmRevisionPicker({
         setError(e instanceof Error ? e.message : String(e));
         setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [release, namespace]);
 
   const handleRollback = useCallback(async () => {
@@ -177,7 +174,7 @@ function HelmRevisionPicker({
     onError(null);
     try {
       await getProvider().helmRunOp({
-        op: "rollback",
+        op: 'rollback',
         args: { release, namespace, revision: selected },
       });
       onClose();
@@ -194,7 +191,7 @@ function HelmRevisionPicker({
     return (
       <div className={styles.menu}>
         <div className={styles.confirm}>
-          <div className={styles.confirmText}>{tr("actions.rollbackForm.loadingHistory")}</div>
+          <div className={styles.confirmText}>{tr('actions.rollbackForm.loadingHistory')}</div>
         </div>
       </div>
     );
@@ -207,7 +204,7 @@ function HelmRevisionPicker({
           <div className={styles.confirmText}>{error}</div>
           <div className={styles.confirmRow}>
             <button type="button" className={styles.cancelBtn} onClick={onClose}>
-              {tr("chrome.common.close")}
+              {tr('chrome.common.close')}
             </button>
           </div>
         </div>
@@ -218,26 +215,24 @@ function HelmRevisionPicker({
   return (
     <div className={styles.menu}>
       <div className={styles.confirm}>
-        <div className={styles.confirmText}>
-          {tr("actions.rollbackForm.helmTitle", release)}
-        </div>
+        <div className={styles.confirmText}>{tr('actions.rollbackForm.helmTitle', release)}</div>
 
         {/* Revision table */}
         <div
           style={{
             maxHeight: 220,
-            overflowY: "auto",
-            border: "1px solid var(--border-control)",
-            borderRadius: "var(--radius-sm)",
+            overflowY: 'auto',
+            border: '1px solid var(--border-control)',
+            borderRadius: 'var(--radius-sm)',
             marginBottom: 8,
           }}
         >
           <table
             style={{
-              width: "100%",
-              borderCollapse: "collapse",
+              width: '100%',
+              borderCollapse: 'collapse',
               fontSize: 11,
-              fontFamily: "var(--font-mono)",
+              fontFamily: 'var(--font-mono)',
             }}
           >
             <thead>
@@ -258,10 +253,8 @@ function HelmRevisionPicker({
                   <tr
                     key={rev.revision}
                     style={{
-                      cursor: isCurrent ? "default" : "pointer",
-                      background: isSelected
-                        ? "var(--bg-selected)"
-                        : "transparent",
+                      cursor: isCurrent ? 'default' : 'pointer',
+                      background: isSelected ? 'var(--bg-selected)' : 'transparent',
                       opacity: isCurrent ? 0.5 : 1,
                     }}
                     onClick={() => {
@@ -284,9 +277,7 @@ function HelmRevisionPicker({
                     <td style={tdStyle}>
                       {rev.status}
                       {isCurrent && (
-                        <span style={{ color: "var(--text-muted)", marginLeft: 4 }}>
-                          (current)
-                        </span>
+                        <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>(current)</span>
                       )}
                     </td>
                     <td style={tdStyle}>{rev.chart}</td>
@@ -304,19 +295,23 @@ function HelmRevisionPicker({
             type="button"
             className={styles.cancelBtn}
             disabled={busy}
-            onClick={() => { if (!busy) onClose(); }}
+            onClick={() => {
+              if (!busy) onClose();
+            }}
           >
-            {tr("chrome.common.cancel")}
+            {tr('chrome.common.cancel')}
           </button>
           <button
             type="button"
             className={styles.applyBtn}
             disabled={busy || selected === null || selected === currentRevision}
-            onClick={() => { void handleRollback(); }}
+            onClick={() => {
+              void handleRollback();
+            }}
           >
             {busy
-              ? tr("actions.rollbackForm.applying", "Rolling back…")
-              : tr("actions.rollbackForm.rollbackTo", `Rollback to #${selected ?? "?"}`)}
+              ? tr('actions.rollbackForm.applying', 'Rolling back…')
+              : tr('actions.rollbackForm.rollbackTo', `Rollback to #${selected ?? '?'}`)}
           </button>
         </div>
       </div>
@@ -325,16 +320,16 @@ function HelmRevisionPicker({
 }
 
 const thStyle: React.CSSProperties = {
-  textAlign: "left",
-  padding: "4px 6px",
-  borderBottom: "1px solid var(--border-control)",
-  color: "var(--text-muted)",
+  textAlign: 'left',
+  padding: '4px 6px',
+  borderBottom: '1px solid var(--border-control)',
+  color: 'var(--text-muted)',
   fontWeight: 500,
-  whiteSpace: "nowrap",
+  whiteSpace: 'nowrap',
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: "3px 6px",
-  borderBottom: "1px solid var(--border-subtle)",
-  whiteSpace: "nowrap",
+  padding: '3px 6px',
+  borderBottom: '1px solid var(--border-subtle)',
+  whiteSpace: 'nowrap',
 };

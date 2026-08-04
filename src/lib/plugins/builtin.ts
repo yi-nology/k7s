@@ -7,8 +7,8 @@
  * PluginAPI for resource access and navigation.
  */
 
-import type { K7sPlugin } from "./types";
-import { gpuMonitorPlugin } from "./builtin/gpu-monitor";
+import type { K7sPlugin } from './types';
+import { gpuMonitorPlugin } from './builtin/gpu-monitor';
 
 // ---------------------------------------------------------------------------
 // Network Policy Viewer stub
@@ -20,17 +20,17 @@ import { gpuMonitorPlugin } from "./builtin/gpu-monitor";
  * version would call the backend for the actual policy list.
  */
 export const netpolViewerPlugin: K7sPlugin = {
-  id: "netpol-viewer",
-  name: "Network Policy Viewer",
-  version: "0.1.0",
-  description: "Shows network policies affecting a pod or namespace (stub).",
-  author: "k7s",
+  id: 'netpol-viewer',
+  name: 'Network Policy Viewer',
+  version: '0.1.0',
+  description: 'Shows network policies affecting a pod or namespace (stub).',
+  author: 'k7s',
 
   activate(api) {
     api.registerDetailTab({
-      id: "netpol-tab",
-      label: "Net Policies",
-      kinds: ["pods", "namespaces"],
+      id: 'netpol-tab',
+      label: 'Net Policies',
+      kinds: ['pods', 'namespaces'],
       component: NetPolTab,
     });
   },
@@ -39,10 +39,10 @@ export const netpolViewerPlugin: K7sPlugin = {
 function NetPolTab({ row }: { row: any }) {
   // Placeholder: a real version would fetch policies from the store or provider.
   return {
-    type: "div",
+    type: 'div',
     props: {
-      style: { padding: "16px", color: "var(--text-muted)", fontSize: "13px" },
-      children: `Network policies for ${row?.namespace ?? "cluster"}/${row?.name ?? "?"}: (stub — install the backend plugin to list policies).`,
+      style: { padding: '16px', color: 'var(--text-muted)', fontSize: '13px' },
+      children: `Network policies for ${row?.namespace ?? 'cluster'}/${row?.name ?? '?'}: (stub — install the backend plugin to list policies).`,
     },
   } as any;
 }

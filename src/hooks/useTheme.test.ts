@@ -18,13 +18,13 @@
  * the wrong slice or applies to the wrong attribute.
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { useStore } from "../store";
-import { startThemeSync } from "./useTheme";
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { useStore } from '../store';
+import { startThemeSync } from './useTheme';
 
 /** Read the palette actually painted on the document. */
 function liveTheme(): string {
-  return document.documentElement.dataset.theme ?? "";
+  return document.documentElement.dataset.theme ?? '';
 }
 
 /** Read the OS-level colour scheme hint, which `applyTheme` sets in parallel. */
@@ -36,7 +36,7 @@ beforeEach(() => {
   // Reset the document between tests so a stale `data-theme` from the previous
   // test doesn't leak. jsdom's <html> is shared across tests in the same file.
   delete document.documentElement.dataset.theme;
-  document.documentElement.style.colorScheme = "";
+  document.documentElement.style.colorScheme = '';
 });
 
 afterEach(() => {
@@ -55,96 +55,96 @@ function start(): void {
   unsubs.push(startThemeSync());
 }
 
-describe("startThemeSync — initial paint", () => {
-  it("applies the resolved theme to <html> on first subscribe", () => {
+describe('startThemeSync — initial paint', () => {
+  it('applies the resolved theme to <html> on first subscribe', () => {
     // The store's initial state has `settings.theme: "system"` and
     // `systemDark: prefersDark()`. jsdom has no `matchMedia`, so
     // `prefersDark()` returns false → resolved is "light". This pins the
     // "first paint agrees with what index.html painted" contract.
-    useStore.setState({ settings: { ...useStore.getState().settings, theme: "system" } });
+    useStore.setState({ settings: { ...useStore.getState().settings, theme: 'system' } });
     useStore.setState({ systemDark: false });
 
     start();
 
-    expect(liveTheme()).toBe("light");
-    expect(liveColorScheme()).toBe("light");
+    expect(liveTheme()).toBe('light');
+    expect(liveColorScheme()).toBe('light');
   });
 });
 
-describe("startThemeSync — Settings panel changes", () => {
+describe('startThemeSync — Settings panel changes', () => {
   it("flips the palette the moment Settings changes theme from 'dark' to 'system' on a light OS", () => {
     // The headline behavioural claim from the pass-25 follow-up. A user who
     // had dark on, on a light desktop, switches to "system" in Settings — the
     // palette must immediately follow the OS, not stay on dark until the
     // next OS flip.
     useStore.setState({ systemDark: false });
-    useStore.setState({ settings: { ...useStore.getState().settings, theme: "dark" } });
+    useStore.setState({ settings: { ...useStore.getState().settings, theme: 'dark' } });
     start();
-    expect(liveTheme()).toBe("dark");
+    expect(liveTheme()).toBe('dark');
 
     // The Settings dropdown change: SettingsPanel calls setSettings({ theme }).
-    useStore.getState().setSettings({ theme: "system" });
+    useStore.getState().setSettings({ theme: 'system' });
 
-    expect(liveTheme()).toBe("light");
-    expect(liveColorScheme()).toBe("light");
+    expect(liveTheme()).toBe('light');
+    expect(liveColorScheme()).toBe('light');
   });
 
   it("flips the palette the moment Settings changes theme from 'light' to 'system' on a dark OS", () => {
     // Symmetric case. A light-mode user on a dark desktop switches to
     // "system" — the palette must immediately follow the dark OS.
     useStore.setState({ systemDark: true });
-    useStore.setState({ settings: { ...useStore.getState().settings, theme: "light" } });
+    useStore.setState({ settings: { ...useStore.getState().settings, theme: 'light' } });
     start();
-    expect(liveTheme()).toBe("light");
+    expect(liveTheme()).toBe('light');
 
-    useStore.getState().setSettings({ theme: "system" });
+    useStore.getState().setSettings({ theme: 'system' });
 
-    expect(liveTheme()).toBe("dark");
-    expect(liveColorScheme()).toBe("dark");
+    expect(liveTheme()).toBe('dark');
+    expect(liveColorScheme()).toBe('dark');
   });
 
   it("flips the palette when Settings changes from 'system' to an explicit choice", () => {
     // The other direction: a "system" user locks the choice to "light". The
     // OS may currently be dark, but the explicit "light" wins immediately.
     useStore.setState({ systemDark: true });
-    useStore.setState({ settings: { ...useStore.getState().settings, theme: "system" } });
+    useStore.setState({ settings: { ...useStore.getState().settings, theme: 'system' } });
     start();
-    expect(liveTheme()).toBe("dark");
+    expect(liveTheme()).toBe('dark');
 
-    useStore.getState().setSettings({ theme: "light" });
+    useStore.getState().setSettings({ theme: 'light' });
 
-    expect(liveTheme()).toBe("light");
+    expect(liveTheme()).toBe('light');
   });
 });
 
 describe("startThemeSync — OS flip while on 'system'", () => {
-  it("re-resolves to light the moment the OS flips to light", () => {
+  it('re-resolves to light the moment the OS flips to light', () => {
     // The in-flight OS-flip case. A user on "system" with a dark desktop
     // sees the palette follow the OS at sunset (or whenever the test
     // simulates it). The `useTheme` effect calls `onSystemThemeChange` which
     // dispatches `setSystemDark(false)`, and the subscription here must
     // apply the new resolution before React notices.
     useStore.setState({ systemDark: true });
-    useStore.setState({ settings: { ...useStore.getState().settings, theme: "system" } });
+    useStore.setState({ settings: { ...useStore.getState().settings, theme: 'system' } });
     start();
-    expect(liveTheme()).toBe("dark");
+    expect(liveTheme()).toBe('dark');
 
     useStore.getState().setSystemDark(false);
 
-    expect(liveTheme()).toBe("light");
-    expect(liveColorScheme()).toBe("light");
+    expect(liveTheme()).toBe('light');
+    expect(liveColorScheme()).toBe('light');
   });
 
-  it("re-resolves to dark the moment the OS flips to dark", () => {
+  it('re-resolves to dark the moment the OS flips to dark', () => {
     // Symmetric OS-flip case.
     useStore.setState({ systemDark: false });
-    useStore.setState({ settings: { ...useStore.getState().settings, theme: "system" } });
+    useStore.setState({ settings: { ...useStore.getState().settings, theme: 'system' } });
     start();
-    expect(liveTheme()).toBe("light");
+    expect(liveTheme()).toBe('light');
 
     useStore.getState().setSystemDark(true);
 
-    expect(liveTheme()).toBe("dark");
+    expect(liveTheme()).toBe('dark');
   });
 
   /**
@@ -154,19 +154,19 @@ describe("startThemeSync — OS flip while on 'system'", () => {
    * this test fails loudly: an OS flip while the user has dark locked must
    * not move the palette.
    */
-  it("ignores an OS flip when the user has picked an explicit theme", () => {
+  it('ignores an OS flip when the user has picked an explicit theme', () => {
     useStore.setState({ systemDark: true });
-    useStore.setState({ settings: { ...useStore.getState().settings, theme: "dark" } });
+    useStore.setState({ settings: { ...useStore.getState().settings, theme: 'dark' } });
     start();
-    expect(liveTheme()).toBe("dark");
+    expect(liveTheme()).toBe('dark');
 
     useStore.getState().setSystemDark(false);
 
-    expect(liveTheme()).toBe("dark");
+    expect(liveTheme()).toBe('dark');
   });
 });
 
-describe("startThemeSync — unsubscribed, state changes are no-ops", () => {
+describe('startThemeSync — unsubscribed, state changes are no-ops', () => {
   /**
    * The hook returns an unsubscribe, and the test setup relies on it. A
    * regression that forgot to call `useStore.subscribe` (or used a no-op
@@ -175,15 +175,15 @@ describe("startThemeSync — unsubscribed, state changes are no-ops", () => {
    * test is the proof that *future* state changes go through the
    * subscription, not just the constructor.
    */
-  it("stops applying once unsubscribed", () => {
+  it('stops applying once unsubscribed', () => {
     useStore.setState({ systemDark: false });
-    useStore.setState({ settings: { ...useStore.getState().settings, theme: "system" } });
+    useStore.setState({ settings: { ...useStore.getState().settings, theme: 'system' } });
     const unsub = startThemeSync();
-    expect(liveTheme()).toBe("light");
+    expect(liveTheme()).toBe('light');
 
     unsub();
 
-    useStore.getState().setSettings({ theme: "dark" });
-    expect(liveTheme()).toBe("light"); // unchanged — subscription is gone
+    useStore.getState().setSettings({ theme: 'dark' });
+    expect(liveTheme()).toBe('light'); // unchanged — subscription is gone
   });
 });

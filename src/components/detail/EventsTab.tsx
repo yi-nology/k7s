@@ -8,19 +8,14 @@
  * the object has never had any.
  */
 
-import { useEffect, useState } from "react";
-import styles from "./EventsTab.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import { useNow } from "../../hooks/useNow";
-import type { EventItem } from "../../providers/types";
-import {
-  eventWithinSince,
-  parseEventMs,
-  SINCE_OPTIONS,
-  type SinceOption,
-} from "../../lib/events";
+import { useEffect, useState } from 'react';
+import styles from './EventsTab.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import { useNow } from '../../hooks/useNow';
+import type { EventItem } from '../../providers/types';
+import { eventWithinSince, parseEventMs, SINCE_OPTIONS, type SinceOption } from '../../lib/events';
 
 export function EventsTab() {
   const row = useStore((s) => s.selectedRow);
@@ -53,10 +48,10 @@ export function EventsTab() {
   // would hide real data behind a serialization quirk). Computed after the
   // loading guard so the type is non-null where it's used.
   if (events === null) {
-    return <div className={styles.empty}>{t("events.loading")}</div>;
+    return <div className={styles.empty}>{t('events.loading')}</div>;
   }
   const visible =
-    eventsSince === "all"
+    eventsSince === 'all'
       ? events
       : events.filter((ev) => {
           const ms = parseEventMs(ev.lastTimestamp);
@@ -73,12 +68,12 @@ export function EventsTab() {
           className={styles.sinceSelect}
           value={eventsSince}
           onChange={(e) => setEventsSince(e.target.value as SinceOption)}
-          title={t("events.howFarBack")}
+          title={t('events.howFarBack')}
           data-testid="events-tab-since"
         >
           {SINCE_OPTIONS.map((o) => (
             <option key={o} value={o}>
-              {o === "all" ? t("events.sinceAll") : t("events.sinceLast", o)}
+              {o === 'all' ? t('events.sinceAll') : t('events.sinceLast', o)}
             </option>
           ))}
         </select>
@@ -89,16 +84,16 @@ export function EventsTab() {
       {visible.length === 0 ? (
         <div className={styles.empty}>
           {events.length === 0
-            ? t("events.empty", "no recent events — events expire after ~1h")
-            : t("events.empty", "no recent events — events expire after ~1h")}
-          <div className={styles.emptyHint}>{t("events.hint")}</div>
+            ? t('events.empty', 'no recent events — events expire after ~1h')
+            : t('events.empty', 'no recent events — events expire after ~1h')}
+          <div className={styles.emptyHint}>{t('events.hint')}</div>
         </div>
       ) : (
         visible.map((ev, i) => (
           <div key={i} className={styles.card}>
             <span
               className={styles.type}
-              style={{ color: ev.type === "Warning" ? "var(--status-err)" : "var(--status-ok)" }}
+              style={{ color: ev.type === 'Warning' ? 'var(--status-err)' : 'var(--status-ok)' }}
             >
               {ev.type}
             </span>

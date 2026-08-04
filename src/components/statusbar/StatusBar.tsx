@@ -15,17 +15,17 @@
  * session said "api 24ms  nodes 2/3 ready  cpu 12%  mem 38%  kubectl ctx: …".
  */
 
-import styles from "./StatusBar.module.css";
-import { useStore } from "../../store";
-import { useTranslation } from "../../hooks/useI18n";
+import styles from './StatusBar.module.css';
+import { useStore } from '../../store';
+import { useTranslation } from '../../hooks/useI18n';
 
 export function StatusBar() {
   const connection = useStore((s) => s.connection);
   const status = useStore((s) => s.clusterStatus);
   const { t } = useTranslation();
 
-  const connected = connection.phase === "connected";
-  const cluster = connection.clusterName ?? connection.context ?? "k7s";
+  const connected = connection.phase === 'connected';
+  const cluster = connection.clusterName ?? connection.context ?? 'k7s';
   const ctx = connection.context ?? null;
 
   // Percent values render "—" when metrics are absent (null).
@@ -40,29 +40,33 @@ export function StatusBar() {
       <span className={styles.cluster}>
         <span
           className={styles.clusterDot}
-          style={{ background: connected ? "var(--status-ok)" : "var(--status-err)" }}
+          style={{ background: connected ? 'var(--status-ok)' : 'var(--status-err)' }}
         />
         {cluster}
       </span>
       <Sep />
       <span className={styles.fact}>
-        {t("chrome.statusbar.api")} <b>{api == null ? "—" : `${api}ms`}</b>
+        {t('chrome.statusbar.api')} <b>{api == null ? '—' : `${api}ms`}</b>
       </span>
       <Sep />
       <span className={styles.fact}>
-        {t("chrome.statusbar.nodes")} <b>{ready}/{total}</b> {t("chrome.statusbar.ready")}
+        {t('chrome.statusbar.nodes')}{' '}
+        <b>
+          {ready}/{total}
+        </b>{' '}
+        {t('chrome.statusbar.ready')}
       </span>
       <Sep />
       <span className={styles.fact}>
-        {t("chrome.statusbar.cpu")} <b>{cpu == null ? "—" : `${cpu}%`}</b>
+        {t('chrome.statusbar.cpu')} <b>{cpu == null ? '—' : `${cpu}%`}</b>
       </span>
       <Sep />
       <span className={styles.fact}>
-        {t("chrome.statusbar.mem")} <b>{mem == null ? "—" : `${mem}%`}</b>
+        {t('chrome.statusbar.mem')} <b>{mem == null ? '—' : `${mem}%`}</b>
       </span>
       <div className={styles.spacer} />
       <span className={styles.ctx}>
-        {t("chrome.statusbar.kubectlCtx")} <b>{ctx ?? "—"}</b>
+        {t('chrome.statusbar.kubectlCtx')} <b>{ctx ?? '—'}</b>
       </span>
     </div>
   );

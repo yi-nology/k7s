@@ -13,7 +13,7 @@
  */
 
 /** What happened to a line. */
-export type DiffOp = "same" | "add" | "del";
+export type DiffOp = 'same' | 'add' | 'del';
 
 export interface DiffLine {
   op: DiffOp;
@@ -32,8 +32,8 @@ export interface DiffLine {
  * resynchronise badly on YAML, where blocks of similar keys repeat.
  */
 export function diffLines(before: string, after: string): DiffLine[] {
-  const a = before.split("\n");
-  const b = after.split("\n");
+  const a = before.split('\n');
+  const b = after.split('\n');
   const n = a.length;
   const m = b.length;
 
@@ -50,26 +50,26 @@ export function diffLines(before: string, after: string): DiffLine[] {
   let j = 0;
   while (i < n && j < m) {
     if (a[i] === b[j]) {
-      out.push({ op: "same", text: a[i], before: i + 1, after: j + 1 });
+      out.push({ op: 'same', text: a[i], before: i + 1, after: j + 1 });
       i++;
       j++;
     } else if (lcs[i + 1][j] >= lcs[i][j + 1]) {
       // Deletions before additions, so a changed line reads as -old / +new.
-      out.push({ op: "del", text: a[i], before: i + 1 });
+      out.push({ op: 'del', text: a[i], before: i + 1 });
       i++;
     } else {
-      out.push({ op: "add", text: b[j], after: j + 1 });
+      out.push({ op: 'add', text: b[j], after: j + 1 });
       j++;
     }
   }
-  while (i < n) out.push({ op: "del", text: a[i], before: ++i });
-  while (j < m) out.push({ op: "add", text: b[j], after: ++j });
+  while (i < n) out.push({ op: 'del', text: a[i], before: ++i });
+  while (j < m) out.push({ op: 'add', text: b[j], after: ++j });
   return out;
 }
 
 /** True when the two texts differ at all. */
 export function hasChanges(lines: DiffLine[]): boolean {
-  return lines.some((l) => l.op !== "same");
+  return lines.some((l) => l.op !== 'same');
 }
 
 /**
@@ -81,7 +81,7 @@ export function hasChanges(lines: DiffLine[]): boolean {
  * rather than rendering the whole file as context.
  */
 export function hunks(lines: DiffLine[], context = 3): DiffLine[][] {
-  const changed = lines.map((l) => l.op !== "same");
+  const changed = lines.map((l) => l.op !== 'same');
   if (!changed.some(Boolean)) return [];
 
   // Mark every line within `context` of a change as worth keeping.
@@ -112,8 +112,8 @@ export function diffStat(lines: DiffLine[]): { added: number; removed: number } 
   let added = 0;
   let removed = 0;
   for (const l of lines) {
-    if (l.op === "add") added++;
-    else if (l.op === "del") removed++;
+    if (l.op === 'add') added++;
+    else if (l.op === 'del') removed++;
   }
   return { added, removed };
 }
