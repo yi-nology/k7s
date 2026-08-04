@@ -18,7 +18,7 @@
 #     -e KUBECONFIG=/home/k7s/.kube/config \
 #     ghcr.io/zy84338719/k7s:latest
 #
-# Or use docker compose (see docker-compose.yml in this repo).
+# Or use docker compose.
 
 # ─────────────────────────────────────────────────────────────────
 # Stage 1 — front-end
@@ -122,7 +122,7 @@ EXPOSE 8080
 # but the axum router is listening on this port, so a successful
 # connect is enough to know the process is up.
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 --start-period=10s \
-  CMD ["/app/k7s-web", "--help"]
+  CMD ["/bin/sh", "-c", "echo > /dev/tcp/localhost/8080"]
 
 # Server mode: serve both the API and the static React app on one port.
 # Override with --addr 127.0.0.1:7180 if you want API-only.
