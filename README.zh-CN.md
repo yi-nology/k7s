@@ -47,6 +47,24 @@ k7s 故意保持「少量高质量原语 + 高速 UI」的克制路线，下面�
 
 ---
 
+## ⚡ 快速安装
+
+**macOS (Apple Silicon) / Linux — 一行命令：**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | bash
+```
+
+脚本自动检测操作系统和架构，下载最新版本并安装：
+- **macOS**：挂载 `.dmg` 并将 `k7s.app` 复制到 `/Applications`
+- **Linux**：安装 `.deb` 包（或回退到 AppImage 放入 `~/.local/bin`）
+
+**Windows / macOS Intel / Linux arm64：**
+
+从 [GitHub Releases](https://github.com/zy84338719/k7s/releases) 下载对应安装包。
+
+---
+
 ## ✨ 功能
 
 - **多集群** —— kubeconfig 上下文切换，支持即时导入
