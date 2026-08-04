@@ -11,7 +11,7 @@
 
 import { useMemo, useRef } from "react";
 import styles from "./TopBar.module.css";
-import { useStore } from "../../store";
+import { useStore, type OverlayKey } from "../../store";
 import { useClickOutside } from "../../hooks/useClickOutside";
 import { useTranslation } from "../../hooks/useI18n";
 import { kindMeta, type KindId } from "../../lib/kinds";
@@ -23,8 +23,35 @@ import {
   type Locale,
 } from "../../lib/i18n";
 
+/** Human-readable labels for each overlay key, used in the breadcrumb when an
+ *  overlay is active.  Keys not listed here fall back to a title-cased version
+ *  of the raw key string. */
+const OVERLAY_LABELS: Partial<Record<OverlayKey, string>> = {
+  "helm-market": "Helm Market",
+  "pod-files": "Pod Files",
+  "image-repos": "Image Repos",
+  "image-import": "Image Import",
+  templates: "Templates",
+  dashboard: "Dashboard",
+  metrics: "Metrics Explorer",
+  grafana: "Grafana",
+  endpoints: "Endpoints",
+  topology: "Topology",
+  "ingress-routes": "Ingress Routes",
+  alerting: "Alerting",
+  audit: "Audit",
+  "ingress-editor": "Ingress Editor",
+  diff: "Diff",
+  plugins: "Plugins",
+};
+
+function overlayLabel(key: OverlayKey): string {
+  return OVERLAY_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
+}
+
 export function TopBar() {
   const nav = useStore((s) => s.nav);
+  const overlay = useStore((s) => s.overlay);
   const namespace = useStore((s) => s.namespace);
   const connection = useStore((s) => s.connection);
   const nsRows = useStore((s) => s.rows.namespaces);
@@ -66,9 +93,18 @@ export function TopBar() {
   return (
     <div className={styles.topbar}>
       <div className={styles.breadcrumb}>
-        {cluster} <span className={styles.sep}>/</span> {groupText}{" "}
-        <span className={styles.sep}>/</span>{" "}
-        <span className={styles.kind}>{kindText}</span>
+        {overlay !== null ? (
+          <>
+            {cluster} <span className={styles.sep}>/</span>{" "}
+            <span className={styles.kind}>{overlayLabel(overlay)}</span>
+          </>
+        ) : (
+          <>
+            {cluster} <span className={styles.sep}>/</span> {groupText}{" "}
+            <span className={styles.sep}>/</span>{" "}
+            <span className={styles.kind}>{kindText}</span>
+          </>
+        )}
       </div>
 
       <div className={styles.spacer} />
