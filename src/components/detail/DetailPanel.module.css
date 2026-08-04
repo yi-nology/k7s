@@ -185,7 +185,8 @@
 
 .meta {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 6px 14px;
   margin: 9px 0 12px;
   padding-left: 22px;
   font-family: var(--font-mono);
@@ -195,6 +196,16 @@
 .metaVal {
   color: var(--text-secondary);
   font-weight: 500;
+}
+.metaChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
 }
 
 /* ============== Tabs ============== */
