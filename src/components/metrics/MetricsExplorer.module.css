@@ -247,6 +247,16 @@
   text-align: center;
 }
 
+.emptyState {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-faint);
+  font-size: var(--text-sm);
+  min-height: 200px;
+}
+
 /* Save bar (expands under the query row when Save is clicked). */
 .saveBarWrap {
   margin-top: 8px;
@@ -362,6 +372,26 @@
 
 .btnSmallDanger:hover {
   border-color: var(--status-err);
+}
+
+.savedAction {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: var(--text-md);
+}
+
+.savedAction:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-control);
+  color: var(--text-primary);
 }
 
 /* Transient "Cleared" feedback for the cache-bust button. */

@@ -140,24 +140,24 @@ export function DetailPanel() {
 
         {isPod ? (
           <div className={styles.meta}>
-            <span>
+            <span className={styles.metaChip}>
               {t("detail.header.ns")} <span className={styles.metaVal}>{row.namespace}</span>
             </span>
-            <span>
+            <span className={styles.metaChip}>
               {t("detail.header.node")} <span className={styles.metaVal}>{meta.node}</span>
             </span>
-            <span>
+            <span className={styles.metaChip}>
               {t("detail.header.age")} <span className={styles.metaVal}>{ageText(meta.creationTs, now)}</span>
             </span>
-            <span style={{ color: statusColor }}>{meta.status}</span>
+            <span className={styles.metaChip} style={{ color: statusColor }}>{meta.status}</span>
           </div>
         ) : (
           <div className={styles.meta}>
-            <span>
+            <span className={styles.metaChip}>
               {t("detail.header.kind")} <span className={styles.metaVal}>{kindLabel}</span>
             </span>
             {row.namespace && (
-              <span>
+              <span className={styles.metaChip}>
                 {t("detail.header.ns")} <span className={styles.metaVal}>{row.namespace}</span>
               </span>
             )}

@@ -68,6 +68,44 @@ export function mockProperties(ref: ResourceRef): Properties | null {
       return helmProperties(ref);
     case "ingresses":
       return ingressProperties(ref);
+    case "secrets":
+      return secretProperties(ref);
+    case "serviceaccounts":
+      return serviceAccountProperties(ref);
+    case "storageclasses":
+      return storageClassProperties(ref);
+    case "namespaces":
+      return namespaceProperties(ref);
+    case "persistentvolumeclaims":
+      return pvcProperties(ref);
+    case "persistentvolumes":
+      return pvProperties(ref);
+    case "jobs":
+      return jobProperties(ref);
+    case "cronjobs":
+      return cronJobProperties(ref);
+    case "horizontalpodautoscalers":
+      return hpaProperties(ref);
+    case "networkpolicies":
+      return networkPolicyProperties(ref);
+    case "resourcequotas":
+      return resourceQuotaProperties(ref);
+    case "roles":
+      return roleProperties(ref);
+    case "clusterroles":
+      return clusterRoleProperties(ref);
+    case "rolebindings":
+      return roleBindingProperties(ref);
+    case "clusterrolebindings":
+      return clusterRoleBindingProperties(ref);
+    case "poddisruptionbudgets":
+      return pdbProperties(ref);
+    case "mutatingwebhookconfigurations":
+      return mutatingWebhookProperties(ref);
+    case "validatingwebhookconfigurations":
+      return validatingWebhookProperties(ref);
+    case "apiservices":
+      return apiServiceProperties(ref);
     default:
       return null;
   }
@@ -503,6 +541,292 @@ function nodeProperties(ref: ResourceRef): Properties {
         ["kubernetes.io/hostname", ref.name],
         ...(control ? ([["node-role.kubernetes.io/control-plane", ""]] as [string, string][]) : []),
       ]),
+    ],
+  };
+}
+
+function secretProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("type", "Opaque"),
+        f("data keys", "2"),
+        f("stringData keys", "0"),
+        f("immutable", "no"),
+      ]),
+      table("Data", ["KEY", "BYTES"], [
+        [n("username"), c("10 bytes")],
+        [n("password"), c("12 bytes")],
+      ], "no data keys"),
+      chips("Labels", [["app", ref.name]]),
+    ],
+  };
+}
+
+function serviceAccountProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("automount token", "true"),
+      ]),
+      table("Secrets", ["NAME"], [
+        [n(`${ref.name}-token-abc12`)],
+      ], "no secrets"),
+      chips("Labels", [["app", ref.name]]),
+    ],
+  };
+}
+
+function storageClassProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("provisioner", "rancher.io/local-path"),
+        f("reclaim policy", "Delete"),
+        f("volume binding mode", "WaitForFirstConsumer"),
+      ]),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function namespaceProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("status", "Active", "ok"),
+        f("age", daysAgo(31)),
+      ]),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function pvcProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("status", "Bound", "ok"),
+        f("volume", "pvc-8f2c1a3e"),
+        f("capacity", "20Gi"),
+        f("access modes", "ReadWriteOnce"),
+        f("storage class", "local-path"),
+      ]),
+      chips("Labels", [["app", ref.name]]),
+    ],
+  };
+}
+
+function pvProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("status", "Bound", "ok"),
+        f("capacity", "20Gi"),
+        f("access modes", "ReadWriteOnce"),
+        f("reclaim policy", "Delete"),
+        f("storage class", "local-path"),
+        f("claim", "default/data-heimdall-db-0"),
+      ]),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function jobProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("completions", "1"),
+        f("parallelism", "1"),
+        f("backoff limit", "6"),
+        f("status", "Complete", "ok"),
+      ]),
+      table("Pods", ["NAME", "STATUS", "READY", "RESTARTS", "AGE"], [
+        [n(`${ref.name}-abc12`), c("Complete", "ok"), c("0/1"), c("0"), age(daysAgo(1))],
+      ], "no pods"),
+      chips("Labels", [["app", ref.name]]),
+    ],
+  };
+}
+
+function cronJobProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("schedule", "0 * * * *"),
+        f("suspend", "no"),
+        f("active", "0"),
+        f("last schedule", daysAgo(0.5)),
+      ]),
+      table("Jobs", ["NAME", "STATUS", "COMPLETIONS", "AGE"], [
+        [n(`${ref.name}-28000000`), c("Complete", "ok"), c("1/1"), age(daysAgo(0.5))],
+      ], "no jobs"),
+      chips("Labels", [["app", ref.name]]),
+    ],
+  };
+}
+
+function hpaProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("scale target", "Deployment/app"),
+        f("min replicas", "1"),
+        f("max replicas", "10"),
+        f("current replicas", "3"),
+      ]),
+      table("Conditions", ["TYPE", "STATUS", "REASON", "MESSAGE"], [
+        [n("AbleToScale"), c("True", "ok"), c("ReadyForNewScale"), c("recommended size matches current size")],
+      ], "no conditions"),
+      chips("Labels", [["app", ref.name]]),
+    ],
+  };
+}
+
+function networkPolicyProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("pod selector", "app=my-app"),
+        f("policy types", "Ingress, Egress"),
+      ]),
+      table("Ingress rules", ["FROM", "PORTS"], [
+        [c("namespace: default"), c("8080/TCP")],
+      ], "no ingress rules"),
+      table("Egress rules", ["TO", "PORTS"], [
+        [c("namespace: default"), c("53/TCP, 53/UDP")],
+      ], "no egress rules"),
+      chips("Labels", [["app", ref.name]]),
+    ],
+  };
+}
+
+function resourceQuotaProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", []),
+      table("Hard", ["RESOURCE", "VALUE"], [
+        [n("requests.cpu"), c("4")],
+        [n("requests.memory"), c("8Gi")],
+        [n("limits.cpu"), c("8")],
+        [n("limits.memory"), c("16Gi")],
+      ], "no hard limits"),
+      table("Used", ["RESOURCE", "VALUE"], [
+        [n("requests.cpu"), c("500m")],
+        [n("requests.memory"), c("1Gi")],
+      ], "no usage"),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function roleProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", []),
+      table("Rules", ["API GROUPS", "RESOURCES", "VERBS"], [
+        [c("*"), c("*"), c("*")],
+      ], "no rules"),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function clusterRoleProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", []),
+      table("Rules", ["API GROUPS", "RESOURCES", "VERBS"], [
+        [c("*"), c("*"), c("*")],
+      ], "no rules"),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function roleBindingProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("role", "Role/admin"),
+      ]),
+      table("Subjects", ["KIND", "NAME", "NAMESPACE"], [
+        [c("User"), c("admin"), c("default")],
+      ], "no subjects"),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function clusterRoleBindingProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("role", "ClusterRole/cluster-admin"),
+      ]),
+      table("Subjects", ["KIND", "NAME", "NAMESPACE"], [
+        [c("User"), c("admin"), c("—")],
+      ], "no subjects"),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function pdbProperties(_ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("min available", "1"),
+        f("selector", "app=my-app"),
+        f("current healthy", "2"),
+        f("desired healthy", "1"),
+      ]),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function mutatingWebhookProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("failure policy", "Fail"),
+        f("side effects", "None"),
+      ]),
+      table("Webhooks", ["NAME", "CLIENT CONFIG", "URLS"], [
+        [n(ref.name), c("Service"), c("—")],
+      ], "no webhooks"),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function validatingWebhookProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("failure policy", "Fail"),
+        f("side effects", "None"),
+      ]),
+      table("Webhooks", ["NAME", "CLIENT CONFIG", "URLS"], [
+        [n(ref.name), c("Service"), c("—")],
+      ], "no webhooks"),
+      chips("Labels", []),
+    ],
+  };
+}
+
+function apiServiceProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields("Overview", [
+        f("service", "kube-system/my-api"),
+        f("group", ref.name.split(".")[0]),
+        f("version", "v1"),
+        f("available", "True", "ok"),
+      ]),
+      chips("Labels", []),
     ],
   };
 }

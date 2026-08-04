@@ -369,14 +369,14 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
               </button>
               <span className={styles.savedPromql}>{q.promql}</span>
               <button
-                className={styles.btnSmall}
+                className={styles.savedAction}
                 onClick={() => runSaved(q, true)}
                 title={t("metricsExplorer.saved.refreshHint", "Run, ignoring the cache")}
               >
                 ↻
               </button>
               <button
-                className={styles.btnSmallDanger}
+                className={styles.savedAction}
                 onClick={() => removeSaved(q.name)}
                 title={t("metricsExplorer.saved.removeHint", "Delete saved query")}
               >
@@ -408,6 +408,21 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
                     .map(([k, v]) => `${k}=${v}`)
                     .join(",") || s.metric.__name__ || "",
                 }))}
+                layoutExtra={{
+                  showlegend: true,
+                  legend: {
+                    orientation: "h" as const,
+                    x: 0,
+                    y: -0.15,
+                    font: { color: "var(--text-secondary)", size: 11 },
+                  },
+                  yaxis: {
+                    title: {
+                      text: "",
+                      font: { color: "var(--text-muted)", size: 10 },
+                    },
+                  },
+                }}
                 height={320}
               />
             ) : (
@@ -418,8 +433,8 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
               {t("metricsExplorer.empty", "No series returned.")}
             </div>
           ) : (
-            <div className={styles.empty}>
-              {t("metricsExplorer.placeholder", "Run a query to see results.")}
+            <div className={styles.emptyState}>
+              <span>{t("metricsExplorer.emptyState", "Run a query to see metrics")}</span>
             </div>
           )}
         </div>

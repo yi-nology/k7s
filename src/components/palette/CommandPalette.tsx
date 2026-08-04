@@ -10,7 +10,7 @@
  * lib/fuzzy.ts; this file is the shell around them: focus, keys, and dispatch.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import styles from "./CommandPalette.module.css";
 import { useStore } from "../../store";
 import { getProvider } from "../../providers";
@@ -225,7 +225,7 @@ function itemKey(item: PaletteItem): string {
 }
 
 /** Glyph per result, matching the sidebar's vocabulary. */
-function iconFor(item: PaletteItem): string {
+function iconFor(item: PaletteItem): ReactNode {
   switch (item.type) {
     case "kind":
       return item.icon;

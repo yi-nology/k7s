@@ -149,74 +149,40 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
         </div>
       </div>
 
-      <div className={styles.utilisation}>
-        <div className={styles.meter}>
-          <div className={styles.meterHeader}>
-            <span>{t("dashboard.cpu", "CPU")}</span>
-            <span>{cpuPercent.toFixed(0)}%</span>
-          </div>
-          <div className={styles.barOuter}>
-            <div
-              className={styles.barInner}
-              style={{
-                width: `${Math.min(100, cpuPercent)}%`,
-                background: meterColor(cpuPercent),
-              }}
+      {/* Consolidated overview: health ring on the left, CPU + Memory bars
+          stacked on the right, all in a single horizontal card. */}
+      <div className={styles.overviewCard}>
+        <div className={styles.overviewRing}>
+          <svg viewBox="0 0 100 100" className={styles.healthRingSvg}>
+            <circle
+              cx="50"
+              cy="50"
+              r="42"
+              fill="none"
+              stroke="var(--bg-terminal)"
+              strokeWidth="8"
             />
+            <circle
+              cx="50"
+              cy="50"
+              r="42"
+              fill="none"
+              stroke={gradeColor(health.grade)}
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray={`${(health.score / 100) * 264} 264`}
+              className={styles.healthRingArc}
+            />
+          </svg>
+          <div
+            className={styles.healthGrade}
+            style={{ color: gradeColor(health.grade) }}
+          >
+            {health.grade}
           </div>
         </div>
-        <div className={styles.meter}>
-          <div className={styles.meterHeader}>
-            <span>{t("dashboard.mem", "Memory")}</span>
-            <span>{memPercent.toFixed(0)}%</span>
-          </div>
-          <div className={styles.barOuter}>
-            <div
-              className={styles.barInner}
-              style={{
-                width: `${Math.min(100, memPercent)}%`,
-                background: meterColor(memPercent),
-              }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Health score card — shows the cluster's overall grade and
-          an expandable list of individual health checks. */}
-      <div className={styles.healthCard}>
-        <div className={styles.healthMain}>
-          {/* Animated score ring */}
-          <div className={styles.healthRing}>
-            <svg viewBox="0 0 100 100" className={styles.healthRingSvg}>
-              <circle
-                cx="50"
-                cy="50"
-                r="42"
-                fill="none"
-                stroke="var(--bg-terminal)"
-                strokeWidth="8"
-              />
-              <circle
-                cx="50"
-                cy="50"
-                r="42"
-                fill="none"
-                stroke={gradeColor(health.grade)}
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeDasharray={`${(health.score / 100) * 264} 264`}
-                className={styles.healthRingArc}
-              />
-            </svg>
-            <div
-              className={styles.healthGrade}
-              style={{ color: gradeColor(health.grade) }}
-            >
-              {health.grade}
-            </div>
-          </div>
-          <div className={styles.healthInfo}>
+        <div className={styles.overviewStats}>
+          <div className={styles.overviewMeta}>
             <div className={styles.healthScore}>
               {health.checks.length > 0 ? health.score : "—"}
               {health.checks.length > 0 && (
@@ -227,35 +193,69 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
               {t("dashboard.healthScore", "Cluster Health")}
             </div>
           </div>
+          <div className={styles.overviewStat}>
+            <span className={styles.overviewLabel}>
+              {t("dashboard.cpu", "CPU")}
+            </span>
+            <span className={styles.overviewBar}>
+              <span
+                className={styles.overviewFill}
+                style={{
+                  width: `${Math.min(100, cpuPercent)}%`,
+                  background: meterColor(cpuPercent),
+                }}
+              />
+            </span>
+            <span className={styles.overviewValue}>
+              {cpuPercent.toFixed(0)}%
+            </span>
+          </div>
+          <div className={styles.overviewStat}>
+            <span className={styles.overviewLabel}>
+              {t("dashboard.mem", "MEM")}
+            </span>
+            <span className={styles.overviewBar}>
+              <span
+                className={styles.overviewFill}
+                style={{
+                  width: `${Math.min(100, memPercent)}%`,
+                  background: meterColor(memPercent),
+                }}
+              />
+            </span>
+            <span className={styles.overviewValue}>
+              {memPercent.toFixed(0)}%
+            </span>
+          </div>
+          {health.checks.length > 0 && (
+            <button
+              type="button"
+              className={styles.healthToggle}
+              onClick={() => setChecksExpanded((v) => !v)}
+            >
+              {checksExpanded
+                ? t("dashboard.healthHide", "Hide checks")
+                : t(
+                    "dashboard.healthShow",
+                    `Show ${health.checks.length} checks`,
+                  )}
+            </button>
+          )}
         </div>
-        {health.checks.length > 0 && (
-          <button
-            type="button"
-            className={styles.healthToggle}
-            onClick={() => setChecksExpanded((v) => !v)}
-          >
-            {checksExpanded
-              ? t("dashboard.healthHide", "Hide checks")
-              : t(
-                  "dashboard.healthShow",
-                  `Show ${health.checks.length} checks`,
-                )}
-          </button>
-        )}
-        {checksExpanded && health.checks.length > 0 && (
-          <ul className={styles.healthChecks}>
-            {health.checks.map((c) => (
-              <li key={c.name} className={styles.healthCheckItem}>
-                <span className={styles[`check${capitalize(c.status)}`]}>
-                  {c.status === "pass" ? "\u2713" : c.status === "warn" ? "!" : "\u2717"}
-                </span>
-                <span className={styles.checkName}>{c.name}</span>
-                <span className={styles.checkMessage}>{c.message}</span>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
+      {checksExpanded && health.checks.length > 0 && (
+        <ul className={styles.healthChecks}>
+          {health.checks.map((c) => (
+            <li key={c.name} className={styles.healthCheckItem}>
+              <span className={styles[`check${capitalize(c.status)}`]}>
+                {c.status === "pass" ? "\u2713" : c.status === "warn" ? "!" : "\u2717"}
+              </span>
+              <span className={styles.checkName}>{c.name}</span>
+              <span className={styles.checkMessage}>{c.message}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className={styles.resourceGrid}>
         {RESOURCE_KINDS.map((k) => {

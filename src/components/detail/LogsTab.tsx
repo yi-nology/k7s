@@ -115,76 +115,80 @@ export function LogsTab() {
   return (
     <>
       <div className={styles.toolbar}>
-        <div className={styles.search}>
-          <span className={styles.searchIcon}>⌕</span>
-          <input
-            className={styles.searchInput}
-            value={logSearch}
-            onChange={(e) => setLogSearch(e.target.value)}
-            placeholder={t("logs.filterPlaceholder")}
-          />
+        <div className={styles.toolbarPrimary}>
+          <div className={styles.search}>
+            <span className={styles.searchIcon}>⌕</span>
+            <input
+              className={styles.searchInput}
+              value={logSearch}
+              onChange={(e) => setLogSearch(e.target.value)}
+              placeholder={t("logs.filterPlaceholder")}
+            />
+          </div>
+
+          {/* Container cycler (cycles through the pod's containers, plus "all"). */}
+          <button type="button" className={styles.button} onClick={cycleContainer} title={t("logs.container")}>
+            <span className={styles.buttonGlyph}>▣</span>
+            {containerLabel}
+            {options.length > 1 && <span className={styles.buttonChevron}>▼</span>}
+          </button>
         </div>
 
-        {/* Container cycler (cycles through the pod's containers, plus "all"). */}
-        <button type="button" className={styles.button} onClick={cycleContainer} title={t("logs.container")}>
-          <span className={styles.buttonGlyph}>▣</span>
-          {containerLabel}
-          {options.length > 1 && <span className={styles.buttonChevron}>▼</span>}
-        </button>
-
-        {/* Timestamp toggle. */}
-        <button
-          type="button"
-          className={`${styles.toggle} ${showTimestamps ? styles.toggleActive : ""}`}
-          onClick={toggleTimestamps}
-        >
-          {t("logs.ts")}
-        </button>
-
-        {/* How far back to read. */}
-        <select
-          className={styles.select}
-          value={since}
-          onChange={(e) => setLogSince(e.target.value as (typeof SINCE_OPTIONS)[number])}
-          title={t("logs.howFarBack")}
-        >
-          {SINCE_OPTIONS.map((o) => (
-            <option key={o} value={o}>
-              {o === "all" ? t("logs.sinceAll") : t("logs.sinceLast", o)}
-            </option>
-          ))}
-        </select>
-
-        {/* Previous container — only offered when there *is* one to read (B29).
-            A pod that has never restarted has no previous generation, and asking
-            for one is a 400. */}
-        {showPrevious && (
+        <div className={styles.toolbarSecondary}>
+          {/* Timestamp toggle. */}
           <button
             type="button"
-            className={`${styles.toggle} ${previous ? styles.toggleActive : ""}`}
-            onClick={() => setLogPrevious(!previous)}
-            title={t("logs.previousTitle")}
+            className={`${styles.toggle} ${showTimestamps ? styles.toggleActive : ""}`}
+            onClick={toggleTimestamps}
           >
-            {t("logs.previous")}
+            {t("logs.ts")}
           </button>
-        )}
 
-        <button type="button" className={styles.button} onClick={() => void save()} title={t("logs.saveTitle")}>
-          <span className={styles.buttonGlyph}>⇩</span>
-          {t("logs.save")}
-        </button>
-
-        {/* Follow / pause. Meaningless for a previous read: that container is
-            dead, so there is nothing to follow. */}
-        {!previous && (
-          <button
-            type="button"
-            className={`${styles.follow} ${following ? styles.following : styles.paused}`}
-            onClick={toggleFollow}
+          {/* How far back to read. */}
+          <select
+            className={styles.select}
+            value={since}
+            onChange={(e) => setLogSince(e.target.value as (typeof SINCE_OPTIONS)[number])}
+            title={t("logs.howFarBack")}
           >
-            {following ? t("logs.pause") : t("logs.follow")}
+            {SINCE_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o === "all" ? t("logs.sinceAll") : t("logs.sinceLast", o)}
+              </option>
+            ))}
+          </select>
+
+          {/* Previous container — only offered when there *is* one to read (B29).
+              A pod that has never restarted has no previous generation, and asking
+              for one is a 400. */}
+          {showPrevious && (
+            <button
+              type="button"
+              className={`${styles.toggle} ${previous ? styles.toggleActive : ""}`}
+              onClick={() => setLogPrevious(!previous)}
+              title={t("logs.previousTitle")}
+            >
+              {t("logs.previous")}
+            </button>
+          )}
+
+          <button type="button" className={styles.button} onClick={() => void save()} title={t("logs.saveTitle")}>
+            <span className={styles.buttonGlyph}>⇩</span>
+            {t("logs.save")}
           </button>
-        )}
+
+          {/* Follow / pause. Meaningless for a previous read: that container is
+              dead, so there is nothing to follow. */}
+          {!previous && (
+            <button
+              type="button"
+              className={`${styles.follow} ${following ? styles.following : styles.paused}`}
+              onClick={toggleFollow}
+            >
+              {following ? t("logs.pause") : t("logs.follow")}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className={styles.viewport} ref={viewportRef}>

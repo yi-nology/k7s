@@ -393,14 +393,13 @@
   border-radius: 2px;
 }
 .navIcon {
-  width: 16px;
-  text-align: center;
-  font-size: var(--text-md);
-  color: var(--text-faint);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 18px;
+  height: 18px;
   flex: none;
+  color: var(--text-faint);
 }
 .navItemActive .navIcon {
   color: var(--accent);
