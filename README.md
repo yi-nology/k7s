@@ -57,9 +57,12 @@ curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | ba
 
 The script auto-detects your OS and architecture, downloads the latest release, and installs it:
 - **macOS**: mounts the `.dmg` and copies `k7s.app` to `/Applications`
-- **Linux**: installs the `.deb` package (or falls back to AppImage in `~/.local/bin`)
+- **Linux (deb)**: installs the `.deb` package via dpkg (Debian/Ubuntu)
+- **Linux (rpm)**: installs the `.rpm` package via dnf/yum (Fedora/RHEL/CentOS)
+- **Linux (fallback)**: installs the AppImage to `~/.local/bin/`
+- Supports **amd64** and **arm64** architectures
 
-**Windows / macOS Intel / Linux arm64:**
+**Windows / macOS Intel:**
 
 Download the appropriate installer from [GitHub Releases](https://github.com/zy84338719/k7s/releases).
 
