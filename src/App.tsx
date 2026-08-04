@@ -75,98 +75,130 @@ export default function App() {
               <DetailPanel />
             </div>
             {overlay === "helm-market" && (
-              <div className={styles.overlay}>
-                <HelmMarket onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <HelmMarket onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "pod-files" && (
-              <div className={styles.overlay}>
-                {overlayPodRef ? (
-                  <PodFilesPanel
-                    ref={{
-                      kind: "pods",
-                      namespace: overlayPodRef.namespace,
-                      name: overlayPodRef.name,
-                    }}
-                    container={overlayPodRef.container}
-                    onClose={closeOverlay}
-                  />
-                ) : (
-                  // No pod picked yet — show a friendly empty state.
-                  <div className={styles.overlayEmpty}>
-                    {t("podFiles.noPod", "Open Pod Files from a Pod's row context menu.")}
-                  </div>
-                )}
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  {overlayPodRef ? (
+                    <PodFilesPanel
+                      ref={{
+                        kind: "pods",
+                        namespace: overlayPodRef.namespace,
+                        name: overlayPodRef.name,
+                      }}
+                      container={overlayPodRef.container}
+                      onClose={closeOverlay}
+                    />
+                  ) : (
+                    // No pod picked yet — show a friendly empty state.
+                    <div className={styles.overlayEmpty}>
+                      {t("podFiles.noPod", "Open Pod Files from a Pod's row context menu.")}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             {overlay === "image-repos" && (
-              <div className={styles.overlay}>
-                <ImageRepoPanel onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <ImageRepoPanel onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "image-import" && (
-              <div className={styles.overlay}>
-                <ImageImportPanel onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <ImageImportPanel onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "templates" && (
-              <div className={styles.overlay}>
-                <TemplatePicker onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <TemplatePicker onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "dashboard" && (
-              <div className={styles.overlay}>
-                <Dashboard onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <Dashboard onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "metrics" && (
-              <div className={styles.overlay}>
-                <MetricsExplorer onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <MetricsExplorer onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "grafana" && (
-              <div className={styles.overlay}>
-                <GrafanaPanel onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <GrafanaPanel onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "endpoints" && (
-              <div className={styles.overlay}>
-                <EndpointsPanel onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <EndpointsPanel onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "topology" && (
-              <div className={styles.overlay}>
-                <TopologyPanel onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <TopologyPanel onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "ingress-routes" && (
-              <div className={styles.overlay}>
-                <IngressRouteTopology onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <IngressRouteTopology onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "alerting" && (
-              <div className={styles.overlay}>
-                <AlertsPanel onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <AlertsPanel onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "audit" && (
-              <div className={styles.overlay}>
-                <AuditPanel onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <AuditPanel onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "ingress-editor" && (
-              <div className={styles.overlay}>
-                <IngressEditor onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <IngressEditor onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "diff" && (
-              <div className={styles.overlay}>
-                <ResourceDiff onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <ResourceDiff onClose={closeOverlay} />
+                </div>
               </div>
             )}
             {overlay === "plugins" && (
-              <div className={styles.overlay}>
-                <PluginPanel onClose={closeOverlay} />
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <PluginPanel onClose={closeOverlay} />
+                </div>
               </div>
             )}
           </div>
