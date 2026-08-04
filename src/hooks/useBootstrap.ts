@@ -108,6 +108,10 @@ export function useBootstrap(): void {
           // to have that CRD, the table just renders empty (B15).
           if (prefs.nav && (prefs.nav in KIND_META || isCustomKind(prefs.nav))) {
             restore.nav = prefs.nav;
+          } else {
+            // No persisted nav preference: land on the Dashboard overlay instead
+            // of defaulting to the Pods table.
+            restore.overlay = "dashboard";
           }
           // Where you left off wins; the configured default is what a fresh
           // profile (or a cleared namespace) falls back to.
@@ -116,6 +120,9 @@ export function useBootstrap(): void {
           if (typeof prefs.showTimestamps === "boolean") restore.showTimestamps = prefs.showTimestamps;
           if (Array.isArray(prefs.hotbar)) restore.hotbar = prefs.hotbar;
           if (Object.keys(restore).length) useStore.setState(restore);
+        } else {
+          // No prefs at all (first launch): land on the Dashboard overlay.
+          useStore.setState({ overlay: "dashboard" });
         }
 
         // Prefer the saved context if it still exists, else the current-context.

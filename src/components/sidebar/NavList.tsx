@@ -66,6 +66,16 @@ export function NavList() {
 
   return (
     <div className={styles.nav}>
+      {/* Dashboard — pinned at top, above all resource groups */}
+      <OverlayItem
+        item={{ key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: <LayoutDashboard size={14} /> }}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={t("chrome.sidebar.tools.close", "Click to close")}
+      />
+      <div className={styles.sectionDivider} />
+
       {GROUP_ORDER.map((group) =>
         group === "custom" ? (
           // Hidden entirely on clusters with no CRDs (and while disconnected).
@@ -260,14 +270,6 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
 
   return (
     <div>
-      {/* Dashboard — primary entry point, always visible at the top. */}
-      <OverlayItem
-        item={{ key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: <LayoutDashboard size={14} /> }}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
       {/* Observability — Metrics, Alerting, Grafana grouped together. */}
       <CollapsibleOverlayGroup
         header={t("chrome.sidebar.tools.observability", "Observability")}

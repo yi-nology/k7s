@@ -327,11 +327,11 @@ const CLUSTER_SCOPED: ReadonlySet<string> = new Set<string>([
 export const GROUP_ORDER: NavGroup[] = [
   "workloads",
   "network",
+  "storage",
   "config",
   "access",
-  "storage",
-  "cluster",
   "helm",
+  "cluster",
   "custom",
 ];
 
