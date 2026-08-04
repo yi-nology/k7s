@@ -21,7 +21,25 @@
  * those aren't watched until you open them.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Zap,
+  CircleDot,
+  ArrowRightFromLine,
+  Pencil,
+  Package,
+  LayoutDashboard,
+  BarChart3,
+  Bell,
+  LineChart,
+  ClipboardList,
+  Container,
+  Upload,
+  FolderOpen,
+  PlusSquare,
+  GitCompareArrows,
+  Plug,
+} from "lucide-react";
 import styles from "./Sidebar.module.css";
 import { useStore, type OverlayKey } from "../../store";
 import {
@@ -87,28 +105,28 @@ export function NavList() {
               <>
                 <div className={styles.sectionDivider} />
                 <OverlayItem
-                  item={{ key: "endpoints", label: t("chrome.sidebar.tools.endpoints", "Endpoints"), icon: "⇆" }}
+                  item={{ key: "endpoints", label: t("chrome.sidebar.tools.endpoints", "Endpoints"), icon: <Zap size={14} /> }}
                   overlay={overlay}
                   openOverlay={openOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t("chrome.sidebar.tools.close", "Click to close")}
                 />
                 <OverlayItem
-                  item={{ key: "topology", label: t("chrome.sidebar.tools.topology", "Service Topology"), icon: "◌" }}
+                  item={{ key: "topology", label: t("chrome.sidebar.tools.topology", "Service Topology"), icon: <CircleDot size={14} /> }}
                   overlay={overlay}
                   openOverlay={openOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t("chrome.sidebar.tools.close", "Click to close")}
                 />
                 <OverlayItem
-                  item={{ key: "ingress-routes", label: t("chrome.sidebar.tools.ingressRoutes", "Ingress Routes"), icon: "⇥" }}
+                  item={{ key: "ingress-routes", label: t("chrome.sidebar.tools.ingressRoutes", "Ingress Routes"), icon: <ArrowRightFromLine size={14} /> }}
                   overlay={overlay}
                   openOverlay={openOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t("chrome.sidebar.tools.close", "Click to close")}
                 />
                 <OverlayItem
-                  item={{ key: "ingress-editor", label: t("chrome.sidebar.tools.ingressEditor", "Ingress Editor"), icon: "✎" }}
+                  item={{ key: "ingress-editor", label: t("chrome.sidebar.tools.ingressEditor", "Ingress Editor"), icon: <Pencil size={14} /> }}
                   overlay={overlay}
                   openOverlay={openOverlay}
                   closeOverlay={closeOverlay}
@@ -120,7 +138,7 @@ export function NavList() {
                 the Helm releases resource). */}
             {group === "helm" && (
               <OverlayItem
-                item={{ key: "helm-market", label: t("chrome.sidebar.tools.helmMarket", "Helm Market"), icon: "⎈" }}
+                item={{ key: "helm-market", label: t("chrome.sidebar.tools.helmMarket", "Helm Market"), icon: <Package size={14} /> }}
                 overlay={overlay}
                 openOverlay={openOverlay}
                 closeOverlay={closeOverlay}
@@ -138,7 +156,7 @@ export function NavList() {
 }
 
 /** A single overlay sidebar entry — reusable across groups and sections. */
-type OverlayItemDef = { key: OverlayKey; label: string; icon: string };
+type OverlayItemDef = { key: OverlayKey; label: string; icon: ReactNode };
 
 function OverlayItem({
   item,
@@ -229,22 +247,22 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
   const titleClose = t("chrome.sidebar.tools.close", "Click to close");
 
   const observabilityItems: OverlayItemDef[] = [
-    { key: "metrics", label: t("chrome.sidebar.tools.metrics", "Metrics"), icon: "≋" },
-    { key: "alerting", label: t("chrome.sidebar.tools.alerting", "Alerting"), icon: "△" },
-    { key: "grafana", label: t("chrome.sidebar.tools.grafana", "Grafana"), icon: "▣" },
-    { key: "audit", label: t("chrome.sidebar.tools.audit", "Audit"), icon: "📋" },
+    { key: "metrics", label: t("chrome.sidebar.tools.metrics", "Metrics"), icon: <BarChart3 size={14} /> },
+    { key: "alerting", label: t("chrome.sidebar.tools.alerting", "Alerting"), icon: <Bell size={14} /> },
+    { key: "grafana", label: t("chrome.sidebar.tools.grafana", "Grafana"), icon: <LineChart size={14} /> },
+    { key: "audit", label: t("chrome.sidebar.tools.audit", "Audit"), icon: <ClipboardList size={14} /> },
   ];
 
   const imageItems: OverlayItemDef[] = [
-    { key: "image-repos", label: t("chrome.sidebar.tools.imageRepos", "Image Registries"), icon: "⬚" },
-    { key: "image-import", label: t("chrome.sidebar.tools.imageImport", "Image Import"), icon: "⬆" },
+    { key: "image-repos", label: t("chrome.sidebar.tools.imageRepos", "Image Registries"), icon: <Container size={14} /> },
+    { key: "image-import", label: t("chrome.sidebar.tools.imageImport", "Image Import"), icon: <Upload size={14} /> },
   ];
 
   return (
     <div>
       {/* Dashboard — primary entry point, always visible at the top. */}
       <OverlayItem
-        item={{ key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: "◐" }}
+        item={{ key: "dashboard", label: t("chrome.sidebar.tools.dashboard", "Dashboard"), icon: <LayoutDashboard size={14} /> }}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
@@ -268,28 +286,28 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
         titleClose={titleClose}
       />
       <OverlayItem
-        item={{ key: "pod-files", label: t("chrome.sidebar.tools.podFiles", "Pod Files"), icon: "▤" }}
+        item={{ key: "pod-files", label: t("chrome.sidebar.tools.podFiles", "Pod Files"), icon: <FolderOpen size={14} /> }}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
         titleClose={titleClose}
       />
       <OverlayItem
-        item={{ key: "templates", label: t("chrome.sidebar.tools.templates", "Templates"), icon: "✚" }}
+        item={{ key: "templates", label: t("chrome.sidebar.tools.templates", "Templates"), icon: <PlusSquare size={14} /> }}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
         titleClose={titleClose}
       />
       <OverlayItem
-        item={{ key: "diff", label: t("chrome.sidebar.tools.diff", "Diff"), icon: "⇄" }}
+        item={{ key: "diff", label: t("chrome.sidebar.tools.diff", "Diff"), icon: <GitCompareArrows size={14} /> }}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
         titleClose={titleClose}
       />
       <OverlayItem
-        item={{ key: "plugins", label: t("chrome.sidebar.tools.plugins", "Plugins"), icon: "⌂" }}
+        item={{ key: "plugins", label: t("chrome.sidebar.tools.plugins", "Plugins"), icon: <Plug size={14} /> }}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}

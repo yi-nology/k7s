@@ -11,6 +11,8 @@
  * watcher exactly as clicking the sidebar does.
  */
 
+import type { ReactNode } from "react";
+import { Box } from "lucide-react";
 import { fuzzyMatch } from "./fuzzy";
 import { isCustomKind, KIND_META, KIND_ORDER, type KindId } from "./kinds";
 import { dict, kindLabelFor as i18nKindLabel, type Locale } from "./i18n";
@@ -49,7 +51,7 @@ export interface KindItem extends Scored {
   type: "kind";
   id: KindId;
   label: string;
-  icon: string;
+  icon: ReactNode;
   /** Right-hand context, e.g. the nav group or the CRD's API group. */
   hint: string;
 }
@@ -194,7 +196,7 @@ function kindCandidates(ctx: PaletteContext) {
 
   for (const ck of ctx.customKinds) {
     items.push({
-      item: { type: "kind", id: ck.id, label: ck.kind, icon: "◈", hint: ck.group },
+      item: { type: "kind", id: ck.id, label: ck.kind, icon: <Box size={14} />, hint: ck.group },
       // "applications" can't match the label "Application" (it's longer), so the
       // id — "argoproj.io/applications" — is what makes the plural work.
       targets: [ck.kind, ck.id],
