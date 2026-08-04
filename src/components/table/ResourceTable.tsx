@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Lock } from "lucide-react";
 import styles from "./ResourceTable.module.css";
 import { rowsFor, useStore } from "../../store";
 import { useNow } from "../../hooks/useNow";
@@ -53,6 +54,7 @@ export function ResourceTable() {
   // kind page (Deployments, Pods, Nodes, …) gets the affordance — the picker
   // itself filters to the templates available for the cluster (Bxx).
   const openOverlay = useStore((s) => s.openOverlay);
+  const watchStatus = useStore((s) => s.watchStatus);
   const { t } = useTranslation();
 
   // Age columns re-render on a 30s tick.
@@ -396,7 +398,12 @@ export function ResourceTable() {
           {win.padBottom > 0 && <tr style={{ height: win.padBottom }} />}
         </tbody>
         </table>
-        {rows.length === 0 && (
+        {rows.length === 0 && watchStatus[nav] === "forbidden" ? (
+          <div className={styles.forbidden}>
+            <Lock size={20} />
+            <span>{t("table.forbidden", "No permission to view this resource (RBAC Forbidden)")}</span>
+          </div>
+        ) : rows.length === 0 ? (
           <div className={styles.empty}>
             {/* Differentiate the message by cause: "no resources match filter"
                 only when the user typed a filter; otherwise the cause is the
@@ -406,7 +413,7 @@ export function ResourceTable() {
               ? t("table.emptyNone", "no resources")
               : t("table.empty", "no resources match filter")}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Bulk-action failures (B39). In the table rather than the detail panel,

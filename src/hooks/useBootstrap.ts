@@ -55,6 +55,9 @@ export function useBootstrap(): void {
       provider.onNodeMetrics(setNodeMetrics),
       provider.onClusterStatus(onClusterStatus),
       provider.onWatchStatus(setWatchCount),
+      provider.onWatchKindStatus((kind, status) => {
+        useStore.getState().setWatchStatus(kind, status);
+      }),
       // CRD-backed kinds, re-emitted on every connect (B15).
       provider.onCustomKinds(setCustomKinds),
       // Forwards are pushed on add/remove/failure, so a forward that starts

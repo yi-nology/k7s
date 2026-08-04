@@ -691,6 +691,8 @@ export interface DataProvider {
   onNodeMetrics(cb: (metrics: NodeMetricsMap) => void): Unsub;
   onClusterStatus(cb: (status: ClusterStatus) => void): Unsub;
   onWatchStatus(cb: (activeStreams: number) => void): Unsub;
+  /** Per-kind watch status: "ok" when watching succeeds, "forbidden" on 403. */
+  onWatchKindStatus(cb: (kind: string, status: "ok" | "forbidden") => void): Unsub;
   /** Progress of running node drains (B20). */
   onDrainProgress(cb: (progress: DrainProgress) => void): Unsub;
   /** node-exporter samples for nodes being watched (B27). */
