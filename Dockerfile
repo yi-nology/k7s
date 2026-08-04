@@ -29,7 +29,7 @@ WORKDIR /src
 # Cache pnpm install: copy lockfile + package.json first so unchanged
 # deps don't get re-resolved.
 COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable && corepack prepare pnpm@9 --activate \
+RUN corepack enable && corepack prepare pnpm@10.33.0 --activate \
  && pnpm install --frozen-lockfile
 
 # Build the React app. The Vite output goes to dist/, which Stage 2
