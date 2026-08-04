@@ -15,7 +15,13 @@
 //! `src/providers/transport.ts` for the seam.
 
 #[cfg(feature = "web")]
+pub mod types;
+#[cfg(feature = "web")]
 pub mod handlers;
+#[cfg(feature = "web")]
+pub mod resource_handlers;
+#[cfg(feature = "web")]
+pub mod shell_handlers;
 #[cfg(feature = "web")]
 pub mod server;
 #[cfg(feature = "web")]

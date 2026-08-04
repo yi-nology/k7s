@@ -39,6 +39,8 @@ use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
 use super::handlers;
+use super::resource_handlers;
+use super::shell_handlers;
 use super::sse::events_handler;
 use super::state::WebState;
 use crate::mcp::K7sMcpServer;
@@ -94,12 +96,12 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/invoke/load_prefs", post(handlers::load_prefs))
         .route("/api/invoke/save_prefs", post(handlers::save_prefs))
         .route("/api/invoke/connect", post(handlers::connect))
-        .route("/api/invoke/get_yaml", post(handlers::get_yaml))
-        .route("/api/invoke/get_events", post(handlers::get_events))
-        .route("/api/invoke/get_properties", post(handlers::get_properties))
+        .route("/api/invoke/get_yaml", post(resource_handlers::get_yaml))
+        .route("/api/invoke/get_events", post(resource_handlers::get_events))
+        .route("/api/invoke/get_properties", post(resource_handlers::get_properties))
         .route(
             "/api/invoke/get_secret_data",
-            post(handlers::get_secret_data),
+            post(resource_handlers::get_secret_data),
         )
         // Browser equivalent of the Tauri file-picker dialog: the user
         // picks a kubeconfig file in the browser, the front-end reads its
@@ -112,62 +114,62 @@ pub fn api_router(state: WebState) -> Router {
         // reachable over HTTP. Added in batches as the Tauri commands grew
         // their own contracts; the catch-all below still 501s anything we
         // haven't bridged.
-        .route("/api/invoke/apply_yaml", post(handlers::apply_yaml))
-        .route("/api/invoke/dry_run_yaml", post(handlers::dry_run_yaml))
+        .route("/api/invoke/apply_yaml", post(resource_handlers::apply_yaml))
+        .route("/api/invoke/dry_run_yaml", post(resource_handlers::dry_run_yaml))
         .route(
             "/api/invoke/dry_run_yaml_bundle",
-            post(handlers::dry_run_yaml_bundle),
+            post(resource_handlers::dry_run_yaml_bundle),
         )
         .route(
             "/api/invoke/delete_resource",
-            post(handlers::delete_resource),
+            post(resource_handlers::delete_resource),
         )
-        .route("/api/invoke/scale_resource", post(handlers::scale_resource))
-        .route("/api/invoke/set_cordon", post(handlers::set_cordon))
-        .route("/api/invoke/restart_pod", post(handlers::restart_pod))
+        .route("/api/invoke/scale_resource", post(resource_handlers::scale_resource))
+        .route("/api/invoke/set_cordon", post(resource_handlers::set_cordon))
+        .route("/api/invoke/restart_pod", post(resource_handlers::restart_pod))
         .route(
             "/api/invoke/restart_rollout",
-            post(handlers::restart_rollout),
+            post(resource_handlers::restart_rollout),
         )
-        .route("/api/invoke/list_revisions", post(handlers::list_revisions))
-        .route("/api/invoke/undo_rollout", post(handlers::undo_rollout))
-        .route("/api/invoke/drain_node", post(handlers::drain_node))
+        .route("/api/invoke/list_revisions", post(resource_handlers::list_revisions))
+        .route("/api/invoke/undo_rollout", post(resource_handlers::undo_rollout))
+        .route("/api/invoke/drain_node", post(resource_handlers::drain_node))
         // Log streaming — the headline feature the previous 501 broke. Lines
         // flow through the same `EventSink` → SSE path the watchers use.
         .route(
             "/api/invoke/start_log_stream",
-            post(handlers::start_log_stream),
+            post(shell_handlers::start_log_stream),
         )
         .route(
             "/api/invoke/stop_log_stream",
-            post(handlers::stop_log_stream),
+            post(shell_handlers::stop_log_stream),
         )
-        .route("/api/invoke/export_logs", post(handlers::export_logs))
+        .route("/api/invoke/export_logs", post(shell_handlers::export_logs))
         // Interactive shells — exec over SSE, input/resize/stop as POSTs.
         // Same wire names as the Tauri commands so the front-end can swap
         // providers unchanged. `shell-out:{id}` / `shell-closed:{id}` events
         // come through the existing `/api/events` SSE stream.
-        .route("/api/invoke/start_shell", post(handlers::start_shell))
-        .route("/api/invoke/shell_input", post(handlers::shell_input))
-        .route("/api/invoke/shell_resize", post(handlers::shell_resize))
-        .route("/api/invoke/stop_shell", post(handlers::stop_shell))
+        .route("/api/invoke/start_shell", post(shell_handlers::start_shell))
+        .route("/api/invoke/shell_input", post(shell_handlers::shell_input))
+        .route("/api/invoke/shell_resize", post(shell_handlers::shell_resize))
+        .route("/api/invoke/stop_shell", post(shell_handlers::stop_shell))
         .route(
             "/api/invoke/start_node_shell",
-            post(handlers::start_node_shell),
+            post(shell_handlers::start_node_shell),
         )
         .route(
             "/api/invoke/stop_node_shell",
-            post(handlers::stop_node_shell),
+            post(shell_handlers::stop_node_shell),
         )
         // EndpointSlices — for the topology graph.
-        .route("/api/invoke/list_endpoints", post(handlers::list_endpoints))
+        .route("/api/invoke/list_endpoints", post(resource_handlers::list_endpoints))
         .route(
             "/api/invoke/list_endpoints_for_service",
-            post(handlers::list_endpoints_for_service),
+            post(resource_handlers::list_endpoints_for_service),
         )
         .route(
             "/api/invoke/list_endpoint_addresses",
-            post(handlers::list_endpoint_addresses),
+            post(resource_handlers::list_endpoint_addresses),
         )
         // Stubs for everything else.
         .route("/api/invoke/:cmd", post(handlers::not_implemented))
