@@ -57,9 +57,12 @@ curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | ba
 
 脚本自动检测操作系统和架构，下载最新版本并安装：
 - **macOS**：挂载 `.dmg` 并将 `k7s.app` 复制到 `/Applications`
-- **Linux**：安装 `.deb` 包（或回退到 AppImage 放入 `~/.local/bin`）
+- **Linux (deb)**：通过 dpkg 安装 `.deb` 包（Debian/Ubuntu）
+- **Linux (rpm)**：通过 dnf/yum 安装 `.rpm` 包（Fedora/RHEL/CentOS）
+- **Linux (回退)**：安装 AppImage 到 `~/.local/bin/`
+- 支持 **amd64** 和 **arm64** 架构
 
-**Windows / macOS Intel / Linux arm64：**
+**Windows / macOS Intel：**
 
 从 [GitHub Releases](https://github.com/zy84338719/k7s/releases) 下载对应安装包。
 

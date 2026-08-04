@@ -4,7 +4,7 @@
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | bash
 #
-# Supports: macOS (Apple Silicon), Linux (amd64), Windows (Git Bash/WSL).
+# Supports: macOS (Apple Silicon), Linux (amd64/arm64), Windows (Git Bash/WSL).
 # Unmatched platforms get a friendly message with build-from-source instructions.
 
 set -euo pipefail
@@ -61,13 +61,16 @@ fetch_latest_version() {
 # ── Build artifact name ──────────────────────────────────────────────────────
 
 artifact_name() {
-  local ver="$1" os="$2" arch="$3"
+  local ver="$1" os="$2" arch="$3" pkg="$4"
   case "$os" in
     macos)
       echo "k7s_${ver}_${arch}.dmg"
       ;;
     linux)
-      echo "k7s_${ver}_amd64.deb"
+      case "$pkg" in
+        rpm) echo "k7s_${ver}_${arch}.rpm" ;;
+        *)   echo "k7s_${ver}_${arch}.deb" ;;
+      esac
       ;;
     windows)
       echo "k7s_${ver}_x64-setup.exe"
@@ -98,18 +101,26 @@ install_macos() {
 }
 
 install_linux() {
-  local deb_path="$1"
-  if command -v dpkg >/dev/null 2>&1; then
-    info "Installing .deb package (requires sudo)..."
-    sudo dpkg -i "$deb_path" || sudo apt-get install -f -y
-  elif command -v rpm >/dev/null 2>&1; then
-    # If user has rpm, try the .rpm instead (we downloaded .deb — fall back to AppImage)
-    warn "dpkg not found. Trying AppImage instead..."
-    install_linux_appimage "$1"
-    return
-  else
-    die "No supported package manager found (dpkg/rpm). Try building from source:\n  https://github.com/${REPO}#development"
-  fi
+  local pkg_path="$1" pkg_fmt="$2"
+  case "$pkg_fmt" in
+    deb)
+      info "Installing .deb package (requires sudo)..."
+      sudo dpkg -i "$pkg_path" || sudo apt-get install -f -y
+      ;;
+    rpm)
+      info "Installing .rpm package (requires sudo)..."
+      if command -v dnf >/dev/null 2>&1; then
+        sudo dnf install -y "$pkg_path"
+      elif command -v yum >/dev/null 2>&1; then
+        sudo yum install -y "$pkg_path"
+      else
+        sudo rpm -i "$pkg_path"
+      fi
+      ;;
+    appimage)
+      install_linux_appimage "$pkg_path"
+      ;;
+  esac
 }
 
 install_linux_appimage() {
@@ -157,9 +168,15 @@ main() {
       need_cmd cp
       ;;
     linux)
-      if [[ "$arch" != "x86_64" ]]; then
-        die "Linux ${arch} builds are not available.\n  Build from source:\n  https://github.com/${REPO}#development"
+      # Detect package manager preference: rpm > deb > appimage
+      if command -v rpm >/dev/null 2>&1 && ! command -v dpkg >/dev/null 2>&1; then
+        PKG_FMT="rpm"
+      elif command -v dpkg >/dev/null 2>&1; then
+        PKG_FMT="deb"
+      else
+        PKG_FMT="appimage"
       fi
+      info "Package format: ${PKG_FMT}"
       ;;
     windows)
       info "Windows detected — will download the installer for you to run."
@@ -175,7 +192,7 @@ main() {
   ok "Latest version: v${ver}"
 
   # ── Build download URL ───────────────────────────────────────────────────
-  artifact="$(artifact_name "$ver" "$os" "$arch")"
+  artifact="$(artifact_name "$ver" "$os" "$arch" "${PKG_FMT:-}")"
   url="$(download_url "$ver" "$artifact")"
   info "Downloading: ${artifact}"
 
@@ -192,7 +209,7 @@ main() {
   # ── Install ──────────────────────────────────────────────────────────────
   case "$os" in
     macos)   install_macos "$file_path" ;;
-    linux)   install_linux "$file_path" ;;
+    linux)   install_linux "$file_path" "$PKG_FMT" ;;
     windows) install_windows "$file_path" ;;
   esac
 
