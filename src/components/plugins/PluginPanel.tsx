@@ -3,11 +3,11 @@
  * toggles. Follows the same overlay pattern as AlertsPanel, EndpointsPanel, etc.
  */
 
-import { useState, useEffect } from "react";
-import { pluginManager } from "../../lib/plugins/manager";
-import type { K7sPlugin } from "../../lib/plugins/types";
-import { useTranslation } from "../../hooks/useI18n";
-import styles from "./PluginPanel.module.css";
+import { useState, useEffect } from 'react';
+import { pluginManager } from '../../lib/plugins/manager';
+import type { K7sPlugin } from '../../lib/plugins/types';
+import { useTranslation } from '../../hooks/useI18n';
+import styles from './PluginPanel.module.css';
 
 export function PluginPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
@@ -15,8 +15,8 @@ export function PluginPanel({ onClose }: { onClose?: () => void }) {
   const [, setTick] = useState(0);
   useEffect(() => {
     const handler = () => setTick((n) => n + 1);
-    window.addEventListener("k7s:plugins-changed", handler);
-    return () => window.removeEventListener("k7s:plugins-changed", handler);
+    window.addEventListener('k7s:plugins-changed', handler);
+    return () => window.removeEventListener('k7s:plugins-changed', handler);
   }, []);
 
   const plugins = pluginManager.getAll();
@@ -24,27 +24,25 @@ export function PluginPanel({ onClose }: { onClose?: () => void }) {
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <h2 className={styles.title}>{t("plugins.title", "Plugins")}</h2>
+        <h2 className={styles.title}>{t('plugins.title', 'Plugins')}</h2>
         <div className={styles.headerActions}>
           <button
             className={styles.btnSecondary}
-            title={t("plugins.loadHint", "Load a plugin file (coming soon)")}
+            title={t('plugins.loadHint', 'Load a plugin file (coming soon)')}
             disabled
           >
-            {t("plugins.load", "Load Plugin")}
+            {t('plugins.load', 'Load Plugin')}
           </button>
           {onClose && (
             <button className={styles.btn} onClick={onClose}>
-              {t("plugins.close", "Close")}
+              {t('plugins.close', 'Close')}
             </button>
           )}
         </div>
       </header>
 
       {plugins.length === 0 ? (
-        <div className={styles.empty}>
-          {t("plugins.empty", "No plugins installed.")}
-        </div>
+        <div className={styles.empty}>{t('plugins.empty', 'No plugins installed.')}</div>
       ) : (
         <div className={styles.list}>
           {plugins.map((plugin) => (
@@ -54,7 +52,7 @@ export function PluginPanel({ onClose }: { onClose?: () => void }) {
               enabled={pluginManager.isEnabled(plugin.id)}
               onToggle={() => {
                 pluginManager.toggle(plugin.id);
-                window.dispatchEvent(new Event("k7s:plugins-changed"));
+                window.dispatchEvent(new Event('k7s:plugins-changed'));
               }}
               t={t}
             />
@@ -77,29 +75,30 @@ function PluginRow({
   t: (key: string, fallback: string) => string;
 }) {
   return (
-    <div className={`${styles.row} ${enabled ? styles.rowActive : ""}`}>
+    <div className={`${styles.row} ${enabled ? styles.rowActive : ''}`}>
       <div className={styles.rowInfo}>
         <div className={styles.rowName}>
           {plugin.name}
           <span className={styles.version}>{plugin.version}</span>
         </div>
-        {plugin.description && (
-          <div className={styles.rowDesc}>{plugin.description}</div>
-        )}
+        {plugin.description && <div className={styles.rowDesc}>{plugin.description}</div>}
         {plugin.author && (
           <div className={styles.rowAuthor}>
-            {t("plugins.by", "by")} {plugin.author}
+            {t('plugins.by', 'by')} {plugin.author}
           </div>
         )}
       </div>
-      <label className={styles.toggle} title={enabled ? t("plugins.disable", "Disable") : t("plugins.enable", "Enable")}>
+      <label
+        className={styles.toggle}
+        title={enabled ? t('plugins.disable', 'Disable') : t('plugins.enable', 'Enable')}
+      >
         <input
           type="checkbox"
           checked={enabled}
           onChange={onToggle}
           className={styles.toggleInput}
         />
-        <span className={`${styles.toggleSlider} ${enabled ? styles.toggleOn : ""}`} />
+        <span className={`${styles.toggleSlider} ${enabled ? styles.toggleOn : ''}`} />
       </label>
     </div>
   );

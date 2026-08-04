@@ -11,13 +11,13 @@
  * Also displays the cron schedule and last scheduled time.
  */
 
-import { useMemo } from "react";
-import styles from "./CronJobTimeline.module.css";
-import { useStore } from "../../store";
-import { useTranslation } from "../../hooks/useI18n";
-import { useNow } from "../../hooks/useNow";
-import { formatAge } from "../../lib/format";
-import type { Row } from "../../providers/types";
+import { useMemo } from 'react';
+import styles from './CronJobTimeline.module.css';
+import { useStore } from '../../store';
+import { useTranslation } from '../../hooks/useI18n';
+import { useNow } from '../../hooks/useNow';
+import { formatAge } from '../../lib/format';
+import type { Row } from '../../providers/types';
 
 /** A parsed Job execution for the timeline. */
 interface TimelineJob {
@@ -31,7 +31,7 @@ interface TimelineJob {
   /** Display text from the DURATION cell (index 3). */
   duration: string;
   /** Derived status: "succeeded" | "failed" | "active". */
-  status: "succeeded" | "failed" | "active";
+  status: 'succeeded' | 'failed' | 'active';
 }
 
 /** Max number of recent Jobs to show on the timeline. */
@@ -41,7 +41,12 @@ const MAX_TIMELINE_JOBS = 20;
  * Parse a Job row into a TimelineJob. The column contract for Jobs is:
  * NAME (0), NAMESPACE (1), COMPLETIONS (2), DURATION (3), AGE (4).
  */
-function parseJobRow(row: { uid: string; name: string; namespace?: string; cells: { text: string; tone: string }[] }): TimelineJob | null {
+function parseJobRow(row: {
+  uid: string;
+  name: string;
+  namespace?: string;
+  cells: { text: string; tone: string }[];
+}): TimelineJob | null {
   if (row.cells.length < 5) return null;
   const creationTs = row.cells[4].text;
   const completions = row.cells[2].text;
@@ -51,23 +56,23 @@ function parseJobRow(row: { uid: string; name: string; namespace?: string; cells
   // Format is "succeeded/completions" (e.g. "1/1", "0/1").
   // Tone: "ok" (green) = complete, "warn" (yellow) = active, "err" (red) = failed.
   const tone = row.cells[2].tone;
-  let status: "succeeded" | "failed" | "active";
-  if (tone === "ok") {
-    status = "succeeded";
-  } else if (tone === "err") {
-    status = "failed";
+  let status: 'succeeded' | 'failed' | 'active';
+  if (tone === 'ok') {
+    status = 'succeeded';
+  } else if (tone === 'err') {
+    status = 'failed';
   } else {
     // "warn" or "secondary" — check completions to distinguish active vs succeeded.
-    const parts = completions.split("/");
-    const succeeded = parseInt(parts[0] ?? "0", 10);
-    const total = parseInt(parts[1] ?? "1", 10);
-    status = succeeded >= total ? "succeeded" : "active";
+    const parts = completions.split('/');
+    const succeeded = parseInt(parts[0] ?? '0', 10);
+    const total = parseInt(parts[1] ?? '1', 10);
+    status = succeeded >= total ? 'succeeded' : 'active';
   }
 
   return {
     uid: row.uid,
     name: row.name,
-    namespace: row.namespace ?? "",
+    namespace: row.namespace ?? '',
     creationTs,
     completions,
     duration,
@@ -82,9 +87,9 @@ function parseJobRow(row: { uid: string; name: string; namespace?: string; cells
  */
 function isJobOwnedByCronJob(job: Row, cronJobName: string): boolean {
   // Primary: check the ownerReferences label the backend sets.
-  if (job.labels?.["owner.cronjob"] === cronJobName) return true;
+  if (job.labels?.['owner.cronjob'] === cronJobName) return true;
   // Fallback: name-prefix convention ({cronjob-name}-{random-suffix}).
-  if (!job.name.startsWith(cronJobName + "-")) return false;
+  if (!job.name.startsWith(cronJobName + '-')) return false;
   const suffix = job.name.slice(cronJobName.length + 1);
   return suffix.length > 0;
 }
@@ -98,8 +103,8 @@ export function CronJobTimeline() {
 
   // Extract schedule and last scheduled time from the CronJob row cells.
   // CronJob columns: NAME (0), NAMESPACE (1), SCHEDULE (2), LAST RUN (3), AGE (4).
-  const schedule = row?.cells[2]?.text ?? "—";
-  const lastRun = row?.cells[3]?.text ?? "—";
+  const schedule = row?.cells[2]?.text ?? '—';
+  const lastRun = row?.cells[3]?.text ?? '—';
 
   // Filter and parse Jobs owned by this CronJob.
   const jobs = useMemo(() => {
@@ -127,28 +132,28 @@ export function CronJobTimeline() {
   }, [row?.name, row?.namespace, rows.jobs]);
 
   if (!row) {
-    return <div className={styles.empty}>{t("timeline.noSelection", "No CronJob selected.")}</div>;
+    return <div className={styles.empty}>{t('timeline.noSelection', 'No CronJob selected.')}</div>;
   }
 
   const handleClick = (job: TimelineJob) => {
-    navigateTo({ kind: "jobs", namespace: job.namespace, name: job.name });
+    navigateTo({ kind: 'jobs', namespace: job.namespace, name: job.name });
   };
 
   // Count by status for the summary bar.
-  const succeeded = jobs.filter((j) => j.status === "succeeded").length;
-  const failed = jobs.filter((j) => j.status === "failed").length;
-  const active = jobs.filter((j) => j.status === "active").length;
+  const succeeded = jobs.filter((j) => j.status === 'succeeded').length;
+  const failed = jobs.filter((j) => j.status === 'failed').length;
+  const active = jobs.filter((j) => j.status === 'active').length;
 
   return (
     <div className={styles.wrap}>
       {/* Schedule info header */}
       <div className={styles.infoBar}>
         <div className={styles.infoItem}>
-          <span className={styles.infoLabel}>{t("timeline.schedule", "Schedule")}</span>
+          <span className={styles.infoLabel}>{t('timeline.schedule', 'Schedule')}</span>
           <span className={styles.infoValue}>{schedule}</span>
         </div>
         <div className={styles.infoItem}>
-          <span className={styles.infoLabel}>{t("timeline.lastRun", "Last Run")}</span>
+          <span className={styles.infoLabel}>{t('timeline.lastRun', 'Last Run')}</span>
           <span className={styles.infoValue}>{lastRun}</span>
         </div>
       </div>
@@ -157,16 +162,16 @@ export function CronJobTimeline() {
       {jobs.length > 0 && (
         <div className={styles.summary}>
           <span className={styles.summaryItem}>
-            <span className={styles.dot} style={{ background: "var(--status-ok)" }} />
-            {t("timeline.succeeded", "Succeeded")}: {succeeded}
+            <span className={styles.dot} style={{ background: 'var(--status-ok)' }} />
+            {t('timeline.succeeded', 'Succeeded')}: {succeeded}
           </span>
           <span className={styles.summaryItem}>
-            <span className={styles.dot} style={{ background: "var(--status-err)" }} />
-            {t("timeline.failed", "Failed")}: {failed}
+            <span className={styles.dot} style={{ background: 'var(--status-err)' }} />
+            {t('timeline.failed', 'Failed')}: {failed}
           </span>
           <span className={styles.summaryItem}>
-            <span className={styles.dot} style={{ background: "var(--status-warn)" }} />
-            {t("timeline.active", "Active")}: {active}
+            <span className={styles.dot} style={{ background: 'var(--status-warn)' }} />
+            {t('timeline.active', 'Active')}: {active}
           </span>
         </div>
       )}
@@ -174,9 +179,9 @@ export function CronJobTimeline() {
       {/* Timeline */}
       {jobs.length === 0 ? (
         <div className={styles.empty}>
-          {t("timeline.noJobs", "No Jobs found for this CronJob.")}
+          {t('timeline.noJobs', 'No Jobs found for this CronJob.')}
           <div className={styles.emptyHint}>
-            {t("timeline.noJobsHint", "Jobs will appear here once the CronJob creates them.")}
+            {t('timeline.noJobsHint', 'Jobs will appear here once the CronJob creates them.')}
           </div>
         </div>
       ) : (
@@ -189,17 +194,17 @@ export function CronJobTimeline() {
             {jobs.map((job, i) => {
               const ageText = formatAge(job.creationTs, now) || job.creationTs;
               const statusColor =
-                job.status === "succeeded"
-                  ? "var(--status-ok)"
-                  : job.status === "failed"
-                    ? "var(--status-err)"
-                    : "var(--status-warn)";
+                job.status === 'succeeded'
+                  ? 'var(--status-ok)'
+                  : job.status === 'failed'
+                    ? 'var(--status-err)'
+                    : 'var(--status-warn)';
               const haloColor =
-                job.status === "succeeded"
-                  ? "var(--status-ok-soft)"
-                  : job.status === "failed"
-                    ? "var(--status-err-soft)"
-                    : "var(--status-warn-soft)";
+                job.status === 'succeeded'
+                  ? 'var(--status-ok-soft)'
+                  : job.status === 'failed'
+                    ? 'var(--status-err-soft)'
+                    : 'var(--status-warn-soft)';
 
               return (
                 <button
@@ -210,7 +215,7 @@ export function CronJobTimeline() {
                     left: `${((i + 0.5) / jobs.length) * 100}%`,
                   }}
                   onClick={() => handleClick(job)}
-                  title={`${job.name}\n${t("timeline.status", "Status")}: ${job.status}\n${t("timeline.completions", "Completions")}: ${job.completions}\n${t("timeline.duration", "Duration")}: ${job.duration}\n${t("timeline.age", "Age")}: ${ageText}`}
+                  title={`${job.name}\n${t('timeline.status', 'Status')}: ${job.status}\n${t('timeline.completions', 'Completions')}: ${job.completions}\n${t('timeline.duration', 'Duration')}: ${job.duration}\n${t('timeline.age', 'Age')}: ${ageText}`}
                 >
                   <span
                     className={styles.dotCore}
@@ -223,9 +228,11 @@ export function CronJobTimeline() {
                   <span className={styles.dotLabel}>
                     <span className={styles.dotAge}>{ageText}</span>
                     <span className={styles.dotStatus} style={{ color: statusColor }}>
-                      {job.status === "succeeded" ? t("timeline.ok", "OK") :
-                       job.status === "failed" ? t("timeline.fail", "Fail") :
-                       t("timeline.run", "Run")}
+                      {job.status === 'succeeded'
+                        ? t('timeline.ok', 'OK')
+                        : job.status === 'failed'
+                          ? t('timeline.fail', 'Fail')
+                          : t('timeline.run', 'Run')}
                     </span>
                   </span>
                 </button>
@@ -241,11 +248,11 @@ export function CronJobTimeline() {
           {jobs.map((job) => {
             const ageText = formatAge(job.creationTs, now) || job.creationTs;
             const statusColor =
-              job.status === "succeeded"
-                ? "var(--status-ok)"
-                : job.status === "failed"
-                  ? "var(--status-err)"
-                  : "var(--status-warn)";
+              job.status === 'succeeded'
+                ? 'var(--status-ok)'
+                : job.status === 'failed'
+                  ? 'var(--status-err)'
+                  : 'var(--status-warn)';
 
             return (
               <button
@@ -254,19 +261,12 @@ export function CronJobTimeline() {
                 className={styles.jobRow}
                 onClick={() => handleClick(job)}
               >
-                <span
-                  className={styles.jobStatusDot}
-                  style={{ background: statusColor }}
-                />
+                <span className={styles.jobStatusDot} style={{ background: statusColor }} />
                 <span className={styles.jobName} title={job.name}>
                   {job.name}
                 </span>
-                <span className={styles.jobMeta}>
-                  {job.completions}
-                </span>
-                <span className={styles.jobMeta}>
-                  {job.duration}
-                </span>
+                <span className={styles.jobMeta}>{job.completions}</span>
+                <span className={styles.jobMeta}>{job.duration}</span>
                 <span className={styles.jobAge}>{ageText}</span>
               </button>
             );

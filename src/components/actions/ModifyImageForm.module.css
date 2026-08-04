@@ -117,7 +117,7 @@
   color: var(--text-primary);
   border-color: var(--border-hover);
 }
-.cancelBtn[aria-disabled="true"] {
+.cancelBtn[aria-disabled='true'] {
   opacity: 0.6;
   pointer-events: none;
 }

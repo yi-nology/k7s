@@ -10,9 +10,9 @@
  * "everything's fine" even when the cluster was unreachable.
  */
 
-import styles from "./Sidebar.module.css";
-import { useStore } from "../../store";
-import { useTranslation } from "../../hooks/useI18n";
+import styles from './Sidebar.module.css';
+import { useStore } from '../../store';
+import { useTranslation } from '../../hooks/useI18n';
 
 export function WatchFooter() {
   const watchCount = useStore((s) => s.watchCount);
@@ -25,26 +25,26 @@ export function WatchFooter() {
   // only applied when the cluster is connected — the eye learns that
   // "pulsing = live"; a static dot reads as "not connected".
   const dotColor =
-    phase === "connected"
-      ? "var(--accent)"
-      : phase === "connecting"
-        ? "var(--status-warn)"
-        : phase === "error"
-          ? "var(--status-err)"
-          : "var(--text-faint)";
-  const pulse = phase === "connected";
+    phase === 'connected'
+      ? 'var(--accent)'
+      : phase === 'connecting'
+        ? 'var(--status-warn)'
+        : phase === 'error'
+          ? 'var(--status-err)'
+          : 'var(--text-faint)';
+  const pulse = phase === 'connected';
 
   return (
     <div className={styles.footer}>
       <span
-        className={`${styles.footerDot} ${pulse ? styles.footerDotPulsing : ""}`}
+        className={`${styles.footerDot} ${pulse ? styles.footerDotPulsing : ''}`}
         style={{ background: dotColor }}
       />
-      <span className={styles.footerText}>{t("chrome.sidebar.watch", watchCount)}</span>
+      <span className={styles.footerText}>{t('chrome.sidebar.watch', watchCount)}</span>
       <button
         type="button"
         className={styles.gear}
-        title={t("chrome.sidebar.settings")}
+        title={t('chrome.sidebar.settings')}
         onClick={() => setSettingsOpen(true)}
       >
         ⚙

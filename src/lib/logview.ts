@@ -6,10 +6,10 @@
  */
 
 /** How far back the log read reaches. */
-export type SinceOption = "all" | "5m" | "1h" | "24h";
+export type SinceOption = 'all' | '5m' | '1h' | '24h';
 
 /** In toolbar order, widest last — "all" is the default and reads leftmost. */
-export const SINCE_OPTIONS: SinceOption[] = ["all", "5m", "1h", "24h"];
+export const SINCE_OPTIONS: SinceOption[] = ['all', '5m', '1h', '24h'];
 
 /**
  * Seconds for a window, or undefined for "all".
@@ -19,13 +19,13 @@ export const SINCE_OPTIONS: SinceOption[] = ["all", "5m", "1h", "24h"];
  */
 export function sinceSeconds(option: SinceOption): number | undefined {
   switch (option) {
-    case "5m":
+    case '5m':
       return 5 * 60;
-    case "1h":
+    case '1h':
       return 60 * 60;
-    case "24h":
+    case '24h':
       return 24 * 60 * 60;
-    case "all":
+    case 'all':
       return undefined;
   }
 }
@@ -44,6 +44,6 @@ export function hasPrevious(restarts: number | undefined): boolean {
 /** Filename offered when exporting, e.g. "wiki-6b6d775f4-djpwx.wiki.previous.log". */
 export function exportFilename(pod: string, container: string, previous: boolean): string {
   // An empty container means the interleaved all-containers view (B7).
-  const part = container === "" ? "all" : container;
-  return `${pod}.${part}${previous ? ".previous" : ""}.log`;
+  const part = container === '' ? 'all' : container;
+  return `${pod}.${part}${previous ? '.previous' : ''}.log`;
 }

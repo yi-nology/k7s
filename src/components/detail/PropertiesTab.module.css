@@ -183,7 +183,7 @@
   position: relative;
 }
 .secretValue:hover {
-  background: var(--bg-hover-row, rgba(255,255,255,0.04));
+  background: var(--bg-hover-row, rgba(255, 255, 255, 0.04));
 }
 
 /* Copied toast. */
@@ -202,8 +202,13 @@
   animation: fadeOut 1.2s forwards;
 }
 @keyframes fadeOut {
-  0%, 70% { opacity: 1; }
-  100% { opacity: 0; }
+  0%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Expand/collapse toggle for long secret values. */

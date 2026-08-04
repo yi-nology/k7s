@@ -9,8 +9,8 @@
  * is worse than briefly holding a value that gets clamped on blur.
  */
 
-import { asTheme, type Theme } from "./theme";
-import { asLocale, type Locale } from "./i18n";
+import { asTheme, type Theme } from './theme';
+import { asLocale, type Locale } from './i18n';
 
 /** Everything the settings panel controls. */
 export interface Settings {
@@ -49,16 +49,16 @@ export const DEFAULT_SETTINGS: Settings = {
   logBufferCap: 200,
   metricsIntervalSecs: 15,
   statusIntervalSecs: 10,
-  defaultNamespace: "all",
-  shellCommand: "",
+  defaultNamespace: 'all',
+  shellCommand: '',
   // Following the OS is the least surprising default, and it's what the app did
   // implicitly before there was a choice — for anyone on a dark desktop.
-  theme: "system",
+  theme: 'system',
   // English is the source-of-truth locale: every dictionary is built from it
   // and a missing key falls back to it. Picking "en" as the default also means
   // older prefs files (pre-language) render in English until the user changes it.
-  language: "en",
-  nodeShellImage: "",
+  language: 'en',
+  nodeShellImage: '',
 };
 
 /**
@@ -85,7 +85,7 @@ export type SettingsInput = Partial<Record<keyof Settings, unknown>>;
 
 /** Clamp a number into a range, falling back to `fallback` for junk input. */
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
-  const n = typeof value === "number" ? value : Number(value);
+  const n = typeof value === 'number' ? value : Number(value);
   // NaN/Infinity from an empty or half-typed field: keep the default rather than
   // writing garbage into a loop bound.
   if (!Number.isFinite(n)) return fallback;
@@ -104,29 +104,29 @@ export function sanitizeSettings(raw: SettingsInput | null | undefined): Setting
       s.logBufferCap,
       LIMITS.logBufferCap.min,
       LIMITS.logBufferCap.max,
-      DEFAULT_SETTINGS.logBufferCap,
+      DEFAULT_SETTINGS.logBufferCap
     ),
     metricsIntervalSecs: clampNumber(
       s.metricsIntervalSecs,
       LIMITS.metricsIntervalSecs.min,
       LIMITS.metricsIntervalSecs.max,
-      DEFAULT_SETTINGS.metricsIntervalSecs,
+      DEFAULT_SETTINGS.metricsIntervalSecs
     ),
     statusIntervalSecs: clampNumber(
       s.statusIntervalSecs,
       LIMITS.statusIntervalSecs.min,
       LIMITS.statusIntervalSecs.max,
-      DEFAULT_SETTINGS.statusIntervalSecs,
+      DEFAULT_SETTINGS.statusIntervalSecs
     ),
     defaultNamespace:
-      typeof s.defaultNamespace === "string" && s.defaultNamespace.trim() !== ""
+      typeof s.defaultNamespace === 'string' && s.defaultNamespace.trim() !== ''
         ? s.defaultNamespace.trim()
         : DEFAULT_SETTINGS.defaultNamespace,
-    shellCommand: typeof s.shellCommand === "string" ? s.shellCommand.trim() : "",
+    shellCommand: typeof s.shellCommand === 'string' ? s.shellCommand.trim() : '',
     // Not a clamp: an unknown string (older prefs, hand-edited file) has no
     // nearest valid value, so it falls back to the default outright.
     theme: asTheme(s.theme),
     language: asLocale(s.language),
-    nodeShellImage: typeof s.nodeShellImage === "string" ? s.nodeShellImage.trim() : "",
+    nodeShellImage: typeof s.nodeShellImage === 'string' ? s.nodeShellImage.trim() : '',
   };
 }

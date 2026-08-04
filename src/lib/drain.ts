@@ -8,8 +8,8 @@
  * intended. Painting that red would train you to ignore red.
  */
 
-import type { DrainProgress } from "../providers/types";
-import type { Tone } from "../providers/types";
+import type { DrainProgress } from '../providers/types';
+import type { Tone } from '../providers/types';
 
 /**
  * The tone for a drain's current state:
@@ -22,14 +22,14 @@ import type { Tone } from "../providers/types";
  * look at.
  */
 export function drainTone(p: DrainProgress): Tone {
-  if (p.failures.some((f) => !f.blockedByPdb)) return "err";
-  if (p.failures.some((f) => f.blockedByPdb)) return "warn";
-  return p.done ? "ok" : "secondary";
+  if (p.failures.some((f) => !f.blockedByPdb)) return 'err';
+  if (p.failures.some((f) => f.blockedByPdb)) return 'warn';
+  return p.done ? 'ok' : 'secondary';
 }
 
 /** Headline for the banner, e.g. "draining: 3/12 evicted". */
 export function drainSummary(p: DrainProgress): string {
-  return `${p.done ? "drain finished" : "draining"}: ${p.evicted}/${p.total} evicted`;
+  return `${p.done ? 'drain finished' : 'draining'}: ${p.evicted}/${p.total} evicted`;
 }
 
 /** Pods a PodDisruptionBudget is holding back. */

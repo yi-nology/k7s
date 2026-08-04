@@ -15,12 +15,12 @@
 
 /** True when the app is running inside a Tauri webview. */
 export const IS_TAURI =
-  typeof window !== "undefined" &&
+  typeof window !== 'undefined' &&
   // The Tauri runtime sets this global before any user code runs.
-  ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
+  ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 
 /** True when the app was started in demo mode. Takes precedence over both. */
-export const IS_DEMO = import.meta.env.VITE_DEMO === "1";
+export const IS_DEMO = import.meta.env.VITE_DEMO === '1';
 
 /**
  * One-shot RPC: call a named command with JSON-serialisable args, get a
@@ -35,10 +35,7 @@ export type EventSubscription = {
 };
 
 /** Subscribe to a named event stream. Returns an unsubscribe handle. */
-export type SubscribeFn = <T>(
-  event: string,
-  cb: (payload: T) => void,
-) => EventSubscription;
+export type SubscribeFn = <T>(event: string, cb: (payload: T) => void) => EventSubscription;
 
 // ---------------------------------------------------------------------------
 // HTTP transport (browser shell, talks to k7s-web).
@@ -49,7 +46,7 @@ export type SubscribeFn = <T>(
  * k7s-web server, so the browser sees one origin (1420) and the HTTP
  * traffic lands on 7180 transparently.
  */
-const API_BASE = "/api";
+const API_BASE = '/api';
 
 /** Wire shape every command returns. Mirrors the Rust `InvokeResponse<T>`. */
 interface WireResponse<T> {
@@ -61,8 +58,8 @@ interface WireResponse<T> {
 export const httpInvoke: Invoker = async <T>(cmd: string, args?: unknown): Promise<T> => {
   const url = `${API_BASE}/invoke/${cmd}`;
   const init: RequestInit = {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: args === undefined ? undefined : JSON.stringify(args),
   };
   const res = await fetch(url, init);
@@ -83,7 +80,7 @@ export const httpInvoke: Invoker = async <T>(cmd: string, args?: unknown): Promi
 
 export const httpSubscribe: SubscribeFn = <T>(
   event: string,
-  cb: (payload: T) => void,
+  cb: (payload: T) => void
 ): EventSubscription => {
   // The browser caps HTTP/1.1 connections per origin at 6 (Chrome/Edge/Firefox
   // and 6 on Safari). With 6 long-lived SSE streams open, *no* connection is
@@ -123,7 +120,7 @@ const sharedEventBus = (() => {
         l(payload);
       } catch (e) {
         // A buggy listener shouldn't take down its peers.
-         
+
         console.error(`[transport] listener for "${event}" threw:`, e);
       }
     }
@@ -141,7 +138,7 @@ const sharedEventBus = (() => {
         }
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-        let buf = "";
+        let buf = '';
         let currentEvent: string | null = null;
         backoffMs = 250; // healthy connection — reset backoff
         // eslint-disable-next-line no-constant-condition
@@ -150,14 +147,14 @@ const sharedEventBus = (() => {
           if (done) break;
           buf += decoder.decode(value, { stream: true });
           let nl: number;
-          while ((nl = buf.indexOf("\n")) >= 0) {
-            const line = buf.slice(0, nl).replace(/\r$/, "");
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).replace(/\r$/, '');
             buf = buf.slice(nl + 1);
-            if (line === "") {
+            if (line === '') {
               currentEvent = null;
-            } else if (line.startsWith("event: ")) {
+            } else if (line.startsWith('event: ')) {
               currentEvent = line.slice(7);
-            } else if (line.startsWith("data: ") && currentEvent) {
+            } else if (line.startsWith('data: ') && currentEvent) {
               try {
                 const payload = JSON.parse(line.slice(6));
                 dispatch(currentEvent, payload);
@@ -168,8 +165,8 @@ const sharedEventBus = (() => {
           }
         }
       } catch (e) {
-        if ((e as Error).name === "AbortError") return; // intentional
-         
+        if ((e as Error).name === 'AbortError') return; // intentional
+
         console.warn(`[transport] SSE dropped, reconnecting:`, e);
         scheduleReconnect();
       }

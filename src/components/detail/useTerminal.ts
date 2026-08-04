@@ -12,12 +12,12 @@
  * is what preserves scrollback across a reconnect.
  */
 
-import { useEffect, useRef } from "react";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import "@xterm/xterm/css/xterm.css";
-import { useResolvedTheme } from "../../hooks/useTheme";
-import { termTheme } from "../../lib/theme";
+import { useEffect, useRef } from 'react';
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import '@xterm/xterm/css/xterm.css';
+import { useResolvedTheme } from '../../hooks/useTheme';
+import { termTheme } from '../../lib/theme';
 
 /** Anything that can receive keystrokes and a terminal size. */
 export interface Resizable {

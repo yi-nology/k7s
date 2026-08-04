@@ -4,13 +4,13 @@
  * on outside click, and only one is open at a time).
  */
 
-import { useEffect, type RefObject } from "react";
+import { useEffect, type RefObject } from 'react';
 
 export function useClickOutside<T extends HTMLElement>(
   ref: RefObject<T | null>,
   handler: () => void,
   /** When false, the listener is not attached (e.g. menu already closed). */
-  active: boolean,
+  active: boolean
 ): void {
   useEffect(() => {
     if (!active) return;
@@ -22,7 +22,7 @@ export function useClickOutside<T extends HTMLElement>(
     }
 
     // `mousedown` (not `click`) so the menu closes before any inner click resolves.
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
   }, [ref, handler, active]);
 }

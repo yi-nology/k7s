@@ -15,31 +15,31 @@
  * with the pod shell (see useTerminal).
  */
 
-import { useEffect, useRef, useState } from "react";
-import styles from "./ShellTab.module.css";
-import nodeStyles from "./NodeShellTab.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import { useTerminal } from "./useTerminal";
-import type { NodeShellHandle } from "../../providers/types";
+import { useEffect, useRef, useState } from 'react';
+import styles from './ShellTab.module.css';
+import nodeStyles from './NodeShellTab.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import { useTerminal } from './useTerminal';
+import type { NodeShellHandle } from '../../providers/types';
 
 type Phase =
-  | { state: "idle" }
-  | { state: "starting" }
-  | { state: "running"; pod: string }
-  | { state: "ended"; reason: string; pod?: string };
+  | { state: 'idle' }
+  | { state: 'starting' }
+  | { state: 'running'; pod: string }
+  | { state: 'ended'; reason: string; pod?: string };
 
 export function NodeShellTab() {
   const row = useStore((s) => s.selectedRow);
   const node = row?.name ?? null;
   const { t } = useTranslation();
 
-  const [phase, setPhase] = useState<Phase>({ state: "idle" });
+  const [phase, setPhase] = useState<Phase>({ state: 'idle' });
   const handleRef = useRef<NodeShellHandle | null>(null);
   // The terminal exists only once a session has been asked for; keying on the node
   // means switching nodes tears the old one down.
-  const started = phase.state !== "idle";
+  const started = phase.state !== 'idle';
   const { hostRef, termRef, sessionRef } = useTerminal(started && node ? node : null);
 
   // Switching nodes must not leave the previous node's session running — it's a
@@ -54,28 +54,28 @@ export function NodeShellTab() {
   }, [node]);
 
   useEffect(() => {
-    setPhase({ state: "idle" });
+    setPhase({ state: 'idle' });
   }, [node]);
 
   if (!node) return null;
 
   const start = async () => {
-    setPhase({ state: "starting" });
+    setPhase({ state: 'starting' });
     try {
       const handle = await getProvider().startNodeShell(
         node,
         (data) => termRef.current?.write(data),
         (reason) => {
           setPhase((p) => ({
-            state: "ended",
-            reason: reason || t("nodeShell.endedFallback", "session ended"),
-            pod: p.state === "running" ? p.pod : undefined,
+            state: 'ended',
+            reason: reason || t('nodeShell.endedFallback', 'session ended'),
+            pod: p.state === 'running' ? p.pod : undefined,
           }));
-        },
+        }
       );
       handleRef.current = handle;
       sessionRef.current = handle;
-      setPhase({ state: "running", pod: handle.pod });
+      setPhase({ state: 'running', pod: handle.pod });
       // The terminal mounts in the same commit that sets "starting", so it exists
       // by now; wire keystrokes and sync the size.
       const term = termRef.current;
@@ -88,7 +88,7 @@ export function NodeShellTab() {
       // Straight to the panel, not the terminal: a start failure usually means no
       // terminal ever appeared, and the backend's message (NotReady node, image
       // pull) is the actionable part.
-      setPhase({ state: "ended", reason: msg });
+      setPhase({ state: 'ended', reason: msg });
     }
   };
 
@@ -96,21 +96,21 @@ export function NodeShellTab() {
     handleRef.current?.stop();
     handleRef.current = null;
     sessionRef.current = null;
-    setPhase({ state: "ended", reason: t("nodeShell.closedFallback", "session closed") });
+    setPhase({ state: 'ended', reason: t('nodeShell.closedFallback', 'session closed') });
   };
 
-  if (phase.state === "idle") {
+  if (phase.state === 'idle') {
     return (
       <div className={nodeStyles.gate}>
-        <div className={nodeStyles.gateTitle}>{t("nodeShell.title", node)}</div>
-        <div className={nodeStyles.gateBody}>{t("nodeShell.body", node)}</div>
+        <div className={nodeStyles.gateTitle}>{t('nodeShell.title', node)}</div>
+        <div className={nodeStyles.gateBody}>{t('nodeShell.body', node)}</div>
         <ul className={nodeStyles.gateList}>
-          <li>{t("nodeShell.podDeletedOnClose")}</li>
-          <li>{t("nodeShell.expiresAfterHour")}</li>
-          <li>{t("nodeShell.changesAreReal")}</li>
+          <li>{t('nodeShell.podDeletedOnClose')}</li>
+          <li>{t('nodeShell.expiresAfterHour')}</li>
+          <li>{t('nodeShell.changesAreReal')}</li>
         </ul>
         <button type="button" className={nodeStyles.gateAction} onClick={() => void start()}>
-          {t("nodeShell.startBtn", "Start debug session")}
+          {t('nodeShell.startBtn', 'Start debug session')}
         </button>
       </div>
     );
@@ -120,32 +120,37 @@ export function NodeShellTab() {
     <div className={styles.wrap}>
       <div className={styles.header}>
         <span className={styles.headerLabel}>
-          {phase.state === "starting"
-            ? t("nodeShell.starting", "starting debug pod…")
-            : t("nodeShell.nodeLabel", "node")}
+          {phase.state === 'starting'
+            ? t('nodeShell.starting', 'starting debug pod…')
+            : t('nodeShell.nodeLabel', 'node')}
         </span>
         <span className={nodeStyles.nodeName}>{node}</span>
         {/* The pod name is shown, not hidden: this feature made a privileged pod,
             and the user should be able to see and delete it themselves. */}
-        {phase.state === "running" && <span className={nodeStyles.podName}>{phase.pod}</span>}
-        {phase.state === "running" && (
-          <button type="button" className={nodeStyles.close} onClick={stop} title={t("nodeShell.endTitle")}>
-            {t("nodeShell.endSession", "✕ end session")}
+        {phase.state === 'running' && <span className={nodeStyles.podName}>{phase.pod}</span>}
+        {phase.state === 'running' && (
+          <button
+            type="button"
+            className={nodeStyles.close}
+            onClick={stop}
+            title={t('nodeShell.endTitle')}
+          >
+            {t('nodeShell.endSession', '✕ end session')}
           </button>
         )}
       </div>
 
       <div className={styles.shell} ref={hostRef} />
 
-      {phase.state === "ended" && (
+      {phase.state === 'ended' && (
         <div className={styles.endedBar}>
           <span className={styles.endedReason}>{phase.reason}</span>
           <span
             className={styles.reconnect}
-            onClick={() => setPhase({ state: "idle" })}
-            title={t("nodeShell.backTitle")}
+            onClick={() => setPhase({ state: 'idle' })}
+            title={t('nodeShell.backTitle')}
           >
-            {t("nodeShell.startAgain", "↻ start again")}
+            {t('nodeShell.startAgain', '↻ start again')}
           </span>
         </div>
       )}

@@ -4,25 +4,25 @@
  * kubeconfig contexts. Selecting one triggers the connect flow.
  */
 
-import { useRef } from "react";
-import styles from "./Sidebar.module.css";
-import { useStore } from "../../store";
-import { useClickOutside } from "../../hooks/useClickOutside";
-import { useTranslation } from "../../hooks/useI18n";
-import { connectTo } from "../../lib/connect";
-import { importKubeconfigViaInput } from "../../providers";
-import type { ImportResult } from "../../providers/types";
+import { useRef } from 'react';
+import styles from './Sidebar.module.css';
+import { useStore } from '../../store';
+import { useClickOutside } from '../../hooks/useClickOutside';
+import { useTranslation } from '../../hooks/useI18n';
+import { connectTo } from '../../lib/connect';
+import { importKubeconfigViaInput } from '../../providers';
+import type { ImportResult } from '../../providers/types';
 
 /** First two letters of the cluster name, uppercased ("FR" for "murphy-yi"). */
 function initials(name: string): string {
-  return name.slice(0, 2).toUpperCase() || "K7";
+  return name.slice(0, 2).toUpperCase() || 'K7';
 }
 
 export function ClusterSwitcher() {
   const connection = useStore((s) => s.connection);
   const clusterStatus = useStore((s) => s.clusterStatus);
   const contexts = useStore((s) => s.contexts);
-  const open = useStore((s) => s.openMenu === "cluster");
+  const open = useStore((s) => s.openMenu === 'cluster');
   const toggleMenu = useStore((s) => s.toggleMenu);
   const closeMenus = useStore((s) => s.closeMenus);
   const setContexts = useStore((s) => s.setContexts);
@@ -62,31 +62,32 @@ export function ClusterSwitcher() {
     // Swallow rejections from the picker (e.g. user dismissed) — those
     // resolve as `null`, not as a rejected promise; rejections are real
     // API errors and worth a console note.
-    void promise.catch((e: unknown) => console.error("[import] failed:", e));
+    void promise.catch((e: unknown) => console.error('[import] failed:', e));
   };
 
   // Display name: the connected cluster, else the selected context, else a stub.
-  const name = connection.clusterName ?? connection.context ?? t("chrome.clusterSwitcher.noCluster");
+  const name =
+    connection.clusterName ?? connection.context ?? t('chrome.clusterSwitcher.noCluster');
 
   // Status line: dot color + text reflect the connection lifecycle.
-  const { dotColor, statusText } = statusDisplay(
-    connection.phase,
-    clusterStatus?.version,
-    t,
-  );
+  const { dotColor, statusText } = statusDisplay(connection.phase, clusterStatus?.version, t);
 
   return (
     <div className={styles.switcher} ref={ref}>
-      <button type="button" className={styles.switcherButton} onClick={() => toggleMenu("cluster")}>
+      <button type="button" className={styles.switcherButton} onClick={() => toggleMenu('cluster')}>
         <div className={styles.badge}>{initials(name)}</div>
         <div className={styles.switcherText}>
-          <div className={styles.clusterName} title={name}>{name}</div>
+          <div className={styles.clusterName} title={name}>
+            {name}
+          </div>
           <div className={styles.statusLine}>
             <span className={styles.dot} style={{ background: dotColor }} />
             {/* statusText can be long on real clusters (e.g. "connected · v1.30.0-alpha.1+abcdef").
                 Wrapped in a span so the flex child can shrink and ellipsis; the
                 full text is surfaced on hover so the version isn't lost. */}
-            <span className={styles.statusText} title={statusText}>{statusText}</span>
+            <span className={styles.statusText} title={statusText}>
+              {statusText}
+            </span>
           </div>
         </div>
         <span className={styles.chevron}>▼</span>
@@ -100,7 +101,7 @@ export function ClusterSwitcher() {
               <button
                 key={ctx.name}
                 type="button"
-                className={`${styles.menuRow} ${isCurrent ? styles.menuRowActive : ""}`}
+                className={`${styles.menuRow} ${isCurrent ? styles.menuRowActive : ''}`}
                 onClick={() => {
                   closeMenus();
                   // No-op if re-selecting the already-connected context.
@@ -109,7 +110,7 @@ export function ClusterSwitcher() {
               >
                 <span
                   className={styles.dot}
-                  style={{ background: isCurrent ? "var(--status-ok)" : "var(--dot-inactive)" }}
+                  style={{ background: isCurrent ? 'var(--status-ok)' : 'var(--dot-inactive)' }}
                 />
                 <span className={styles.menuName}>{ctx.name}</span>
                 <span className={styles.menuEnv}>{ctx.cluster}</span>
@@ -118,8 +119,8 @@ export function ClusterSwitcher() {
           })}
           {contexts.length === 0 && (
             <div className={styles.menuRow}>
-              <span className={styles.menuName} style={{ color: "var(--text-faint)" }}>
-                {t("chrome.sidebar.noContexts")}
+              <span className={styles.menuName} style={{ color: 'var(--text-faint)' }}>
+                {t('chrome.sidebar.noContexts')}
               </span>
             </div>
           )}
@@ -128,7 +129,7 @@ export function ClusterSwitcher() {
           <div className={styles.menuDivider} />
           <button type="button" className={styles.menuRow} onClick={() => void onImport()}>
             <span className={styles.importIcon}>＋</span>
-            <span className={styles.menuName}>{t("chrome.sidebar.importKubeconfig")}</span>
+            <span className={styles.menuName}>{t('chrome.sidebar.importKubeconfig')}</span>
           </button>
         </div>
       )}
@@ -146,13 +147,13 @@ export function ClusterSwitcher() {
         type="file"
         data-testid="kubeconfig-file-input"
         style={{
-          position: "fixed",
+          position: 'fixed',
           left: -9999,
           top: 0,
           width: 1,
           height: 1,
           opacity: 0,
-          pointerEvents: "none",
+          pointerEvents: 'none',
         }}
       />
     </div>
@@ -161,19 +162,22 @@ export function ClusterSwitcher() {
 
 /** Map connection phase → status dot color + text (with version when connected). */
 function statusDisplay(
-  phase: "idle" | "connecting" | "connected" | "error",
+  phase: 'idle' | 'connecting' | 'connected' | 'error',
   version: string | undefined,
-  t: (key: string, ...args: unknown[]) => string,
+  t: (key: string, ...args: unknown[]) => string
 ): { dotColor: string; statusText: string } {
   switch (phase) {
-    case "connected":
+    case 'connected':
       return {
-        dotColor: "var(--status-ok)",
-        statusText: t("chrome.clusterSwitcher.connected", version),
+        dotColor: 'var(--status-ok)',
+        statusText: t('chrome.clusterSwitcher.connected', version),
       };
-    case "connecting":
-      return { dotColor: "var(--status-warn)", statusText: t("chrome.clusterSwitcher.connecting") };
+    case 'connecting':
+      return { dotColor: 'var(--status-warn)', statusText: t('chrome.clusterSwitcher.connecting') };
     default:
-      return { dotColor: "var(--status-err)", statusText: t("chrome.clusterSwitcher.disconnected") };
+      return {
+        dotColor: 'var(--status-err)',
+        statusText: t('chrome.clusterSwitcher.disconnected'),
+      };
   }
 }

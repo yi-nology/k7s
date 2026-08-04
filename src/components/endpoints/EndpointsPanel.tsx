@@ -11,11 +11,11 @@
  * thing to look at. Surfacing it as its own kind makes the link from
  * "Service is broken" → "here's why" one click instead of three.
  */
-import { useEffect, useState } from "react";
-import { getProvider } from "../../providers";
-import type { EndpointAddress, EndpointRow } from "../../providers/types";
-import { useTranslation } from "../../hooks/useI18n";
-import styles from "./EndpointsPanel.module.css";
+import { useEffect, useState } from 'react';
+import { getProvider } from '../../providers';
+import type { EndpointAddress, EndpointRow } from '../../providers/types';
+import { useTranslation } from '../../hooks/useI18n';
+import styles from './EndpointsPanel.module.css';
 
 export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
@@ -48,10 +48,10 @@ export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <h2>{t("endpoints.title", "Endpoints")}</h2>
+        <h2>{t('endpoints.title', 'Endpoints')}</h2>
         {onClose && (
           <button className={styles.btn} onClick={onClose}>
-            {t("endpoints.close", "Close")}
+            {t('endpoints.close', 'Close')}
           </button>
         )}
       </header>
@@ -62,34 +62,29 @@ export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
             <div className={styles.empty}>…</div>
           ) : rows.length === 0 ? (
             <div className={styles.empty}>
-              {t("endpoints.empty", "No EndpointSlices in this cluster")}
+              {t('endpoints.empty', 'No EndpointSlices in this cluster')}
             </div>
           ) : (
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>{t("endpoints.col.name", "Name")}</th>
-                  <th>{t("endpoints.col.namespace", "Namespace")}</th>
-                  <th>{t("endpoints.col.service", "Service")}</th>
-                  <th>{t("endpoints.col.ready", "Ready")}</th>
-                  <th>{t("endpoints.col.addresses", "Addresses")}</th>
+                  <th>{t('endpoints.col.name', 'Name')}</th>
+                  <th>{t('endpoints.col.namespace', 'Namespace')}</th>
+                  <th>{t('endpoints.col.service', 'Service')}</th>
+                  <th>{t('endpoints.col.ready', 'Ready')}</th>
+                  <th>{t('endpoints.col.addresses', 'Addresses')}</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => {
                   const tone =
-                    r.ready === 0
-                      ? styles.bad
-                      : r.ready < r.total
-                        ? styles.warn
-                        : styles.ok;
+                    r.ready === 0 ? styles.bad : r.ready < r.total ? styles.warn : styles.ok;
                   return (
                     <tr
                       key={`${r.namespace}/${r.name}`}
                       onClick={() => setSelected(r)}
                       className={
-                        selected?.name === r.name &&
-                        selected?.namespace === r.namespace
+                        selected?.name === r.name && selected?.namespace === r.namespace
                           ? styles.rowActive
                           : styles.row
                       }
@@ -102,8 +97,8 @@ export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
                       </td>
                       <td className={styles.mono}>
                         {r.addresses.length > 2
-                          ? `${r.addresses.slice(0, 2).join(", ")} +${r.addresses.length - 2}`
-                          : r.addresses.join(", ")}
+                          ? `${r.addresses.slice(0, 2).join(', ')} +${r.addresses.length - 2}`
+                          : r.addresses.join(', ')}
                       </td>
                     </tr>
                   );
@@ -120,10 +115,10 @@ export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>{t("endpoints.col.address", "Address")}</th>
-                  <th>{t("endpoints.col.ready", "Ready")}</th>
-                  <th>{t("endpoints.col.target", "Target")}</th>
-                  <th>{t("endpoints.col.node", "Node")}</th>
+                  <th>{t('endpoints.col.address', 'Address')}</th>
+                  <th>{t('endpoints.col.ready', 'Ready')}</th>
+                  <th>{t('endpoints.col.target', 'Target')}</th>
+                  <th>{t('endpoints.col.node', 'Node')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -137,9 +132,7 @@ export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
                   addresses.map((a, i) => (
                     <tr key={i}>
                       <td className={styles.mono}>{a.address}</td>
-                      <td className={a.ready ? styles.ok : styles.bad}>
-                        {a.ready ? "✓" : "✗"}
-                      </td>
+                      <td className={a.ready ? styles.ok : styles.bad}>{a.ready ? '✓' : '✗'}</td>
                       <td>
                         {a.targetRefKind}/{a.targetRefName}
                       </td>

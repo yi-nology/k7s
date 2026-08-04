@@ -10,10 +10,10 @@
  * Mounted once at the app root, alongside useBootstrap.
  */
 
-import { useEffect, useRef } from "react";
-import { getProvider } from "../providers";
-import { useStore } from "../store";
-import { isCustomKind } from "../lib/kinds";
+import { useEffect, useRef } from 'react';
+import { getProvider } from '../providers';
+import { useStore } from '../store';
+import { isCustomKind } from '../lib/kinds';
 
 export function useCustomKindWatch(): void {
   const nav = useStore((s) => s.nav);
@@ -28,7 +28,7 @@ export function useCustomKindWatch(): void {
     // Built-in kinds are watched eagerly by the backend on connect.
     if (!isCustomKind(nav)) return;
     // Nothing to watch until there's a live client.
-    if (phase !== "connected") return;
+    if (phase !== 'connected') return;
     // The kind must actually exist on this cluster. This also covers the ordering
     // on startup: a nav restored from prefs is applied before discovery lands, so
     // the effect re-runs once customKinds arrives and picks it up then.

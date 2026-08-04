@@ -7,5 +7,5 @@ export function isTypingTarget(el: EventTarget | null): boolean {
   const node = el as HTMLElement | null;
   if (!node) return false;
   const tag = node.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || node.isContentEditable;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || node.isContentEditable;
 }

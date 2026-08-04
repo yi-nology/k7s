@@ -10,15 +10,22 @@
  * Fetched in one backend call on open / selection change.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import styles from "./PropertiesTab.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useNow } from "../../hooks/useNow";
-import { useTranslation } from "../../hooks/useI18n";
-import { formatAge } from "../../lib/format";
-import { toneColor } from "../../lib/tone";
-import type { Cell, Field, NavTarget, Properties, SecretEntry, Section } from "../../providers/types";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import styles from './PropertiesTab.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useNow } from '../../hooks/useNow';
+import { useTranslation } from '../../hooks/useI18n';
+import { formatAge } from '../../lib/format';
+import { toneColor } from '../../lib/tone';
+import type {
+  Cell,
+  Field,
+  NavTarget,
+  Properties,
+  SecretEntry,
+  Section,
+} from '../../providers/types';
 
 export function PropertiesTab() {
   const row = useStore((s) => s.selectedRow);
@@ -45,7 +52,10 @@ export function PropertiesTab() {
     setSecretError(null);
     setExpandedKeys(new Set());
     setCopiedKey(null);
-    if (copyTimer.current) { clearTimeout(copyTimer.current); copyTimer.current = null; }
+    if (copyTimer.current) {
+      clearTimeout(copyTimer.current);
+      copyTimer.current = null;
+    }
   }, [row?.uid]);
 
   useEffect(() => {
@@ -78,7 +88,7 @@ export function PropertiesTab() {
     setSecretLoading(true);
     setSecretError(null);
     void getProvider()
-      .getSecretData(row.namespace ?? "", row.name)
+      .getSecretData(row.namespace ?? '', row.name)
       .then((data) => {
         setSecretData(data);
         setSecretLoading(false);
@@ -106,9 +116,9 @@ export function PropertiesTab() {
   }, []);
 
   if (error) return <div className={styles.state}>{error}</div>;
-  if (!props) return <div className={styles.state}>{t("properties.loading")}</div>;
+  if (!props) return <div className={styles.state}>{t('properties.loading')}</div>;
 
-  const isSecret = kind === "secrets";
+  const isSecret = kind === 'secrets';
 
   return (
     <div className={styles.wrap}>
@@ -118,7 +128,7 @@ export function PropertiesTab() {
           section={s}
           now={now}
           isSecret={isSecret}
-          isDataSection={isSecret && s.title === "Data"}
+          isDataSection={isSecret && s.title === 'Data'}
           showSecrets={showSecrets}
           secretData={secretData}
           secretLoading={secretLoading}
@@ -174,17 +184,17 @@ function SectionView({
       <div className={styles.sectionHeader}>
         {section.title}
         {/* Counts belong on lists, not on the Overview grid or chip groups. */}
-        {body.type === "table" && !isDataSection && ` (${body.rows.length})`}
+        {body.type === 'table' && !isDataSection && ` (${body.rows.length})`}
       </div>
 
       {/* Secret decode toggle: appears above the Data table for secrets. */}
       {isDataSection && (
         <button type="button" className={styles.secretToggle} onClick={onToggleSecrets}>
-          {showSecrets ? "\uD83D\uDE48 Hide Values" : "\uD83D\uDC41 Show Values"}
+          {showSecrets ? '\uD83D\uDE48 Hide Values' : '\uD83D\uDC41 Show Values'}
         </button>
       )}
 
-      {body.type === "fields" && (
+      {body.type === 'fields' && (
         <div className={styles.grid}>
           {body.fields.map((f) => (
             <FieldRow key={f.label} field={f} now={now} />
@@ -192,7 +202,7 @@ function SectionView({
         </div>
       )}
 
-      {body.type === "table" && isDataSection && showSecrets ? (
+      {body.type === 'table' && isDataSection && showSecrets ? (
         // Decoded secret values view.
         secretLoading ? (
           <div className={styles.empty}>Decoding...</div>
@@ -211,22 +221,26 @@ function SectionView({
                 {secretData.map((entry) => {
                   const isLong = entry.value.length > SECRET_TRUNCATE_LEN;
                   const isExpanded = expandedKeys.has(entry.key);
-                  const displayValue = isLong && !isExpanded
-                    ? entry.value.slice(0, SECRET_TRUNCATE_LEN)
-                    : entry.value;
+                  const displayValue =
+                    isLong && !isExpanded ? entry.value.slice(0, SECRET_TRUNCATE_LEN) : entry.value;
                   return (
                     <tr key={entry.key}>
-                      <td className={[styles.td, styles.tdName].join(" ")}>{entry.key}</td>
-                      <td className={[styles.td, styles.tdWrap, styles.secretValue].join(" ")}>
+                      <td className={[styles.td, styles.tdName].join(' ')}>{entry.key}</td>
+                      <td className={[styles.td, styles.tdWrap, styles.secretValue].join(' ')}>
                         <span onClick={() => onCopy(entry.key, entry.value)} title="Click to copy">
                           {displayValue}
                           {isLong && (
                             <button
                               type="button"
                               className={styles.expandToggle}
-                              onClick={(e) => { e.stopPropagation(); onToggleExpand(entry.key); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleExpand(entry.key);
+                              }}
                             >
-                              {isExpanded ? " [collapse]" : ` [+${entry.value.length - SECRET_TRUNCATE_LEN}]`}
+                              {isExpanded
+                                ? ' [collapse]'
+                                : ` [+${entry.value.length - SECRET_TRUNCATE_LEN}]`}
                             </button>
                           )}
                         </span>
@@ -243,7 +257,8 @@ function SectionView({
         ) : (
           <div className={styles.empty}>No data entries</div>
         )
-      ) : body.type === "table" &&
+      ) : (
+        body.type === 'table' &&
         (body.rows.length === 0 ? (
           <div className={styles.empty}>{section.emptyNote}</div>
         ) : (
@@ -265,9 +280,9 @@ function SectionView({
                       <td
                         className={[
                           styles.td,
-                          j === 0 ? styles.tdName : "",
-                          wraps(cell) ? styles.tdWrap : "",
-                        ].join(" ")}
+                          j === 0 ? styles.tdName : '',
+                          wraps(cell) ? styles.tdWrap : '',
+                        ].join(' ')}
                         key={j}
                         style={{ color: toneColor(cell.tone) }}
                       >
@@ -283,9 +298,10 @@ function SectionView({
               </tbody>
             </table>
           </div>
-        ))}
+        ))
+      )}
 
-      {body.type === "chips" && (
+      {body.type === 'chips' && (
         <div className={styles.chips}>
           {body.chips.map((kv) => (
             <span key={kv.key} className={styles.chip} title={`${kv.key}=${kv.value}`}>
@@ -311,7 +327,7 @@ function NavLink({ target, children }: { target: NavTarget; children: React.Reac
     <button
       type="button"
       className={styles.navLink}
-      title={t("properties.navTitle", target.kind, target.name)}
+      title={t('properties.navTitle', target.kind, target.name)}
       onClick={() => navigateTo(target)}
     >
       {children}
@@ -336,7 +352,7 @@ function FieldRow({ field, now }: { field: Field; now: number }) {
 
 /** Cell text, formatting age cells like the resource tables do. */
 function cellText(cell: Cell, now: number): string {
-  return cell.format === "age" ? formatAge(cell.text, now) : cell.text;
+  return cell.format === 'age' ? formatAge(cell.text, now) : cell.text;
 }
 
 /**
@@ -355,6 +371,6 @@ const WRAP_AT = 24;
  */
 function wraps(cell: Cell): boolean {
   // Ages are rendered short ("4d2h") whatever the timestamp's length.
-  if (cell.format === "age") return false;
+  if (cell.format === 'age') return false;
   return cell.text.length > WRAP_AT;
 }

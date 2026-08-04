@@ -13,13 +13,13 @@
  * about its own header.
  */
 
-import { useRef, useState } from "react";
-import styles from "./DetailPanel.module.css";
-import { useClickOutside } from "../../hooks/useClickOutside";
-import { useTranslation } from "../../hooks/useI18n";
-import { ActionList } from "../actions/ActionList";
-import { actionsFor } from "../../lib/actions";
-import type { KindId, Row } from "../../providers/types";
+import { useRef, useState } from 'react';
+import styles from './DetailPanel.module.css';
+import { useClickOutside } from '../../hooks/useClickOutside';
+import { useTranslation } from '../../hooks/useI18n';
+import { ActionList } from '../actions/ActionList';
+import { actionsFor } from '../../lib/actions';
+import type { KindId, Row } from '../../providers/types';
 
 interface ActionsMenuProps {
   kind: KindId;
@@ -51,8 +51,8 @@ export function ActionsMenu({ kind, row, onError, onDeleted }: ActionsMenuProps)
         type="button"
         className={styles.actionsButton}
         onClick={() => setOpen((o) => !o)}
-        title={t("detail.header.actionsTitle")}
-        aria-label={t("detail.header.actionsTitle")}
+        title={t('detail.header.actionsTitle')}
+        aria-label={t('detail.header.actionsTitle')}
         aria-haspopup="menu"
         aria-expanded={open}
       >

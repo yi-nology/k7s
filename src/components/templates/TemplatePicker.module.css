@@ -50,7 +50,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+  transition:
+    color 0.1s ease,
+    border-color 0.1s ease,
+    background 0.1s ease;
 }
 .closeBtn:hover {
   color: var(--text-primary);
@@ -177,7 +180,7 @@
   min-width: 0;
 }
 
-.field[data-wide="true"] {
+.field[data-wide='true'] {
   grid-column: 1 / -1;
 }
 
@@ -188,8 +191,8 @@
   font-weight: 500;
 }
 
-.field input[type="text"],
-.field input[type="number"] {
+.field input[type='text'],
+.field input[type='number'] {
   background: var(--bg-terminal);
   border: 1px solid var(--border-control);
   border-radius: var(--radius-sm);
@@ -199,8 +202,8 @@
   padding: 6px 10px;
   width: 100%;
 }
-.field input[type="text"]:focus,
-.field input[type="number"]:focus {
+.field input[type='text']:focus,
+.field input[type='number']:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: var(--shadow-glow);
@@ -361,7 +364,10 @@
   border-radius: var(--radius-sm);
   padding: 0;
   flex: none;
-  transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
+  transition:
+    color 0.1s ease,
+    border-color 0.1s ease,
+    background 0.1s ease;
 }
 .labelAddBtn:hover:not(:disabled) {
   color: var(--accent);
@@ -404,7 +410,7 @@
   transition: transform 0.12s ease;
   font-size: var(--text-sm);
 }
-.yamlChevron[data-open="false"] {
+.yamlChevron[data-open='false'] {
   transform: rotate(-90deg);
 }
 
@@ -547,12 +553,14 @@
   font-weight: 600;
   letter-spacing: 0.04em;
   padding: 6px 14px 8px;
-  transition: color 0.1s ease, border-color 0.1s ease;
+  transition:
+    color 0.1s ease,
+    border-color 0.1s ease;
 }
 .modeBtn:hover {
   color: var(--text-secondary);
 }
-.modeBtn[data-active="true"] {
+.modeBtn[data-active='true'] {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
@@ -597,10 +605,10 @@
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
-.reviewDoc[data-ok="false"] {
+.reviewDoc[data-ok='false'] {
   border-left: 3px solid var(--status-err);
 }
-.reviewDoc[data-ok="true"] {
+.reviewDoc[data-ok='true'] {
   border-left: 3px solid var(--status-ok);
 }
 
@@ -627,7 +635,7 @@
   transition: transform 0.12s ease;
   color: var(--text-faint);
 }
-.reviewChevron[data-open="false"] {
+.reviewChevron[data-open='false'] {
   transform: rotate(-90deg);
 }
 

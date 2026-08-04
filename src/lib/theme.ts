@@ -13,24 +13,24 @@
  */
 
 /** What the user picked. "system" follows the OS. */
-export type Theme = "dark" | "light" | "system";
+export type Theme = 'dark' | 'light' | 'system';
 /** What's actually on screen — "system" is always resolved to one of these. */
-export type ResolvedTheme = "dark" | "light";
+export type ResolvedTheme = 'dark' | 'light';
 
-export const THEMES: Theme[] = ["dark", "light", "system"];
+export const THEMES: Theme[] = ['dark', 'light', 'system'];
 
 /** Key for the paint-time cache. See `bootTheme` for why this isn't just prefs. */
-export const THEME_STORAGE_KEY = "k7s.theme";
+export const THEME_STORAGE_KEY = 'k7s.theme';
 
 /** Narrow arbitrary persisted junk to a Theme, defaulting to "system". */
 export function asTheme(value: unknown): Theme {
-  return THEMES.includes(value as Theme) ? (value as Theme) : "system";
+  return THEMES.includes(value as Theme) ? (value as Theme) : 'system';
 }
 
 /** Resolve a preference against the OS setting. */
 export function resolveTheme(theme: Theme, prefersDark: boolean): ResolvedTheme {
-  if (theme === "dark" || theme === "light") return theme;
-  return prefersDark ? "dark" : "light";
+  if (theme === 'dark' || theme === 'light') return theme;
+  return prefersDark ? 'dark' : 'light';
 }
 
 // ---- the token bridge ----
@@ -43,55 +43,55 @@ export function resolveTheme(theme: Theme, prefersDark: boolean): ResolvedTheme 
  * light would render black text as invisible-on-white.
  */
 export const TERM_TOKENS = {
-  background: "--bg-terminal",
-  foreground: "--text-body",
-  cursor: "--accent",
-  selectionBackground: "--editor-selection",
-  black: "--ansi-black",
-  brightBlack: "--text-faint",
-  red: "--status-err",
-  green: "--status-ok",
-  yellow: "--status-warn",
-  blue: "--accent",
-  magenta: "--ansi-magenta",
-  cyan: "--ansi-cyan",
-  white: "--text-body",
+  background: '--bg-terminal',
+  foreground: '--text-body',
+  cursor: '--accent',
+  selectionBackground: '--editor-selection',
+  black: '--ansi-black',
+  brightBlack: '--text-faint',
+  red: '--status-err',
+  green: '--status-ok',
+  yellow: '--status-warn',
+  blue: '--accent',
+  magenta: '--ansi-magenta',
+  cyan: '--ansi-cyan',
+  white: '--text-body',
 } as const;
 
 /** Plotly slot → token name. */
 export const PLOT_TOKENS = {
-  surface: "--bg-terminal",
-  axis: "--text-secondary",
-  grid: "--border-default",
-  accent: "--accent",
-  ok: "--status-ok",
-  warn: "--status-warn",
-  err: "--status-err",
-  accent2: "--accent-hover",
+  surface: '--bg-terminal',
+  axis: '--text-secondary',
+  grid: '--border-default',
+  accent: '--accent',
+  ok: '--status-ok',
+  warn: '--status-warn',
+  err: '--status-err',
+  accent2: '--accent-hover',
 } as const;
 
 /** Fallbacks matching the dark palette, used when no computed style is available. */
 const FALLBACK: Record<string, string> = {
-  "--bg-terminal": "#0a0a0c",
-  "--text-body": "#d2d2d8",
-  "--text-secondary": "#a4a4ae",
-  "--text-faint": "#57575f",
-  "--border-default": "#26262b",
-  "--accent": "#4d9fff",
-  "--accent-hover": "#7db8ff",
-  "--status-ok": "#9ece6a",
-  "--status-warn": "#e0af68",
-  "--status-err": "#f7768e",
-  "--ansi-black": "#0a0a0c",
-  "--ansi-magenta": "#bb9af7",
-  "--ansi-cyan": "#7dcfff",
-  "--editor-selection": "#23324a",
+  '--bg-terminal': '#0a0a0c',
+  '--text-body': '#d2d2d8',
+  '--text-secondary': '#a4a4ae',
+  '--text-faint': '#57575f',
+  '--border-default': '#26262b',
+  '--accent': '#4d9fff',
+  '--accent-hover': '#7db8ff',
+  '--status-ok': '#9ece6a',
+  '--status-warn': '#e0af68',
+  '--status-err': '#f7768e',
+  '--ansi-black': '#0a0a0c',
+  '--ansi-magenta': '#bb9af7',
+  '--ansi-cyan': '#7dcfff',
+  '--editor-selection': '#23324a',
 };
 
 /** Turn a slot→token map into a slot→color map, given a token lookup. Pure. */
 export function buildTheme<T extends Record<string, string>>(
   tokens: T,
-  get: (name: string) => string,
+  get: (name: string) => string
 ): Record<keyof T, string> {
   const out = {} as Record<keyof T, string>;
   for (const slot of Object.keys(tokens) as (keyof T)[]) {
@@ -99,7 +99,7 @@ export function buildTheme<T extends Record<string, string>>(
     // A token that resolves to nothing (typo, or a palette that forgot it) would
     // hand xterm/plotly an empty string and render a black-on-black surprise;
     // the dark value is a bad look in light mode but always legible.
-    out[slot] = get(name).trim() || FALLBACK[name] || "";
+    out[slot] = get(name).trim() || FALLBACK[name] || '';
   }
   return out;
 }
@@ -116,7 +116,7 @@ export function withAlpha(color: string, alpha: number): string {
   const hex = color.trim();
   const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;
-  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join("") : m[1];
+  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1];
   const n = parseInt(h, 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
 }
@@ -129,7 +129,7 @@ export function withAlpha(color: string, alpha: number): string {
  * keeps the document palette for anything outside those islands.
  */
 export function readToken(name: string, el?: Element | null): string {
-  if (typeof document === "undefined") return FALLBACK[name] ?? "";
+  if (typeof document === 'undefined') return FALLBACK[name] ?? '';
   const target = el ?? document.documentElement;
   return getComputedStyle(target).getPropertyValue(name);
 }
@@ -146,11 +146,11 @@ export function plotColors(el?: Element | null): Record<keyof typeof PLOT_TOKENS
 
 // ---- applying ----
 
-const MEDIA = "(prefers-color-scheme: dark)";
+const MEDIA = '(prefers-color-scheme: dark)';
 
 /** Does the OS want dark right now? */
 export function prefersDark(): boolean {
-  return typeof window !== "undefined" && !!window.matchMedia?.(MEDIA).matches;
+  return typeof window !== 'undefined' && !!window.matchMedia?.(MEDIA).matches;
 }
 
 /**
@@ -160,7 +160,7 @@ export function prefersDark(): boolean {
  * backend for prefs — see `bootTheme`, which reads it synchronously.
  */
 export function applyTheme(resolved: ResolvedTheme): void {
-  if (typeof document === "undefined") return;
+  if (typeof document === 'undefined') return;
   document.documentElement.dataset.theme = resolved;
   // Makes the webview's own widgets (native scrollbars, form controls, and the
   // default canvas behind the app) match, which CSS variables can't reach.
@@ -181,7 +181,7 @@ export function cachedTheme(): Theme {
   try {
     return asTheme(localStorage.getItem(THEME_STORAGE_KEY));
   } catch {
-    return "system";
+    return 'system';
   }
 }
 
@@ -191,9 +191,9 @@ export function cachedTheme(): Theme {
  * to/from "system" needs no resubscribe dance.
  */
 export function onSystemThemeChange(cb: (dark: boolean) => void): () => void {
-  if (typeof window === "undefined" || !window.matchMedia) return () => {};
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
   const mq = window.matchMedia(MEDIA);
   const handler = (e: MediaQueryListEvent) => cb(e.matches);
-  mq.addEventListener("change", handler);
-  return () => mq.removeEventListener("change", handler);
+  mq.addEventListener('change', handler);
+  return () => mq.removeEventListener('change', handler);
 }

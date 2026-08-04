@@ -6,10 +6,10 @@
  * and the host-surface colour resolution live here rather than being duplicated.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import styles from "./PlotChart.module.css";
-import { baseLayout, plotColors, PLOT_CONFIG } from "./plot";
-import { useResolvedTheme } from "../../hooks/useTheme";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import styles from './PlotChart.module.css';
+import { baseLayout, plotColors, PLOT_CONFIG } from './plot';
+import { useResolvedTheme } from '../../hooks/useTheme';
 
 /**
  * Plotly colours for the host's token surface. Re-resolves after mount (ref is
@@ -33,9 +33,9 @@ export function useHostPlotColors(hostRef: RefObject<Element | null>) {
  * Someone who never opens a Metrics tab never downloads or parses it. The promise
  * is cached at module scope so many charts on one tab share one load.
  */
-let plotlyPromise: Promise<typeof import("plotly.js-basic-dist-min")> | null = null;
+let plotlyPromise: Promise<typeof import('plotly.js-basic-dist-min')> | null = null;
 function loadPlotly() {
-  plotlyPromise ??= import("plotly.js-basic-dist-min");
+  plotlyPromise ??= import('plotly.js-basic-dist-min');
   return plotlyPromise;
 }
 

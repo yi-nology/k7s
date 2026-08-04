@@ -5,7 +5,7 @@
  * React requires class components for error boundaries; there's no hook equivalent.
  */
 
-import { Component, type ReactNode } from "react";
+import { Component, type ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -28,26 +28,26 @@ export class ErrorBoundary extends Component<Props, State> {
     return (
       <div
         style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100vh",
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
           gap: 16,
-          fontFamily: "var(--font-ui, system-ui, sans-serif)",
-          color: "var(--text-primary, #fff)",
-          background: "var(--bg-app, #0a0a0f)",
+          fontFamily: 'var(--font-ui, system-ui, sans-serif)',
+          color: 'var(--text-primary, #fff)',
+          background: 'var(--bg-app, #0a0a0f)',
         }}
       >
         <div style={{ fontSize: 18, fontWeight: 600 }}>Something went wrong</div>
         <pre
           style={{
-            fontFamily: "var(--font-mono, monospace)",
+            fontFamily: 'var(--font-mono, monospace)',
             fontSize: 12,
-            color: "var(--text-muted, #888)",
+            color: 'var(--text-muted, #888)',
             maxWidth: 600,
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
           }}
         >
           {this.state.error.message}
@@ -56,12 +56,12 @@ export class ErrorBoundary extends Component<Props, State> {
           type="button"
           onClick={() => window.location.reload()}
           style={{
-            padding: "8px 20px",
+            padding: '8px 20px',
             borderRadius: 8,
-            border: "1px solid var(--border-control, #333)",
-            background: "var(--bg-control, #1a1a22)",
-            color: "var(--text-primary, #fff)",
-            cursor: "pointer",
+            border: '1px solid var(--border-control, #333)',
+            background: 'var(--bg-control, #1a1a22)',
+            color: 'var(--text-primary, #fff)',
+            cursor: 'pointer',
             fontSize: 13,
           }}
         >

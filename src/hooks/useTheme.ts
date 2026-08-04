@@ -11,16 +11,16 @@
  * looks at it.
  */
 
-import { useEffect } from "react";
-import { useStore } from "../store";
-import { getProvider } from "../providers";
+import { useEffect } from 'react';
+import { useStore } from '../store';
+import { getProvider } from '../providers';
 import {
   applyTheme,
   cacheTheme,
   onSystemThemeChange,
   resolveTheme,
   type ResolvedTheme,
-} from "../lib/theme";
+} from '../lib/theme';
 
 /**
  * Start applying the palette. Call once, before the first render.

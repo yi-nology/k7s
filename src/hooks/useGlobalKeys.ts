@@ -10,10 +10,10 @@
  * are ignored there, or `:` would be unusable in a filter.
  */
 
-import { useEffect } from "react";
-import { useStore } from "../store";
-import { isTypingTarget } from "../lib/dom";
-import { tabsFor } from "../lib/kinds";
+import { useEffect } from 'react';
+import { useStore } from '../store';
+import { isTypingTarget } from '../lib/dom';
+import { tabsFor } from '../lib/kinds';
 
 export function useGlobalKeys(): void {
   useEffect(() => {
@@ -22,20 +22,20 @@ export function useGlobalKeys(): void {
       const typing = isTypingTarget(document.activeElement);
 
       // ⌘K is the near-universal binding for this; ⌃K covers non-Mac habits.
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         s.setPaletteOpen(!s.paletteOpen);
         return;
       }
 
       // k9s muscle memory. Only outside a text field — it's a legal character.
-      if (e.key === ":" && !typing && !s.paletteOpen) {
+      if (e.key === ':' && !typing && !s.paletteOpen) {
         e.preventDefault();
         s.setPaletteOpen(true);
         return;
       }
 
-      if (e.key === "Escape") {
+      if (e.key === 'Escape') {
         // The palette handles its own Escape (and stops it here), so that closing
         // it doesn't also clear the filter underneath. This is the fallback for
         // when focus has escaped the input.
@@ -51,36 +51,36 @@ export function useGlobalKeys(): void {
         // and there is otherwise no keyboard way to stand it down.
         // (An open row context menu consumes Escape itself, so it closes first.)
         else if (s.selection.selected.length > 1) s.clearSelection();
-        else if (s.tableFilter) s.setTableFilter("");
+        else if (s.tableFilter) s.setTableFilter('');
         else if (s.selectedRow) s.closeDetail();
         return;
       }
 
-      if ((e.key === "[" || e.key === "]") && s.selectedRow && !typing) {
+      if ((e.key === '[' || e.key === ']') && s.selectedRow && !typing) {
         // Cycle the tabs this kind actually has. The list is shared with the tab
         // strip (lib/kinds.ts) — when it was duplicated here, it drifted, and
         // cycling landed on tabs that no longer existed.
         const tabs = tabsFor(s.nav, !!s.selectedRow.pod);
         if (tabs.length === 0) return;
         const i = Math.max(0, tabs.indexOf(s.activeTab));
-        const next = e.key === "]" ? (i + 1) % tabs.length : (i - 1 + tabs.length) % tabs.length;
+        const next = e.key === ']' ? (i + 1) % tabs.length : (i - 1 + tabs.length) % tabs.length;
         s.setActiveTab(tabs[next]);
       }
 
       // Multi-tab cycling: { / } (Shift+[ / Shift+]) cycle open detail tabs.
-      if ((e.key === "{" || e.key === "}") && s.detailTabs.length > 1 && !typing) {
+      if ((e.key === '{' || e.key === '}') && s.detailTabs.length > 1 && !typing) {
         e.preventDefault();
-        s.cycleDetailTab(e.key === "}" ? 1 : -1);
+        s.cycleDetailTab(e.key === '}' ? 1 : -1);
       }
 
       // Ctrl/Cmd+T: open the current selection in a new detail tab.
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "t" && !typing) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 't' && !typing) {
         e.preventDefault();
         s.openSelectedInTab();
       }
 
       // Ctrl/Cmd+W: close the active detail tab (or the panel if no multi-tabs).
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "w") {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'w') {
         if (s.activeDetailTabUid) {
           e.preventDefault();
           s.closeDetailTab(s.activeDetailTabUid);
@@ -90,7 +90,7 @@ export function useGlobalKeys(): void {
         }
       }
     }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
   }, []);
 }

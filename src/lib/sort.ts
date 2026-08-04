@@ -13,28 +13,28 @@
  * Missing values ("—" / empty) always sort last, regardless of direction.
  */
 
-import type { Cell, Row } from "../providers/types";
+import type { Cell, Row } from '../providers/types';
 
-export type SortDir = "asc" | "desc";
+export type SortDir = 'asc' | 'desc';
 
-type Mode = "sort" | "age" | "percent" | "fraction" | "duration" | "int" | "text";
+type Mode = 'sort' | 'age' | 'percent' | 'fraction' | 'duration' | 'int' | 'text';
 
 /** A cell value that carries no data (renders as an em dash or is blank). */
 function isEmpty(text: string): boolean {
-  return text === "" || text === "—";
+  return text === '' || text === '—';
 }
 
 /** Pick the comparison mode from the first non-empty cell in the column. */
 function detectMode(cells: (Cell | undefined)[]): Mode {
   const sample = cells.find((c) => c && !isEmpty(c.text));
-  if (!sample) return "text";
-  if (sample.sort !== undefined) return "sort";
-  if (sample.format === "age") return "age";
-  if (/^\d+%$/.test(sample.text)) return "percent";
-  if (/^\d+\/\d+$/.test(sample.text)) return "fraction";
-  if (/^\d+[dhms]/.test(sample.text)) return "duration";
-  if (/^-?\d+$/.test(sample.text)) return "int";
-  return "text";
+  if (!sample) return 'text';
+  if (sample.sort !== undefined) return 'sort';
+  if (sample.format === 'age') return 'age';
+  if (/^\d+%$/.test(sample.text)) return 'percent';
+  if (/^\d+\/\d+$/.test(sample.text)) return 'fraction';
+  if (/^\d+[dhms]/.test(sample.text)) return 'duration';
+  if (/^-?\d+$/.test(sample.text)) return 'int';
+  return 'text';
 }
 
 /** Sum a k8s-style duration ("4d2h", "3m12s", "42s") to seconds. */
@@ -52,22 +52,22 @@ function sortKey(cell: Cell | undefined, mode: Mode, now: number): number | stri
   if (!cell || isEmpty(cell.text)) return null;
   const t = cell.text;
   switch (mode) {
-    case "sort":
+    case 'sort':
       return cell.sort ?? null;
-    case "age": {
+    case 'age': {
       // Real age cells hold an ISO timestamp; sort by age (now - creation).
       const ms = Date.parse(t);
       return Number.isNaN(ms) ? durationSeconds(t) : (now - ms) / 1000;
     }
-    case "percent":
+    case 'percent':
       return parseFloat(t);
-    case "fraction": {
-      const [a, b] = t.split("/").map(Number);
+    case 'fraction': {
+      const [a, b] = t.split('/').map(Number);
       return b ? a / b : 0;
     }
-    case "duration":
+    case 'duration':
       return durationSeconds(t);
-    case "int":
+    case 'int':
       return parseInt(t, 10);
     default:
       return t.toLowerCase();
@@ -80,14 +80,14 @@ function sortKey(cell: Cell | undefined, mode: Mode, now: number): number | stri
  */
 export function sortRows(rows: Row[], col: number, dir: SortDir, now: number): Row[] {
   const mode = detectMode(rows.map((r) => r.cells[col]));
-  const sign = dir === "asc" ? 1 : -1;
+  const sign = dir === 'asc' ? 1 : -1;
 
   const keyed = rows.map((r) => ({ r, k: sortKey(r.cells[col], mode, now) }));
   keyed.sort((a, b) => {
     if (a.k === null && b.k === null) return 0;
     if (a.k === null) return 1; // missing → last
     if (b.k === null) return -1;
-    if (typeof a.k === "number" && typeof b.k === "number") return (a.k - b.k) * sign;
+    if (typeof a.k === 'number' && typeof b.k === 'number') return (a.k - b.k) * sign;
     return String(a.k).localeCompare(String(b.k)) * sign;
   });
   return keyed.map((x) => x.r);

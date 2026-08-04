@@ -10,15 +10,15 @@
  * selecting another node) tears the scraper down via the effect's cleanup.
  */
 
-import { useEffect } from "react";
-import { getProvider } from "../providers";
-import { useStore } from "../store";
+import { useEffect } from 'react';
+import { getProvider } from '../providers';
+import { useStore } from '../store';
 
 export function useNodeStats(node: string | undefined): void {
   const phase = useStore((s) => s.connection.phase);
 
   useEffect(() => {
-    if (!node || phase !== "connected") return;
+    if (!node || phase !== 'connected') return;
 
     const provider = getProvider();
     let cancelled = false;

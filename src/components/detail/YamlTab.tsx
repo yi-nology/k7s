@@ -4,14 +4,14 @@
  * API-error reporting. Cancel discards the draft.
  */
 
-import { useEffect, useState } from "react";
-import styles from "./YamlTab.module.css";
-import { useStore } from "../../store";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import { CodeEditor } from "./CodeEditor";
-import { diffLines, diffStat, hasChanges, hunks } from "../../lib/diff";
-import type { ResourceRef, YamlDiff } from "../../providers/types";
+import { useEffect, useState } from 'react';
+import styles from './YamlTab.module.css';
+import { useStore } from '../../store';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import { CodeEditor } from './CodeEditor';
+import { diffLines, diffStat, hasChanges, hunks } from '../../lib/diff';
+import type { ResourceRef, YamlDiff } from '../../providers/types';
 
 /**
  * What the server says this edit would do (B36) — the live object against the
@@ -30,7 +30,7 @@ function DiffView({ diff }: { diff: YamlDiff }) {
   if (!hasChanges(lines)) {
     return (
       <div className={styles.diffWrap}>
-        <div className={styles.diffEmpty}>{t("yaml.noChanges")}</div>
+        <div className={styles.diffEmpty}>{t('yaml.noChanges')}</div>
       </div>
     );
   }
@@ -38,9 +38,9 @@ function DiffView({ diff }: { diff: YamlDiff }) {
   return (
     <div className={styles.diffWrap}>
       <div className={styles.diffStat}>
-        <span className={styles.diffAdded}>+{added}</span>{" "}
-        <span className={styles.diffRemoved}>−{removed}</span>{" "}
-        <span className={styles.diffNote}>{t("yaml.diffNote")}</span>
+        <span className={styles.diffAdded}>+{added}</span>{' '}
+        <span className={styles.diffRemoved}>−{removed}</span>{' '}
+        <span className={styles.diffNote}>{t('yaml.diffNote')}</span>
       </div>
       {groups.map((g, i) => (
         <div className={styles.diffHunk} key={i}>
@@ -49,15 +49,15 @@ function DiffView({ diff }: { diff: YamlDiff }) {
               key={j}
               className={[
                 styles.diffLine,
-                l.op === "add" ? styles.diffLineAdd : "",
-                l.op === "del" ? styles.diffLineDel : "",
-              ].join(" ")}
+                l.op === 'add' ? styles.diffLineAdd : '',
+                l.op === 'del' ? styles.diffLineDel : '',
+              ].join(' ')}
             >
-              <span className={styles.diffGutter}>{l.before ?? l.after ?? ""}</span>
+              <span className={styles.diffGutter}>{l.before ?? l.after ?? ''}</span>
               <span className={styles.diffSign}>
-                {l.op === "add" ? "+" : l.op === "del" ? "−" : " "}
+                {l.op === 'add' ? '+' : l.op === 'del' ? '−' : ' '}
               </span>
-              <span className={styles.diffText}>{l.text || " "}</span>
+              <span className={styles.diffText}>{l.text || ' '}</span>
             </div>
           ))}
         </div>
@@ -77,7 +77,7 @@ export function YamlTab() {
   const setYamlDraft = useStore((s) => s.setYamlDraft);
   const { t } = useTranslation();
 
-  const [yamlText, setYamlText] = useState("");
+  const [yamlText, setYamlText] = useState('');
   // Bumped after each fetch so the read-only editor remounts with fresh content.
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -86,9 +86,7 @@ export function YamlTab() {
   // the tab in review mode: the real apply is only reachable from here.
   const [review, setReview] = useState<YamlDiff | null>(null);
 
-  const ref: ResourceRef | null = row
-    ? { kind, namespace: row.namespace, name: row.name }
-    : null;
+  const ref: ResourceRef | null = row ? { kind, namespace: row.namespace, name: row.name } : null;
 
   // Fetch YAML on selection change (and on first open of this tab).
   useEffect(() => {
@@ -114,7 +112,7 @@ export function YamlTab() {
   if (!row || !ref) return null;
 
   // Secret values are redacted server-side, so editing is disabled for them.
-  const editable = kind !== "secrets";
+  const editable = kind !== 'secrets';
   // Namespaced → "kind/ns/name.yaml"; cluster-scoped → "kind/name.yaml".
   const path = row.namespace
     ? `${kind}/${row.namespace}/${row.name}.yaml`
@@ -164,12 +162,8 @@ export function YamlTab() {
         {yamlEditing ? (
           review ? (
             <>
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={() => setReview(null)}
-              >
-                {t("yaml.backToEditing")}
+              <button type="button" className={styles.cancelBtn} onClick={() => setReview(null)}>
+                {t('yaml.backToEditing')}
               </button>
               <button
                 type="button"
@@ -177,7 +171,7 @@ export function YamlTab() {
                 disabled={applying}
                 onClick={() => void onApply()}
               >
-                {t("yaml.applyForReal")}
+                {t('yaml.applyForReal')}
               </button>
             </>
           ) : (
@@ -190,7 +184,7 @@ export function YamlTab() {
                   cancelYaml();
                 }}
               >
-                {t("yaml.cancel")}
+                {t('yaml.cancel')}
               </button>
               <button
                 type="button"
@@ -198,7 +192,7 @@ export function YamlTab() {
                 disabled={applying}
                 onClick={() => void onPreview()}
               >
-                {applying ? t("yaml.checking") : t("yaml.preview")}
+                {applying ? t('yaml.checking') : t('yaml.preview')}
               </button>
             </>
           )
@@ -212,7 +206,7 @@ export function YamlTab() {
                 startYamlEdit(yamlText);
               }}
             >
-              {t("yaml.edit")}
+              {t('yaml.edit')}
             </button>
           )
         )}

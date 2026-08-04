@@ -10,11 +10,11 @@
  * implementations interchangeable.
  */
 
-import type { DataProvider } from "./types";
-import { MockProvider } from "./mock/MockProvider";
-import { TauriProvider } from "./tauri/TauriProvider";
-import { HttpProvider } from "./HttpProvider";
-import { IS_DEMO, IS_TAURI } from "./transport";
+import type { DataProvider } from './types';
+import { MockProvider } from './mock/MockProvider';
+import { TauriProvider } from './tauri/TauriProvider';
+import { HttpProvider } from './HttpProvider';
+import { IS_DEMO, IS_TAURI } from './transport';
 
 /** Single shared instance for the lifetime of the app. */
 let instance: DataProvider | null = null;
@@ -36,6 +36,6 @@ export function getProvider(): DataProvider {
 }
 
 export { TauriProvider, MockProvider, HttpProvider };
-export { importKubeconfigViaInput } from "./HttpProvider";
-export { IS_DEMO, IS_TAURI } from "./transport";
-export type { DataProvider } from "./types";
+export { importKubeconfigViaInput } from './HttpProvider';
+export { IS_DEMO, IS_TAURI } from './transport';
+export type { DataProvider } from './types';

@@ -6,17 +6,13 @@
  * the dependency graph stays clean and the manager is mockable in tests.
  */
 
-import { createContext, useContext, type ReactNode } from "react";
-import { pluginManager, PluginManager } from "./manager";
+import { createContext, useContext, type ReactNode } from 'react';
+import { pluginManager, PluginManager } from './manager';
 
 const PluginContext = createContext<PluginManager>(pluginManager);
 
 export function PluginProvider({ children }: { children: ReactNode }) {
-  return (
-    <PluginContext.Provider value={pluginManager}>
-      {children}
-    </PluginContext.Provider>
-  );
+  return <PluginContext.Provider value={pluginManager}>{children}</PluginContext.Provider>;
 }
 
 /** Access the plugin manager from any component. */

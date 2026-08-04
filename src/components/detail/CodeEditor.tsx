@@ -8,22 +8,22 @@
  * rather than fighting React over the document state.
  */
 
-import { useEffect, useRef } from "react";
-import { Compartment, EditorState } from "@codemirror/state";
-import { EditorView, lineNumbers, keymap } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { yaml } from "@codemirror/lang-yaml";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
-import { tags as t } from "@lezer/highlight";
-import { useResolvedTheme } from "../../hooks/useTheme";
+import { useEffect, useRef } from 'react';
+import { Compartment, EditorState } from '@codemirror/state';
+import { EditorView, lineNumbers, keymap } from '@codemirror/view';
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+import { yaml } from '@codemirror/lang-yaml';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
+import { useResolvedTheme } from '../../hooks/useTheme';
 
 // Syntax colors (Design §4-YAML): keys secondary, strings green, numbers/bools
 // amber, punctuation muted; plain values fall back to the editor body color.
 const highlight = HighlightStyle.define([
-  { tag: t.propertyName, color: "var(--text-secondary)" },
-  { tag: [t.string, t.special(t.string)], color: "var(--status-ok)" },
-  { tag: [t.number, t.bool, t.null, t.atom], color: "var(--status-warn)" },
-  { tag: [t.punctuation, t.separator, t.meta], color: "var(--text-muted)" },
+  { tag: t.propertyName, color: 'var(--text-secondary)' },
+  { tag: [t.string, t.special(t.string)], color: 'var(--status-ok)' },
+  { tag: [t.number, t.bool, t.null, t.atom], color: 'var(--status-warn)' },
+  { tag: [t.punctuation, t.separator, t.meta], color: 'var(--text-muted)' },
 ]);
 
 /**
@@ -34,39 +34,39 @@ const highlight = HighlightStyle.define([
 const makeTheme = (dark: boolean) =>
   EditorView.theme(
     {
-      "&": {
-        backgroundColor: "var(--bg-terminal)",
-        color: "var(--text-body)",
-        fontSize: "11.5px",
-        height: "100%",
+      '&': {
+        backgroundColor: 'var(--bg-terminal)',
+        color: 'var(--text-body)',
+        fontSize: '11.5px',
+        height: '100%',
       },
-      ".cm-content": {
-        fontFamily: "var(--font-mono)",
-        lineHeight: "1.6",
-        padding: "10px 0",
+      '.cm-content': {
+        fontFamily: 'var(--font-mono)',
+        lineHeight: '1.6',
+        padding: '10px 0',
       },
-      ".cm-scroller": { fontFamily: "var(--font-mono)", overflow: "auto" },
-      "&.cm-focused": { outline: "none" },
-      ".cm-gutters": {
-        backgroundColor: "var(--bg-terminal)",
-        color: "var(--text-linenum)",
-        border: "none",
+      '.cm-scroller': { fontFamily: 'var(--font-mono)', overflow: 'auto' },
+      '&.cm-focused': { outline: 'none' },
+      '.cm-gutters': {
+        backgroundColor: 'var(--bg-terminal)',
+        color: 'var(--text-linenum)',
+        border: 'none',
       },
       // Right-aligned 30px line-number column.
-      ".cm-lineNumbers .cm-gutterElement": {
-        padding: "0 14px 0 6px",
-        minWidth: "30px",
-        textAlign: "right",
+      '.cm-lineNumbers .cm-gutterElement': {
+        padding: '0 14px 0 6px',
+        minWidth: '30px',
+        textAlign: 'right',
       },
-      ".cm-activeLine": { backgroundColor: "transparent" },
-      ".cm-activeLineGutter": { backgroundColor: "transparent" },
-      ".cm-line:hover": { backgroundColor: "var(--bg-log-hover)" },
-      ".cm-cursor": { borderLeftColor: "var(--accent)" },
-      ".cm-selectionBackground, ::selection": {
-        backgroundColor: "var(--editor-selection)",
+      '.cm-activeLine': { backgroundColor: 'transparent' },
+      '.cm-activeLineGutter': { backgroundColor: 'transparent' },
+      '.cm-line:hover': { backgroundColor: 'var(--bg-log-hover)' },
+      '.cm-cursor': { borderLeftColor: 'var(--accent)' },
+      '.cm-selectionBackground, ::selection': {
+        backgroundColor: 'var(--editor-selection)',
       },
     },
-    { dark },
+    { dark }
   );
 
 /**
@@ -120,7 +120,7 @@ export function CodeEditor({ value, editable, onChange }: CodeEditorProps) {
         extensions.push(
           EditorView.updateListener.of((u) => {
             if (u.docChanged) onChange(u.state.doc.toString());
-          }),
+          })
         );
       }
     }
@@ -148,5 +148,5 @@ export function CodeEditor({ value, editable, onChange }: CodeEditorProps) {
   }, [theme, dark]);
 
   // Fill the available height so the editor scrolls internally.
-  return <div ref={hostRef} style={{ flex: 1, minHeight: 0, overflow: "hidden" }} />;
+  return <div ref={hostRef} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }} />;
 }

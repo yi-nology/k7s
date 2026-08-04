@@ -27,7 +27,7 @@
  */
 export function formatAge(creationTs: string, now: number = Date.now()): string {
   const start = new Date(creationTs).getTime();
-  if (Number.isNaN(start)) return "";
+  if (Number.isNaN(start)) return '';
 
   // Clamp negatives (clock skew) to zero.
   const secs = Math.max(0, Math.floor((now - start) / 1000));
@@ -64,7 +64,7 @@ export function formatAge(creationTs: string, now: number = Date.now()): string 
  * Values < 1000m stay in millis ("212m"); larger values become cores ("1.5").
  */
 export function formatCpu(milliCores: number): string {
-  if (!Number.isFinite(milliCores) || milliCores < 0) return "—";
+  if (!Number.isFinite(milliCores) || milliCores < 0) return '—';
   if (milliCores < 1000) return `${Math.round(milliCores)}m`;
   // One decimal of cores, trimming a trailing ".0".
   const cores = milliCores / 1000;
@@ -77,12 +77,12 @@ export function formatCpu(milliCores: number): string {
  * millis from the metrics feed). Returns undefined for unknown/em-dash values.
  */
 export function parseCpuMillis(s: string): number | undefined {
-  if (!s || s === "—") return undefined;
+  if (!s || s === '—') return undefined;
   const v = parseFloat(s);
   if (Number.isNaN(v)) return undefined;
-  if (s.endsWith("m")) return v;
-  if (s.endsWith("u")) return v / 1e3;
-  if (s.endsWith("n")) return v / 1e6;
+  if (s.endsWith('m')) return v;
+  if (s.endsWith('u')) return v / 1e3;
+  if (s.endsWith('n')) return v / 1e6;
   return v * 1000; // bare number is cores
 }
 
@@ -91,12 +91,12 @@ export function parseCpuMillis(s: string): number | undefined {
  * {@link formatMem}; used for mock sort keys. Returns undefined for "—"/unknown.
  */
 export function parseMemBytes(s: string): number | undefined {
-  if (!s || s === "—") return undefined;
+  if (!s || s === '—') return undefined;
   const v = parseFloat(s);
   if (Number.isNaN(v)) return undefined;
-  const unit = s.replace(/[0-9.\s]/g, "");
+  const unit = s.replace(/[0-9.\s]/g, '');
   const mult: Record<string, number> = {
-    "": 1,
+    '': 1,
     Ki: 1024,
     Mi: 1024 ** 2,
     Gi: 1024 ** 3,
@@ -114,7 +114,7 @@ export function parseMemBytes(s: string): number | undefined {
  * Uses Mi under 1 GiB ("486Mi") and Gi with one decimal above ("3.2Gi").
  */
 export function formatMem(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes < 0) return "—";
+  if (!Number.isFinite(bytes) || bytes < 0) return '—';
   const Ki = 1024;
   const Mi = Ki * 1024;
   const Gi = Mi * 1024;

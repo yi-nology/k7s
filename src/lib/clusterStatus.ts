@@ -20,8 +20,8 @@
  * that fires before the connection is up).
  */
 
-import type { ClusterStatus } from "../providers/types";
-import type { AppState, ConnectionState } from "../store";
+import type { ClusterStatus } from '../providers/types';
+import type { AppState, ConnectionState } from '../store';
 
 /**
  * The slice of `AppState` the reconciliation reads and writes.
@@ -32,10 +32,10 @@ import type { AppState, ConnectionState } from "../store";
  */
 export interface ClusterStatusState {
   connection: ConnectionState;
-  setConnection: AppState["setConnection"];
-  setClusterStatus: AppState["setClusterStatus"];
-  setPodMetrics: AppState["setPodMetrics"];
-  setNodeMetrics: AppState["setNodeMetrics"];
+  setConnection: AppState['setConnection'];
+  setClusterStatus: AppState['setClusterStatus'];
+  setPodMetrics: AppState['setPodMetrics'];
+  setNodeMetrics: AppState['setNodeMetrics'];
 }
 
 /**
@@ -44,17 +44,14 @@ export interface ClusterStatusState {
  * clearing the cached pod/node metrics on a metrics-server disappearance — are
  * all gated on the status belonging to the store's current context.
  */
-export function reconcileClusterStatus(
-  status: ClusterStatus,
-  state: ClusterStatusState,
-): void {
+export function reconcileClusterStatus(status: ClusterStatus, state: ClusterStatusState): void {
   const { connection, setConnection, setClusterStatus, setPodMetrics, setNodeMetrics } = state;
 
   // Drop stale events from a previous cluster. The gate is a no-op when either
   // side is unknown (legacy untagged status, or the store is in the pre-first-
   // connect idle/connecting state), so the existing flows are preserved.
   if (
-    typeof status.context === "string" &&
+    typeof status.context === 'string' &&
     connection.context != null &&
     status.context !== connection.context
   ) {
@@ -63,10 +60,10 @@ export function reconcileClusterStatus(
 
   setClusterStatus(status);
 
-  if (connection.phase === "connected" && !status.connected) {
-    setConnection({ phase: "error", error: "cluster unreachable" });
-  } else if (connection.phase === "error" && status.connected) {
-    setConnection({ phase: "connected", error: undefined });
+  if (connection.phase === 'connected' && !status.connected) {
+    setConnection({ phase: 'error', error: 'cluster unreachable' });
+  } else if (connection.phase === 'error' && status.connected) {
+    setConnection({ phase: 'connected', error: undefined });
   }
 
   if (status.cpuPercent == null) {

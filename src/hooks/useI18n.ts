@@ -12,8 +12,8 @@
  * the bundle has loaded. The hook here keeps the two in sync from then on.
  */
 
-import { useEffect } from "react";
-import { useStore } from "../store";
+import { useEffect } from 'react';
+import { useStore } from '../store';
 import {
   cacheLocale,
   cachedLocale,
@@ -21,11 +21,11 @@ import {
   translate,
   type Locale,
   LOCALE_STORAGE_KEY,
-} from "../lib/i18n";
+} from '../lib/i18n';
 
 /** Apply the locale to the document and cache it for the next launch. */
 function applyLocale(locale: Locale): void {
-  if (typeof document !== "undefined") {
+  if (typeof document !== 'undefined') {
     document.documentElement.lang = locale;
   }
   cacheLocale(locale);

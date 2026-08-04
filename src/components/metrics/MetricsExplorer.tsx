@@ -10,41 +10,37 @@
  * back inline — the bar at the top shows the Prometheus error message,
  * so a typo in PromQL doesn't vanish into a black Plotly box.
  */
-import { useEffect, useState } from "react";
-import { getProvider } from "../../providers";
-import type {
-  MetricsConfig,
-  PromQueryResult,
-  SavedQuery,
-} from "../../providers/types";
-import { useTranslation } from "../../hooks/useI18n";
-import { Plot } from "../detail/PlotChart";
-import styles from "./MetricsExplorer.module.css";
+import { useEffect, useState } from 'react';
+import { getProvider } from '../../providers';
+import type { MetricsConfig, PromQueryResult, SavedQuery } from '../../providers/types';
+import { useTranslation } from '../../hooks/useI18n';
+import { Plot } from '../detail/PlotChart';
+import styles from './MetricsExplorer.module.css';
 
-type Mode = "instant" | "range";
+type Mode = 'instant' | 'range';
 
 const RANGE_PRESETS: Array<{ label: string; minutes: number }> = [
-  { label: "5m", minutes: 5 },
-  { label: "15m", minutes: 15 },
-  { label: "1h", minutes: 60 },
-  { label: "6h", minutes: 360 },
-  { label: "24h", minutes: 1440 },
+  { label: '5m', minutes: 5 },
+  { label: '15m', minutes: 15 },
+  { label: '1h', minutes: 60 },
+  { label: '6h', minutes: 360 },
+  { label: '24h', minutes: 1440 },
 ];
 
 export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const [instances, setInstances] = useState<MetricsConfig[]>([]);
-  const [instance, setInstance] = useState<string>("");
-  const [mode, setMode] = useState<Mode>("range");
-  const [promql, setPromql] = useState("up");
+  const [instance, setInstance] = useState<string>('');
+  const [mode, setMode] = useState<Mode>('range');
+  const [promql, setPromql] = useState('up');
   const [rangeMinutes, setRangeMinutes] = useState(60);
   const [result, setResult] = useState<PromQueryResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState<SavedQuery[]>([]);
   const [showSave, setShowSave] = useState(false);
-  const [saveName, setSaveName] = useState("");
-  const [saveNote, setSaveNote] = useState("");
+  const [saveName, setSaveName] = useState('');
+  const [saveNote, setSaveNote] = useState('');
   const [cacheBust, setCacheBust] = useState(0);
   // "saving" guards the save action button during the in-flight
   // `savedQueriesUpsert` so a double-click can't queue a second
@@ -59,7 +55,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   // McpPanel CopyButton. Pre-fix (pass-11), the click handler
   // fired the provider method with no state change, so the user
   // had no idea whether anything happened.
-  const [cacheState, setCacheState] = useState<"idle" | "ok">("idle");
+  const [cacheState, setCacheState] = useState<'idle' | 'ok'>('idle');
 
   // The save bar's typed name matches an existing saved query
   // (case-insensitive, trim-insensitive) → the action button
@@ -68,8 +64,8 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   // gave no visual hint that a same-name save would overwrite
   // a query the user might have forgotten they had.
   const trimmedName = saveName.trim();
-  const isOverwrite = trimmedName.length > 0 &&
-    saved.some((q) => q.name.toLowerCase() === trimmedName.toLowerCase());
+  const isOverwrite =
+    trimmedName.length > 0 && saved.some((q) => q.name.toLowerCase() === trimmedName.toLowerCase());
 
   // Load configured instances.
   useEffect(() => {
@@ -99,7 +95,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
     setError(null);
     try {
       let r: PromQueryResult;
-      if (mode === "instant") {
+      if (mode === 'instant') {
         r = await getProvider().metricsQuery(instance, promql);
       } else {
         const endMs = Date.now();
@@ -109,7 +105,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
           promql,
           startMs,
           endMs,
-          Math.max(15, Math.floor(rangeMinutes * 60 / 240)),
+          Math.max(15, Math.floor((rangeMinutes * 60) / 240))
         );
       }
       setResult(r);
@@ -148,8 +144,8 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
         cacheSeconds: 30,
       });
       setShowSave(false);
-      setSaveName("");
-      setSaveNote("");
+      setSaveName('');
+      setSaveNote('');
       setCacheBust((c) => c + 1);
     } catch (e) {
       setError(String(e));
@@ -159,7 +155,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   };
 
   const removeSaved = async (name: string) => {
-    if (!confirm(t("metricsExplorer.saved.confirmRemove", `Delete saved query "${name}"?`))) {
+    if (!confirm(t('metricsExplorer.saved.confirmRemove', `Delete saved query "${name}"?`))) {
       return;
     }
     await getProvider().savedQueriesRemove(name);
@@ -175,8 +171,8 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   // the McpPanel CopyButton uses.
   const clearCache = () => {
     void getProvider().savedQueriesClearCache();
-    setCacheState("ok");
-    setTimeout(() => setCacheState("idle"), 1500);
+    setCacheState('ok');
+    setTimeout(() => setCacheState('idle'), 1500);
   };
 
   // Auto-run when the user switches instance or mode.
@@ -190,10 +186,10 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <h2>{t("metricsExplorer.title", "Metrics Explorer")}</h2>
+        <h2>{t('metricsExplorer.title', 'Metrics Explorer')}</h2>
         {onClose && (
           <button className={styles.btn} onClick={onClose}>
-            {t("metricsExplorer.close", "Close")}
+            {t('metricsExplorer.close', 'Close')}
           </button>
         )}
       </header>
@@ -202,19 +198,12 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       {/* Source + time window — the "what to query" controls, grouped apart
           from the query itself so the two read as separate concerns. */}
       <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          {t("metricsExplorer.source", "Source")}
-        </div>
+        <div className={styles.sectionHeader}>{t('metricsExplorer.source', 'Source')}</div>
         <div className={styles.controls}>
           <label className={styles.field}>
-            <span>{t("metricsExplorer.instance", "Prometheus")}</span>
-            <select
-              value={instance}
-              onChange={(e) => setInstance(e.target.value)}
-            >
-              {instances.length === 0 && (
-                <option value="">— none configured —</option>
-              )}
+            <span>{t('metricsExplorer.instance', 'Prometheus')}</span>
+            <select value={instance} onChange={(e) => setInstance(e.target.value)}>
+              {instances.length === 0 && <option value="">— none configured —</option>}
               {instances.map((i) => (
                 <option key={i.name} value={i.name}>
                   {i.name} ({i.url})
@@ -224,28 +213,24 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
           </label>
           <div className={styles.modeToggle}>
             <button
-              className={mode === "instant" ? styles.activeTab : styles.tab}
-              onClick={() => setMode("instant")}
+              className={mode === 'instant' ? styles.activeTab : styles.tab}
+              onClick={() => setMode('instant')}
             >
-              {t("metricsExplorer.instant", "Instant")}
+              {t('metricsExplorer.instant', 'Instant')}
             </button>
             <button
-              className={mode === "range" ? styles.activeTab : styles.tab}
-              onClick={() => setMode("range")}
+              className={mode === 'range' ? styles.activeTab : styles.tab}
+              onClick={() => setMode('range')}
             >
-              {t("metricsExplorer.range", "Range")}
+              {t('metricsExplorer.range', 'Range')}
             </button>
           </div>
-          {mode === "range" && (
+          {mode === 'range' && (
             <div className={styles.rangePresets}>
               {RANGE_PRESETS.map((p) => (
                 <button
                   key={p.label}
-                  className={
-                    rangeMinutes === p.minutes
-                      ? styles.activeRange
-                      : styles.rangePreset
-                  }
+                  className={rangeMinutes === p.minutes ? styles.activeRange : styles.rangePreset}
                   onClick={() => setRangeMinutes(p.minutes)}
                 >
                   {p.label}
@@ -258,9 +243,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
 
       {/* Query bar — the "what to ask" row. Save/Refresh are secondary to Run. */}
       <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          {t("metricsExplorer.query", "Query")}
-        </div>
+        <div className={styles.sectionHeader}>{t('metricsExplorer.query', 'Query')}</div>
         <div className={styles.queryBar}>
           <input
             className={styles.queryInput}
@@ -268,34 +251,32 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
             value={promql}
             onChange={(e) => setPromql(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") void run();
+              if (e.key === 'Enter') void run();
             }}
-            placeholder={t("metricsExplorer.placeholder", "PromQL expression…")}
+            placeholder={t('metricsExplorer.placeholder', 'PromQL expression…')}
           />
           <button
             className={styles.primary}
             onClick={run}
             disabled={loading || !instance || !promql.trim()}
           >
-            {loading
-              ? t("metricsExplorer.running", "Running…")
-              : t("metricsExplorer.run", "Run")}
+            {loading ? t('metricsExplorer.running', 'Running…') : t('metricsExplorer.run', 'Run')}
           </button>
           <button
             className={styles.btn}
             onClick={() => setShowSave(!showSave)}
             disabled={!promql.trim()}
-            title={t("metricsExplorer.saved.saveTitle", "Save this query")}
+            title={t('metricsExplorer.saved.saveTitle', 'Save this query')}
           >
-            {t("metricsExplorer.saved.save", "Save")}
+            {t('metricsExplorer.saved.save', 'Save')}
           </button>
           <button
             className={styles.btn}
             onClick={() => run()}
             disabled={!result}
-            title={t("metricsExplorer.refreshTitle", "Re-run the current query")}
+            title={t('metricsExplorer.refreshTitle', 'Re-run the current query')}
           >
-            {t("metricsExplorer.refresh", "Refresh")}
+            {t('metricsExplorer.refresh', 'Refresh')}
           </button>
         </div>
 
@@ -303,16 +284,16 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
           <div className={styles.saveBarWrap}>
             <div className={styles.saveBar}>
               <input
-                placeholder={t("metricsExplorer.saved.namePlaceholder", "Name")}
+                placeholder={t('metricsExplorer.saved.namePlaceholder', 'Name')}
                 value={saveName}
                 onChange={(e) => setSaveName(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") void saveCurrent();
+                  if (e.key === 'Enter') void saveCurrent();
                 }}
                 disabled={saving}
               />
               <input
-                placeholder={t("metricsExplorer.saved.notePlaceholder", "Note (optional)")}
+                placeholder={t('metricsExplorer.saved.notePlaceholder', 'Note (optional)')}
                 value={saveNote}
                 onChange={(e) => setSaveNote(e.target.value)}
                 disabled={saving}
@@ -324,15 +305,18 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
                 disabled={!saveName.trim() || saving}
               >
                 {saving
-                  ? t("metricsExplorer.saved.saving", "Saving…")
+                  ? t('metricsExplorer.saved.saving', 'Saving…')
                   : isOverwrite
-                    ? t("metricsExplorer.saved.updateAction", "Update")
-                    : t("metricsExplorer.saved.saveAction", "Save")}
+                    ? t('metricsExplorer.saved.updateAction', 'Update')
+                    : t('metricsExplorer.saved.saveAction', 'Save')}
               </button>
             </div>
             {isOverwrite && (
               <div className={styles.overwriteHint}>
-                {t("metricsExplorer.saved.overwriteHint", "Will overwrite the existing query with this name.")}
+                {t(
+                  'metricsExplorer.saved.overwriteHint',
+                  'Will overwrite the existing query with this name.'
+                )}
               </div>
             )}
           </div>
@@ -342,20 +326,18 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       {saved.length > 0 && (
         <section className={styles.section}>
           <div className={styles.savedHeader}>
-            {t("metricsExplorer.saved.title", "Saved queries")}
+            {t('metricsExplorer.saved.title', 'Saved queries')}
             <button
               type="button"
               className={
-                cacheState === "ok"
-                  ? `${styles.btnSmall} ${styles.btnSmallOk}`
-                  : styles.btnSmall
+                cacheState === 'ok' ? `${styles.btnSmall} ${styles.btnSmallOk}` : styles.btnSmall
               }
               onClick={clearCache}
-              title={t("metricsExplorer.saved.clearCache", "Wipe the in-memory query cache")}
+              title={t('metricsExplorer.saved.clearCache', 'Wipe the in-memory query cache')}
             >
-              {cacheState === "ok"
-                ? t("metricsExplorer.saved.clearCacheOk", "Cleared")
-                : t("metricsExplorer.saved.clearCacheBtn", "Clear cache")}
+              {cacheState === 'ok'
+                ? t('metricsExplorer.saved.clearCacheOk', 'Cleared')
+                : t('metricsExplorer.saved.clearCacheBtn', 'Clear cache')}
             </button>
           </div>
           {saved.map((q) => (
@@ -371,14 +353,14 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
               <button
                 className={styles.savedAction}
                 onClick={() => runSaved(q, true)}
-                title={t("metricsExplorer.saved.refreshHint", "Run, ignoring the cache")}
+                title={t('metricsExplorer.saved.refreshHint', 'Run, ignoring the cache')}
               >
                 ↻
               </button>
               <button
                 className={styles.savedAction}
                 onClick={() => removeSaved(q.name)}
-                title={t("metricsExplorer.saved.removeHint", "Delete saved query")}
+                title={t('metricsExplorer.saved.removeHint', 'Delete saved query')}
               >
                 ×
               </button>
@@ -390,36 +372,37 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       {/* Result — chart (range) or table (instant). Bordered so it reads as
           the output of the query above, distinct from the controls. */}
       <section className={`${styles.section} ${styles.resultSection}`}>
-        <div className={styles.sectionHeader}>
-          {t("metricsExplorer.result", "Result")}
-        </div>
+        <div className={styles.sectionHeader}>{t('metricsExplorer.result', 'Result')}</div>
         <div className={styles.results}>
           {result && result.series.length > 0 ? (
-            mode === "range" ? (
+            mode === 'range' ? (
               <Plot
                 title={promql}
                 data={result.series.map((s) => ({
                   x: s.samples.map((p) => new Date(p.ts)),
                   y: s.samples.map((p) => p.value),
-                  type: "scatter" as const,
-                  mode: "lines" as const,
-                  name: Object.entries(s.metric)
-                    .filter(([k]) => k !== "__name__")
-                    .map(([k, v]) => `${k}=${v}`)
-                    .join(",") || s.metric.__name__ || "",
+                  type: 'scatter' as const,
+                  mode: 'lines' as const,
+                  name:
+                    Object.entries(s.metric)
+                      .filter(([k]) => k !== '__name__')
+                      .map(([k, v]) => `${k}=${v}`)
+                      .join(',') ||
+                    s.metric.__name__ ||
+                    '',
                 }))}
                 layoutExtra={{
                   showlegend: true,
                   legend: {
-                    orientation: "h" as const,
+                    orientation: 'h' as const,
                     x: 0,
                     y: -0.15,
-                    font: { color: "var(--text-secondary)", size: 11 },
+                    font: { color: 'var(--text-secondary)', size: 11 },
                   },
                   yaxis: {
                     title: {
-                      text: "",
-                      font: { color: "var(--text-muted)", size: 10 },
+                      text: '',
+                      font: { color: 'var(--text-muted)', size: 10 },
                     },
                   },
                 }}
@@ -429,12 +412,10 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
               <InstantTable series={result.series} />
             )
           ) : result && result.series.length === 0 ? (
-            <div className={styles.empty}>
-              {t("metricsExplorer.empty", "No series returned.")}
-            </div>
+            <div className={styles.empty}>{t('metricsExplorer.empty', 'No series returned.')}</div>
           ) : (
             <div className={styles.emptyState}>
-              <span>{t("metricsExplorer.emptyState", "Run a query to see metrics")}</span>
+              <span>{t('metricsExplorer.emptyState', 'Run a query to see metrics')}</span>
             </div>
           )}
         </div>
@@ -443,28 +424,28 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   );
 }
 
-function InstantTable({ series }: { series: PromQueryResult["series"] }) {
+function InstantTable({ series }: { series: PromQueryResult['series'] }) {
   const { t } = useTranslation();
   return (
     <table className={styles.table}>
       <thead>
         <tr>
-          <th>{t("metricsExplorer.instantTable.series")}</th>
-          <th>{t("metricsExplorer.instantTable.value")}</th>
+          <th>{t('metricsExplorer.instantTable.series')}</th>
+          <th>{t('metricsExplorer.instantTable.value')}</th>
         </tr>
       </thead>
       <tbody>
         {series.map((s, i) => {
           const label = Object.entries(s.metric)
-            .filter(([k]) => k !== "__name__")
+            .filter(([k]) => k !== '__name__')
             .map(([k, v]) => `${k}=${v}`)
-            .join(", ");
+            .join(', ');
           const value = s.samples.at(-1)?.value ?? 0;
           return (
             <tr key={i}>
               <td className={styles.mono}>
-                {s.metric.__name__ ?? ""}
-                {label ? ` {${label}}` : ""}
+                {s.metric.__name__ ?? ''}
+                {label ? ` {${label}}` : ''}
               </td>
               <td className={styles.mono}>{value}</td>
             </tr>

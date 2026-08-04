@@ -5,9 +5,9 @@
  * Zustand store and the data provider so plugins never import them directly.
  */
 
-import type { PluginAPI, SidebarItemDef, DetailTabDef, DashboardCardDef } from "./types";
-import type { KindId } from "../../providers/types";
-import { useStore, rowsFor } from "../../store";
+import type { PluginAPI, SidebarItemDef, DetailTabDef, DashboardCardDef } from './types';
+import type { KindId } from '../../providers/types';
+import { useStore, rowsFor } from '../../store';
 
 /** Runtime-registered sidebar items (populated via api.registerSidebarItem). */
 const _sidebarItems: SidebarItemDef[] = [];
@@ -30,19 +30,20 @@ export class PluginAPIImpl implements PluginAPI {
     }
   }
 
-  notify(message: string, level: "info" | "warn" | "error" = "info"): void {
+  notify(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
     // Use the existing status-bar / notification surface. For now, fall back
     // to console + a simple event that the UI can hook into later.
-    const prefix = level === "error" ? "[plugin:error]" : level === "warn" ? "[plugin:warn]" : "[plugin]";
-    if (level === "error") {
+    const prefix =
+      level === 'error' ? '[plugin:error]' : level === 'warn' ? '[plugin:warn]' : '[plugin]';
+    if (level === 'error') {
       console.error(prefix, message);
-    } else if (level === "warn") {
+    } else if (level === 'warn') {
       console.warn(prefix, message);
     } else {
       console.log(prefix, message);
     }
     // Dispatch a custom event so the status bar or a toast component can pick it up.
-    window.dispatchEvent(new CustomEvent("k7s:plugin-notify", { detail: { message, level } }));
+    window.dispatchEvent(new CustomEvent('k7s:plugin-notify', { detail: { message, level } }));
   }
 
   getResources(kind: KindId): any[] {
@@ -51,9 +52,7 @@ export class PluginAPIImpl implements PluginAPI {
 
   getResource(kind: KindId, name: string, namespace?: string): any | undefined {
     const rows = rowsFor(useStore.getState().rows, kind);
-    return rows.find(
-      (r) => r.name === name && (!namespace || r.namespace === namespace),
-    );
+    return rows.find((r) => r.name === name && (!namespace || r.namespace === namespace));
   }
 
   // ---- runtime registration ----

@@ -107,11 +107,13 @@
   background: var(--bg-control);
   border: 1px solid var(--border);
   position: relative;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .toggleSlider::after {
-  content: "";
+  content: '';
   position: absolute;
   width: 14px;
   height: 14px;
@@ -119,7 +121,9 @@
   background: var(--text-muted);
   top: 2px;
   left: 2px;
-  transition: transform 0.15s ease, background 0.15s ease;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
 }
 
 .toggleOn {

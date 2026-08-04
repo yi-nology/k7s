@@ -6,39 +6,39 @@
  * placeholder so the shell (sidebar, top bar, status bar) can be verified.
  */
 
-import styles from "./App.module.css";
-import { useBootstrap } from "./hooks/useBootstrap";
-import { useCustomKindWatch } from "./hooks/useCustomKindWatch";
-import { useGlobalKeys } from "./hooks/useGlobalKeys";
-import { useTheme } from "./hooks/useTheme";
-import { useLocaleSync, useTranslation } from "./hooks/useI18n";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import { Sidebar } from "./components/sidebar/Sidebar";
-import { TopBar } from "./components/topbar/TopBar";
-import { StatusBar } from "./components/statusbar/StatusBar";
-import { ResourceTable } from "./components/table/ResourceTable";
-import { DetailPanel } from "./components/detail/DetailPanel";
-import { ForwardsBar } from "./components/forwards/ForwardsBar";
-import { SettingsPanel } from "./components/settings/SettingsPanel";
-import { CommandPalette } from "./components/palette/CommandPalette";
-import { useStore } from "./store";
-import { HelmMarket } from "./components/helm/HelmMarket";
-import { PodFilesPanel } from "./components/podfiles/PodFilesPanel";
-import { ImageRepoPanel } from "./components/imagerepo/ImageRepoPanel";
-import { ImageImportPanel } from "./components/imageimport/ImageImportPanel";
-import { TemplatePicker } from "./components/templates/TemplatePicker";
-import { Dashboard } from "./components/dashboard/Dashboard";
-import { MetricsExplorer } from "./components/metrics/MetricsExplorer";
-import { GrafanaPanel } from "./components/grafana/GrafanaPanel";
-import { EndpointsPanel } from "./components/endpoints/EndpointsPanel";
-import { TopologyPanel } from "./components/topology/TopologyPanel";
-import { IngressRouteTopology } from "./components/topology/IngressRouteTopology";
-import { AlertsPanel } from "./components/alerting/AlertsPanel";
-import { AuditPanel } from "./components/audit/AuditPanel";
-import { IngressEditor } from "./components/ingress/IngressEditor";
-import { ResourceDiff } from "./components/diff/ResourceDiff";
-import { PluginPanel } from "./components/plugins/PluginPanel";
-import { usePlugins } from "./hooks/usePlugins";
+import styles from './App.module.css';
+import { useBootstrap } from './hooks/useBootstrap';
+import { useCustomKindWatch } from './hooks/useCustomKindWatch';
+import { useGlobalKeys } from './hooks/useGlobalKeys';
+import { useTheme } from './hooks/useTheme';
+import { useLocaleSync, useTranslation } from './hooks/useI18n';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { Sidebar } from './components/sidebar/Sidebar';
+import { TopBar } from './components/topbar/TopBar';
+import { StatusBar } from './components/statusbar/StatusBar';
+import { ResourceTable } from './components/table/ResourceTable';
+import { DetailPanel } from './components/detail/DetailPanel';
+import { ForwardsBar } from './components/forwards/ForwardsBar';
+import { SettingsPanel } from './components/settings/SettingsPanel';
+import { CommandPalette } from './components/palette/CommandPalette';
+import { useStore } from './store';
+import { HelmMarket } from './components/helm/HelmMarket';
+import { PodFilesPanel } from './components/podfiles/PodFilesPanel';
+import { ImageRepoPanel } from './components/imagerepo/ImageRepoPanel';
+import { ImageImportPanel } from './components/imageimport/ImageImportPanel';
+import { TemplatePicker } from './components/templates/TemplatePicker';
+import { Dashboard } from './components/dashboard/Dashboard';
+import { MetricsExplorer } from './components/metrics/MetricsExplorer';
+import { GrafanaPanel } from './components/grafana/GrafanaPanel';
+import { EndpointsPanel } from './components/endpoints/EndpointsPanel';
+import { TopologyPanel } from './components/topology/TopologyPanel';
+import { IngressRouteTopology } from './components/topology/IngressRouteTopology';
+import { AlertsPanel } from './components/alerting/AlertsPanel';
+import { AuditPanel } from './components/audit/AuditPanel';
+import { IngressEditor } from './components/ingress/IngressEditor';
+import { ResourceDiff } from './components/diff/ResourceDiff';
+import { PluginPanel } from './components/plugins/PluginPanel';
+import { usePlugins } from './hooks/usePlugins';
 
 export default function App() {
   // Wire provider → store and connect on mount.
@@ -70,24 +70,27 @@ export default function App() {
           <div className={styles.content}>
             {/* Keep the table + detail panel mounted when an overlay opens —
                 scroll position, sort state, and selections survive the round-trip. */}
-            <div className={styles.tableArea} style={{ display: overlay === null ? "flex" : "none" }}>
+            <div
+              className={styles.tableArea}
+              style={{ display: overlay === null ? 'flex' : 'none' }}
+            >
               <ResourceTable />
               <DetailPanel />
             </div>
-            {overlay === "helm-market" && (
+            {overlay === 'helm-market' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <HelmMarket onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "pod-files" && (
+            {overlay === 'pod-files' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   {overlayPodRef ? (
                     <PodFilesPanel
                       ref={{
-                        kind: "pods",
+                        kind: 'pods',
                         namespace: overlayPodRef.namespace,
                         name: overlayPodRef.name,
                       }}
@@ -97,104 +100,104 @@ export default function App() {
                   ) : (
                     // No pod picked yet — show a friendly empty state.
                     <div className={styles.overlayEmpty}>
-                      {t("podFiles.noPod", "Open Pod Files from a Pod's row context menu.")}
+                      {t('podFiles.noPod', "Open Pod Files from a Pod's row context menu.")}
                     </div>
                   )}
                 </div>
               </div>
             )}
-            {overlay === "image-repos" && (
+            {overlay === 'image-repos' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <ImageRepoPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "image-import" && (
+            {overlay === 'image-import' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <ImageImportPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "templates" && (
+            {overlay === 'templates' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <TemplatePicker onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "dashboard" && (
+            {overlay === 'dashboard' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <Dashboard onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "metrics" && (
+            {overlay === 'metrics' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <MetricsExplorer onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "grafana" && (
+            {overlay === 'grafana' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <GrafanaPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "endpoints" && (
+            {overlay === 'endpoints' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <EndpointsPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "topology" && (
+            {overlay === 'topology' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <TopologyPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "ingress-routes" && (
+            {overlay === 'ingress-routes' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <IngressRouteTopology onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "alerting" && (
+            {overlay === 'alerting' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <AlertsPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "audit" && (
+            {overlay === 'audit' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <AuditPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "ingress-editor" && (
+            {overlay === 'ingress-editor' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <IngressEditor onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "diff" && (
+            {overlay === 'diff' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <ResourceDiff onClose={closeOverlay} />
                 </div>
               </div>
             )}
-            {overlay === "plugins" && (
+            {overlay === 'plugins' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <PluginPanel onClose={closeOverlay} />

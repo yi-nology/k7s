@@ -11,33 +11,33 @@
  * watcher exactly as clicking the sidebar does.
  */
 
-import type { ReactNode } from "react";
-import { Box } from "lucide-react";
-import { fuzzyMatch } from "./fuzzy";
-import { isCustomKind, KIND_META, KIND_ORDER, type KindId } from "./kinds";
-import { dict, kindLabelFor as i18nKindLabel, type Locale } from "./i18n";
-import type { CustomKind, Row } from "../providers/types";
+import type { ReactNode } from 'react';
+import { Box } from 'lucide-react';
+import { fuzzyMatch } from './fuzzy';
+import { isCustomKind, KIND_META, KIND_ORDER, type KindId } from './kinds';
+import { dict, kindLabelFor as i18nKindLabel, type Locale } from './i18n';
+import type { CustomKind, Row } from '../providers/types';
 
 /** Actions the palette can run. Data, not closures, so this stays testable.
  *  Includes app commands, node actions, and sidebar overlay views/tools. */
 export type ActionId =
-  | "settings"
-  | "import-kubeconfig"
-  | "cordon"
-  | "uncordon"
+  | 'settings'
+  | 'import-kubeconfig'
+  | 'cordon'
+  | 'uncordon'
   // Overlay views (read-only cluster panels)
-  | "dashboard"
-  | "metrics"
-  | "grafana"
-  | "endpoints"
-  | "topology"
-  | "alerting"
+  | 'dashboard'
+  | 'metrics'
+  | 'grafana'
+  | 'endpoints'
+  | 'topology'
+  | 'alerting'
   // Overlay tools (action wizards)
-  | "helm-market"
-  | "pod-files"
-  | "image-repos"
-  | "image-import"
-  | "templates";
+  | 'helm-market'
+  | 'pod-files'
+  | 'image-repos'
+  | 'image-import'
+  | 'templates';
 
 interface Scored {
   /** Ranking score; only comparable within one query. */
@@ -48,7 +48,7 @@ interface Scored {
 
 /** Navigate to a resource kind. */
 export interface KindItem extends Scored {
-  type: "kind";
+  type: 'kind';
   id: KindId;
   label: string;
   icon: ReactNode;
@@ -58,7 +58,7 @@ export interface KindItem extends Scored {
 
 /** Navigate to a specific object and select it. */
 export interface ObjectItem extends Scored {
-  type: "object";
+  type: 'object';
   kind: KindId;
   row: Row;
   label: string;
@@ -67,7 +67,7 @@ export interface ObjectItem extends Scored {
 
 /** Run an app command. */
 export interface ActionItem extends Scored {
-  type: "action";
+  type: 'action';
   id: ActionId;
   label: string;
   hint: string;
@@ -100,7 +100,7 @@ export interface ParsedQuery {
  * ("wiki-6b6d775f4-djpwx.17c3f8a2b1"), so it matches nothing a human would type
  * and would only crowd the list. The Events *view* is still reachable by name.
  */
-const UNSEARCHABLE_KINDS: ReadonlySet<string> = new Set(["events"]);
+const UNSEARCHABLE_KINDS: ReadonlySet<string> = new Set(['events']);
 
 /**
  * Per-class caps. The palette is a keyboard tool: past a screenful, more results
@@ -123,7 +123,7 @@ export function parseQuery(raw: string): ParsedQuery {
   const [, namespace, text] = m;
   // "ns:" alone scopes to nothing yet — treat it as no scope so results don't
   // vanish mid-keystroke.
-  return namespace === "" ? { text: text.trim() } : { namespace, text: text.trim() };
+  return namespace === '' ? { text: text.trim() } : { namespace, text: text.trim() };
 }
 
 /** Build the ranked result list for a query. */
@@ -135,7 +135,7 @@ export function buildPalette(raw: string, ctx: PaletteContext): PaletteItem[] {
   // Objects are only listed once there's something to match: every row in the
   // cluster is not a useful default screen, and the empty palette should show
   // where you can *go*, not everything that exists.
-  const objects = text === "" ? [] : rankClass(objectCandidates(ctx, namespace), text, MAX_OBJECTS);
+  const objects = text === '' ? [] : rankClass(objectCandidates(ctx, namespace), text, MAX_OBJECTS);
 
   // One list, ranked together: the scores come from the same query, so they're
   // comparable, and a strong object match should be able to outrank a weak kind
@@ -158,9 +158,9 @@ function byScore(a: PaletteItem, b: PaletteItem): number {
  * string the user can't see would be nonsense.
  */
 function rankClass<T extends PaletteItem>(
-  candidates: { item: Omit<T, "score" | "indices">; targets: string[] }[],
+  candidates: { item: Omit<T, 'score' | 'indices'>; targets: string[] }[],
   text: string,
-  max: number,
+  max: number
 ): T[] {
   const out: T[] = [];
   for (const { item, targets } of candidates) {
@@ -179,13 +179,13 @@ function rankClass<T extends PaletteItem>(
 
 /** Every kind that can be navigated to: the built-ins plus discovered CRDs. */
 function kindCandidates(ctx: PaletteContext) {
-  const items: { item: Omit<KindItem, "score" | "indices">; targets: string[] }[] = [];
+  const items: { item: Omit<KindItem, 'score' | 'indices'>; targets: string[] }[] = [];
 
   for (const id of KIND_ORDER) {
     const meta = KIND_META[id];
-    const label = i18nKindLabel(id, ctx.customKinds, ctx.locale ?? "en") ?? meta.label;
+    const label = i18nKindLabel(id, ctx.customKinds, ctx.locale ?? 'en') ?? meta.label;
     items.push({
-      item: { type: "kind", id, label, icon: meta.icon, hint: meta.group },
+      item: { type: 'kind', id, label, icon: meta.icon, hint: meta.group },
       // The id is matched too, so "pods" finds "Pods" and — more importantly —
       // a plural finds a singular Kind name. The English label is matched as a
       // third target so a Chinese-locale user typing "pod" still finds the
@@ -196,7 +196,7 @@ function kindCandidates(ctx: PaletteContext) {
 
   for (const ck of ctx.customKinds) {
     items.push({
-      item: { type: "kind", id: ck.id, label: ck.kind, icon: <Box size={14} />, hint: ck.group },
+      item: { type: 'kind', id: ck.id, label: ck.kind, icon: <Box size={14} />, hint: ck.group },
       // "applications" can't match the label "Application" (it's longer), so the
       // id — "argoproj.io/applications" — is what makes the plural work.
       targets: [ck.kind, ck.id],
@@ -208,7 +208,7 @@ function kindCandidates(ctx: PaletteContext) {
 
 /** Objects from rows already in the store. */
 function objectCandidates(ctx: PaletteContext, namespace: string | undefined) {
-  const items: { item: Omit<ObjectItem, "score" | "indices">; targets: string[] }[] = [];
+  const items: { item: Omit<ObjectItem, 'score' | 'indices'>; targets: string[] }[] = [];
 
   for (const [kind, rows] of Object.entries(ctx.rows)) {
     if (UNSEARCHABLE_KINDS.has(kind)) continue;
@@ -218,7 +218,7 @@ function objectCandidates(ctx: PaletteContext, namespace: string | undefined) {
       if (namespace && row.namespace !== namespace) continue;
       items.push({
         item: {
-          type: "object",
+          type: 'object',
           kind,
           row,
           label: row.name,
@@ -244,84 +244,133 @@ function objectCandidates(ctx: PaletteContext, namespace: string | undefined) {
  * reversible by each other.
  */
 function actionCandidates(ctx: PaletteContext) {
-  const locale = ctx.locale ?? "en";
-  const appHint = paletteStr(locale, "chrome.palette.actionHintApp", "app");
-  const nodeHint = paletteStr(locale, "chrome.palette.actionHintNode", "node");
+  const locale = ctx.locale ?? 'en';
+  const appHint = paletteStr(locale, 'chrome.palette.actionHintApp', 'app');
+  const nodeHint = paletteStr(locale, 'chrome.palette.actionHintNode', 'node');
 
-  const items: { item: Omit<ActionItem, "score" | "indices">; targets: string[] }[] = [
+  const items: { item: Omit<ActionItem, 'score' | 'indices'>; targets: string[] }[] = [
     {
       item: {
-        type: "action",
-        id: "settings",
-        label: paletteStr(locale, "chrome.palette.actions.settings", "Open settings"),
+        type: 'action',
+        id: 'settings',
+        label: paletteStr(locale, 'chrome.palette.actions.settings', 'Open settings'),
         hint: appHint,
       },
       // "preferences" is the only real English synonym — keep it in the targets
       // so an English user can still find this by either spelling.
-      targets: [paletteStr(locale, "chrome.palette.actions.settings", "Open settings"), "Open settings", "preferences"],
+      targets: [
+        paletteStr(locale, 'chrome.palette.actions.settings', 'Open settings'),
+        'Open settings',
+        'preferences',
+      ],
     },
     {
       item: {
-        type: "action",
-        id: "import-kubeconfig",
-        label: paletteStr(locale, "chrome.palette.actions.importKubeconfig", "Import kubeconfig…"),
+        type: 'action',
+        id: 'import-kubeconfig',
+        label: paletteStr(locale, 'chrome.palette.actions.importKubeconfig', 'Import kubeconfig…'),
         hint: appHint,
       },
       // Keep the English label as a fallback target so the search still works
       // for users who type the English verb in their non-native locale.
       targets: [
-        paletteStr(locale, "chrome.palette.actions.importKubeconfig", "Import kubeconfig…"),
-        "Import kubeconfig",
+        paletteStr(locale, 'chrome.palette.actions.importKubeconfig', 'Import kubeconfig…'),
+        'Import kubeconfig',
       ],
     },
   ];
 
   // Node actions need a selected node to act on.
-  if (ctx.nav === "nodes" && ctx.selectedRow) {
+  if (ctx.nav === 'nodes' && ctx.selectedRow) {
     const node = ctx.selectedRow.name;
-    const cordonLabel = paletteStr(locale, "chrome.palette.actions.cordon", `Cordon ${node}`, node);
+    const cordonLabel = paletteStr(locale, 'chrome.palette.actions.cordon', `Cordon ${node}`, node);
     const uncordonLabel = paletteStr(
       locale,
-      "chrome.palette.actions.uncordon",
+      'chrome.palette.actions.uncordon',
       `Uncordon ${node}`,
-      node,
+      node
     );
     items.push(
       {
-        item: { type: "action", id: "cordon", label: cordonLabel, hint: nodeHint },
+        item: { type: 'action', id: 'cordon', label: cordonLabel, hint: nodeHint },
         // Match the translated *and* the canonical English "Cordon ${node}" so
         // a Chinese user who reaches for the English verb still gets a hit.
         targets: [cordonLabel, `Cordon ${node}`],
       },
       {
-        item: { type: "action", id: "uncordon", label: uncordonLabel, hint: nodeHint },
+        item: { type: 'action', id: 'uncordon', label: uncordonLabel, hint: nodeHint },
         targets: [uncordonLabel, `Uncordon ${node}`],
-      },
+      }
     );
   }
 
   // Overlay views — always available.
-  const viewHint = paletteStr(locale, "chrome.palette.actionHintView", "view");
-  const toolHint = paletteStr(locale, "chrome.palette.actionHintTool", "tool");
+  const viewHint = paletteStr(locale, 'chrome.palette.actionHintView', 'view');
+  const toolHint = paletteStr(locale, 'chrome.palette.actionHintTool', 'tool');
 
   const overlays: { id: ActionId; key: string; fallback: string; hint: string }[] = [
-    { id: "dashboard", key: "chrome.palette.actions.dashboard", fallback: "Dashboard", hint: viewHint },
-    { id: "metrics", key: "chrome.palette.actions.metrics", fallback: "PromQL", hint: viewHint },
-    { id: "grafana", key: "chrome.palette.actions.grafana", fallback: "Grafana", hint: viewHint },
-    { id: "endpoints", key: "chrome.palette.actions.endpoints", fallback: "Endpoints", hint: viewHint },
-    { id: "topology", key: "chrome.palette.actions.topology", fallback: "Service Topology", hint: viewHint },
-    { id: "alerting", key: "chrome.palette.actions.alerting", fallback: "Alerting", hint: viewHint },
-    { id: "helm-market", key: "chrome.palette.actions.helmMarket", fallback: "Helm Market", hint: toolHint },
-    { id: "pod-files", key: "chrome.palette.actions.podFiles", fallback: "Pod Files", hint: toolHint },
-    { id: "image-repos", key: "chrome.palette.actions.imageRepos", fallback: "Image Registries", hint: toolHint },
-    { id: "image-import", key: "chrome.palette.actions.imageImport", fallback: "Image Import", hint: toolHint },
-    { id: "templates", key: "chrome.palette.actions.templates", fallback: "Templates", hint: toolHint },
+    {
+      id: 'dashboard',
+      key: 'chrome.palette.actions.dashboard',
+      fallback: 'Dashboard',
+      hint: viewHint,
+    },
+    { id: 'metrics', key: 'chrome.palette.actions.metrics', fallback: 'PromQL', hint: viewHint },
+    { id: 'grafana', key: 'chrome.palette.actions.grafana', fallback: 'Grafana', hint: viewHint },
+    {
+      id: 'endpoints',
+      key: 'chrome.palette.actions.endpoints',
+      fallback: 'Endpoints',
+      hint: viewHint,
+    },
+    {
+      id: 'topology',
+      key: 'chrome.palette.actions.topology',
+      fallback: 'Service Topology',
+      hint: viewHint,
+    },
+    {
+      id: 'alerting',
+      key: 'chrome.palette.actions.alerting',
+      fallback: 'Alerting',
+      hint: viewHint,
+    },
+    {
+      id: 'helm-market',
+      key: 'chrome.palette.actions.helmMarket',
+      fallback: 'Helm Market',
+      hint: toolHint,
+    },
+    {
+      id: 'pod-files',
+      key: 'chrome.palette.actions.podFiles',
+      fallback: 'Pod Files',
+      hint: toolHint,
+    },
+    {
+      id: 'image-repos',
+      key: 'chrome.palette.actions.imageRepos',
+      fallback: 'Image Registries',
+      hint: toolHint,
+    },
+    {
+      id: 'image-import',
+      key: 'chrome.palette.actions.imageImport',
+      fallback: 'Image Import',
+      hint: toolHint,
+    },
+    {
+      id: 'templates',
+      key: 'chrome.palette.actions.templates',
+      fallback: 'Templates',
+      hint: toolHint,
+    },
   ];
 
   for (const ov of overlays) {
     const label = paletteStr(locale, ov.key, ov.fallback);
     items.push({
-      item: { type: "action", id: ov.id, label, hint: ov.hint },
+      item: { type: 'action', id: ov.id, label, hint: ov.hint },
       targets: [label, ov.fallback],
     });
   }
@@ -336,13 +385,8 @@ function actionCandidates(ctx: PaletteContext) {
  * fallback when called with a string arg, and writing the helper locally keeps
  * the precedence rules obvious.
  */
-function paletteStr(
-  locale: Locale,
-  key: string,
-  fallback: string,
-  ...args: unknown[]
-): string {
-  for (const loc of [locale, "en"] as Locale[]) {
+function paletteStr(locale: Locale, key: string, fallback: string, ...args: unknown[]): string {
+  for (const loc of [locale, 'en'] as Locale[]) {
     const out = lookupPaletteStr(loc, key, args);
     if (out !== undefined) return out;
   }
@@ -351,22 +395,22 @@ function paletteStr(
 
 function lookupPaletteStr(locale: Locale, key: string, args: unknown[]): string | undefined {
   let cur: unknown = dict(locale);
-  for (const seg of key.split(".")) {
-    if (cur && typeof cur === "object" && seg in (cur as Record<string, unknown>)) {
+  for (const seg of key.split('.')) {
+    if (cur && typeof cur === 'object' && seg in (cur as Record<string, unknown>)) {
       cur = (cur as Record<string, unknown>)[seg];
     } else {
       return undefined;
     }
   }
-  if (typeof cur === "function") {
+  if (typeof cur === 'function') {
     try {
       const out = cur(...args);
-      return typeof out === "string" ? out : undefined;
+      return typeof out === 'string' ? out : undefined;
     } catch {
       return undefined;
     }
   }
-  if (typeof cur === "string") return cur;
+  if (typeof cur === 'string') return cur;
   return undefined;
 }
 

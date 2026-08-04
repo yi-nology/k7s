@@ -10,15 +10,15 @@
  * selecting another pod) stops the forwarding via the effect's cleanup.
  */
 
-import { useEffect } from "react";
-import { getProvider } from "../providers";
-import { useStore } from "../store";
+import { useEffect } from 'react';
+import { getProvider } from '../providers';
+import { useStore } from '../store';
 
 export function usePodStats(key: string | undefined): void {
   const phase = useStore((s) => s.connection.phase);
 
   useEffect(() => {
-    if (!key || phase !== "connected") return;
+    if (!key || phase !== 'connected') return;
 
     const provider = getProvider();
     void provider.watchPodStats(key).catch(() => {

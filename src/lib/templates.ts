@@ -22,7 +22,7 @@ export interface TemplateParam {
   /** Default value. */
   default: string;
   /** Input kind: text, number, or boolean. */
-  kind: "text" | "number" | "boolean";
+  kind: 'text' | 'number' | 'boolean';
   /**
    * Optional validation regex. Only consulted for `kind: "text"` inputs; the
    * browser applies it as a native `pattern` attribute.
@@ -118,40 +118,40 @@ export interface Template {
 
 const TEMPLATES: Template[] = [
   {
-    id: "deployment",
-    kind: "deployments",
-    title: "Deployment",
-    description: "Single-container Deployment with a Service (ClusterIP).",
+    id: 'deployment',
+    kind: 'deployments',
+    title: 'Deployment',
+    description: 'Single-container Deployment with a Service (ClusterIP).',
     params: [
-      { key: "name", label: "Name", default: "my-app", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-app', kind: 'text' },
       {
-        key: "image",
-        label: "Image",
-        default: "nginx:1.25",
-        kind: "text",
-        help: "registry/repo:tag",
+        key: 'image',
+        label: 'Image',
+        default: 'nginx:1.25',
+        kind: 'text',
+        help: 'registry/repo:tag',
       },
       {
-        key: "replicas",
-        label: "Replicas",
-        default: "1",
-        kind: "number",
+        key: 'replicas',
+        label: 'Replicas',
+        default: '1',
+        kind: 'number',
         min: 1,
         max: 100,
       },
       {
-        key: "port",
-        label: "Container port",
-        default: "80",
-        kind: "number",
+        key: 'port',
+        label: 'Container port',
+        default: '80',
+        kind: 'number',
         min: 1,
         max: 65535,
       },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
     ],
     extras: {
@@ -160,15 +160,15 @@ const TEMPLATES: Template[] = [
       // labels table with this entry pre-filled so the rendered YAML
       // is internally consistent on first open; the user can add more
       // or change the value.
-      labels: { default: { app: "my-app" } },
-      resources: { default: { cpu: "100m", memory: "128Mi" } },
+      labels: { default: { app: 'my-app' } },
+      resources: { default: { cpu: '100m', memory: '128Mi' } },
     },
     render: (v) => {
-      const name = v.name || "my-app";
-      const image = v.image || "nginx:1.25";
+      const name = v.name || 'my-app';
+      const image = v.image || 'nginx:1.25';
       const replicas = clampInt(v.replicas, 1, 100, 1);
       const port = clampInt(v.port, 1, 65535, 80);
-      const ns = v.namespace || "default";
+      const ns = v.namespace || 'default';
       // The pod-level labels go under `spec.template.metadata.labels`
       // — the place a Service selector and `matchLabels` actually
       // read. Top-level `metadata.labels` is omitted because nothing
@@ -199,7 +199,7 @@ const TEMPLATES: Template[] = [
         // standard k8s field order is preserved (image, resources,
         // ports, env, …). An empty `resourcesRequestsBlock` skips the
         // line entirely.
-        ...(containerRes ? containerRes.split("\n") : []),
+        ...(containerRes ? containerRes.split('\n') : []),
         `        ports:`,
         `        - containerPort: ${port}`,
         `---`,
@@ -215,56 +215,56 @@ const TEMPLATES: Template[] = [
         `  ports:`,
         `  - port: ${port}`,
         `    targetPort: ${port}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "ingress",
-    kind: "ingresses",
-    title: "Ingress (Nginx)",
-    description: "Ingress that routes a host to an existing Service.",
+    id: 'ingress',
+    kind: 'ingresses',
+    title: 'Ingress (Nginx)',
+    description: 'Ingress that routes a host to an existing Service.',
     params: [
-      { key: "name", label: "Name", default: "my-app-ingress", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-app-ingress', kind: 'text' },
       {
-        key: "host",
-        label: "Host",
-        default: "app.example.com",
-        kind: "text",
+        key: 'host',
+        label: 'Host',
+        default: 'app.example.com',
+        kind: 'text',
       },
       {
-        key: "service",
-        label: "Backend Service",
-        default: "my-app",
-        kind: "text",
+        key: 'service',
+        label: 'Backend Service',
+        default: 'my-app',
+        kind: 'text',
       },
       {
-        key: "port",
-        label: "Service port",
-        default: "80",
-        kind: "number",
+        key: 'port',
+        label: 'Service port',
+        default: '80',
+        kind: 'number',
         min: 1,
         max: 65535,
       },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "ingressClass",
-        label: "Ingress class",
-        default: "nginx",
-        kind: "text",
+        key: 'ingressClass',
+        label: 'Ingress class',
+        default: 'nginx',
+        kind: 'text',
       },
     ],
     render: (v) => {
-      const name = v.name || "my-app-ingress";
-      const host = v.host || "app.example.com";
-      const service = v.service || "my-app";
+      const name = v.name || 'my-app-ingress';
+      const host = v.host || 'app.example.com';
+      const service = v.service || 'my-app';
       const port = clampInt(v.port, 1, 65535, 80);
-      const ns = v.namespace || "default";
-      const ic = v.ingressClass || "nginx";
+      const ns = v.namespace || 'default';
+      const ic = v.ingressClass || 'nginx';
       return [
         `apiVersion: networking.k8s.io/v1`,
         `kind: Ingress`,
@@ -285,39 +285,39 @@ const TEMPLATES: Template[] = [
         `            name: ${service}`,
         `            port:`,
         `              number: ${port}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "configmap",
-    kind: "configmaps",
-    title: "ConfigMap",
-    description: "ConfigMap with two key-value pairs.",
+    id: 'configmap',
+    kind: 'configmaps',
+    title: 'ConfigMap',
+    description: 'ConfigMap with two key-value pairs.',
     params: [
-      { key: "name", label: "Name", default: "my-config", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-config', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
-      { key: "key1", label: "Key 1", default: "log.level", kind: "text" },
-      { key: "value1", label: "Value 1", default: "info", kind: "text" },
-      { key: "key2", label: "Key 2", default: "feature.flag", kind: "text" },
+      { key: 'key1', label: 'Key 1', default: 'log.level', kind: 'text' },
+      { key: 'value1', label: 'Value 1', default: 'info', kind: 'text' },
+      { key: 'key2', label: 'Key 2', default: 'feature.flag', kind: 'text' },
       {
-        key: "value2",
-        label: "Value 2",
-        default: "true",
-        kind: "text",
+        key: 'value2',
+        label: 'Value 2',
+        default: 'true',
+        kind: 'text',
       },
     ],
     render: (v) => {
-      const name = v.name || "my-config";
-      const ns = v.namespace || "default";
-      const k1 = v.key1 || "log.level";
-      const v1 = v.value1 || "info";
-      const k2 = v.key2 || "feature.flag";
-      const v2 = v.value2 || "true";
+      const name = v.name || 'my-config';
+      const ns = v.namespace || 'default';
+      const k1 = v.key1 || 'log.level';
+      const v1 = v.value1 || 'info';
+      const k2 = v.key2 || 'feature.flag';
+      const v2 = v.value2 || 'true';
       return [
         `apiVersion: v1`,
         `kind: ConfigMap`,
@@ -327,7 +327,7 @@ const TEMPLATES: Template[] = [
         `data:`,
         `  ${k1}: ${v1}`,
         `  ${k2}: ${v2}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   // ---- Bxx: full KubePi parity — every kind the sidebar lists gets a template
@@ -335,40 +335,40 @@ const TEMPLATES: Template[] = [
   // resource it creates, which the picker uses to pre-select the matching
   // entry on the corresponding list page (see TemplatePicker.tsx). ----
   {
-    id: "statefulset",
-    kind: "statefulsets",
-    title: "StatefulSet",
-    description: "Single-container StatefulSet with a headless Service.",
+    id: 'statefulset',
+    kind: 'statefulsets',
+    title: 'StatefulSet',
+    description: 'Single-container StatefulSet with a headless Service.',
     params: [
-      { key: "name", label: "Name", default: "my-app", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-app', kind: 'text' },
       {
-        key: "image",
-        label: "Image",
-        default: "nginx:1.25",
-        kind: "text",
-        help: "registry/repo:tag",
+        key: 'image',
+        label: 'Image',
+        default: 'nginx:1.25',
+        kind: 'text',
+        help: 'registry/repo:tag',
       },
       {
-        key: "replicas",
-        label: "Replicas",
-        default: "3",
-        kind: "number",
+        key: 'replicas',
+        label: 'Replicas',
+        default: '3',
+        kind: 'number',
         min: 1,
         max: 100,
       },
       {
-        key: "port",
-        label: "Container port",
-        default: "80",
-        kind: "number",
+        key: 'port',
+        label: 'Container port',
+        default: '80',
+        kind: 'number',
         min: 1,
         max: 65535,
       },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
     ],
     extras: {
@@ -376,15 +376,15 @@ const TEMPLATES: Template[] = [
       // (defaulted to `app: <name>` below) so the headless Service's
       // selector actually routes to them. The pre-filled `app: my-app`
       // keeps the form usable on first open.
-      labels: { default: { app: "my-app" } },
-      resources: { default: { cpu: "100m", memory: "128Mi" } },
+      labels: { default: { app: 'my-app' } },
+      resources: { default: { cpu: '100m', memory: '128Mi' } },
     },
     render: (v) => {
-      const name = v.name || "my-app";
-      const image = v.image || "nginx:1.25";
+      const name = v.name || 'my-app';
+      const image = v.image || 'nginx:1.25';
       const replicas = clampInt(v.replicas, 1, 100, 3);
       const port = clampInt(v.port, 1, 65535, 80);
-      const ns = v.namespace || "default";
+      const ns = v.namespace || 'default';
       const podLabels = labelsBlock(v.labels, 8) || `        app: ${name}`;
       const containerRes = resourcesRequestsBlock(v.resources, 8);
       // A StatefulSet without `serviceName` has no stable network identity — the
@@ -425,39 +425,39 @@ const TEMPLATES: Template[] = [
         `      containers:`,
         `      - name: ${name}`,
         `        image: ${image}`,
-        ...(containerRes ? containerRes.split("\n") : []),
+        ...(containerRes ? containerRes.split('\n') : []),
         `        ports:`,
         `        - containerPort: ${port}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "daemonset",
-    kind: "daemonsets",
-    title: "DaemonSet",
-    description: "One pod per node, e.g. a node-level log shipper.",
+    id: 'daemonset',
+    kind: 'daemonsets',
+    title: 'DaemonSet',
+    description: 'One pod per node, e.g. a node-level log shipper.',
     params: [
-      { key: "name", label: "Name", default: "my-agent", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-agent', kind: 'text' },
       {
-        key: "image",
-        label: "Image",
-        default: "fluentd:1.16",
-        kind: "text",
-        help: "registry/repo:tag",
+        key: 'image',
+        label: 'Image',
+        default: 'fluentd:1.16',
+        kind: 'text',
+        help: 'registry/repo:tag',
       },
       {
-        key: "port",
-        label: "Container port",
-        default: "24224",
-        kind: "number",
+        key: 'port',
+        label: 'Container port',
+        default: '24224',
+        kind: 'number',
         min: 1,
         max: 65535,
       },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "kube-system",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'kube-system',
+        kind: 'text',
       },
     ],
     extras: {
@@ -465,14 +465,14 @@ const TEMPLATES: Template[] = [
       // `spec.selector.matchLabels` (defaulted to `app: <name>` below)
       // — the controller refuses to apply a DS whose pod template
       // doesn't have a matching label set.
-      labels: { default: { app: "my-agent" } },
-      resources: { default: { cpu: "50m", memory: "64Mi" } },
+      labels: { default: { app: 'my-agent' } },
+      resources: { default: { cpu: '50m', memory: '64Mi' } },
     },
     render: (v) => {
-      const name = v.name || "my-agent";
-      const image = v.image || "fluentd:1.16";
+      const name = v.name || 'my-agent';
+      const image = v.image || 'fluentd:1.16';
       const port = clampInt(v.port, 1, 65535, 24224);
-      const ns = v.namespace || "kube-system";
+      const ns = v.namespace || 'kube-system';
       const podLabels = labelsBlock(v.labels, 8) || `        app: ${name}`;
       const containerRes = resourcesRequestsBlock(v.resources, 8);
       // Default namespace is `kube-system` because that's where node-level
@@ -498,50 +498,50 @@ const TEMPLATES: Template[] = [
         `      containers:`,
         `      - name: ${name}`,
         `        image: ${image}`,
-        ...(containerRes ? containerRes.split("\n") : []),
+        ...(containerRes ? containerRes.split('\n') : []),
         `        ports:`,
         `        - containerPort: ${port}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "job",
-    kind: "jobs",
-    title: "Job",
-    description: "Run-to-completion workload, e.g. a one-shot batch task.",
+    id: 'job',
+    kind: 'jobs',
+    title: 'Job',
+    description: 'Run-to-completion workload, e.g. a one-shot batch task.',
     params: [
-      { key: "name", label: "Name", default: "my-job", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-job', kind: 'text' },
       {
-        key: "image",
-        label: "Image",
-        default: "busybox:1.36",
-        kind: "text",
-        help: "registry/repo:tag",
+        key: 'image',
+        label: 'Image',
+        default: 'busybox:1.36',
+        kind: 'text',
+        help: 'registry/repo:tag',
       },
       {
-        key: "completions",
-        label: "Completions",
-        default: "1",
-        kind: "number",
+        key: 'completions',
+        label: 'Completions',
+        default: '1',
+        kind: 'number',
         min: 1,
         max: 1000,
       },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
     ],
     extras: {
-      labels: { default: { app: "my-job" } },
-      resources: { default: { cpu: "100m", memory: "128Mi" } },
+      labels: { default: { app: 'my-job' } },
+      resources: { default: { cpu: '100m', memory: '128Mi' } },
     },
     render: (v) => {
-      const name = v.name || "my-job";
-      const image = v.image || "busybox:1.36";
+      const name = v.name || 'my-job';
+      const image = v.image || 'busybox:1.36';
       const completions = clampInt(v.completions, 1, 1000, 1);
-      const ns = v.namespace || "default";
+      const ns = v.namespace || 'default';
       const containerRes = resourcesRequestsBlock(v.resources, 8);
       // `restartPolicy: OnFailure` is the only sensible default for a Job
       // pod — the alternative (Never) would silently swallow transient
@@ -563,48 +563,48 @@ const TEMPLATES: Template[] = [
         `      containers:`,
         `      - name: ${name}`,
         `        image: ${image}`,
-        ...(containerRes ? containerRes.split("\n") : []),
-      ].join("\n");
+        ...(containerRes ? containerRes.split('\n') : []),
+      ].join('\n');
     },
   },
   {
-    id: "cronjob",
-    kind: "cronjobs",
-    title: "CronJob",
-    description: "Scheduled Job, e.g. a nightly cleanup.",
+    id: 'cronjob',
+    kind: 'cronjobs',
+    title: 'CronJob',
+    description: 'Scheduled Job, e.g. a nightly cleanup.',
     params: [
-      { key: "name", label: "Name", default: "my-cron", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-cron', kind: 'text' },
       {
-        key: "image",
-        label: "Image",
-        default: "busybox:1.36",
-        kind: "text",
-        help: "registry/repo:tag",
+        key: 'image',
+        label: 'Image',
+        default: 'busybox:1.36',
+        kind: 'text',
+        help: 'registry/repo:tag',
       },
       {
-        key: "schedule",
-        label: "Schedule",
-        default: "0 * * * *",
-        kind: "text",
-        help: "Standard 5-field cron expression (minute hour day month dow).",
-        pattern: "^\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+$",
+        key: 'schedule',
+        label: 'Schedule',
+        default: '0 * * * *',
+        kind: 'text',
+        help: 'Standard 5-field cron expression (minute hour day month dow).',
+        pattern: '^\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+$',
       },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
     ],
     extras: {
-      labels: { default: { app: "my-cron" } },
-      resources: { default: { cpu: "100m", memory: "128Mi" } },
+      labels: { default: { app: 'my-cron' } },
+      resources: { default: { cpu: '100m', memory: '128Mi' } },
     },
     render: (v) => {
-      const name = v.name || "my-cron";
-      const image = v.image || "busybox:1.36";
-      const schedule = v.schedule || "0 * * * *";
-      const ns = v.namespace || "default";
+      const name = v.name || 'my-cron';
+      const image = v.image || 'busybox:1.36';
+      const schedule = v.schedule || '0 * * * *';
+      const ns = v.namespace || 'default';
       const containerRes = resourcesRequestsBlock(v.resources, 10);
       return [
         `apiVersion: batch/v1`,
@@ -625,53 +625,53 @@ const TEMPLATES: Template[] = [
         `          containers:`,
         `          - name: ${name}`,
         `            image: ${image}`,
-        ...(containerRes ? containerRes.split("\n") : []),
-      ].join("\n");
+        ...(containerRes ? containerRes.split('\n') : []),
+      ].join('\n');
     },
   },
   {
-    id: "service",
-    kind: "services",
-    title: "Service",
-    description: "ClusterIP Service that fronts a workload.",
+    id: 'service',
+    kind: 'services',
+    title: 'Service',
+    description: 'ClusterIP Service that fronts a workload.',
     params: [
-      { key: "name", label: "Name", default: "my-svc", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-svc', kind: 'text' },
       {
-        key: "selector",
-        label: "Selector (app=…)",
-        default: "my-app",
-        kind: "text",
+        key: 'selector',
+        label: 'Selector (app=…)',
+        default: 'my-app',
+        kind: 'text',
         help: "The pod label this Service routes to. Match the workload's template labels.",
       },
       {
-        key: "port",
-        label: "Port",
-        default: "80",
-        kind: "number",
+        key: 'port',
+        label: 'Port',
+        default: '80',
+        kind: 'number',
         min: 1,
         max: 65535,
       },
       {
-        key: "targetPort",
-        label: "Target port",
-        default: "80",
-        kind: "number",
+        key: 'targetPort',
+        label: 'Target port',
+        default: '80',
+        kind: 'number',
         min: 1,
         max: 65535,
       },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
     ],
     render: (v) => {
-      const name = v.name || "my-svc";
-      const selector = v.selector || "my-app";
+      const name = v.name || 'my-svc';
+      const selector = v.selector || 'my-app';
       const port = clampInt(v.port, 1, 65535, 80);
       const targetPort = clampInt(v.targetPort, 1, 65535, 80);
-      const ns = v.namespace || "default";
+      const ns = v.namespace || 'default';
       // ClusterIP-only by default — NodePort/LoadBalancer expose the cluster
       // to the world, and a user who wants that should reach for the YAML
       // editor, not a checkbox on a one-off template.
@@ -689,55 +689,55 @@ const TEMPLATES: Template[] = [
         `  - port: ${port}`,
         `    targetPort: ${targetPort}`,
         `    protocol: TCP`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "secret",
-    kind: "secrets",
-    title: "Secret (Opaque)",
-    description: "Opaque Secret with two key/value pairs.",
+    id: 'secret',
+    kind: 'secrets',
+    title: 'Secret (Opaque)',
+    description: 'Opaque Secret with two key/value pairs.',
     params: [
-      { key: "name", label: "Name", default: "my-secret", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-secret', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "key1",
-        label: "Key 1",
-        default: "username",
-        kind: "text",
+        key: 'key1',
+        label: 'Key 1',
+        default: 'username',
+        kind: 'text',
       },
       {
-        key: "value1",
-        label: "Value 1",
-        default: "admin",
-        kind: "text",
-        help: "Stored verbatim — this template is for non-sensitive test data. Production secrets should be set via the YAML editor or an external operator.",
+        key: 'value1',
+        label: 'Value 1',
+        default: 'admin',
+        kind: 'text',
+        help: 'Stored verbatim — this template is for non-sensitive test data. Production secrets should be set via the YAML editor or an external operator.',
       },
       {
-        key: "key2",
-        label: "Key 2",
-        default: "password",
-        kind: "text",
+        key: 'key2',
+        label: 'Key 2',
+        default: 'password',
+        kind: 'text',
       },
       {
-        key: "value2",
-        label: "Value 2",
-        default: "changeme",
-        kind: "text",
+        key: 'value2',
+        label: 'Value 2',
+        default: 'changeme',
+        kind: 'text',
       },
     ],
     render: (v) => {
-      const name = v.name || "my-secret";
-      const ns = v.namespace || "default";
-      const k1 = v.key1 || "username";
-      const v1 = v.value1 || "admin";
-      const k2 = v.key2 || "password";
-      const v2 = v.value2 || "changeme";
+      const name = v.name || 'my-secret';
+      const ns = v.namespace || 'default';
+      const k1 = v.key1 || 'username';
+      const v1 = v.value1 || 'admin';
+      const k2 = v.key2 || 'password';
+      const v2 = v.value2 || 'changeme';
       // Opaque is the catch-all type; the YAML editor is the right tool for
       // kubernetes.io/tls, dockerconfigjson, and the rest. The form's help
       // text steers users away from treating the rendered YAML as production
@@ -752,42 +752,42 @@ const TEMPLATES: Template[] = [
         `stringData:`,
         `  ${k1}: ${v1}`,
         `  ${k2}: ${v2}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "pvc",
-    kind: "persistentvolumeclaims",
-    title: "PersistentVolumeClaim",
-    description: "ReadWriteOnce claim bound to a StorageClass.",
+    id: 'pvc',
+    kind: 'persistentvolumeclaims',
+    title: 'PersistentVolumeClaim',
+    description: 'ReadWriteOnce claim bound to a StorageClass.',
     params: [
-      { key: "name", label: "Name", default: "my-pvc", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-pvc', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "storageClass",
-        label: "StorageClass",
-        default: "standard",
-        kind: "text",
-        help: "Must exist in the cluster, otherwise the claim stays Pending.",
+        key: 'storageClass',
+        label: 'StorageClass',
+        default: 'standard',
+        kind: 'text',
+        help: 'Must exist in the cluster, otherwise the claim stays Pending.',
       },
       {
-        key: "capacity",
-        label: "Capacity (Gi)",
-        default: "10",
-        kind: "number",
+        key: 'capacity',
+        label: 'Capacity (Gi)',
+        default: '10',
+        kind: 'number',
         min: 1,
         max: 100000,
       },
     ],
     render: (v) => {
-      const name = v.name || "my-pvc";
-      const ns = v.namespace || "default";
-      const sc = v.storageClass || "standard";
+      const name = v.name || 'my-pvc';
+      const ns = v.namespace || 'default';
+      const sc = v.storageClass || 'standard';
       const capacity = clampInt(v.capacity, 1, 100000, 10);
       // RWO is the safest default — most clusters don't have multi-node
       // ReadWriteMany provisioners, and a "pending forever" PVC is a worse
@@ -805,82 +805,75 @@ const TEMPLATES: Template[] = [
         `  resources:`,
         `    requests:`,
         `      storage: ${capacity}Gi`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "namespace",
-    kind: "namespaces",
-    title: "Namespace",
-    description: "Cluster-scoped namespace for isolating workloads.",
-    params: [
-      { key: "name", label: "Name", default: "my-namespace", kind: "text" },
-    ],
+    id: 'namespace',
+    kind: 'namespaces',
+    title: 'Namespace',
+    description: 'Cluster-scoped namespace for isolating workloads.',
+    params: [{ key: 'name', label: 'Name', default: 'my-namespace', kind: 'text' }],
     render: (v) => {
-      const name = v.name || "my-namespace";
-      return [
-        `apiVersion: v1`,
-        `kind: Namespace`,
-        `metadata:`,
-        `  name: ${name}`,
-      ].join("\n");
+      const name = v.name || 'my-namespace';
+      return [`apiVersion: v1`, `kind: Namespace`, `metadata:`, `  name: ${name}`].join('\n');
     },
   },
   {
-    id: "ingress-tls",
-    kind: "ingresses",
-    title: "Ingress (with TLS)",
-    description: "Ingress that routes a host to a Service over HTTPS.",
+    id: 'ingress-tls',
+    kind: 'ingresses',
+    title: 'Ingress (with TLS)',
+    description: 'Ingress that routes a host to a Service over HTTPS.',
     params: [
-      { key: "name", label: "Name", default: "my-app-ingress", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-app-ingress', kind: 'text' },
       {
-        key: "host",
-        label: "Host",
-        default: "app.example.com",
-        kind: "text",
+        key: 'host',
+        label: 'Host',
+        default: 'app.example.com',
+        kind: 'text',
       },
       {
-        key: "service",
-        label: "Backend Service",
-        default: "my-app",
-        kind: "text",
+        key: 'service',
+        label: 'Backend Service',
+        default: 'my-app',
+        kind: 'text',
       },
       {
-        key: "port",
-        label: "Service port",
-        default: "80",
-        kind: "number",
+        key: 'port',
+        label: 'Service port',
+        default: '80',
+        kind: 'number',
         min: 1,
         max: 65535,
       },
       {
-        key: "tlsSecret",
-        label: "TLS Secret",
-        default: "my-app-tls",
-        kind: "text",
-        help: "Name of the Secret holding the TLS certificate and key.",
+        key: 'tlsSecret',
+        label: 'TLS Secret',
+        default: 'my-app-tls',
+        kind: 'text',
+        help: 'Name of the Secret holding the TLS certificate and key.',
       },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "ingressClass",
-        label: "Ingress class",
-        default: "nginx",
-        kind: "text",
+        key: 'ingressClass',
+        label: 'Ingress class',
+        default: 'nginx',
+        kind: 'text',
       },
     ],
     render: (v) => {
-      const name = v.name || "my-app-ingress";
-      const host = v.host || "app.example.com";
-      const service = v.service || "my-app";
+      const name = v.name || 'my-app-ingress';
+      const host = v.host || 'app.example.com';
+      const service = v.service || 'my-app';
       const port = clampInt(v.port, 1, 65535, 80);
-      const tlsSecret = v.tlsSecret || "my-app-tls";
-      const ns = v.namespace || "default";
-      const ic = v.ingressClass || "nginx";
+      const tlsSecret = v.tlsSecret || 'my-app-tls';
+      const ns = v.namespace || 'default';
+      const ic = v.ingressClass || 'nginx';
       return [
         `apiVersion: networking.k8s.io/v1`,
         `kind: Ingress`,
@@ -905,59 +898,59 @@ const TEMPLATES: Template[] = [
         `            name: ${service}`,
         `            port:`,
         `              number: ${port}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "networkpolicy",
-    kind: "networkpolicies",
-    title: "NetworkPolicy",
-    description: "Allow ingress and egress traffic for selected pods.",
+    id: 'networkpolicy',
+    kind: 'networkpolicies',
+    title: 'NetworkPolicy',
+    description: 'Allow ingress and egress traffic for selected pods.',
     params: [
-      { key: "name", label: "Name", default: "my-netpol", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-netpol', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "podLabelKey",
-        label: "Pod selector key",
-        default: "app",
-        kind: "text",
-        help: "Label key used to select pods this policy applies to.",
+        key: 'podLabelKey',
+        label: 'Pod selector key',
+        default: 'app',
+        kind: 'text',
+        help: 'Label key used to select pods this policy applies to.',
       },
       {
-        key: "podLabelValue",
-        label: "Pod selector value",
-        default: "my-app",
-        kind: "text",
+        key: 'podLabelValue',
+        label: 'Pod selector value',
+        default: 'my-app',
+        kind: 'text',
       },
       {
-        key: "ingressFromNs",
-        label: "Allow ingress from namespace",
-        default: "default",
-        kind: "text",
-        help: "Namespace whose pods may send traffic. Leave empty to skip ingress rules.",
+        key: 'ingressFromNs',
+        label: 'Allow ingress from namespace',
+        default: 'default',
+        kind: 'text',
+        help: 'Namespace whose pods may send traffic. Leave empty to skip ingress rules.',
         required: true,
       },
       {
-        key: "egressToNs",
-        label: "Allow egress to namespace",
-        default: "",
-        kind: "text",
-        help: "Namespace whose pods may receive traffic. Leave empty to skip egress rules.",
+        key: 'egressToNs',
+        label: 'Allow egress to namespace',
+        default: '',
+        kind: 'text',
+        help: 'Namespace whose pods may receive traffic. Leave empty to skip egress rules.',
         required: true,
       },
     ],
     render: (v) => {
-      const name = v.name || "my-netpol";
-      const ns = v.namespace || "default";
-      const podKey = v.podLabelKey || "app";
-      const podVal = v.podLabelValue || "my-app";
-      const ingressNs = typeof v.ingressFromNs === "string" ? v.ingressFromNs.trim() : "";
-      const egressNs = typeof v.egressToNs === "string" ? v.egressToNs.trim() : "";
+      const name = v.name || 'my-netpol';
+      const ns = v.namespace || 'default';
+      const podKey = v.podLabelKey || 'app';
+      const podVal = v.podLabelValue || 'my-app';
+      const ingressNs = typeof v.ingressFromNs === 'string' ? v.ingressFromNs.trim() : '';
+      const egressNs = typeof v.egressToNs === 'string' ? v.egressToNs.trim() : '';
       const lines = [
         `apiVersion: networking.k8s.io/v1`,
         `kind: NetworkPolicy`,
@@ -994,50 +987,50 @@ const TEMPLATES: Template[] = [
         lines.push(`        matchLabels:`);
         lines.push(`          kubernetes.io/metadata.name: ${egressNs}`);
       }
-      return lines.join("\n");
+      return lines.join('\n');
     },
   },
   {
-    id: "resourcequota",
-    kind: "resourcequotas",
-    title: "ResourceQuota",
-    description: "Limit total resource consumption in a namespace.",
+    id: 'resourcequota',
+    kind: 'resourcequotas',
+    title: 'ResourceQuota',
+    description: 'Limit total resource consumption in a namespace.',
     params: [
-      { key: "name", label: "Name", default: "my-quota", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-quota', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "cpuLimit",
-        label: "CPU limit",
-        default: "4",
-        kind: "text",
-        help: "Total CPU limit across all pods (e.g. 4, 2000m).",
+        key: 'cpuLimit',
+        label: 'CPU limit',
+        default: '4',
+        kind: 'text',
+        help: 'Total CPU limit across all pods (e.g. 4, 2000m).',
       },
       {
-        key: "memoryLimit",
-        label: "Memory limit",
-        default: "8Gi",
-        kind: "text",
-        help: "Total memory limit across all pods.",
+        key: 'memoryLimit',
+        label: 'Memory limit',
+        default: '8Gi',
+        kind: 'text',
+        help: 'Total memory limit across all pods.',
       },
       {
-        key: "podCount",
-        label: "Max pods",
-        default: "20",
-        kind: "number",
+        key: 'podCount',
+        label: 'Max pods',
+        default: '20',
+        kind: 'number',
         min: 1,
         max: 10000,
       },
     ],
     render: (v) => {
-      const name = v.name || "my-quota";
-      const ns = v.namespace || "default";
-      const cpu = v.cpuLimit || "4";
-      const mem = v.memoryLimit || "8Gi";
+      const name = v.name || 'my-quota';
+      const ns = v.namespace || 'default';
+      const cpu = v.cpuLimit || '4';
+      const mem = v.memoryLimit || '8Gi';
       const pods = clampInt(v.podCount, 1, 10000, 20);
       return [
         `apiVersion: v1`,
@@ -1052,56 +1045,56 @@ const TEMPLATES: Template[] = [
         `    limits.cpu: "${cpu}"`,
         `    limits.memory: ${mem}`,
         `    pods: "${pods}"`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "limitrange",
-    kind: "limitranges",
-    title: "LimitRange",
-    description: "Set default resource requests/limits for pods in a namespace.",
+    id: 'limitrange',
+    kind: 'limitranges',
+    title: 'LimitRange',
+    description: 'Set default resource requests/limits for pods in a namespace.',
     params: [
-      { key: "name", label: "Name", default: "my-limitrange", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-limitrange', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "defaultCpu",
-        label: "Default CPU limit",
-        default: "500m",
-        kind: "text",
-        help: "Default CPU limit for containers.",
+        key: 'defaultCpu',
+        label: 'Default CPU limit',
+        default: '500m',
+        kind: 'text',
+        help: 'Default CPU limit for containers.',
       },
       {
-        key: "defaultMemory",
-        label: "Default memory limit",
-        default: "256Mi",
-        kind: "text",
-        help: "Default memory limit for containers.",
+        key: 'defaultMemory',
+        label: 'Default memory limit',
+        default: '256Mi',
+        kind: 'text',
+        help: 'Default memory limit for containers.',
       },
       {
-        key: "defaultRequestCpu",
-        label: "Default CPU request",
-        default: "100m",
-        kind: "text",
+        key: 'defaultRequestCpu',
+        label: 'Default CPU request',
+        default: '100m',
+        kind: 'text',
       },
       {
-        key: "defaultRequestMemory",
-        label: "Default memory request",
-        default: "128Mi",
-        kind: "text",
+        key: 'defaultRequestMemory',
+        label: 'Default memory request',
+        default: '128Mi',
+        kind: 'text',
       },
     ],
     render: (v) => {
-      const name = v.name || "my-limitrange";
-      const ns = v.namespace || "default";
-      const dc = v.defaultCpu || "500m";
-      const dm = v.defaultMemory || "256Mi";
-      const rc = v.defaultRequestCpu || "100m";
-      const rm = v.defaultRequestMemory || "128Mi";
+      const name = v.name || 'my-limitrange';
+      const ns = v.namespace || 'default';
+      const dc = v.defaultCpu || '500m';
+      const dm = v.defaultMemory || '256Mi';
+      const rc = v.defaultRequestCpu || '100m';
+      const rm = v.defaultRequestMemory || '128Mi';
       return [
         `apiVersion: v1`,
         `kind: LimitRange`,
@@ -1117,65 +1110,65 @@ const TEMPLATES: Template[] = [
         `    defaultRequest:`,
         `      cpu: ${rc}`,
         `      memory: ${rm}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "hpa",
-    kind: "horizontalpodautoscalers",
-    title: "HPA",
-    description: "Auto-scale a Deployment based on CPU utilization.",
+    id: 'hpa',
+    kind: 'horizontalpodautoscalers',
+    title: 'HPA',
+    description: 'Auto-scale a Deployment based on CPU utilization.',
     params: [
-      { key: "name", label: "Name", default: "my-app-hpa", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-app-hpa', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "targetKind",
-        label: "Target kind",
-        default: "Deployment",
-        kind: "text",
-        help: "Kind of the resource to scale (Deployment, StatefulSet, etc.).",
+        key: 'targetKind',
+        label: 'Target kind',
+        default: 'Deployment',
+        kind: 'text',
+        help: 'Kind of the resource to scale (Deployment, StatefulSet, etc.).',
       },
       {
-        key: "targetName",
-        label: "Target name",
-        default: "my-app",
-        kind: "text",
+        key: 'targetName',
+        label: 'Target name',
+        default: 'my-app',
+        kind: 'text',
       },
       {
-        key: "minReplicas",
-        label: "Min replicas",
-        default: "2",
-        kind: "number",
+        key: 'minReplicas',
+        label: 'Min replicas',
+        default: '2',
+        kind: 'number',
         min: 1,
         max: 1000,
       },
       {
-        key: "maxReplicas",
-        label: "Max replicas",
-        default: "10",
-        kind: "number",
+        key: 'maxReplicas',
+        label: 'Max replicas',
+        default: '10',
+        kind: 'number',
         min: 1,
         max: 10000,
       },
       {
-        key: "cpuPercent",
-        label: "Target CPU %",
-        default: "70",
-        kind: "number",
+        key: 'cpuPercent',
+        label: 'Target CPU %',
+        default: '70',
+        kind: 'number',
         min: 1,
         max: 100,
       },
     ],
     render: (v) => {
-      const name = v.name || "my-app-hpa";
-      const ns = v.namespace || "default";
-      const kind = v.targetKind || "Deployment";
-      const target = v.targetName || "my-app";
+      const name = v.name || 'my-app-hpa';
+      const ns = v.namespace || 'default';
+      const kind = v.targetKind || 'Deployment';
+      const target = v.targetName || 'my-app';
       const min = clampInt(v.minReplicas, 1, 1000, 2);
       const max = clampInt(v.maxReplicas, 1, 10000, 10);
       const pct = clampInt(v.cpuPercent, 1, 100, 70);
@@ -1199,34 +1192,34 @@ const TEMPLATES: Template[] = [
         `      target:`,
         `        type: Utilization`,
         `        averageUtilization: ${pct}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "serviceaccount",
-    kind: "serviceaccounts",
-    title: "ServiceAccount",
-    description: "Identity for pods to access the Kubernetes API.",
+    id: 'serviceaccount',
+    kind: 'serviceaccounts',
+    title: 'ServiceAccount',
+    description: 'Identity for pods to access the Kubernetes API.',
     params: [
-      { key: "name", label: "Name", default: "my-sa", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-sa', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "automount",
-        label: "Auto-mount token",
-        default: "true",
-        kind: "boolean",
-        help: "Automatically mount the API token into pods using this account.",
+        key: 'automount',
+        label: 'Auto-mount token',
+        default: 'true',
+        kind: 'boolean',
+        help: 'Automatically mount the API token into pods using this account.',
       },
     ],
     render: (v) => {
-      const name = v.name || "my-sa";
-      const ns = v.namespace || "default";
-      const automount = v.automount === "true";
+      const name = v.name || 'my-sa';
+      const ns = v.namespace || 'default';
+      const automount = v.automount === 'true';
       return [
         `apiVersion: v1`,
         `kind: ServiceAccount`,
@@ -1234,56 +1227,56 @@ const TEMPLATES: Template[] = [
         `  name: ${name}`,
         `  namespace: ${ns}`,
         `automountServiceAccountToken: ${automount}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
   {
-    id: "role",
-    kind: "roles",
-    title: "Role + RoleBinding",
-    description: "Grant permissions to a ServiceAccount within a namespace.",
+    id: 'role',
+    kind: 'roles',
+    title: 'Role + RoleBinding',
+    description: 'Grant permissions to a ServiceAccount within a namespace.',
     params: [
-      { key: "name", label: "Name", default: "my-role", kind: "text" },
+      { key: 'name', label: 'Name', default: 'my-role', kind: 'text' },
       {
-        key: "namespace",
-        label: "Namespace",
-        default: "default",
-        kind: "text",
+        key: 'namespace',
+        label: 'Namespace',
+        default: 'default',
+        kind: 'text',
       },
       {
-        key: "saName",
-        label: "ServiceAccount",
-        default: "my-sa",
-        kind: "text",
-        help: "The ServiceAccount to bind this role to.",
+        key: 'saName',
+        label: 'ServiceAccount',
+        default: 'my-sa',
+        kind: 'text',
+        help: 'The ServiceAccount to bind this role to.',
       },
       {
-        key: "resources",
-        label: "Resources",
-        default: "pods,services",
-        kind: "text",
-        help: "Comma-separated list of resource types (e.g. pods,configmaps).",
+        key: 'resources',
+        label: 'Resources',
+        default: 'pods,services',
+        kind: 'text',
+        help: 'Comma-separated list of resource types (e.g. pods,configmaps).',
       },
       {
-        key: "verbs",
-        label: "Verbs",
-        default: "get,list,watch",
-        kind: "text",
-        help: "Comma-separated verbs (get,list,watch,create,update,delete).",
+        key: 'verbs',
+        label: 'Verbs',
+        default: 'get,list,watch',
+        kind: 'text',
+        help: 'Comma-separated verbs (get,list,watch,create,update,delete).',
       },
     ],
     render: (v) => {
-      const name = v.name || "my-role";
-      const ns = v.namespace || "default";
-      const sa = v.saName || "my-sa";
-      const resources = String(v.resources || "pods,services")
-        .split(",")
+      const name = v.name || 'my-role';
+      const ns = v.namespace || 'default';
+      const sa = v.saName || 'my-sa';
+      const resources = String(v.resources || 'pods,services')
+        .split(',')
         .map((r: string) => `  - ${r.trim()}`)
-        .join("\n");
-      const verbs = String(v.verbs || "get,list,watch")
-        .split(",")
+        .join('\n');
+      const verbs = String(v.verbs || 'get,list,watch')
+        .split(',')
         .map((vr: string) => `  - ${vr.trim()}`)
-        .join("\n");
+        .join('\n');
       return [
         `apiVersion: rbac.authorization.k8s.io/v1`,
         `kind: Role`,
@@ -1310,7 +1303,7 @@ const TEMPLATES: Template[] = [
         `- kind: ServiceAccount`,
         `  name: ${sa}`,
         `  namespace: ${ns}`,
-      ].join("\n");
+      ].join('\n');
     },
   },
 ];
@@ -1323,10 +1316,7 @@ export function getTemplate(id: string): Template | undefined {
   return TEMPLATES.find((t) => t.id === id);
 }
 
-export function renderTemplate(
-  id: string,
-  values: Record<string, unknown>,
-): string {
+export function renderTemplate(id: string, values: Record<string, unknown>): string {
   const t = getTemplate(id);
   if (!t) throw new Error(`template '${id}' not found`);
   return t.render(values);
@@ -1345,17 +1335,14 @@ export function defaultValuesFor(t: Template): Record<string, string> {
  * Used by template renderers to expand the wizard's `labels` extra
  * into a YAML `labels:` block at the right indent.
  */
-export function labelsBlock(
-  labels: unknown,
-  indent: number,
-): string {
-  if (!labels || typeof labels !== "object") return "";
-  const pad = " ".repeat(indent);
+export function labelsBlock(labels: unknown, indent: number): string {
+  if (!labels || typeof labels !== 'object') return '';
+  const pad = ' '.repeat(indent);
   const entries = Object.entries(labels as Record<string, string>).filter(
-    ([k, v]) => k.length > 0 && v !== undefined && v !== null,
+    ([k, v]) => k.length > 0 && v !== undefined && v !== null
   );
-  if (entries.length === 0) return "";
-  return entries.map(([k, v]) => `${pad}${k}: ${v}`).join("\n");
+  if (entries.length === 0) return '';
+  return entries.map(([k, v]) => `${pad}${k}: ${v}`).join('\n');
 }
 
 /**
@@ -1369,41 +1356,33 @@ export function labelsBlock(
  * The +4 / +2 spacing matches the standard k8s manifest style so the
  * result diffs cleanly against `kubectl get -o yaml` output.
  */
-export function resourcesRequestsBlock(
-  res: unknown,
-  indent: number,
-): string {
-  if (!res || typeof res !== "object") return "";
+export function resourcesRequestsBlock(res: unknown, indent: number): string {
+  if (!res || typeof res !== 'object') return '';
   const r = res as { cpu?: string; memory?: string };
   const lines: string[] = [];
-  const pad0 = " ".repeat(indent);
-  const pad2 = " ".repeat(indent + 2);
+  const pad0 = ' '.repeat(indent);
+  const pad2 = ' '.repeat(indent + 2);
   if (r.cpu) {
     lines.push(`${pad0}resources:`);
     lines.push(`${pad2}requests:`);
-    lines.push(`${" ".repeat(indent + 4)}cpu: ${r.cpu}`);
+    lines.push(`${' '.repeat(indent + 4)}cpu: ${r.cpu}`);
   }
   if (r.memory) {
     if (lines.length === 0) {
       lines.push(`${pad0}resources:`);
       lines.push(`${pad2}requests:`);
     }
-    lines.push(`${" ".repeat(indent + 4)}memory: ${r.memory}`);
+    lines.push(`${' '.repeat(indent + 4)}memory: ${r.memory}`);
   }
-  return lines.join("\n");
+  return lines.join('\n');
 }
 
-function clampInt(
-  raw: unknown,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
+function clampInt(raw: unknown, min: number, max: number, fallback: number): number {
   // `raw` is `unknown` because the wizard passes the merged
   // params + extras values dict; non-number extras (e.g. a labels
   // Record) are never actually fed to this function, but the wider
   // type lets the existing renderers stay un-annotated.
-  const n = Number.parseInt(typeof raw === "string" ? raw : "", 10);
+  const n = Number.parseInt(typeof raw === 'string' ? raw : '', 10);
   if (Number.isNaN(n)) return fallback;
   if (n < min) return min;
   if (n > max) return max;

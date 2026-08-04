@@ -100,7 +100,9 @@
   cursor: pointer;
   margin-bottom: 2px;
   padding: var(--space-2);
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .item:hover {

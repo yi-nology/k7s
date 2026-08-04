@@ -9,23 +9,28 @@
  * DOM is windowed. See `VIRTUAL_THRESHOLD` for why small tables opt out entirely.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Lock } from "lucide-react";
-import styles from "./ResourceTable.module.css";
-import { rowsFor, useStore } from "../../store";
-import { useNow } from "../../hooks/useNow";
-import { useTableKeys } from "../../hooks/useTableKeys";
-import { useTranslation } from "../../hooks/useI18n";
-import { toneColor } from "../../lib/tone";
-import { formatAge, formatCpu, formatMem } from "../../lib/format";
-import { isClusterScoped, kindMeta, navIdForKind, type KindId } from "../../lib/kinds";
-import { sortRows } from "../../lib/sort";
-import { parseFilter, matchesFilter } from "../../lib/filter";
-import { eventWithinSince, SINCE_OPTIONS, type SinceOption } from "../../lib/events";
-import { rowWindow, scrollToShow, type RowWindow } from "../../lib/virtual";
-import type { Cell, NavTarget, NodeMetricsMap, PodMetricsMap, Row } from "../../providers/types";
-import { applyClick, pruneSelection, selectedInOrder, selectionForContextMenu } from "../../lib/selection";
-import { RowContextMenu, type ContextMenuAt } from "../actions/RowContextMenu";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Lock } from 'lucide-react';
+import styles from './ResourceTable.module.css';
+import { rowsFor, useStore } from '../../store';
+import { useNow } from '../../hooks/useNow';
+import { useTableKeys } from '../../hooks/useTableKeys';
+import { useTranslation } from '../../hooks/useI18n';
+import { toneColor } from '../../lib/tone';
+import { formatAge, formatCpu, formatMem } from '../../lib/format';
+import { isClusterScoped, kindMeta, navIdForKind, type KindId } from '../../lib/kinds';
+import { sortRows } from '../../lib/sort';
+import { parseFilter, matchesFilter } from '../../lib/filter';
+import { eventWithinSince, SINCE_OPTIONS, type SinceOption } from '../../lib/events';
+import { rowWindow, scrollToShow, type RowWindow } from '../../lib/virtual';
+import type { Cell, NavTarget, NodeMetricsMap, PodMetricsMap, Row } from '../../providers/types';
+import {
+  applyClick,
+  pruneSelection,
+  selectedInOrder,
+  selectionForContextMenu,
+} from '../../lib/selection';
+import { RowContextMenu, type ContextMenuAt } from '../actions/RowContextMenu';
 
 export function ResourceTable() {
   const nav = useStore((s) => s.nav);
@@ -75,14 +80,14 @@ export function ResourceTable() {
       const kind = navIdForKind(inv.kind, inv.apiVersion, customKinds);
       return kind ? { kind, namespace: inv.namespace, name: inv.name } : null;
     },
-    [customKinds],
+    [customKinds]
   );
 
   // Whether a row responds to a click: every kind but events (always), and an
   // event only when its target resolves.
   const rowClickable = useCallback(
-    (row: Row): boolean => (nav === "events" ? eventTarget(row) !== null : true),
-    [nav, eventTarget],
+    (row: Row): boolean => (nav === 'events' ? eventTarget(row) !== null : true),
+    [nav, eventTarget]
   );
 
   /**
@@ -107,9 +112,9 @@ export function ResourceTable() {
   const onSelect = useCallback(
     (
       row: Row,
-      mods?: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean; button?: number },
+      mods?: { shiftKey: boolean; metaKey: boolean; ctrlKey: boolean; button?: number }
     ) => {
-      if (nav === "events") {
+      if (nav === 'events') {
         const target = eventTarget(row);
         if (target) navigateTo(target);
         return;
@@ -133,7 +138,7 @@ export function ResourceTable() {
       }
       selectRow(row);
     },
-    [nav, eventTarget, navigateTo, selectRow, setSelection, openDetailTab],
+    [nav, eventTarget, navigateTo, selectRow, setSelection, openDetailTab]
   );
 
   // Namespace filter (cluster-scoped kinds ignore it), text filter, metrics overlay,
@@ -146,15 +151,15 @@ export function ResourceTable() {
     const filtered = allRows.filter((r) => {
       // Namespace filter — cluster-scoped kinds ignore it. Events are namespaced
       // (despite living in the Cluster nav group), so the filter narrows them.
-      if (!isClusterScoped(nav, customKinds) && namespace !== "all" && r.namespace !== namespace) {
+      if (!isClusterScoped(nav, customKinds) && namespace !== 'all' && r.namespace !== namespace) {
         return false;
       }
       // Events time-range filter: map_event puts the last-seen epoch (ms) as the
       // sort key on the AGE cell (index 4). Only the events kind carries it, so
       // this is a no-op for every other kind.
-      if (nav === "events" && eventsSince !== "all") {
+      if (nav === 'events' && eventsSince !== 'all') {
         const seenMs = r.cells[4]?.sort;
-        if (typeof seenMs === "number" && !eventWithinSince(seenMs, eventsSince, now)) {
+        if (typeof seenMs === 'number' && !eventWithinSince(seenMs, eventsSince, now)) {
           return false;
         }
       }
@@ -195,15 +200,12 @@ export function ResourceTable() {
   const [menuError, setMenuError] = useState<string | null>(null);
 
   /** The rows a context-menu action would apply to, in display order. */
-  const menuRows = useMemo(
-    () => selectedInOrder(selection, rows),
-    [selection, rows],
-  );
+  const menuRows = useMemo(() => selectedInOrder(selection, rows), [selection, rows]);
 
   const onRowContextMenu = useCallback(
     (e: React.MouseEvent, row: Row) => {
       // Events navigate rather than act, so there is nothing to offer.
-      if (nav === "events") return;
+      if (nav === 'events') return;
       e.preventDefault();
       // Right-clicking outside the selection collapses to this row; inside it,
       // the selection stands (see selectionForContextMenu). Read from the store
@@ -212,7 +214,7 @@ export function ResourceTable() {
       setMenuError(null);
       setMenuAt({ x: e.clientX, y: e.clientY });
     },
-    [nav, setSelection],
+    [nav, setSelection]
   );
 
   // Keyboard navigation: highlighted row index + `/`-to-focus the filter.
@@ -237,10 +239,10 @@ export function ResourceTable() {
         if (to !== null) el.scrollTop = to;
       } else {
         // Natural row heights here, so let the browser measure it.
-        el.querySelector(`[data-row-index="${index}"]`)?.scrollIntoView({ block: "nearest" });
+        el.querySelector(`[data-row-index="${index}"]`)?.scrollIntoView({ block: 'nearest' });
       }
     },
-    [virtual],
+    [virtual]
   );
 
   // Keep the keyboard highlight on screen.
@@ -269,19 +271,19 @@ export function ResourceTable() {
             className={styles.searchInput}
             value={tableFilter}
             onChange={(e) => setTableFilter(e.target.value)}
-            placeholder={t("table.filterPlaceholder")}
+            placeholder={t('table.filterPlaceholder')}
             data-table-filter
           />
         </div>
         {selection.selected.length > 1 && (
           <div className={styles.selectionBar} data-testid="selection-bar">
             <span className={styles.selectionCount}>
-              {selection.selected.length} {t("table.selected")}
+              {selection.selected.length} {t('table.selected')}
             </span>
             <button
               className={styles.selectionClear}
               onClick={clearSelection}
-              title={t("chrome.common.dismiss")}
+              title={t('chrome.common.dismiss')}
             >
               ×
             </button>
@@ -291,17 +293,17 @@ export function ResourceTable() {
             the newest 500; this narrows it to a window so "what just happened"
             isn't drowned in older rows. Cluster-scoped past --event-ttl is gone
             upstream, so "all" is already bounded by the API server. */}
-        {nav === "events" && (
+        {nav === 'events' && (
           <select
             className={styles.sinceSelect}
             value={eventsSince}
             onChange={(e) => setEventsSince(e.target.value as SinceOption)}
-            title={t("events.howFarBack")}
+            title={t('events.howFarBack')}
             data-testid="events-since"
           >
             {SINCE_OPTIONS.map((o) => (
               <option key={o} value={o}>
-                {o === "all" ? t("events.sinceAll") : t("events.sinceLast", o)}
+                {o === 'all' ? t('events.sinceAll') : t('events.sinceLast', o)}
               </option>
             ))}
           </select>
@@ -313,95 +315,99 @@ export function ResourceTable() {
         <button
           type="button"
           className={styles.newBtn}
-          onClick={() => openOverlay("templates")}
-          title={t("table.newTitle", "Create a resource from a YAML template")}
+          onClick={() => openOverlay('templates')}
+          title={t('table.newTitle', 'Create a resource from a YAML template')}
           data-testid="new-resource"
         >
-          <span className={styles.newIcon} aria-hidden="true">+</span>
-          <span>{t("table.new", "New")}</span>
+          <span className={styles.newIcon} aria-hidden="true">
+            +
+          </span>
+          <span>{t('table.new', 'New')}</span>
         </button>
       </div>
       <div className={styles.wrap} ref={scrollRef}>
         <table className={`${styles.table} ${styles.tableFixed}`}>
-        {/* Fixed layout takes its widths from <col>, and divides the width
+          {/* Fixed layout takes its widths from <col>, and divides the width
             equally when there are none — which would squeeze NAME to the same
             share as RESTARTS. Always rendered so columns stay consistent
             regardless of row count. */}
-        {(
-          <colgroup>
-            {columns.map((col) => (
-              <col key={col} style={{ width: columnWidth(col) }} />
-            ))}
-          </colgroup>
-        )}
-        <thead>
-          <tr>
-            {columns.map((col, i) => (
-              <th key={col} className={styles.th} onClick={() => toggleSort(i)}>
-                {col}
-                {sortCol === i && (
-                  <span className={styles.sortArrow}>{sortDir === "asc" ? " ▲" : " ▼"}</span>
-                )}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {/* Spacers stand in for the rows outside the window, so the scrollbar
+          {
+            <colgroup>
+              {columns.map((col) => (
+                <col key={col} style={{ width: columnWidth(col) }} />
+              ))}
+            </colgroup>
+          }
+          <thead>
+            <tr>
+              {columns.map((col, i) => (
+                <th key={col} className={styles.th} onClick={() => toggleSort(i)}>
+                  {col}
+                  {sortCol === i && (
+                    <span className={styles.sortArrow}>{sortDir === 'asc' ? ' ▲' : ' ▼'}</span>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {/* Spacers stand in for the rows outside the window, so the scrollbar
               reflects the whole list rather than what's rendered. */}
-          {win.padTop > 0 && <tr style={{ height: win.padTop }} />}
-          {visible.map((row, i) => {
-            const index = virtual ? win.start + i : i;
-            // Two distinct things (B39): the row whose detail panel is open, and
-            // the rows a bulk action would hit. They coincide for a plain click,
-            // but a ⌘-click adds to the selection without moving the panel — so a
-            // row can be in the selection without being the panel's row.
-            const selected = row.uid === selectedUid;
-            const inSelection = selectionSet.has(row.uid);
-            return (
-              <tr
-                key={row.uid}
-                data-row-index={index}
-                className={[
-                  styles.row,
-                  virtual ? styles.rowFixed : "",
-                  rowClickable(row) ? styles.rowClickable : "",
-                  selected ? styles.rowSelected : "",
-                  inSelection && !selected ? styles.rowInSelection : "",
-                  index === highlight ? styles.rowHighlight : "",
-                ].join(" ")}
-                // Height comes from the same constant the spacer math uses, so the
-                // two cannot drift apart. Natural height when not windowed.
-                style={virtual ? { height: ROW_HEIGHT } : undefined}
-                onClick={(e) => onSelect(row, e)}
-                onAuxClick={(e) => {
-                  if (e.button === 1) onSelect(row, { ...e, button: 1 });
-                }}
-                onContextMenu={(e) => onRowContextMenu(e, row)}
-              >
-                {row.cells.map((cell, j) => (
-                  // When the cell carries a status dot, renderCell returns a
-                  // fully-styled <span> that owns its own color — so the <td>
-                  // stays neutral and the pill stands out instead of being
-                  // tinted by the table's tone.
-                  <td
-                    key={j}
-                    className={styles.td}
-                    style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
-                  >
-                    {renderCell(cell, now)}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-          {win.padBottom > 0 && <tr style={{ height: win.padBottom }} />}
-        </tbody>
+            {win.padTop > 0 && <tr style={{ height: win.padTop }} />}
+            {visible.map((row, i) => {
+              const index = virtual ? win.start + i : i;
+              // Two distinct things (B39): the row whose detail panel is open, and
+              // the rows a bulk action would hit. They coincide for a plain click,
+              // but a ⌘-click adds to the selection without moving the panel — so a
+              // row can be in the selection without being the panel's row.
+              const selected = row.uid === selectedUid;
+              const inSelection = selectionSet.has(row.uid);
+              return (
+                <tr
+                  key={row.uid}
+                  data-row-index={index}
+                  className={[
+                    styles.row,
+                    virtual ? styles.rowFixed : '',
+                    rowClickable(row) ? styles.rowClickable : '',
+                    selected ? styles.rowSelected : '',
+                    inSelection && !selected ? styles.rowInSelection : '',
+                    index === highlight ? styles.rowHighlight : '',
+                  ].join(' ')}
+                  // Height comes from the same constant the spacer math uses, so the
+                  // two cannot drift apart. Natural height when not windowed.
+                  style={virtual ? { height: ROW_HEIGHT } : undefined}
+                  onClick={(e) => onSelect(row, e)}
+                  onAuxClick={(e) => {
+                    if (e.button === 1) onSelect(row, { ...e, button: 1 });
+                  }}
+                  onContextMenu={(e) => onRowContextMenu(e, row)}
+                >
+                  {row.cells.map((cell, j) => (
+                    // When the cell carries a status dot, renderCell returns a
+                    // fully-styled <span> that owns its own color — so the <td>
+                    // stays neutral and the pill stands out instead of being
+                    // tinted by the table's tone.
+                    <td
+                      key={j}
+                      className={styles.td}
+                      style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
+                    >
+                      {renderCell(cell, now)}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+            {win.padBottom > 0 && <tr style={{ height: win.padBottom }} />}
+          </tbody>
         </table>
-        {rows.length === 0 && watchStatus[nav] === "forbidden" ? (
+        {rows.length === 0 && watchStatus[nav] === 'forbidden' ? (
           <div className={styles.forbidden}>
             <Lock size={20} />
-            <span>{t("table.forbidden", "No permission to view this resource (RBAC Forbidden)")}</span>
+            <span>
+              {t('table.forbidden', 'No permission to view this resource (RBAC Forbidden)')}
+            </span>
           </div>
         ) : rows.length === 0 ? (
           <div className={styles.empty}>
@@ -409,9 +415,9 @@ export function ResourceTable() {
                 only when the user typed a filter; otherwise the cause is the
                 namespace picker (or an empty kind) and we don't claim a filter
                 was at fault. */}
-            {tableFilter.trim() === ""
-              ? t("table.emptyNone", "no resources")
-              : t("table.empty", "no resources match filter")}
+            {tableFilter.trim() === ''
+              ? t('table.emptyNone', 'no resources')
+              : t('table.empty', 'no resources match filter')}
           </div>
         ) : null}
       </div>
@@ -420,7 +426,12 @@ export function ResourceTable() {
           because a bulk action can be run entirely from the row menu with no
           panel open — reporting into the panel would silently swallow it. */}
       {menuError && (
-        <button type="button" className={styles.actionError} onClick={() => setMenuError(null)} title={t("chrome.common.dismiss")}>
+        <button
+          type="button"
+          className={styles.actionError}
+          onClick={() => setMenuError(null)}
+          title={t('chrome.common.dismiss')}
+        >
           {menuError}
         </button>
       )}
@@ -463,7 +474,7 @@ const VIRTUAL_THRESHOLD = 200;
 
 /** The sticky header's height, so a row isn't scrolled to sit behind it. */
 function headerHeight(scrollEl: HTMLElement): number {
-  return scrollEl.querySelector("thead")?.getBoundingClientRect().height ?? 0;
+  return scrollEl.querySelector('thead')?.getBoundingClientRect().height ?? 0;
 }
 
 /**
@@ -479,30 +490,30 @@ function headerHeight(scrollEl: HTMLElement): number {
  */
 function columnWidth(header: string): string {
   switch (header) {
-    case "NAME":
-    case "MESSAGE":
-      return "auto";
-    case "OBJECT":
-    case "HOSTS":
-    case "IMAGE":
-      return "16%";
-    case "NAMESPACE":
-    case "REASON":
-    case "PORTS":
-    case "CLUSTER-IP":
-    case "SCHEDULE":
-      return "12%";
-    case "AGE":
-    case "READY":
-    case "COUNT":
-    case "TYPE":
-    case "STATUS":
-    case "RESTARTS":
-    case "CPU":
-    case "MEM":
-      return "8%";
+    case 'NAME':
+    case 'MESSAGE':
+      return 'auto';
+    case 'OBJECT':
+    case 'HOSTS':
+    case 'IMAGE':
+      return '16%';
+    case 'NAMESPACE':
+    case 'REASON':
+    case 'PORTS':
+    case 'CLUSTER-IP':
+    case 'SCHEDULE':
+      return '12%';
+    case 'AGE':
+    case 'READY':
+    case 'COUNT':
+    case 'TYPE':
+    case 'STATUS':
+    case 'RESTARTS':
+    case 'CPU':
+    case 'MEM':
+      return '8%';
     default:
-      return "10%";
+      return '10%';
   }
 }
 
@@ -512,7 +523,7 @@ function columnWidth(header: string): string {
  */
 function useVirtualRows(
   scrollRef: React.RefObject<HTMLDivElement | null>,
-  total: number,
+  total: number
 ): { virtual: boolean; window: RowWindow } {
   const virtual = total > VIRTUAL_THRESHOLD;
   const [scrollTop, setScrollTop] = useState(0);
@@ -541,14 +552,14 @@ function useVirtualRows(
       // be pure waste. The effect above repairs the state when this stops.
       if (virtualRef.current) setScrollTop(el.scrollTop);
     };
-    el.addEventListener("scroll", onScroll, { passive: true });
+    el.addEventListener('scroll', onScroll, { passive: true });
 
     const ro = new ResizeObserver(() => setViewportH(el.clientHeight));
     ro.observe(el);
     setViewportH(el.clientHeight);
 
     return () => {
-      el.removeEventListener("scroll", onScroll);
+      el.removeEventListener('scroll', onScroll);
       ro.disconnect();
     };
   }, [scrollRef]);
@@ -558,7 +569,7 @@ function useVirtualRows(
       virtual
         ? rowWindow(total, scrollTop, viewportH, ROW_HEIGHT, OVERSCAN)
         : { start: 0, end: total, padTop: 0, padBottom: 0 },
-    [virtual, total, scrollTop, viewportH],
+    [virtual, total, scrollTop, viewportH]
   );
 
   return { virtual, window };
@@ -566,18 +577,18 @@ function useVirtualRows(
 
 /** Render a cell's text: format age timestamps, prefix a status dot when set. */
 function renderCell(cell: Cell, now: number): React.ReactNode {
-  const text = cell.format === "age" ? formatAge(cell.text, now) : cell.text;
+  const text = cell.format === 'age' ? formatAge(cell.text, now) : cell.text;
   if (!cell.dot) return text;
   // Tone-classed pill: the dot gets a halo and a one-character label, the text
   // is colored by its tone. Map the cell's tone to the corresponding status* class.
   const toneCls =
-    cell.tone === "ok"
+    cell.tone === 'ok'
       ? styles.statusRunning
-      : cell.tone === "warn"
+      : cell.tone === 'warn'
         ? styles.statusPending
-        : cell.tone === "err"
+        : cell.tone === 'err'
           ? styles.statusFailed
-          : "";
+          : '';
   return (
     <span className={`${styles.status} ${toneCls}`}>
       <span className={styles.statusDot} aria-hidden="true" />
@@ -597,9 +608,9 @@ function overlayMetrics(
   rows: Row[],
   podMetrics: PodMetricsMap,
   nodeMetrics: NodeMetricsMap,
-  podRows: Row[],
+  podRows: Row[]
 ): Row[] {
-  if (kind === "pods") {
+  if (kind === 'pods') {
     return rows.map((r) => {
       const m = podMetrics[`${r.namespace}/${r.name}`];
       if (!m) return r;
@@ -611,7 +622,7 @@ function overlayMetrics(
       return { ...r, cells };
     });
   }
-  if (kind === "nodes") {
+  if (kind === 'nodes') {
     return rows.map((r) => {
       const m = nodeMetrics[r.name];
       if (!m) return r;
@@ -624,7 +635,7 @@ function overlayMetrics(
   }
   // Workloads: aggregate pod metrics by matching selector.
   // Columns: NAME,NAMESPACE,...,CPU(last-2),MEM(last-1),AGE(last).
-  if (kind === "deployments" || kind === "statefulsets" || kind === "daemonsets") {
+  if (kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets') {
     // Build a selector → aggregated metrics map. A pod matches a workload when
     // all the workload's selector labels appear in the pod's labels.
     const aggMap = new Map<string, { cpu: number; mem: number }>();
@@ -658,12 +669,12 @@ function overlayMetrics(
       return { ...r, cells };
     });
   }
-  if (kind === "namespaces") {
+  if (kind === 'namespaces') {
     // Count pods per namespace across all watched pods (watchers are cluster-wide,
     // so this is the true count). Row name is the namespace name.
     const counts = new Map<string, number>();
     for (const p of podRows) {
-      counts.set(p.namespace ?? "", (counts.get(p.namespace ?? "") ?? 0) + 1);
+      counts.set(p.namespace ?? '', (counts.get(p.namespace ?? '') ?? 0) + 1);
     }
     return rows.map((r) => {
       const cells = r.cells.slice();

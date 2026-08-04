@@ -8,16 +8,16 @@
 
 /* Local, offline font bundling — no network fetch at runtime (desktop requirement).
    @fontsource ships woff2 + @font-face declarations for the exact weights we use. */
-@import "@fontsource/ibm-plex-sans/400.css";
-@import "@fontsource/ibm-plex-sans/500.css";
-@import "@fontsource/ibm-plex-sans/600.css";
-@import "@fontsource/ibm-plex-sans/700.css";
-@import "@fontsource/jetbrains-mono/400.css";
-@import "@fontsource/jetbrains-mono/500.css";
-@import "@fontsource/jetbrains-mono/600.css";
-@import "@fontsource/jetbrains-mono/700.css";
+@import '@fontsource/ibm-plex-sans/400.css';
+@import '@fontsource/ibm-plex-sans/500.css';
+@import '@fontsource/ibm-plex-sans/600.css';
+@import '@fontsource/ibm-plex-sans/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fontsource/jetbrains-mono/700.css';
 
-@import "./tokens.css";
+@import './tokens.css';
 
 /* Box-sizing reset — matches the prototype's `*{box-sizing:border-box}`. */
 * {
@@ -130,7 +130,8 @@ button:disabled {
      outwards so the eye is drawn to the failing pod, not the green one.
    - statusAlert: a 1.4s breath, used by .statusFailed in the table. */
 @keyframes livePulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }

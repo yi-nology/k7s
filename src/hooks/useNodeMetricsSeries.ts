@@ -15,8 +15,8 @@
  * node-exporter scraper. Capped so a long-open tab doesn't grow unbounded.
  */
 
-import { useEffect, useRef, useState } from "react";
-import { useStore } from "../store";
+import { useEffect, useRef, useState } from 'react';
+import { useStore } from '../store';
 
 export interface NodeMetricsPoint {
   ts: number;

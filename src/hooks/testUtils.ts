@@ -8,8 +8,8 @@
  * rendered markup, which these tests don't.
  */
 
-import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { act, createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 
 // React refuses to run act() without this, and says so loudly.
 declare global {
@@ -22,7 +22,7 @@ const mounted: { root: Root; container: HTMLElement }[] = [];
 
 /** Mount a component that calls `hook`, running its effects. */
 export function renderHook(hook: () => void): void {
-  const container = document.createElement("div");
+  const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
   const Harness = () => {

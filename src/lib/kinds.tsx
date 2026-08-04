@@ -7,7 +7,7 @@
  * prototype's `resourceDefs` and the Pods branch of its render (design/K8s Monitor.dc.html).
  */
 
-import type { ReactNode } from "react";
+import type { ReactNode } from 'react';
 import {
   Circle,
   Rocket,
@@ -39,33 +39,26 @@ import {
   Webhook,
   ServerCog,
   Box,
-} from "lucide-react";
-import type { CustomKind, KindId, ResourceKind } from "../providers/types";
+} from 'lucide-react';
+import type { CustomKind, KindId, ResourceKind } from '../providers/types';
 
 // Re-export so consumers can pull the kind type and its metadata from one module.
-export type { CustomKind, KindId, ResourceKind } from "../providers/types";
+export type { CustomKind, KindId, ResourceKind } from '../providers/types';
 
 /** Nav groups, in sidebar order. "custom" holds discovered CRD kinds (B15). */
 export type NavGroup =
-  | "workloads"
-  | "network"
-  | "config"
-  | "access"
-  | "storage"
-  | "cluster"
-  | "helm"
-  | "custom";
+  'workloads' | 'network' | 'config' | 'access' | 'storage' | 'cluster' | 'helm' | 'custom';
 
 /** Human-readable group headers (mono uppercase in the sidebar). */
 export const GROUP_LABELS: Record<NavGroup, string> = {
-  workloads: "Workloads",
-  network: "Network",
-  config: "Config",
-  access: "Access",
-  storage: "Storage",
-  cluster: "Cluster",
-  helm: "Helm",
-  custom: "Custom",
+  workloads: 'Workloads',
+  network: 'Network',
+  config: 'Config',
+  access: 'Access',
+  storage: 'Storage',
+  cluster: 'Cluster',
+  helm: 'Helm',
+  custom: 'Custom',
 };
 
 export interface KindMeta {
@@ -85,127 +78,127 @@ export interface KindMeta {
 export const KIND_META: Record<ResourceKind, KindMeta> = {
   // ---- Workloads ----
   pods: {
-    group: "workloads",
-    label: "Pods",
+    group: 'workloads',
+    label: 'Pods',
     icon: <Circle size={14} />,
-    columns: ["NAME", "NAMESPACE", "READY", "RESTARTS", "CPU", "MEM", "AGE", "STATUS"],
+    columns: ['NAME', 'NAMESPACE', 'READY', 'RESTARTS', 'CPU', 'MEM', 'AGE', 'STATUS'],
   },
   deployments: {
-    group: "workloads",
-    label: "Deployments",
+    group: 'workloads',
+    label: 'Deployments',
     icon: <Rocket size={14} />,
-    columns: ["NAME", "NAMESPACE", "READY", "UP-TO-DATE", "AVAILABLE", "CPU", "MEM", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'READY', 'UP-TO-DATE', 'AVAILABLE', 'CPU', 'MEM', 'AGE'],
   },
   // A Deployment's actual generation, and a pod's immediate owner — the object
   // the owner chain used to have to route around (B33).
   replicasets: {
-    group: "workloads",
-    label: "ReplicaSets",
+    group: 'workloads',
+    label: 'ReplicaSets',
     icon: <Copy size={14} />,
-    columns: ["NAME", "NAMESPACE", "DESIRED", "CURRENT", "READY", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'DESIRED', 'CURRENT', 'READY', 'AGE'],
   },
   statefulsets: {
-    group: "workloads",
-    label: "StatefulSets",
+    group: 'workloads',
+    label: 'StatefulSets',
     icon: <Layers size={14} />,
-    columns: ["NAME", "NAMESPACE", "READY", "CPU", "MEM", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'READY', 'CPU', 'MEM', 'AGE'],
   },
   daemonsets: {
-    group: "workloads",
-    label: "DaemonSets",
+    group: 'workloads',
+    label: 'DaemonSets',
     icon: <RefreshCw size={14} />,
-    columns: ["NAME", "NAMESPACE", "DESIRED", "READY", "CPU", "MEM", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'DESIRED', 'READY', 'CPU', 'MEM', 'AGE'],
   },
   jobs: {
-    group: "workloads",
-    label: "Jobs",
+    group: 'workloads',
+    label: 'Jobs',
     icon: <Timer size={14} />,
-    columns: ["NAME", "NAMESPACE", "COMPLETIONS", "DURATION", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'COMPLETIONS', 'DURATION', 'AGE'],
   },
   cronjobs: {
-    group: "workloads",
-    label: "CronJobs",
+    group: 'workloads',
+    label: 'CronJobs',
     icon: <Clock size={14} />,
-    columns: ["NAME", "NAMESPACE", "SCHEDULE", "LAST RUN", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'SCHEDULE', 'LAST RUN', 'AGE'],
   },
   // ---- Network ----
   services: {
-    group: "network",
-    label: "Services",
+    group: 'network',
+    label: 'Services',
     icon: <Zap size={14} />,
-    columns: ["NAME", "NAMESPACE", "TYPE", "CLUSTER-IP", "PORTS", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'TYPE', 'CLUSTER-IP', 'PORTS', 'AGE'],
   },
   ingresses: {
-    group: "network",
-    label: "Ingresses",
+    group: 'network',
+    label: 'Ingresses',
     icon: <ArrowRightFromLine size={14} />,
-    columns: ["NAME", "NAMESPACE", "HOSTS", "CLASS", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'HOSTS', 'CLASS', 'AGE'],
   },
   // Cluster-scoped; the default is marked in the NAME, as kubectl does.
   ingressclasses: {
-    group: "network",
-    label: "IngressClasses",
+    group: 'network',
+    label: 'IngressClasses',
     icon: <Network size={14} />,
-    columns: ["NAME", "CONTROLLER", "PARAMETERS", "AGE"],
+    columns: ['NAME', 'CONTROLLER', 'PARAMETERS', 'AGE'],
   },
   // ---- Config ----
   configmaps: {
-    group: "config",
-    label: "ConfigMaps",
+    group: 'config',
+    label: 'ConfigMaps',
     icon: <FileText size={14} />,
-    columns: ["NAME", "NAMESPACE", "DATA", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'DATA', 'AGE'],
   },
   secrets: {
-    group: "config",
-    label: "Secrets",
+    group: 'config',
+    label: 'Secrets',
     icon: <KeyRound size={14} />,
-    columns: ["NAME", "NAMESPACE", "TYPE", "DATA", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'TYPE', 'DATA', 'AGE'],
   },
   // The identity a pod runs as. Filed under Config rather than a group of its
   // own: it's a namespaced thing you configure a workload with, and it sits
   // naturally beside the Secrets it used to mint. (If RBAC lands later, an
   // Access group holding both would be the better home.)
   serviceaccounts: {
-    group: "config",
-    label: "ServiceAccounts",
+    group: 'config',
+    label: 'ServiceAccounts',
     icon: <User size={14} />,
-    columns: ["NAME", "NAMESPACE", "SECRETS", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'SECRETS', 'AGE'],
   },
   // ---- Storage ----
   // Claims first: a claim is what a workload actually references, and the volume
   // behind it is the follow-up question.
   persistentvolumeclaims: {
-    group: "storage",
-    label: "PersistentVolumeClaims",
+    group: 'storage',
+    label: 'PersistentVolumeClaims',
     icon: <Database size={14} />,
-    columns: ["NAME", "NAMESPACE", "STATUS", "VOLUME", "CAPACITY", "ACCESS", "CLASS", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'STATUS', 'VOLUME', 'CAPACITY', 'ACCESS', 'CLASS', 'AGE'],
   },
   // Cluster-scoped, so no NAMESPACE column — CLAIM carries "namespace/name".
   persistentvolumes: {
-    group: "storage",
-    label: "PersistentVolumes",
+    group: 'storage',
+    label: 'PersistentVolumes',
     icon: <HardDrive size={14} />,
-    columns: ["NAME", "CAPACITY", "ACCESS", "RECLAIM", "STATUS", "CLAIM", "CLASS", "AGE"],
+    columns: ['NAME', 'CAPACITY', 'ACCESS', 'RECLAIM', 'STATUS', 'CLAIM', 'CLASS', 'AGE'],
   },
   // Cluster-scoped. The default class is marked in the NAME, as kubectl does.
   storageclasses: {
-    group: "storage",
-    label: "StorageClasses",
+    group: 'storage',
+    label: 'StorageClasses',
     icon: <FolderArchive size={14} />,
-    columns: ["NAME", "PROVISIONER", "RECLAIM", "BINDING", "EXPANSION", "AGE"],
+    columns: ['NAME', 'PROVISIONER', 'RECLAIM', 'BINDING', 'EXPANSION', 'AGE'],
   },
   // ---- Cluster (cluster-scoped: no NAMESPACE column) ----
   nodes: {
-    group: "cluster",
-    label: "Nodes",
+    group: 'cluster',
+    label: 'Nodes',
     icon: <Server size={14} />,
-    columns: ["NAME", "STATUS", "ROLES", "CPU", "MEMORY", "VERSION"],
+    columns: ['NAME', 'STATUS', 'ROLES', 'CPU', 'MEMORY', 'VERSION'],
   },
   namespaces: {
-    group: "cluster",
-    label: "Namespaces",
+    group: 'cluster',
+    label: 'Namespaces',
     icon: <LayoutGrid size={14} />,
-    columns: ["NAME", "STATUS", "PODS", "AGE"],
+    columns: ['NAME', 'STATUS', 'PODS', 'AGE'],
   },
   // Phase 2 Tier-2 of KubePi parity: NetworkPolicy / HPA / ResourceQuota /
   // LimitRange. The Rust mappers exist in `mappers.rs`; the watcher
@@ -213,96 +206,103 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
   // appears). Columns are intentionally minimal: deep columns would
   // require typed mappers and a per-kind watcher.
   networkpolicies: {
-    group: "network",
-    label: "NetworkPolicies",
+    group: 'network',
+    label: 'NetworkPolicies',
     icon: <Shield size={14} />,
-    columns: ["NAME", "NAMESPACE", "POD_SELECTOR", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'POD_SELECTOR', 'AGE'],
   },
   horizontalpodautoscalers: {
-    group: "workloads",
-    label: "HPAs",
+    group: 'workloads',
+    label: 'HPAs',
     icon: <TrendingUp size={14} />,
-    columns: ["NAME", "NAMESPACE", "TARGET", "MIN", "MAX", "REPLICAS", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'TARGET', 'MIN', 'MAX', 'REPLICAS', 'AGE'],
   },
   resourcequotas: {
-    group: "config",
-    label: "ResourceQuotas",
+    group: 'config',
+    label: 'ResourceQuotas',
     icon: <Gauge size={14} />,
-    columns: ["NAME", "NAMESPACE", "HARD", "USED", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'HARD', 'USED', 'AGE'],
   },
   limitranges: {
-    group: "config",
-    label: "LimitRanges",
+    group: 'config',
+    label: 'LimitRanges',
     icon: <SlidersHorizontal size={14} />,
-    columns: ["NAME", "NAMESPACE", "LIMITS", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'LIMITS', 'AGE'],
   },
   // ---- Access (RBAC) ----
   roles: {
-    group: "access",
-    label: "Roles",
+    group: 'access',
+    label: 'Roles',
     icon: <Lock size={14} />,
-    columns: ["NAME", "NAMESPACE", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'AGE'],
   },
   clusterroles: {
-    group: "access",
-    label: "ClusterRoles",
+    group: 'access',
+    label: 'ClusterRoles',
     icon: <Lock size={14} />,
-    columns: ["NAME", "AGE"],
+    columns: ['NAME', 'AGE'],
   },
   rolebindings: {
-    group: "access",
-    label: "RoleBindings",
+    group: 'access',
+    label: 'RoleBindings',
     icon: <Link size={14} />,
-    columns: ["NAME", "NAMESPACE", "ROLE", "AGE"],
+    columns: ['NAME', 'NAMESPACE', 'ROLE', 'AGE'],
   },
   clusterrolebindings: {
-    group: "access",
-    label: "ClusterRoleBindings",
+    group: 'access',
+    label: 'ClusterRoleBindings',
     icon: <Link size={14} />,
-    columns: ["NAME", "ROLE", "AGE"],
+    columns: ['NAME', 'ROLE', 'AGE'],
   },
   poddisruptionbudgets: {
-    group: "config",
-    label: "PDBs",
+    group: 'config',
+    label: 'PDBs',
     icon: <ShieldAlert size={14} />,
-    columns: ["NAME", "NAMESPACE", "MIN AVAILABLE", "MAX UNAVAILABLE", "ALLOWED DISRUPTIONS", "AGE"],
+    columns: [
+      'NAME',
+      'NAMESPACE',
+      'MIN AVAILABLE',
+      'MAX UNAVAILABLE',
+      'ALLOWED DISRUPTIONS',
+      'AGE',
+    ],
   },
   mutatingwebhookconfigurations: {
-    group: "config",
-    label: "MutatingWebhooks",
+    group: 'config',
+    label: 'MutatingWebhooks',
     icon: <Webhook size={14} />,
-    columns: ["NAME", "WEBHOOKS", "AGE"],
+    columns: ['NAME', 'WEBHOOKS', 'AGE'],
   },
   validatingwebhookconfigurations: {
-    group: "config",
-    label: "ValidatingWebhooks",
+    group: 'config',
+    label: 'ValidatingWebhooks',
     icon: <Webhook size={14} />,
-    columns: ["NAME", "WEBHOOKS", "AGE"],
+    columns: ['NAME', 'WEBHOOKS', 'AGE'],
   },
   apiservices: {
-    group: "config",
-    label: "APIServices",
+    group: 'config',
+    label: 'APIServices',
     icon: <ServerCog size={14} />,
-    columns: ["NAME", "SERVICE", "AVAILABLE", "AGE"],
+    columns: ['NAME', 'SERVICE', 'AVAILABLE', 'AGE'],
   },
   // A read-only feed rather than a managed resource, but it lives in the Cluster
   // group because it is cluster-wide. It *is* namespaced, so it keeps a NAMESPACE
   // column and honours the namespace filter.
   events: {
-    group: "cluster",
-    label: "Events",
+    group: 'cluster',
+    label: 'Events',
     icon: <Activity size={14} />,
-    columns: ["TYPE", "REASON", "OBJECT", "NAMESPACE", "AGE", "COUNT", "MESSAGE"],
+    columns: ['TYPE', 'REASON', 'OBJECT', 'NAMESPACE', 'AGE', 'COUNT', 'MESSAGE'],
   },
   // ---- Helm (B26) ----
   // Its own group, as in Lens: a release isn't a Kubernetes kind, it's a thing
   // Helm keeps *in* Kubernetes, and filing it under Config next to the Secrets it
   // happens to be stored in would say the wrong thing about what it is.
   helm: {
-    group: "helm",
-    label: "Releases",
+    group: 'helm',
+    label: 'Releases',
     icon: <Package size={14} />,
-    columns: ["NAME", "NAMESPACE", "CHART", "APP VERSION", "REVISION", "STATUS", "UPDATED"],
+    columns: ['NAME', 'NAMESPACE', 'CHART', 'APP VERSION', 'REVISION', 'STATUS', 'UPDATED'],
   },
 };
 
@@ -311,28 +311,28 @@ export const KIND_ORDER = Object.keys(KIND_META) as ResourceKind[];
 
 /** Built-in kinds that are cluster-scoped and therefore ignore the namespace filter. */
 const CLUSTER_SCOPED: ReadonlySet<string> = new Set<string>([
-  "nodes",
-  "namespaces",
-  "persistentvolumes",
-  "storageclasses",
-  "ingressclasses",
-  "clusterroles",
-  "clusterrolebindings",
-  "mutatingwebhookconfigurations",
-  "validatingwebhookconfigurations",
-  "apiservices",
+  'nodes',
+  'namespaces',
+  'persistentvolumes',
+  'storageclasses',
+  'ingressclasses',
+  'clusterroles',
+  'clusterrolebindings',
+  'mutatingwebhookconfigurations',
+  'validatingwebhookconfigurations',
+  'apiservices',
 ]);
 
 /** Groups in sidebar order. */
 export const GROUP_ORDER: NavGroup[] = [
-  "workloads",
-  "network",
-  "storage",
-  "config",
-  "access",
-  "helm",
-  "cluster",
-  "custom",
+  'workloads',
+  'network',
+  'storage',
+  'config',
+  'access',
+  'helm',
+  'cluster',
+  'custom',
 ];
 
 /**
@@ -342,57 +342,57 @@ export const GROUP_ORDER: NavGroup[] = [
  * missing here just doesn't offer the tab.
  */
 export const KINDS_WITH_PROPERTIES: ReadonlySet<string> = new Set<string>([
-  "pods",
-  "deployments",
-  "services",
-  "statefulsets",
-  "nodes",
-  "helm",
-  "ingresses",
-  "secrets",
-  "serviceaccounts",
-  "storageclasses",
-  "namespaces",
-  "persistentvolumeclaims",
-  "persistentvolumes",
-  "jobs",
-  "cronjobs",
-  "horizontalpodautoscalers",
-  "networkpolicies",
-  "resourcequotas",
-  "roles",
-  "clusterroles",
-  "rolebindings",
-  "clusterrolebindings",
-  "poddisruptionbudgets",
-  "mutatingwebhookconfigurations",
-  "validatingwebhookconfigurations",
-  "apiservices",
+  'pods',
+  'deployments',
+  'services',
+  'statefulsets',
+  'nodes',
+  'helm',
+  'ingresses',
+  'secrets',
+  'serviceaccounts',
+  'storageclasses',
+  'namespaces',
+  'persistentvolumeclaims',
+  'persistentvolumes',
+  'jobs',
+  'cronjobs',
+  'horizontalpodautoscalers',
+  'networkpolicies',
+  'resourcequotas',
+  'roles',
+  'clusterroles',
+  'rolebindings',
+  'clusterrolebindings',
+  'poddisruptionbudgets',
+  'mutatingwebhookconfigurations',
+  'validatingwebhookconfigurations',
+  'apiservices',
 ]);
 
 /** Detail-panel tabs, in strip order. Mirrors DetailTab in the store. */
 export type DetailTabId =
-  | "logs"
-  | "properties"
-  | "revisions"
-  | "metrics"
-  | "shell"
-  | "yaml"
-  | "events"
-  | "pods"
-  | "timeline";
+  | 'logs'
+  | 'properties'
+  | 'revisions'
+  | 'metrics'
+  | 'shell'
+  | 'yaml'
+  | 'events'
+  | 'pods'
+  | 'timeline';
 
 /** Tab id → label, in the order the strip renders them. */
 export const DETAIL_TABS: { id: DetailTabId; label: string }[] = [
-  { id: "logs", label: "Logs" },
-  { id: "properties", label: "Properties" },
-  { id: "revisions", label: "Revisions" },
-  { id: "metrics", label: "Metrics" },
-  { id: "pods", label: "Pods" },
-  { id: "shell", label: "Shell" },
-  { id: "yaml", label: "YAML" },
-  { id: "events", label: "Events" },
-  { id: "timeline", label: "Timeline" },
+  { id: 'logs', label: 'Logs' },
+  { id: 'properties', label: 'Properties' },
+  { id: 'revisions', label: 'Revisions' },
+  { id: 'metrics', label: 'Metrics' },
+  { id: 'pods', label: 'Pods' },
+  { id: 'shell', label: 'Shell' },
+  { id: 'yaml', label: 'YAML' },
+  { id: 'events', label: 'Events' },
+  { id: 'timeline', label: 'Timeline' },
 ];
 
 /**
@@ -415,30 +415,28 @@ export const DETAIL_TABS: { id: DetailTabId; label: string }[] = [
 export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
   return DETAIL_TABS.filter((t) => {
     switch (t.id) {
-      case "logs":
+      case 'logs':
         return isPod;
-      case "shell":
-        return isPod || kind === "nodes";
-      case "properties":
+      case 'shell':
+        return isPod || kind === 'nodes';
+      case 'properties':
         // Built-in kinds need a gatherer; custom (CRD) kinds use the generic
         // CRD detail gatherer, so they always get the tab.
         return KINDS_WITH_PROPERTIES.has(kind) || isCustomKind(kind);
-      case "revisions":
+      case 'revisions':
         // Revision history + rollback — only workloads that carry a pod
         // template with retained history (Deployment/StatefulSet/DaemonSet).
-        return (
-          kind === "deployments" || kind === "statefulsets" || kind === "daemonsets"
-        );
-      case "metrics":
-        return isPod || kind === "nodes";
-      case "pods":
+        return kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets';
+      case 'metrics':
+        return isPod || kind === 'nodes';
+      case 'pods':
         // The "Pods on this node" tab — a node-resource breakdown view. Only
         // nodes get it (a pod's own metrics live on its Metrics tab).
-        return kind === "nodes";
-      case "events":
-        return kind !== "helm";
-      case "timeline":
-        return kind === "cronjobs";
+        return kind === 'nodes';
+      case 'events':
+        return kind !== 'helm';
+      case 'timeline':
+        return kind === 'cronjobs';
       default:
         return true;
     }
@@ -456,7 +454,7 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
  * slash, and a plural contains neither).
  */
 export function isCustomKind(id: KindId): boolean {
-  return id.includes("/");
+  return id.includes('/');
 }
 
 /**
@@ -464,32 +462,32 @@ export function isCustomKind(id: KindId): boolean {
  * resolve an event's involvedObject to a navigable table (B33).
  */
 const BUILTIN_KIND_TO_NAV: Record<string, ResourceKind> = {
-  Pod: "pods",
-  Deployment: "deployments",
-  ReplicaSet: "replicasets",
-  StatefulSet: "statefulsets",
-  DaemonSet: "daemonsets",
-  Job: "jobs",
-  CronJob: "cronjobs",
-  Service: "services",
-  Ingress: "ingresses",
-  IngressClass: "ingressclasses",
-  ConfigMap: "configmaps",
-  Secret: "secrets",
-  ServiceAccount: "serviceaccounts",
-  PersistentVolumeClaim: "persistentvolumeclaims",
-  PersistentVolume: "persistentvolumes",
-  StorageClass: "storageclasses",
-  Node: "nodes",
-  Namespace: "namespaces",
-  Role: "roles",
-  ClusterRole: "clusterroles",
-  RoleBinding: "rolebindings",
-  ClusterRoleBinding: "clusterrolebindings",
-  PodDisruptionBudget: "poddisruptionbudgets",
-  MutatingWebhookConfiguration: "mutatingwebhookconfigurations",
-  ValidatingWebhookConfiguration: "validatingwebhookconfigurations",
-  APIService: "apiservices",
+  Pod: 'pods',
+  Deployment: 'deployments',
+  ReplicaSet: 'replicasets',
+  StatefulSet: 'statefulsets',
+  DaemonSet: 'daemonsets',
+  Job: 'jobs',
+  CronJob: 'cronjobs',
+  Service: 'services',
+  Ingress: 'ingresses',
+  IngressClass: 'ingressclasses',
+  ConfigMap: 'configmaps',
+  Secret: 'secrets',
+  ServiceAccount: 'serviceaccounts',
+  PersistentVolumeClaim: 'persistentvolumeclaims',
+  PersistentVolume: 'persistentvolumes',
+  StorageClass: 'storageclasses',
+  Node: 'nodes',
+  Namespace: 'namespaces',
+  Role: 'roles',
+  ClusterRole: 'clusterroles',
+  RoleBinding: 'rolebindings',
+  ClusterRoleBinding: 'clusterrolebindings',
+  PodDisruptionBudget: 'poddisruptionbudgets',
+  MutatingWebhookConfiguration: 'mutatingwebhookconfigurations',
+  ValidatingWebhookConfiguration: 'validatingwebhookconfigurations',
+  APIService: 'apiservices',
 };
 
 /**
@@ -505,11 +503,11 @@ const BUILTIN_KIND_TO_NAV: Record<string, ResourceKind> = {
 export function navIdForKind(
   kind: string,
   apiVersion: string | undefined,
-  customKinds: CustomKind[],
+  customKinds: CustomKind[]
 ): KindId | null {
   const builtin = BUILTIN_KIND_TO_NAV[kind];
   if (builtin) return builtin;
-  const group = apiVersion && apiVersion.includes("/") ? apiVersion.split("/")[0] : "";
+  const group = apiVersion && apiVersion.includes('/') ? apiVersion.split('/')[0] : '';
   const ck = customKinds.find((c) => c.kind === kind && c.group === group);
   return ck ? ck.id : null;
 }
@@ -523,7 +521,7 @@ const CUSTOM_ICON = <Box size={14} />;
  * the YAML tab carries the detail. Must match the backend's `map_dynamic`.
  */
 function customColumns(namespaced: boolean): string[] {
-  return namespaced ? ["NAME", "NAMESPACE", "AGE"] : ["NAME", "AGE"];
+  return namespaced ? ['NAME', 'NAMESPACE', 'AGE'] : ['NAME', 'AGE'];
 }
 
 /**
@@ -536,7 +534,7 @@ export function kindMeta(id: KindId, customKinds: CustomKind[]): KindMeta | unde
   const ck = customKinds.find((k) => k.id === id);
   if (!ck) return undefined;
   return {
-    group: "custom",
+    group: 'custom',
     // The Kind name reads better than the plural ("Application", not "applications").
     label: ck.kind,
     icon: CUSTOM_ICON,

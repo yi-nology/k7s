@@ -146,8 +146,8 @@
    only disabled the Apply variant, so a Delete could be double-fired. Covers
    both `aria-disabled` (the old <div> paths) and the real `disabled` HTML
    attribute that the form-based scale / port-forward Apply now sets. */
-.applyBtn[aria-disabled="true"],
-.dangerBtn[aria-disabled="true"],
+.applyBtn[aria-disabled='true'],
+.dangerBtn[aria-disabled='true'],
 .applyBtn[disabled],
 .dangerBtn[disabled] {
   opacity: 0.6;

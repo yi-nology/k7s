@@ -20,12 +20,12 @@
  * fetch; if the user cancels or the fetch fails, we never call
  * `applyYaml`, so the cluster is left alone.
  */
-import { useEffect, useState } from "react";
-import { getProvider } from "../../providers";
-import { useTranslation } from "../../hooks/useI18n";
-import { extractContainerImages, rewriteContainerImage } from "../../lib/imageUpgrade";
-import type { ResourceRef } from "../../providers/types";
-import styles from "./ModifyImageForm.module.css";
+import { useEffect, useState } from 'react';
+import { getProvider } from '../../providers';
+import { useTranslation } from '../../hooks/useI18n';
+import { extractContainerImages, rewriteContainerImage } from '../../lib/imageUpgrade';
+import type { ResourceRef } from '../../providers/types';
+import styles from './ModifyImageForm.module.css';
 
 interface ModifyImageFormProps {
   ref: ResourceRef;
@@ -64,7 +64,7 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
           // The workload has no `containers:` — odd, but possible
           // (e.g. an empty pod template under construction). Surface
           // it as an error rather than a dead form.
-          setFetchError(t("actions.modifyImage.noContainers", "no containers found in YAML"));
+          setFetchError(t('actions.modifyImage.noContainers', 'no containers found in YAML'));
           return;
         }
         const init: Record<string, string> = {};
@@ -100,7 +100,7 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
         if (!newImage.trim()) {
           // The form's required attribute already blocks this, but
           // the trim catches pasted whitespace.
-          onError(t("actions.modifyImage.empty", "image must not be empty"));
+          onError(t('actions.modifyImage.empty', 'image must not be empty'));
           return;
         }
         next = rewriteContainerImage(next, name, newImage);
@@ -125,7 +125,7 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
         <div className={styles.error}>{fetchError}</div>
         <div className={styles.confirmRow}>
           <button type="button" className={styles.cancelBtn} onClick={onClose}>
-            {t("chrome.common.cancel")}
+            {t('chrome.common.cancel')}
           </button>
         </div>
       </div>
@@ -134,7 +134,7 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
   if (!images) {
     return (
       <div className={styles.menu}>
-        <div className={styles.loading}>{t("actions.modifyImage.loading", "loading…")}</div>
+        <div className={styles.loading}>{t('actions.modifyImage.loading', 'loading…')}</div>
       </div>
     );
   }
@@ -144,7 +144,7 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
       <form onSubmit={apply} className={styles.form}>
         <div className={styles.confirm}>
           <div className={styles.confirmText}>
-            {t("actions.modifyImage.title", resourceRef.name)}
+            {t('actions.modifyImage.title', resourceRef.name)}
           </div>
           {Object.entries(images).map(([name, image]) => (
             <label key={name} className={styles.field}>
@@ -155,7 +155,7 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
                     type="button"
                     className={styles.resetBtn}
                     onClick={() => setImages({ ...images, [name]: originalImages[name] })}
-                    title={t("actions.modifyImage.reset", "reset to original")}
+                    title={t('actions.modifyImage.reset', 'reset to original')}
                   >
                     ↺
                   </button>
@@ -181,12 +181,10 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
               onClose();
             }}
           >
-            {t("chrome.common.cancel")}
+            {t('chrome.common.cancel')}
           </div>
           <button type="submit" className={styles.applyBtn} disabled={busy}>
-            {busy
-              ? t("actions.modifyImage.applying", "Applying…")
-              : t("chrome.common.apply")}
+            {busy ? t('actions.modifyImage.applying', 'Applying…') : t('chrome.common.apply')}
           </button>
         </div>
       </form>

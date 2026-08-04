@@ -9,11 +9,11 @@
  * the left, Services on the right. A force simulation would just spread the
  * same nodes across a 2D plane without adding clarity.
  */
-import { useMemo, useRef, useState, useEffect } from "react";
-import { useStore } from "../../store";
-import { useTranslation } from "../../hooks/useI18n";
-import type { Row } from "../../providers/types";
-import styles from "./IngressRouteTopology.module.css";
+import { useMemo, useRef, useState, useEffect } from 'react';
+import { useStore } from '../../store';
+import { useTranslation } from '../../hooks/useI18n';
+import type { Row } from '../../providers/types';
+import styles from './IngressRouteTopology.module.css';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -50,19 +50,18 @@ interface RouteEdge {
 /** Extract ingress metadata from a table row.
  *  Columns: NAME, NAMESPACE, HOSTS, CLASS, AGE  (see kinds.ts) */
 function parseIngress(row: Row): IngressInfo {
-  const host = row.cells[2]?.text ?? "";
-  const ingressClass = row.cells[3]?.text ?? "";
+  const host = row.cells[2]?.text ?? '';
+  const ingressClass = row.cells[3]?.text ?? '';
   // TLS detection: the backend now sets `labels.tls = "true"` when
   // spec.tls[] is non-empty. Fall back to the old heuristic for rows
   // that don't carry the label (e.g. from an older backend version).
-  const tlsFromLabel = row.labels?.tls === "true";
+  const tlsFromLabel = row.labels?.tls === 'true';
   const tlsFromHeuristic =
-    ingressClass.toLowerCase().includes("nginx") ||
-    ingressClass.toLowerCase().includes("traefik");
+    ingressClass.toLowerCase().includes('nginx') || ingressClass.toLowerCase().includes('traefik');
   const tls = tlsFromLabel || tlsFromHeuristic;
   return {
     name: row.name,
-    namespace: row.namespace ?? "",
+    namespace: row.namespace ?? '',
     host,
     ingressClass,
     tls,
@@ -74,10 +73,10 @@ function parseIngress(row: Row): IngressInfo {
 function parseService(row: Row): ServiceInfo {
   return {
     name: row.name,
-    namespace: row.namespace ?? "",
-    type: row.cells[0]?.text ?? "",
-    clusterIp: row.cells[1]?.text ?? "",
-    ports: row.cells[2]?.text ?? "",
+    namespace: row.namespace ?? '',
+    type: row.cells[0]?.text ?? '',
+    clusterIp: row.cells[1]?.text ?? '',
+    ports: row.cells[2]?.text ?? '',
   };
 }
 
@@ -85,10 +84,7 @@ function parseService(row: Row): ServiceInfo {
  *  an Ingress named "foo" routes to a Service also named "foo" in the same
  *  namespace. We also try matching the hostname prefix against service names
  *  (e.g. host "grafana.example.com" → service "grafana"). */
-function buildRoutes(
-  ingresses: IngressInfo[],
-  services: ServiceInfo[],
-): RouteEdge[] {
+function buildRoutes(ingresses: IngressInfo[], services: ServiceInfo[]): RouteEdge[] {
   const svcByNsName = new Map<string, ServiceInfo>();
   for (const svc of services) {
     svcByNsName.set(`${svc.namespace}/${svc.name}`, svc);
@@ -111,7 +107,7 @@ function buildRoutes(
 
     // Strategy 2: hostname prefix match.
     // "grafana.murphy-yi.internal" → try service "grafana" in same namespace.
-    const prefix = ing.host.split(".")[0];
+    const prefix = ing.host.split('.')[0];
     if (prefix && prefix !== ing.name) {
       const byHost = svcByNsName.get(`${ing.namespace}/${prefix}`);
       if (byHost) {
@@ -162,26 +158,17 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
 
   // Parse rows into typed structures.
   const ingresses = useMemo(
-    () =>
-      (rows["ingresses"] ?? [])
-        .filter((r) => r.namespace !== undefined)
-        .map(parseIngress),
-    [rows],
+    () => (rows['ingresses'] ?? []).filter((r) => r.namespace !== undefined).map(parseIngress),
+    [rows]
   );
 
   const services = useMemo(
-    () =>
-      (rows["services"] ?? [])
-        .filter((r) => r.namespace !== undefined)
-        .map(parseService),
-    [rows],
+    () => (rows['services'] ?? []).filter((r) => r.namespace !== undefined).map(parseService),
+    [rows]
   );
 
   // Match ingresses to services.
-  const routes = useMemo(
-    () => buildRoutes(ingresses, services),
-    [ingresses, services],
-  );
+  const routes = useMemo(() => buildRoutes(ingresses, services), [ingresses, services]);
 
   // Collect the set of services actually referenced by routes, preserving
   // order of first appearance so the right column is stable.
@@ -249,28 +236,22 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <h2>
-          {t("ingressRoutes.title", "Ingress Route Topology")}
-        </h2>
+        <h2>{t('ingressRoutes.title', 'Ingress Route Topology')}</h2>
         {onClose && (
           <button className={styles.btn} onClick={onClose}>
-            {t("ingressRoutes.close", "Close")}
+            {t('ingressRoutes.close', 'Close')}
           </button>
         )}
       </header>
       <div className={styles.body}>
         {ingresses.length === 0 && services.length === 0 ? (
           <div className={styles.empty}>
-            {t("ingressRoutes.empty", "No ingresses or services found")}
+            {t('ingressRoutes.empty', 'No ingresses or services found')}
           </div>
         ) : (
           <>
             <div className={styles.canvas} ref={svgRef}>
-              <svg
-                width="100%"
-                height="100%"
-                viewBox={`0 0 ${size.w} ${size.h}`}
-              >
+              <svg width="100%" height="100%" viewBox={`0 0 ${size.w} ${size.h}`}>
                 {/* Column headers */}
                 <text
                   x={PAD_X + NODE_W / 2}
@@ -280,7 +261,7 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
                   fill="var(--text-muted)"
                   fontWeight={500}
                 >
-                  {t("ingressRoutes.col.ingress", "INGRESS")}
+                  {t('ingressRoutes.col.ingress', 'INGRESS')}
                 </text>
                 <text
                   x={PAD_X + NODE_W + COL_GAP + NODE_W / 2}
@@ -290,7 +271,7 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
                   fill="var(--text-muted)"
                   fontWeight={500}
                 >
-                  {t("ingressRoutes.col.service", "SERVICE")}
+                  {t('ingressRoutes.col.service', 'SERVICE')}
                 </text>
 
                 {/* Connection lines (drawn first so nodes sit on top) */}
@@ -300,8 +281,7 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
                   const sPos = ingressPositions.get(sKey);
                   const tPos = servicePositions.get(tKey);
                   if (!sPos || !tPos) return null;
-                  const isHot =
-                    hover === sKey || hover === tKey;
+                  const isHot = hover === sKey || hover === tKey;
                   const x1 = sPos.x + NODE_W;
                   const y1 = sPos.y + NODE_H / 2;
                   const x2 = tPos.x;
@@ -313,9 +293,7 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
                       key={i}
                       d={`M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`}
                       fill="none"
-                      stroke={
-                        isHot ? "var(--accent)" : "var(--border)"
-                      }
+                      stroke={isHot ? 'var(--accent)' : 'var(--border)'}
                       strokeWidth={isHot ? 2 : 1.2}
                       opacity={isHot ? 0.9 : 0.5}
                       markerEnd="url(#arrow)"
@@ -344,52 +322,30 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
                   const pos = ingressPositions.get(key);
                   if (!pos) return null;
                   const isHover = hover === key;
-                  const borderColor = ing.tls
-                    ? "var(--status-ok)"
-                    : "var(--status-warn)";
+                  const borderColor = ing.tls ? 'var(--status-ok)' : 'var(--status-warn)';
                   return (
                     <g
                       key={key}
                       transform={`translate(${pos.x}, ${pos.y})`}
                       onMouseEnter={() => setHover(key)}
                       onMouseLeave={() => setHover(null)}
-                      style={{ cursor: "pointer" }}
+                      style={{ cursor: 'pointer' }}
                     >
                       <rect
                         width={NODE_W}
                         height={NODE_H}
                         rx={6}
-                        fill={
-                          isHover
-                            ? "var(--surface-2)"
-                            : "var(--surface-1)"
-                        }
-                        stroke={isHover ? "var(--accent)" : borderColor}
+                        fill={isHover ? 'var(--surface-2)' : 'var(--surface-1)'}
+                        stroke={isHover ? 'var(--accent)' : borderColor}
                         strokeWidth={isHover ? 2 : 1.5}
                       />
-                      <text
-                        x={12}
-                        y={20}
-                        fontSize={12}
-                        fontWeight={500}
-                        fill="var(--text-primary)"
-                      >
+                      <text x={12} y={20} fontSize={12} fontWeight={500} fill="var(--text-primary)">
                         {ing.name}
                       </text>
-                      <text
-                        x={12}
-                        y={36}
-                        fontSize={10}
-                        fill="var(--text-muted)"
-                      >
-                        {ing.host || "(no host)"}
+                      <text x={12} y={36} fontSize={10} fill="var(--text-muted)">
+                        {ing.host || '(no host)'}
                       </text>
-                      <text
-                        x={12}
-                        y={50}
-                        fontSize={9}
-                        fill="var(--text-muted)"
-                      >
+                      <text x={12} y={50} fontSize={9} fill="var(--text-muted)">
                         {ing.namespace} · {ing.ingressClass}
                       </text>
                     </g>
@@ -408,43 +364,23 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
                       transform={`translate(${pos.x}, ${pos.y})`}
                       onMouseEnter={() => setHover(key)}
                       onMouseLeave={() => setHover(null)}
-                      style={{ cursor: "pointer" }}
+                      style={{ cursor: 'pointer' }}
                     >
                       <rect
                         width={NODE_W}
                         height={NODE_H}
                         rx={6}
-                        fill={
-                          isHover
-                            ? "var(--surface-2)"
-                            : "var(--surface-1)"
-                        }
-                        stroke={isHover ? "var(--accent)" : "var(--border)"}
+                        fill={isHover ? 'var(--surface-2)' : 'var(--surface-1)'}
+                        stroke={isHover ? 'var(--accent)' : 'var(--border)'}
                         strokeWidth={isHover ? 2 : 1}
                       />
-                      <text
-                        x={12}
-                        y={20}
-                        fontSize={12}
-                        fontWeight={500}
-                        fill="var(--text-primary)"
-                      >
+                      <text x={12} y={20} fontSize={12} fontWeight={500} fill="var(--text-primary)">
                         {svc.name}
                       </text>
-                      <text
-                        x={12}
-                        y={36}
-                        fontSize={10}
-                        fill="var(--text-muted)"
-                      >
+                      <text x={12} y={36} fontSize={10} fill="var(--text-muted)">
                         {svc.type} · {svc.clusterIp}
                       </text>
-                      <text
-                        x={12}
-                        y={50}
-                        fontSize={9}
-                        fill="var(--text-muted)"
-                      >
+                      <text x={12} y={50} fontSize={9} fill="var(--text-muted)">
                         {svc.namespace} · {svc.ports}
                       </text>
                     </g>
@@ -454,18 +390,12 @@ export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
             </div>
             <div className={styles.legend}>
               <span className={styles.legendItem}>
-                <span
-                  className={styles.dot}
-                  style={{ background: "var(--status-ok)" }}
-                />
-                {t("ingressRoutes.legend.tls", "TLS")}
+                <span className={styles.dot} style={{ background: 'var(--status-ok)' }} />
+                {t('ingressRoutes.legend.tls', 'TLS')}
               </span>
               <span className={styles.legendItem}>
-                <span
-                  className={styles.dot}
-                  style={{ background: "var(--status-warn)" }}
-                />
-                {t("ingressRoutes.legend.noTls", "No TLS")}
+                <span className={styles.dot} style={{ background: 'var(--status-warn)' }} />
+                {t('ingressRoutes.legend.noTls', 'No TLS')}
               </span>
             </div>
           </>

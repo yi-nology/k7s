@@ -13,10 +13,10 @@
  * read from disk.
  */
 
-declare module "node:fs" {
-  export function readFileSync(path: string, encoding: "utf8"): string;
+declare module 'node:fs' {
+  export function readFileSync(path: string, encoding: 'utf8'): string;
 }
 
-declare module "node:path" {
+declare module 'node:path' {
   export function resolve(...parts: string[]): string;
 }

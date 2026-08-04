@@ -45,20 +45,20 @@
  *    `key = value [×]` rows, which read more like a single line of
  *    text and were visually noisy.
  */
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { getProvider } from "../../providers";
-import type { ApplyResult, DocDryRun } from "../../providers/types";
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { getProvider } from '../../providers';
+import type { ApplyResult, DocDryRun } from '../../providers/types';
 import {
   defaultValuesFor,
   listTemplates,
   renderTemplate,
   type Template,
   type TemplateExtras,
-} from "../../lib/templates";
-import { useTranslation } from "../../hooks/useI18n";
-import { useStore } from "../../store";
-import { CodeEditor } from "../detail/CodeEditor";
-import styles from "./TemplatePicker.module.css";
+} from '../../lib/templates';
+import { useTranslation } from '../../hooks/useI18n';
+import { useStore } from '../../store';
+import { CodeEditor } from '../detail/CodeEditor';
+import styles from './TemplatePicker.module.css';
 
 /**
  * The values dict the render function gets. The renderer's signature is
@@ -77,9 +77,7 @@ function initialValuesFor(t: Template): TemplateValues {
   return {
     ...defaultValuesFor(t),
     ...(t.extras?.labels ? { labels: { ...t.extras.labels.default } } : {}),
-    ...(t.extras?.resources
-      ? { resources: { ...t.extras.resources.default } }
-      : {}),
+    ...(t.extras?.resources ? { resources: { ...t.extras.resources.default } } : {}),
   } as TemplateValues;
 }
 
@@ -90,17 +88,15 @@ function initialValuesFor(t: Template): TemplateValues {
  * first `=` (not the last) matches `kubectl label` and the way every
  * shell tool handles KEY=VAL — a value containing `=` is left intact.
  */
-export function parseLabelDraft(
-  draft: string,
-): { key: string; value: string } | null {
+export function parseLabelDraft(draft: string): { key: string; value: string } | null {
   const line = draft.trim();
   if (!line) return null;
-  const eq = line.indexOf("=");
+  const eq = line.indexOf('=');
   let key: string;
   let value: string;
   if (eq === -1) {
     key = line;
-    value = "";
+    value = '';
   } else {
     key = line.slice(0, eq).trim();
     value = line.slice(eq + 1).trim();
@@ -128,16 +124,16 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   // editor with a bundle dry-run preview step. Switching form → yaml seeds
   // the editor from the rendered template so the user can hand-tweak what
   // the form produced; switching back preserves the form state.
-  const [mode, setMode] = useState<"form" | "yaml">("form");
-  const [yamlDraft, setYamlDraft] = useState("");
+  const [mode, setMode] = useState<'form' | 'yaml'>('form');
+  const [yamlDraft, setYamlDraft] = useState('');
   const [review, setReview] = useState<DocDryRun[] | null>(null);
   // Track the draft text at the time of the last Preview so we can detect
   // post-preview edits and force a re-preview before Apply (stale guard).
-  const [reviewedDraft, setReviewedDraft] = useState("");
+  const [reviewedDraft, setReviewedDraft] = useState('');
 
   const initialSelection = useMemo(
     () => templates.find((tt) => tt.kind === currentKind) ?? null,
-    [templates, currentKind],
+    [templates, currentKind]
   );
 
   useEffect(() => {
@@ -153,7 +149,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   }, [initialSelection]);
 
   const yamlPreview = useMemo(() => {
-    if (!selected) return "";
+    if (!selected) return '';
     try {
       return renderTemplate(selected.id, values);
     } catch (e) {
@@ -180,23 +176,22 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
     setReview(null);
     setError(null);
     setResult([]);
-    setReviewedDraft("");
-    setYamlDraft(yamlPreview || "");
-    setMode("yaml");
+    setReviewedDraft('');
+    setYamlDraft(yamlPreview || '');
+    setMode('yaml');
   };
 
   const switchToForm = () => {
     setReview(null);
     setError(null);
     setResult([]);
-    setMode("form");
+    setMode('form');
   };
 
   /** Per-doc review is "clean" when every doc has a proposed manifest and no
    * error. Apply is gated on this — the whole point of the dry-run step is
    * to block a bundle with a bad doc from being applied. */
-  const reviewClean =
-    review !== null && review.length > 0 && review.every((d) => !d.error);
+  const reviewClean = review !== null && review.length > 0 && review.every((d) => !d.error);
 
   /** A draft edit after a clean Preview invalidates that preview: Apply gets
    * disabled again until the user re-runs Preview. */
@@ -257,7 +252,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    if (mode === "form") void applyForm();
+    if (mode === 'form') void applyForm();
     // In YAML mode the primary action is Preview (or Apply after a clean
     // preview); both are buttons, not a form submit, because the draft
     // textarea shouldn't submit on Enter.
@@ -266,13 +261,13 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   return (
     <div className={styles.panel}>
       <header className={styles.header}>
-        <h2>{t("tpl.title", "Create from template")}</h2>
+        <h2>{t('tpl.title', 'Create from template')}</h2>
         {onClose && (
           <button
             type="button"
             className={styles.closeBtn}
             onClick={onClose}
-            aria-label={t("tpl.close", "Close")}
+            aria-label={t('tpl.close', 'Close')}
           >
             ×
           </button>
@@ -286,36 +281,36 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
         <button
           type="button"
           role="tab"
-          aria-selected={mode === "form"}
+          aria-selected={mode === 'form'}
           className={styles.modeBtn}
-          data-active={mode === "form"}
+          data-active={mode === 'form'}
           onClick={switchToForm}
         >
-          {t("tpl.mode.form", "Form")}
+          {t('tpl.mode.form', 'Form')}
         </button>
         <button
           type="button"
           role="tab"
-          aria-selected={mode === "yaml"}
+          aria-selected={mode === 'yaml'}
           className={styles.modeBtn}
-          data-active={mode === "yaml"}
+          data-active={mode === 'yaml'}
           onClick={switchToYaml}
         >
-          {t("tpl.mode.yaml", "YAML import")}
+          {t('tpl.mode.yaml', 'YAML import')}
         </button>
       </div>
 
       {error && <div className={styles.error}>{error}</div>}
 
       <form onSubmit={onSubmit} className={styles.formRoot}>
-        {mode === "form" ? (
+        {mode === 'form' ? (
           <>
             <div className={styles.kindBar}>
               <label className={styles.kindLabel}>
-                {t("tpl.kind", "Kind")}
+                {t('tpl.kind', 'Kind')}
                 <select
                   className={styles.kindSelect}
-                  value={selected?.id ?? ""}
+                  value={selected?.id ?? ''}
                   onChange={(e) => {
                     const next = templates.find((tt) => tt.id === e.target.value);
                     if (next) pickTemplate(next);
@@ -326,7 +321,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
                       "pick a kind" hint. */}
                   {!selected && (
                     <option value="" disabled>
-                      {t("tpl.pick", "Pick a template on the left")}
+                      {t('tpl.pick', 'Pick a template on the left')}
                     </option>
                   )}
                   {templates.map((tt) => (
@@ -347,35 +342,32 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
               {selected ? (
                 <>
                   <section className={styles.section}>
-                    <h3 className={styles.sectionTitle}>
-                      {t("tpl.section.basic", "Basic")}
-                    </h3>
+                    <h3 className={styles.sectionTitle}>{t('tpl.section.basic', 'Basic')}</h3>
                     <div className={styles.fields}>
                       {selected.params.map((p) => {
                         const raw = values[p.key];
-                        const value =
-                          typeof raw === "string" ? raw : (p.default ?? "");
+                        const value = typeof raw === 'string' ? raw : (p.default ?? '');
                         return (
                           <label
                             key={p.key}
                             className={styles.field}
-                            data-wide={p.help ? "true" : "false"}
+                            data-wide={p.help ? 'true' : 'false'}
                           >
                             <span className={styles.fieldLabel}>{p.label}</span>
-                            {p.kind === "boolean" ? (
+                            {p.kind === 'boolean' ? (
                               <input
                                 type="checkbox"
-                                checked={value === "true"}
+                                checked={value === 'true'}
                                 onChange={(e) =>
                                   setValues({
                                     ...values,
-                                    [p.key]: e.target.checked ? "true" : "false",
+                                    [p.key]: e.target.checked ? 'true' : 'false',
                                   })
                                 }
                               />
                             ) : (
                               <input
-                                type={p.kind === "number" ? "number" : "text"}
+                                type={p.kind === 'number' ? 'number' : 'text'}
                                 value={value}
                                 required={p.required ?? true}
                                 pattern={p.pattern}
@@ -403,9 +395,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
                       labels={values.labels ?? {}}
                       resources={values.resources ?? {}}
                       onLabelsChange={(labels) => setValues({ ...values, labels })}
-                      onResourcesChange={(resources) =>
-                        setValues({ ...values, resources })
-                      }
+                      onResourcesChange={(resources) => setValues({ ...values, resources })}
                     />
                   )}
 
@@ -419,37 +409,22 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
                       <span className={styles.yamlChevron} data-open={yamlOpen}>
                         ▾
                       </span>
-                      {t("tpl.preview", "YAML preview")}
+                      {t('tpl.preview', 'YAML preview')}
                     </button>
-                    {yamlOpen && (
-                      <pre className={styles.preview}>{yamlPreview}</pre>
-                    )}
+                    {yamlOpen && <pre className={styles.preview}>{yamlPreview}</pre>}
                   </section>
                 </>
               ) : (
-                <div className={styles.empty}>
-                  {t("tpl.pick", "Pick a template on the left")}
-                </div>
+                <div className={styles.empty}>{t('tpl.pick', 'Pick a template on the left')}</div>
               )}
             </div>
 
             <footer className={styles.footer}>
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={onClose}
-                disabled={busy}
-              >
-                {t("tpl.cancel", "Cancel")}
+              <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>
+                {t('tpl.cancel', 'Cancel')}
               </button>
-              <button
-                type="submit"
-                className={styles.applyBtn}
-                disabled={busy || !selected}
-              >
-                {busy
-                  ? t("tpl.applying", "Applying…")
-                  : t("tpl.apply", "Apply")}
+              <button type="submit" className={styles.applyBtn} disabled={busy || !selected}>
+                {busy ? t('tpl.applying', 'Applying…') : t('tpl.apply', 'Apply')}
               </button>
             </footer>
           </>
@@ -479,19 +454,14 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
               )}
               {reviewStale && (
                 <div className={styles.staleHint}>
-                  {t("tpl.yaml.stale", "Edit detected — click Preview again")}
+                  {t('tpl.yaml.stale', 'Edit detected — click Preview again')}
                 </div>
               )}
             </div>
 
             <footer className={styles.footer}>
-              <button
-                type="button"
-                className={styles.cancelBtn}
-                onClick={onClose}
-                disabled={busy}
-              >
-                {t("tpl.cancel", "Cancel")}
+              <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>
+                {t('tpl.cancel', 'Cancel')}
               </button>
               {reviewClean && !reviewStale ? (
                 <button
@@ -500,9 +470,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
                   disabled={busy}
                   onClick={() => void applyYaml()}
                 >
-                  {busy
-                    ? t("tpl.yaml.applying", "Applying…")
-                    : t("tpl.yaml.apply", "Apply")}
+                  {busy ? t('tpl.yaml.applying', 'Applying…') : t('tpl.yaml.apply', 'Apply')}
                 </button>
               ) : (
                 <button
@@ -511,9 +479,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
                   disabled={busy || !yamlDraft.trim()}
                   onClick={() => void previewYaml()}
                 >
-                  {busy
-                    ? t("tpl.yaml.checking", "Checking…")
-                    : t("tpl.yaml.preview", "Preview")}
+                  {busy ? t('tpl.yaml.checking', 'Checking…') : t('tpl.yaml.preview', 'Preview')}
                 </button>
               )}
             </footer>
@@ -524,13 +490,10 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
       {result.length > 0 && (
         <ul className={styles.results}>
           {result.map((r, i) => (
-            <li
-              key={i}
-              className={r.action === "failed" ? styles.resultErr : styles.resultOk}
-            >
+            <li key={i} className={r.action === 'failed' ? styles.resultErr : styles.resultOk}>
               {r.action} {r.kind}/{r.name}
-              {r.namespace ? ` (${r.namespace})` : ""}
-              {r.error ? ` — ${r.error}` : ""}
+              {r.namespace ? ` (${r.namespace})` : ''}
+              {r.error ? ` — ${r.error}` : ''}
             </li>
           ))}
         </ul>
@@ -561,42 +524,30 @@ function ExtrasSection({
     <>
       {extras.labels && (
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>
-            {t("tpl.extras.labels", "Labels")}
-          </h3>
+          <h3 className={styles.sectionTitle}>{t('tpl.extras.labels', 'Labels')}</h3>
           <LabelsEditor labels={labels} onChange={onLabelsChange} />
         </section>
       )}
       {extras.resources && (
         <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>
-            {t("tpl.extras.resources", "Resource requests")}
-          </h3>
+          <h3 className={styles.sectionTitle}>{t('tpl.extras.resources', 'Resource requests')}</h3>
           <div className={styles.resourcesRow}>
             <label className={styles.resourceField}>
-              <span className={styles.fieldLabel}>
-                {t("tpl.extras.cpu", "CPU")}
-              </span>
+              <span className={styles.fieldLabel}>{t('tpl.extras.cpu', 'CPU')}</span>
               <input
                 type="text"
-                value={resources.cpu ?? ""}
-                placeholder={extras.resources.default.cpu ?? "100m"}
-                onChange={(e) =>
-                  onResourcesChange({ ...resources, cpu: e.target.value })
-                }
+                value={resources.cpu ?? ''}
+                placeholder={extras.resources.default.cpu ?? '100m'}
+                onChange={(e) => onResourcesChange({ ...resources, cpu: e.target.value })}
               />
             </label>
             <label className={styles.resourceField}>
-              <span className={styles.fieldLabel}>
-                {t("tpl.extras.memory", "Memory")}
-              </span>
+              <span className={styles.fieldLabel}>{t('tpl.extras.memory', 'Memory')}</span>
               <input
                 type="text"
-                value={resources.memory ?? ""}
-                placeholder={extras.resources.default.memory ?? "128Mi"}
-                onChange={(e) =>
-                  onResourcesChange({ ...resources, memory: e.target.value })
-                }
+                value={resources.memory ?? ''}
+                placeholder={extras.resources.default.memory ?? '128Mi'}
+                onChange={(e) => onResourcesChange({ ...resources, memory: e.target.value })}
               />
             </label>
           </div>
@@ -632,13 +583,13 @@ function LabelsEditor({
   // them, not sorted alphabetically. Object key order in JS is
   // insertion order for string keys, so we just iterate.
   const entries = Object.entries(labels);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState('');
 
   const commit = () => {
     const parsed = parseLabelDraft(draft);
     if (!parsed) return;
     onChange({ ...labels, [parsed.key]: parsed.value });
-    setDraft("");
+    setDraft('');
   };
 
   return (
@@ -648,7 +599,7 @@ function LabelsEditor({
           {entries.map(([k, v]) => (
             <span key={k} className={styles.chip}>
               <span className={styles.chipKey}>{k}</span>
-              {v !== "" && (
+              {v !== '' && (
                 <>
                   <span className={styles.chipSep}>:</span>
                   <span className={styles.chipVal}>{v}</span>
@@ -662,7 +613,7 @@ function LabelsEditor({
                   delete next[k];
                   onChange(next);
                 }}
-                aria-label={t("tpl.extras.remove", "remove")}
+                aria-label={t('tpl.extras.remove', 'remove')}
               >
                 ×
               </button>
@@ -674,13 +625,10 @@ function LabelsEditor({
         <input
           type="text"
           value={draft}
-          placeholder={t(
-            "tpl.extras.addPlaceholder",
-            "key=value, then ⏎",
-          )}
+          placeholder={t('tpl.extras.addPlaceholder', 'key=value, then ⏎')}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (e.key === 'Enter') {
               e.preventDefault();
               commit();
             }
@@ -719,20 +667,16 @@ function YamlReview({ review }: { review: DocDryRun[] }) {
       {review.map((d, i) => {
         const ok = !d.error;
         const label = d.error
-          ? t("tpl.yaml.docErr", "{kind}/{name} — {error}")
-              .replace("{kind}", d.kind || "?")
-              .replace("{name}", d.name || "?")
-              .replace("{error}", d.error)
-          : t("tpl.yaml.docOk", "{kind}/{name}")
-              .replace("{kind}", d.kind || "?")
-              .replace("{name}", d.name || "?");
+          ? t('tpl.yaml.docErr', '{kind}/{name} — {error}')
+              .replace('{kind}', d.kind || '?')
+              .replace('{name}', d.name || '?')
+              .replace('{error}', d.error)
+          : t('tpl.yaml.docOk', '{kind}/{name}')
+              .replace('{kind}', d.kind || '?')
+              .replace('{name}', d.name || '?');
         const isOpen = open[i] ?? ok;
         return (
-          <div
-            key={i}
-            className={styles.reviewDoc}
-            data-ok={ok ? "true" : "false"}
-          >
+          <div key={i} className={styles.reviewDoc} data-ok={ok ? 'true' : 'false'}>
             <button
               type="button"
               className={styles.reviewHead}
@@ -742,17 +686,9 @@ function YamlReview({ review }: { review: DocDryRun[] }) {
               <span className={styles.reviewChevron} data-open={isOpen}>
                 ▾
               </span>
-              <span
-                className={ok ? styles.reviewOk : styles.reviewErr}
-              >
-                {label}
-              </span>
+              <span className={ok ? styles.reviewOk : styles.reviewErr}>{label}</span>
             </button>
-            {isOpen && (
-              <pre className={styles.reviewBody}>
-                {d.proposed ?? d.error ?? ""}
-              </pre>
-            )}
+            {isOpen && <pre className={styles.reviewBody}>{d.proposed ?? d.error ?? ''}</pre>}
           </div>
         );
       })}
