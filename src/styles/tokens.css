@@ -62,7 +62,7 @@
   --text-muted:     #6E6E80; /* namespace/age cells, muted metadata */
   --text-faint:     #56566A; /* section headers, faint labels, empty state */
   --text-linenum:   #34343c; /* yaml line numbers (also scrollbar hover) */
-  --text-log-ts:    #4c4c55; /* log timestamp column */
+  --text-log-ts:    #5C5C66; /* log timestamp column */
   --text-nav-inactive: #9595A6; /* inactive nav item label */
 
   /* ================ Accent (Linear-style indigo) ================ */
