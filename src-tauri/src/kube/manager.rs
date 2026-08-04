@@ -147,7 +147,11 @@ impl ClientManager {
 
     /// The source file for an imported context, if it was imported.
     pub async fn import_path(&self, context: &str) -> Option<String> {
-        self.imports.read().await.get(context).map(|i| i.path.clone())
+        self.imports
+            .read()
+            .await
+            .get(context)
+            .map(|i| i.path.clone())
     }
 
     /// The parsed `Kubeconfig` for an imported context, if it was uploaded
@@ -230,12 +234,7 @@ impl ClientManager {
     /// via [`push_task`]; `watcher_count` is the number of kinds being watched,
     /// used for the sidebar footer. `info` is what `GET /api/status` returns
     /// to identify the cluster to the user.
-    pub async fn set_connected(
-        &self,
-        client: Client,
-        info: ConnectionInfo,
-        watcher_count: usize,
-    ) {
+    pub async fn set_connected(&self, client: Client, info: ConnectionInfo, watcher_count: usize) {
         let mut inner = self.inner.write().await;
         inner.client = Some(client);
         inner.connection = Some(info);
@@ -287,7 +286,13 @@ impl ClientManager {
 
     /// Send stdin bytes to a shell session (no-op if the id is unknown).
     pub async fn shell_input(&self, id: &str, data: Vec<u8>) {
-        let tx = self.inner.read().await.shells.get(id).map(|s| s.input_tx.clone());
+        let tx = self
+            .inner
+            .read()
+            .await
+            .shells
+            .get(id)
+            .map(|s| s.input_tx.clone());
         if let Some(tx) = tx {
             let _ = tx.send(data).await;
         }
@@ -295,7 +300,13 @@ impl ClientManager {
 
     /// Send a terminal resize to a shell session.
     pub async fn shell_resize(&self, id: &str, cols: u16, rows: u16) {
-        let tx = self.inner.read().await.shells.get(id).map(|s| s.resize_tx.clone());
+        let tx = self
+            .inner
+            .read()
+            .await
+            .shells
+            .get(id)
+            .map(|s| s.resize_tx.clone());
         if let Some(tx) = tx {
             let _ = tx.send((cols, rows)).await;
         }
@@ -318,7 +329,9 @@ impl ClientManager {
     pub async fn add_forward(&self, dto: ForwardDto, task: JoinHandle<()>) {
         {
             let mut inner = self.inner.write().await;
-            inner.forwards.insert(dto.id.clone(), ForwardEntry { task, dto });
+            inner
+                .forwards
+                .insert(dto.id.clone(), ForwardEntry { task, dto });
         }
         self.emit_watch().await;
         self.emit_forwards().await;
@@ -357,7 +370,13 @@ impl ClientManager {
 
     /// Snapshot of active port-forwards for the UI list.
     pub async fn list_forwards(&self) -> Vec<ForwardDto> {
-        self.inner.read().await.forwards.values().map(|f| f.dto.clone()).collect()
+        self.inner
+            .read()
+            .await
+            .forwards
+            .values()
+            .map(|f| f.dto.clone())
+            .collect()
     }
 
     /// Push the current forwards to the UI.
@@ -400,7 +419,11 @@ impl ClientManager {
     pub async fn remove_custom_watcher(&self, id: &str) {
         let existed = {
             let mut inner = self.inner.write().await;
-            inner.custom_watchers.remove(id).map(|h| h.abort()).is_some()
+            inner
+                .custom_watchers
+                .remove(id)
+                .map(|h| h.abort())
+                .is_some()
         };
         if existed {
             self.emit_watch().await;
@@ -428,7 +451,11 @@ impl ClientManager {
     pub async fn remove_node_scraper(&self, node: &str) {
         let existed = {
             let mut inner = self.inner.write().await;
-            inner.node_scrapers.remove(node).map(|h| h.abort()).is_some()
+            inner
+                .node_scrapers
+                .remove(node)
+                .map(|h| h.abort())
+                .is_some()
         };
         if existed {
             self.emit_watch().await;

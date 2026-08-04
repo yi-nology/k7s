@@ -143,7 +143,10 @@ pub fn decode_release(secret: &Secret) -> Option<Release> {
         .ok()?;
 
     // Chart is "name-version", the form `helm list` prints.
-    let chart = match (r.chart.metadata.name.as_str(), r.chart.metadata.version.as_str()) {
+    let chart = match (
+        r.chart.metadata.name.as_str(),
+        r.chart.metadata.version.as_str(),
+    ) {
         ("", _) => DASH.to_string(),
         (n, "") => n.to_string(),
         (n, v) => format!("{n}-{v}"),
@@ -188,7 +191,9 @@ pub fn status_tone(status: &str) -> Tone {
 /// blob is exactly where a `dbPassword` or `apiToken` ends up.
 fn is_sensitive_key(key: &str) -> bool {
     let k = key.to_lowercase();
-    ["password", "secret", "token", "key"].iter().any(|p| k.contains(p))
+    ["password", "secret", "token", "key"]
+        .iter()
+        .any(|p| k.contains(p))
 }
 
 /// Flatten a release's values into sorted `dotted.path` → value pairs, redacting
@@ -213,7 +218,11 @@ fn flatten_into(prefix: &str, value: &serde_json::Value, out: &mut Vec<(String, 
     match value {
         serde_json::Value::Object(map) => {
             for (k, v) in map {
-                let path = if prefix.is_empty() { k.clone() } else { format!("{prefix}.{k}") };
+                let path = if prefix.is_empty() {
+                    k.clone()
+                } else {
+                    format!("{prefix}.{k}")
+                };
                 if is_sensitive_key(k) {
                     // Redact the whole subtree — never descend into a credential.
                     out.push((path, "<redacted>".to_string()));
@@ -224,7 +233,11 @@ fn flatten_into(prefix: &str, value: &serde_json::Value, out: &mut Vec<(String, 
         }
         serde_json::Value::Array(items) => {
             for (i, v) in items.iter().enumerate() {
-                let path = if prefix.is_empty() { i.to_string() } else { format!("{prefix}.{i}") };
+                let path = if prefix.is_empty() {
+                    i.to_string()
+                } else {
+                    format!("{prefix}.{i}")
+                };
                 flatten_into(&path, v, out);
             }
         }
@@ -286,7 +299,9 @@ pub fn latest_only(rows: Vec<Row>) -> Vec<Row> {
     // for. Ties (and undated releases) fall back to name for a stable order.
     out.sort_by(|a, b| {
         let updated = |r: &Row| r.cells.get(6).map(|c| c.text.clone()).unwrap_or_default();
-        updated(b).cmp(&updated(a)).then_with(|| a.name.cmp(&b.name))
+        updated(b)
+            .cmp(&updated(a))
+            .then_with(|| a.name.cmp(&b.name))
     });
     out
 }
@@ -311,7 +326,13 @@ fn redact_secret_manifests(manifest: &str) -> String {
     }
     manifest
         .split("\n---")
-        .map(|doc| if is_secret_doc(doc) { redact_doc(doc) } else { doc.to_string() })
+        .map(|doc| {
+            if is_secret_doc(doc) {
+                redact_doc(doc)
+            } else {
+                doc.to_string()
+            }
+        })
         .collect::<Vec<_>>()
         .join("\n---")
 }
@@ -410,11 +431,20 @@ mod tests {
     /// The full Helm encoding chain round-trips into the columns we show.
     #[test]
     fn decodes_a_release() {
-        let s = release_secret("traefik", "kube-system", 1, "deployed", "2026-06-28T09:30:13Z");
+        let s = release_secret(
+            "traefik",
+            "kube-system",
+            1,
+            "deployed",
+            "2026-06-28T09:30:13Z",
+        );
         let r = decode_release(&s).expect("should decode");
         assert_eq!(r.name, "traefik");
         assert_eq!(r.namespace, "kube-system");
-        assert_eq!(r.chart, "traefik-27.0.2", "chart reads as helm list prints it");
+        assert_eq!(
+            r.chart, "traefik-27.0.2",
+            "chart reads as helm list prints it"
+        );
         assert_eq!(r.app_version, "v3.0.0");
         assert_eq!(r.revision, 1);
         assert_eq!(r.status, "deployed");
@@ -461,17 +491,26 @@ mod tests {
         let flat = flatten_values(&cfg);
         let dumped = format!("{flat:?}");
         for leaked in ["hunter2", "t0psecret", "PRIVATE", "shh"] {
-            assert!(!dumped.contains(leaked), "credential '{leaked}' must not survive flattening");
+            assert!(
+                !dumped.contains(leaked),
+                "credential '{leaked}' must not survive flattening"
+            );
         }
         // The keys are still listed, as <redacted>, so the shape stays visible.
-        let redacted: Vec<_> = flat.iter().filter(|(_, v)| v == "<redacted>").map(|(k, _)| k.as_str()).collect();
+        let redacted: Vec<_> = flat
+            .iter()
+            .filter(|(_, v)| v == "<redacted>")
+            .map(|(k, _)| k.as_str())
+            .collect();
         assert!(redacted.contains(&"dbPassword"));
         assert!(redacted.contains(&"api.token"));
         assert!(redacted.contains(&"tls.key"));
         assert!(redacted.contains(&"clientSecret"));
         // A non-sensitive sibling under the same parent is untouched.
         assert!(flat.iter().any(|(k, v)| k == "api.url" && v == "https://x"));
-        assert!(flat.iter().any(|(k, v)| k == "tls.crt" && v == "public-cert"));
+        assert!(flat
+            .iter()
+            .any(|(k, v)| k == "tls.crt" && v == "public-cert"));
     }
 
     /// Nested objects dot together, arrays index, and the output is sorted.
@@ -516,13 +555,37 @@ mod tests {
     #[test]
     fn keeps_only_the_newest_revision() {
         let rows: Vec<Row> = vec![
-            map_release(&release_secret("traefik", "kube-system", 1, "superseded", "2026-06-01T00:00:00Z")).unwrap(),
-            map_release(&release_secret("traefik", "kube-system", 3, "deployed", "2026-06-03T00:00:00Z")).unwrap(),
-            map_release(&release_secret("traefik", "kube-system", 2, "superseded", "2026-06-02T00:00:00Z")).unwrap(),
+            map_release(&release_secret(
+                "traefik",
+                "kube-system",
+                1,
+                "superseded",
+                "2026-06-01T00:00:00Z",
+            ))
+            .unwrap(),
+            map_release(&release_secret(
+                "traefik",
+                "kube-system",
+                3,
+                "deployed",
+                "2026-06-03T00:00:00Z",
+            ))
+            .unwrap(),
+            map_release(&release_secret(
+                "traefik",
+                "kube-system",
+                2,
+                "superseded",
+                "2026-06-02T00:00:00Z",
+            ))
+            .unwrap(),
         ];
         let out = latest_only(rows);
         assert_eq!(out.len(), 1, "three revision secrets are one release");
-        assert_eq!(out[0].cells[4].text, "3", "and it shows the newest revision");
+        assert_eq!(
+            out[0].cells[4].text, "3",
+            "and it shows the newest revision"
+        );
         assert_eq!(out[0].cells[5].text, "deployed");
     }
 
@@ -530,8 +593,22 @@ mod tests {
     #[test]
     fn same_name_in_two_namespaces_stays_two_rows() {
         let rows = vec![
-            map_release(&release_secret("redis", "prod", 1, "deployed", "2026-06-01T00:00:00Z")).unwrap(),
-            map_release(&release_secret("redis", "staging", 1, "deployed", "2026-06-02T00:00:00Z")).unwrap(),
+            map_release(&release_secret(
+                "redis",
+                "prod",
+                1,
+                "deployed",
+                "2026-06-01T00:00:00Z",
+            ))
+            .unwrap(),
+            map_release(&release_secret(
+                "redis",
+                "staging",
+                1,
+                "deployed",
+                "2026-06-02T00:00:00Z",
+            ))
+            .unwrap(),
         ];
         assert_eq!(latest_only(rows).len(), 2);
     }
@@ -540,8 +617,22 @@ mod tests {
     #[test]
     fn sorts_newest_first() {
         let rows = vec![
-            map_release(&release_secret("old", "prod", 1, "deployed", "2026-06-01T00:00:00Z")).unwrap(),
-            map_release(&release_secret("new", "prod", 1, "deployed", "2026-06-09T00:00:00Z")).unwrap(),
+            map_release(&release_secret(
+                "old",
+                "prod",
+                1,
+                "deployed",
+                "2026-06-01T00:00:00Z",
+            ))
+            .unwrap(),
+            map_release(&release_secret(
+                "new",
+                "prod",
+                1,
+                "deployed",
+                "2026-06-09T00:00:00Z",
+            ))
+            .unwrap(),
         ];
         let out = latest_only(rows);
         assert_eq!(out[0].name, "new");
@@ -551,8 +642,22 @@ mod tests {
     #[test]
     fn revision_ordering_is_numeric_not_lexical() {
         let rows = vec![
-            map_release(&release_secret("app", "prod", 9, "superseded", "2026-06-01T00:00:00Z")).unwrap(),
-            map_release(&release_secret("app", "prod", 10, "deployed", "2026-06-02T00:00:00Z")).unwrap(),
+            map_release(&release_secret(
+                "app",
+                "prod",
+                9,
+                "superseded",
+                "2026-06-01T00:00:00Z",
+            ))
+            .unwrap(),
+            map_release(&release_secret(
+                "app",
+                "prod",
+                10,
+                "deployed",
+                "2026-06-02T00:00:00Z",
+            ))
+            .unwrap(),
         ];
         assert_eq!(latest_only(rows)[0].cells[4].text, "10");
     }
@@ -565,7 +670,10 @@ mod tests {
     fn redacts_secret_values_in_the_manifest() {
         let m = "# Source: c/templates/secret.yaml\napiVersion: v1\nkind: Secret\nmetadata:\n  name: creds\ndata:\n  password: aHVudGVyMg==\n  token: c2VjcmV0\n";
         let out = redact_secret_manifests(m);
-        assert!(!out.contains("aHVudGVyMg=="), "secret value must not survive");
+        assert!(
+            !out.contains("aHVudGVyMg=="),
+            "secret value must not survive"
+        );
         assert!(!out.contains("c2VjcmV0"));
         assert!(out.contains("password: <redacted>"));
         assert!(out.contains("token: <redacted>"));

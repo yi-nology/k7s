@@ -25,9 +25,7 @@
 //! that decides how much privilege gets handed out, and it should be reviewable
 //! without a cluster.
 
-use k8s_openapi::api::core::v1::{
-    Container, Pod, PodSpec, SecurityContext, Toleration,
-};
+use k8s_openapi::api::core::v1::{Container, Pod, PodSpec, SecurityContext, Toleration};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use std::collections::BTreeMap;
 
@@ -68,7 +66,13 @@ pub const MAX_LIFETIME_SECS: i64 = 3600;
 pub fn pod_name(node: &str, seq: u64) -> String {
     let sanitized: String = node
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '-' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
         .collect();
     let suffix = format!("-{seq}");
     // "k7s-debug-" + node + "-<seq>" must fit in 63.
@@ -195,7 +199,11 @@ pub fn node_selector(node: &str) -> String {
 /// looking in the wrong place.
 pub fn pending_reason(phase: &str, waiting: Option<(&str, &str)>) -> String {
     if let Some((reason, message)) = waiting {
-        let detail = if message.is_empty() { String::new() } else { format!(" — {message}") };
+        let detail = if message.is_empty() {
+            String::new()
+        } else {
+            format!(" — {message}")
+        };
         return format!("the debug container is stuck in {reason}{detail}");
     }
     match phase {
@@ -299,7 +307,10 @@ mod tests {
     #[test]
     fn pod_name_replaces_illegal_characters() {
         let n = pod_name("host.dc1.example.com", 1);
-        assert!(!n.contains('.'), "dots must not survive into a pod name: {n}");
+        assert!(
+            !n.contains('.'),
+            "dots must not survive into a pod name: {n}"
+        );
         assert_eq!(n, "k7s-debug-host-dc1-example-com-1");
     }
 
@@ -331,12 +342,20 @@ mod tests {
         let spec = pod.spec.unwrap();
 
         assert_eq!(spec.node_name.as_deref(), Some("murphy-yi"));
-        assert_eq!(spec.host_pid, Some(true), "nsenter --target 1 needs the host PID namespace");
+        assert_eq!(
+            spec.host_pid,
+            Some(true),
+            "nsenter --target 1 needs the host PID namespace"
+        );
         assert_eq!(spec.host_network, Some(true));
         assert_eq!(spec.host_ipc, Some(true));
         assert_eq!(spec.restart_policy.as_deref(), Some("Never"));
         assert_eq!(
-            spec.containers[0].security_context.as_ref().unwrap().privileged,
+            spec.containers[0]
+                .security_context
+                .as_ref()
+                .unwrap()
+                .privileged,
             Some(true)
         );
     }
@@ -356,7 +375,10 @@ mod tests {
         let spec = debug_pod_spec("n", DEFAULT_IMAGE, "p").spec.unwrap();
         let tol = &spec.tolerations.as_ref().unwrap()[0];
         assert_eq!(tol.operator.as_deref(), Some("Exists"));
-        assert!(tol.key.is_none(), "a keyed toleration would only match some taints");
+        assert!(
+            tol.key.is_none(),
+            "a keyed toleration would only match some taints"
+        );
         assert!(tol.effect.is_none(), "no effect means all effects");
     }
 
@@ -365,8 +387,14 @@ mod tests {
     fn spec_is_labelled_for_cleanup() {
         let pod = debug_pod_spec("murphy-yi", DEFAULT_IMAGE, "p");
         let labels = pod.metadata.labels.unwrap();
-        assert_eq!(labels.get(LABEL_MANAGED).map(String::as_str), Some(LABEL_MANAGED_VALUE));
-        assert_eq!(labels.get(LABEL_NODE).map(String::as_str), Some("murphy-yi"));
+        assert_eq!(
+            labels.get(LABEL_MANAGED).map(String::as_str),
+            Some(LABEL_MANAGED_VALUE)
+        );
+        assert_eq!(
+            labels.get(LABEL_NODE).map(String::as_str),
+            Some("murphy-yi")
+        );
         assert!(node_selector("murphy-yi").contains("k7s.dev/debug-node=murphy-yi"));
     }
 
@@ -408,7 +436,10 @@ mod tests {
     /// A single-arch image on a mixed-arch cluster surfaces here.
     #[test]
     fn pending_reason_prefers_the_container_waiting_reason() {
-        let msg = pending_reason("Pending", Some(("ImagePullBackOff", "no match for platform")));
+        let msg = pending_reason(
+            "Pending",
+            Some(("ImagePullBackOff", "no match for platform")),
+        );
         assert!(msg.contains("ImagePullBackOff"));
         assert!(msg.contains("no match for platform"));
     }

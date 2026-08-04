@@ -28,9 +28,7 @@ use kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams
 use kube::{Client, ResourceExt};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
-use rmcp::model::{
-    CallToolResult, Content, ErrorData as McpError, ServerCapabilities, ServerInfo,
-};
+use rmcp::model::{CallToolResult, Content, ErrorData as McpError, ServerCapabilities, ServerInfo};
 use rmcp::{tool, tool_handler, tool_router, ServiceExt};
 use serde::Serialize;
 use tokio::sync::mpsc;
@@ -40,11 +38,11 @@ use crate::core::events::mcp_sink;
 use crate::core::CoreState;
 use crate::error::AppError;
 use crate::kube::{
-    alerting, client as kube_client, drain, endpoints,
-    grafana, helm_market, helm_ops, image_archive, image_sync, imagerepo,
+    alerting, client as kube_client, drain, endpoints, grafana, helm_market, helm_ops,
+    image_archive, image_sync, imagerepo,
     manager::{ClientManager, ForwardDto, ImportedContext, ShellSession},
-    metrics_config, nodeshell, pod_files, portforward, restart, saved_queries,
-    templates, ResourceKind,
+    metrics_config, nodeshell, pod_files, portforward, restart, saved_queries, templates,
+    ResourceKind,
 };
 use crate::mcp::kube_api;
 use rmcp::transport::stdio;
@@ -602,7 +600,9 @@ impl K7sMcpServer {
     /// List the contexts visible in the default kubeconfig. The AI can call
     /// this on startup to show the user what's available; `connect` then
     /// picks one.
-    #[tool(description = "List contexts in the default kubeconfig. Returns the context name, the cluster it points at, and whether it's the current-context.")]
+    #[tool(
+        description = "List contexts in the default kubeconfig. Returns the context name, the cluster it points at, and whether it's the current-context."
+    )]
     async fn list_contexts(&self) -> Result<CallToolResult, McpError> {
         let contexts = kube_client::list_contexts().unwrap_or_default();
         json_result(&contexts)
@@ -610,7 +610,9 @@ impl K7sMcpServer {
 
     /// Build a kube client for a context and probe the API server. Tears
     /// down any previous connection first.
-    #[tool(description = "Connect to a kubeconfig context. Tears down any existing connection, builds a client, probes the API server version. Returns the cluster identity (context, server, version).")]
+    #[tool(
+        description = "Connect to a kubeconfig context. Tears down any existing connection, builds a client, probes the API server version. Returns the cluster identity (context, server, version)."
+    )]
     async fn connect(
         &self,
         Parameters(p): Parameters<ConnectParams>,
@@ -680,7 +682,9 @@ impl K7sMcpServer {
     }
 
     /// Drop the current connection and all of its long-lived sessions.
-    #[tool(description = "Disconnect from the current cluster. Aborts watchers, log streams, shells, and port-forwards. The next tool call will need `connect` again.")]
+    #[tool(
+        description = "Disconnect from the current cluster. Aborts watchers, log streams, shells, and port-forwards. The next tool call will need `connect` again."
+    )]
     async fn disconnect(&self) -> Result<CallToolResult, McpError> {
         self.manager().reset().await;
         Ok(CallToolResult::success(vec![Content::text("disconnected")]))
@@ -689,7 +693,9 @@ impl K7sMcpServer {
     /// Current connection status. `connected: false` means tools that need
     /// a client (everything except `list_contexts`) will return a
     /// "not connected" error.
-    #[tool(description = "Show the current connection: context, server, API server version. Returns { connected: false } when nothing is connected.")]
+    #[tool(
+        description = "Show the current connection: context, server, API server version. Returns { connected: false } when nothing is connected."
+    )]
     async fn status(&self) -> Result<CallToolResult, McpError> {
         let m = self.manager();
         let info = m.connection_info().await;
@@ -714,7 +720,9 @@ impl K7sMcpServer {
     // Read tools
     // -----------------------------------------------------------------------
 
-    #[tool(description = "List resources of a kind. For cluster-scoped kinds (nodes, namespaces, …) namespace is ignored. Returns objects with { kind, namespace, name, summary } where summary is a one-line status like \"Running (3m)\".")]
+    #[tool(
+        description = "List resources of a kind. For cluster-scoped kinds (nodes, namespaces, …) namespace is ignored. Returns objects with { kind, namespace, name, summary } where summary is a one-line status like \"Running (3m)\"."
+    )]
     async fn list_resources(
         &self,
         Parameters(p): Parameters<ListResourcesParams>,
@@ -723,7 +731,11 @@ impl K7sMcpServer {
         let items = kube_api::list_resources(
             &manager,
             &p.kind,
-            if p.namespace.is_empty() { None } else { Some(&p.namespace) },
+            if p.namespace.is_empty() {
+                None
+            } else {
+                Some(&p.namespace)
+            },
             if p.label_selector.is_empty() {
                 None
             } else {
@@ -735,7 +747,9 @@ impl K7sMcpServer {
         json_result(&items)
     }
 
-    #[tool(description = "Fetch one resource as YAML. Secret data is redacted; Helm release 'YAML' is the rendered manifest. managedFields is dropped so the YAML is round-trippable.")]
+    #[tool(
+        description = "Fetch one resource as YAML. Secret data is redacted; Helm release 'YAML' is the rendered manifest. managedFields is dropped so the YAML is round-trippable."
+    )]
     async fn get_resource(
         &self,
         Parameters(p): Parameters<GetResourceParams>,
@@ -746,19 +760,22 @@ impl K7sMcpServer {
         Ok(CallToolResult::success(vec![Content::text(yaml)]))
     }
 
-    #[tool(description = "Build the Properties panel for a resource: status, conditions, labels, selectors, container list, volume mounts, and a few other kind-specific sections. Returns the same JSON shape the UI uses.")]
+    #[tool(
+        description = "Build the Properties panel for a resource: status, conditions, labels, selectors, container list, volume mounts, and a few other kind-specific sections. Returns the same JSON shape the UI uses."
+    )]
     async fn describe_resource(
         &self,
         Parameters(p): Parameters<GetResourceParams>,
     ) -> Result<CallToolResult, McpError> {
-        let props =
-            kube_api::describe_resource(&self.manager(), &p.kind, &p.namespace, &p.name)
-                .await
-                .map_err(tool_error)?;
+        let props = kube_api::describe_resource(&self.manager(), &p.kind, &p.namespace, &p.name)
+            .await
+            .map_err(tool_error)?;
         json_result(&props)
     }
 
-    #[tool(description = "Read events filtered to a single object (kind+namespace+name). Returns [{ type, reason, message, count, age }, …] in time order, matching what the UI's Events tab shows.")]
+    #[tool(
+        description = "Read events filtered to a single object (kind+namespace+name). Returns [{ type, reason, message, count, age }, …] in time order, matching what the UI's Events tab shows."
+    )]
     async fn get_events(
         &self,
         Parameters(p): Parameters<GetResourceParams>,
@@ -769,7 +786,9 @@ impl K7sMcpServer {
         json_result(&events)
     }
 
-    #[tool(description = "Read the last N lines of a pod's logs (one-shot; not a stream). Use `container` to pick a specific container in a multi-container pod, `previous: true` to read the prior terminated container, `sinceSeconds` for a time window. Returns the raw log text.")]
+    #[tool(
+        description = "Read the last N lines of a pod's logs (one-shot; not a stream). Use `container` to pick a specific container in a multi-container pod, `previous: true` to read the prior terminated container, `sinceSeconds` for a time window. Returns the raw log text."
+    )]
     async fn get_logs(
         &self,
         Parameters(p): Parameters<LogsParams>,
@@ -797,7 +816,9 @@ impl K7sMcpServer {
     // Write tools
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Apply a YAML manifest to the cluster (server-side replace). Fails for Secret (read-only) and Helm release. Returns the server's response on success, or a verbatim API error on failure.")]
+    #[tool(
+        description = "Apply a YAML manifest to the cluster (server-side replace). Fails for Secret (read-only) and Helm release. Returns the server's response on success, or a verbatim API error on failure."
+    )]
     async fn apply_yaml(
         &self,
         Parameters(p): Parameters<ApplyYamlParams>,
@@ -806,12 +827,11 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let (api, _is_helm) =
-            kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
-                .await
-                .map_err(tool_error)?;
-        let obj: DynamicObject =
-            serde_yaml::from_str(&p.yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
+            .await
+            .map_err(tool_error)?;
+        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
         api.replace(&p.name, &PostParams::default(), &obj)
             .await
             .map(|_| ())
@@ -822,7 +842,9 @@ impl K7sMcpServer {
         ))]))
     }
 
-    #[tool(description = "Server-side dry run of an apply. Returns { current, proposed } — both as YAML — so you can diff what would change after defaulting and mutating webhooks run. Read-only; nothing is written.")]
+    #[tool(
+        description = "Server-side dry run of an apply. Returns { current, proposed } — both as YAML — so you can diff what would change after defaulting and mutating webhooks run. Read-only; nothing is written."
+    )]
     async fn dry_run_yaml(
         &self,
         Parameters(p): Parameters<ApplyYamlParams>,
@@ -831,12 +853,11 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let (api, _is_helm) =
-            kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
-                .await
-                .map_err(tool_error)?;
-        let obj: DynamicObject =
-            serde_yaml::from_str(&p.yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
+            .await
+            .map_err(tool_error)?;
+        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         let mut current = api
             .get(&p.name)
@@ -854,8 +875,8 @@ impl K7sMcpServer {
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
         proposed.metadata.managed_fields = None;
 
-        let current_yaml =
-            serde_yaml::to_string(&current).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let current_yaml = serde_yaml::to_string(&current)
+            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
         let proposed_yaml = serde_yaml::to_string(&proposed)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
@@ -871,7 +892,9 @@ impl K7sMcpServer {
         })
     }
 
-    #[tool(description = "Delete a resource by kind/namespace/name. Refuses Helm release (read-only).")]
+    #[tool(
+        description = "Delete a resource by kind/namespace/name. Refuses Helm release (read-only)."
+    )]
     async fn delete_resource(
         &self,
         Parameters(p): Parameters<GetResourceParams>,
@@ -879,17 +902,18 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let (api, _is_helm) =
-            kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
-                .await
-                .map_err(tool_error)?;
+        let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
+            .await
+            .map_err(tool_error)?;
         api.delete(&p.name, &DeleteParams::default())
             .await
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
         Ok(CallToolResult::success(vec![Content::text("deleted")]))
     }
 
-    #[tool(description = "Scale a workload by patching spec.replicas. Works for Deployment, StatefulSet, ReplicaSet.")]
+    #[tool(
+        description = "Scale a workload by patching spec.replicas. Works for Deployment, StatefulSet, ReplicaSet."
+    )]
     async fn scale_resource(
         &self,
         Parameters(p): Parameters<ScaleParams>,
@@ -897,10 +921,9 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let (api, _is_helm) =
-            kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
-                .await
-                .map_err(tool_error)?;
+        let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
+            .await
+            .map_err(tool_error)?;
         let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": p.replicas } }));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
@@ -911,7 +934,9 @@ impl K7sMcpServer {
         ))]))
     }
 
-    #[tool(description = "Cordon (unschedulable=true) or uncordon a node. Cordoning only blocks new pods; existing pods keep running. For full removal, use drain_node.")]
+    #[tool(
+        description = "Cordon (unschedulable=true) or uncordon a node. Cordoning only blocks new pods; existing pods keep running. For full removal, use drain_node."
+    )]
     async fn set_cordon(
         &self,
         Parameters(p): Parameters<CordonParams>,
@@ -922,18 +947,25 @@ impl K7sMcpServer {
         let (api, _is_helm) = kube_api::dynamic_api(client, "nodes", "", &self.manager())
             .await
             .map_err(tool_error)?;
-        let patch = Patch::Merge(serde_json::json!({ "spec": { "unschedulable": p.unschedulable } }));
+        let patch =
+            Patch::Merge(serde_json::json!({ "spec": { "unschedulable": p.unschedulable } }));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
         Ok(CallToolResult::success(vec![Content::text(format!(
             "node {} {}",
             p.name,
-            if p.unschedulable { "cordoned" } else { "uncordoned" }
+            if p.unschedulable {
+                "cordoned"
+            } else {
+                "uncordoned"
+            }
         ))]))
     }
 
-    #[tool(description = "Delete a pod to force a restart (the controller will recreate it). For Deployments use restart_rollout. Refuses to delete a pod with no controller, since deletion alone wouldn't recreate it.")]
+    #[tool(
+        description = "Delete a pod to force a restart (the controller will recreate it). For Deployments use restart_rollout. Refuses to delete a pod with no controller, since deletion alone wouldn't recreate it."
+    )]
     async fn restart_pod(
         &self,
         Parameters(p): Parameters<NameNamespaceParams>,
@@ -961,7 +993,9 @@ impl K7sMcpServer {
         ))]))
     }
 
-    #[tool(description = "Trigger a rollout restart by patching the workload's pod-template annotation. The controller rolls through its normal update strategy. Works for Deployment, StatefulSet, DaemonSet, ReplicaSet.")]
+    #[tool(
+        description = "Trigger a rollout restart by patching the workload's pod-template annotation. The controller rolls through its normal update strategy. Works for Deployment, StatefulSet, DaemonSet, ReplicaSet."
+    )]
     async fn restart_rollout(
         &self,
         Parameters(p): Parameters<GetResourceParams>,
@@ -975,10 +1009,9 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let (api, _is_helm) =
-            kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
-                .await
-                .map_err(tool_error)?;
+        let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
+            .await
+            .map_err(tool_error)?;
         let now = chrono::Utc::now().to_rfc3339();
         let patch = Patch::Merge(restart::restart_patch(&now));
         api.patch(&p.name, &PatchParams::default(), &patch)
@@ -990,7 +1023,9 @@ impl K7sMcpServer {
         ))]))
     }
 
-    #[tool(description = "Cordon the node, then evict its pods in the background. Returns immediately; track progress by listing pods on the node or re-describing the node. timeout_secs is a hint, not a hard stop — the eviction task runs to completion.")]
+    #[tool(
+        description = "Cordon the node, then evict its pods in the background. Returns immediately; track progress by listing pods on the node or re-describing the node. timeout_secs is a hint, not a hard stop — the eviction task runs to completion."
+    )]
     async fn drain_node(
         &self,
         Parameters(p): Parameters<DrainParams>,
@@ -1025,7 +1060,9 @@ impl K7sMcpServer {
     // Port-forwarding
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Forward a pod's port to localhost. local_port=0 lets the OS pick a free port. Returns { id, localPort, remotePort, pod, namespace } so you can connect to the local endpoint.")]
+    #[tool(
+        description = "Forward a pod's port to localhost. local_port=0 lets the OS pick a free port. Returns { id, localPort, remotePort, pod, namespace } so you can connect to the local endpoint."
+    )]
     async fn start_port_forward(
         &self,
         Parameters(p): Parameters<StartPortForwardParams>,
@@ -1051,7 +1088,9 @@ impl K7sMcpServer {
         json_result(&dto)
     }
 
-    #[tool(description = "Forward a Service port (resolves to a backing pod). Same return shape as start_port_forward; the chosen pod is exposed in the result.")]
+    #[tool(
+        description = "Forward a Service port (resolves to a backing pod). Same return shape as start_port_forward; the chosen pod is exposed in the result."
+    )]
     async fn start_service_port_forward(
         &self,
         Parameters(p): Parameters<StartServiceForwardParams>,
@@ -1060,14 +1099,10 @@ impl K7sMcpServer {
             .await
             .map_err(tool_error)?;
         let manager = self.manager();
-        let (pod, target_port) = portforward::resolve_service(
-            client.clone(),
-            &p.namespace,
-            &p.service,
-            p.service_port,
-        )
-        .await
-        .map_err(tool_error)?;
+        let (pod, target_port) =
+            portforward::resolve_service(client.clone(), &p.namespace, &p.service, p.service_port)
+                .await
+                .map_err(tool_error)?;
         let dto = spawn_forward(
             manager,
             client,
@@ -1091,7 +1126,9 @@ impl K7sMcpServer {
         Ok(CallToolResult::success(vec![Content::text("stopped")]))
     }
 
-    #[tool(description = "List all active port-forwards. Each entry includes the local port (what you connect to) and the pod/service it points at.")]
+    #[tool(
+        description = "List all active port-forwards. Each entry includes the local port (what you connect to) and the pod/service it points at."
+    )]
     async fn list_port_forwards(&self) -> Result<CallToolResult, McpError> {
         let list: Vec<ForwardDto> = self.manager().list_forwards().await;
         json_result(&list)
@@ -1101,7 +1138,9 @@ impl K7sMcpServer {
     // Interactive shells
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Open an interactive shell in a pod container. Returns { shellId, namespace, pod, container } — the shell runs in the background; use shell_input to send keystrokes and shell_resize for terminal size.")]
+    #[tool(
+        description = "Open an interactive shell in a pod container. Returns { shellId, namespace, pod, container } — the shell runs in the background; use shell_input to send keystrokes and shell_resize for terminal size."
+    )]
     async fn start_shell(
         &self,
         Parameters(p): Parameters<StartShellParams>,
@@ -1110,11 +1149,7 @@ impl K7sMcpServer {
             .await
             .map_err(tool_error)?;
         let manager = self.manager();
-        let id = format!(
-            "sh-{}-{}",
-            p.pod,
-            uuid_like(&mut shell_seq()),
-        );
+        let id = format!("sh-{}-{}", p.pod, uuid_like(&mut shell_seq()),);
         let (input_tx, input_rx) = mpsc::channel::<Vec<u8>>(64);
         let (resize_tx, resize_rx) = mpsc::channel::<(u16, u16)>(8);
         let id_for_task = id.clone();
@@ -1137,7 +1172,14 @@ impl K7sMcpServer {
             .await;
         });
         manager
-            .add_shell(id.clone(), ShellSession { task, input_tx, resize_tx })
+            .add_shell(
+                id.clone(),
+                ShellSession {
+                    task,
+                    input_tx,
+                    resize_tx,
+                },
+            )
             .await;
         #[derive(Serialize)]
         #[serde(rename_all = "camelCase")]
@@ -1155,7 +1197,9 @@ impl K7sMcpServer {
         })
     }
 
-    #[tool(description = "Send keystrokes to a shell started with start_shell or start_node_shell. The data is shipped as raw bytes; embed escape sequences the same way you'd type them.")]
+    #[tool(
+        description = "Send keystrokes to a shell started with start_shell or start_node_shell. The data is shipped as raw bytes; embed escape sequences the same way you'd type them."
+    )]
     async fn shell_input(
         &self,
         Parameters(p): Parameters<ShellInputParams>,
@@ -1166,12 +1210,16 @@ impl K7sMcpServer {
         Ok(CallToolResult::success(vec![Content::text("ok")]))
     }
 
-    #[tool(description = "Resize a shell's terminal. Call after the host's terminal is resized so apps that query the size (top, vim, less) behave.")]
+    #[tool(
+        description = "Resize a shell's terminal. Call after the host's terminal is resized so apps that query the size (top, vim, less) behave."
+    )]
     async fn shell_resize(
         &self,
         Parameters(p): Parameters<ShellResizeParams>,
     ) -> Result<CallToolResult, McpError> {
-        self.manager().shell_resize(&p.shell_id, p.cols, p.rows).await;
+        self.manager()
+            .shell_resize(&p.shell_id, p.cols, p.rows)
+            .await;
         Ok(CallToolResult::success(vec![Content::text("ok")]))
     }
 
@@ -1184,7 +1232,9 @@ impl K7sMcpServer {
         Ok(CallToolResult::success(vec![Content::text("stopped")]))
     }
 
-    #[tool(description = "Open a root shell on a node (privileged debug pod). Requires cluster RBAC that lets you create privileged pods in the node-debug namespace. Returns { shellId, namespace, pod } — use shell_input / shell_resize / stop_shell on it. The pod is automatically created, waited on (up to 90s for the image pull), and deleted when you stop the session.")]
+    #[tool(
+        description = "Open a root shell on a node (privileged debug pod). Requires cluster RBAC that lets you create privileged pods in the node-debug namespace. Returns { shellId, namespace, pod } — use shell_input / shell_resize / stop_shell on it. The pod is automatically created, waited on (up to 90s for the image pull), and deleted when you stop the session."
+    )]
     async fn start_node_shell(
         &self,
         Parameters(p): Parameters<DrainParams>,
@@ -1213,9 +1263,12 @@ impl K7sMcpServer {
 
         let pod_name = nodeshell::pod_name(&p.node, uuid_like(&mut shell_seq()));
         let image = nodeshell::DEFAULT_IMAGE.to_string();
-        api.create(&PostParams::default(), &nodeshell::debug_pod_spec(&p.node, &image, &pod_name))
-            .await
-            .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
+        api.create(
+            &PostParams::default(),
+            &nodeshell::debug_pod_spec(&p.node, &image, &pod_name),
+        )
+        .await
+        .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
 
         // Wait for Running, with a 90s ceiling — long enough for a slow
         // image pull, short enough that an unreachable node doesn't hang
@@ -1291,7 +1344,14 @@ impl K7sMcpServer {
             .await;
         });
         manager
-            .add_shell(id.clone(), ShellSession { task, input_tx, resize_tx })
+            .add_shell(
+                id.clone(),
+                ShellSession {
+                    task,
+                    input_tx,
+                    resize_tx,
+                },
+            )
             .await;
 
         #[derive(Serialize)]
@@ -1319,7 +1379,11 @@ impl K7sMcpServer {
             let api: Api<Pod> = Api::namespaced(client, nodeshell::DEBUG_NAMESPACE);
             // The shell_id is \"nsh-<pod-name>\"; strip the prefix to delete
             // the right pod.
-            let pod = p.shell_id.strip_prefix("nsh-").unwrap_or(&p.shell_id).to_string();
+            let pod = p
+                .shell_id
+                .strip_prefix("nsh-")
+                .unwrap_or(&p.shell_id)
+                .to_string();
             let _ = api
                 .delete(
                     &pod,
@@ -1337,26 +1401,47 @@ impl K7sMcpServer {
     // Convenience getters
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Default path to kubectl's kubeconfig, used to pre-point the import dialog in the UI. Read-only.")]
+    #[tool(
+        description = "Default path to kubectl's kubeconfig, used to pre-point the import dialog in the UI. Read-only."
+    )]
     async fn default_kubeconfig_path(&self) -> Result<CallToolResult, McpError> {
         Ok(CallToolResult::success(vec![Content::text(
             kube_client::default_kubeconfig_path(),
         )]))
     }
 
-    #[tool(description = "Built-in kind ids the MCP server knows how to resolve. Custom kinds (CRDs) are not in this list — discover them with list_custom_kinds.")]
+    #[tool(
+        description = "Built-in kind ids the MCP server knows how to resolve. Custom kinds (CRDs) are not in this list — discover them with list_custom_kinds."
+    )]
     async fn list_builtin_kinds(&self) -> Result<CallToolResult, McpError> {
         let kinds: Vec<&'static str> = vec![
-            "pods", "deployments", "replicasets", "statefulsets", "daemonsets",
-            "jobs", "cronjobs", "services", "ingresses", "ingressclasses",
-            "configmaps", "secrets", "serviceaccounts", "persistentvolumeclaims",
-            "persistentvolumes", "storageclasses", "nodes", "namespaces",
-            "events", "helm",
+            "pods",
+            "deployments",
+            "replicasets",
+            "statefulsets",
+            "daemonsets",
+            "jobs",
+            "cronjobs",
+            "services",
+            "ingresses",
+            "ingressclasses",
+            "configmaps",
+            "secrets",
+            "serviceaccounts",
+            "persistentvolumeclaims",
+            "persistentvolumes",
+            "storageclasses",
+            "nodes",
+            "namespaces",
+            "events",
+            "helm",
         ];
         json_result(&kinds)
     }
 
-    #[tool(description = "List the CRD-backed kinds discovered on connect. These are the kinds you can pass to list_resources / get_resource / describe_resource beyond the built-in ones.")]
+    #[tool(
+        description = "List the CRD-backed kinds discovered on connect. These are the kinds you can pass to list_resources / get_resource / describe_resource beyond the built-in ones."
+    )]
     async fn list_custom_kinds(&self) -> Result<CallToolResult, McpError> {
         // Read the manager's custom-kinds map by re-running discovery is
         // the simplest path; the kinds are already cached on connect.
@@ -1387,7 +1472,9 @@ impl K7sMcpServer {
     // Helm operations (install / upgrade / uninstall / rollback / history)
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Install a Helm chart (helm install). Streams progress to the event sink; returns the final result. The release name is required.")]
+    #[tool(
+        description = "Install a Helm chart (helm install). Streams progress to the event sink; returns the final result. The release name is required."
+    )]
     async fn helm_install(
         &self,
         Parameters(p): Parameters<HelmInstallParams>,
@@ -1407,7 +1494,9 @@ impl K7sMcpServer {
         json_result(&result)
     }
 
-    #[tool(description = "Upgrade a Helm release (helm upgrade). Creates the release if absent. Supports reuseValues, rollbackOnFailure, and dryRun.")]
+    #[tool(
+        description = "Upgrade a Helm release (helm upgrade). Creates the release if absent. Supports reuseValues, rollbackOnFailure, and dryRun."
+    )]
     async fn helm_upgrade(
         &self,
         Parameters(p): Parameters<HelmUpgradeParams>,
@@ -1428,7 +1517,9 @@ impl K7sMcpServer {
         json_result(&result)
     }
 
-    #[tool(description = "Uninstall a Helm release (helm uninstall). Set keepHistory=true to retain revisions for a later rollback.")]
+    #[tool(
+        description = "Uninstall a Helm release (helm uninstall). Set keepHistory=true to retain revisions for a later rollback."
+    )]
     async fn helm_uninstall(
         &self,
         Parameters(p): Parameters<HelmUninstallParams>,
@@ -1444,7 +1535,9 @@ impl K7sMcpServer {
         json_result(&result)
     }
 
-    #[tool(description = "Roll back a Helm release to a previous revision (helm rollback). revision is optional — empty rolls back to the previous one.")]
+    #[tool(
+        description = "Roll back a Helm release to a previous revision (helm rollback). revision is optional — empty rolls back to the previous one."
+    )]
     async fn helm_rollback(
         &self,
         Parameters(p): Parameters<HelmRollbackParams>,
@@ -1460,7 +1553,9 @@ impl K7sMcpServer {
         json_result(&result)
     }
 
-    #[tool(description = "Fetch the revision history for a Helm release (helm history). Returns one row per revision with status, chart, and app version.")]
+    #[tool(
+        description = "Fetch the revision history for a Helm release (helm history). Returns one row per revision with status, chart, and app version."
+    )]
     async fn helm_history(
         &self,
         Parameters(p): Parameters<HelmHistoryParams>,
@@ -1471,7 +1566,9 @@ impl K7sMcpServer {
         json_result(&rows)
     }
 
-    #[tool(description = "Render a chart's default values.yaml (helm show values). Useful to prefill the values editor before helm_install/helm_upgrade.")]
+    #[tool(
+        description = "Render a chart's default values.yaml (helm show values). Useful to prefill the values editor before helm_install/helm_upgrade."
+    )]
     async fn helm_show_values(
         &self,
         Parameters(p): Parameters<HelmShowValuesParams>,
@@ -1486,13 +1583,17 @@ impl K7sMcpServer {
     // Helm chart repository management
     // -----------------------------------------------------------------------
 
-    #[tool(description = "List the user's configured Helm chart repositories, with last refresh status.")]
+    #[tool(
+        description = "List the user's configured Helm chart repositories, with last refresh status."
+    )]
     async fn helm_list_repos(&self) -> Result<CallToolResult, McpError> {
         let repos = helm_market::list_repos().map_err(tool_error)?;
         json_result(&repos)
     }
 
-    #[tool(description = "Search across every cached Helm repo index. Empty query returns everything.")]
+    #[tool(
+        description = "Search across every cached Helm repo index. Empty query returns everything."
+    )]
     async fn helm_search_charts(
         &self,
         Parameters(p): Parameters<HelmSearchParams>,
@@ -1506,8 +1607,7 @@ impl K7sMcpServer {
         &self,
         Parameters(p): Parameters<HelmRepoParams>,
     ) -> Result<CallToolResult, McpError> {
-        let repo = helm_market::add_repo(&p.name, &p.url, &p.description)
-            .map_err(tool_error)?;
+        let repo = helm_market::add_repo(&p.name, &p.url, &p.description).map_err(tool_error)?;
         json_result(&repo)
     }
 
@@ -1520,7 +1620,9 @@ impl K7sMcpServer {
         Ok(CallToolResult::success(vec![Content::text("removed")]))
     }
 
-    #[tool(description = "Re-fetch a Helm repo's index from its URL. Returns the updated repo entry.")]
+    #[tool(
+        description = "Re-fetch a Helm repo's index from its URL. Returns the updated repo entry."
+    )]
     async fn helm_update_repo(
         &self,
         Parameters(p): Parameters<HelmRepoNameParams>,
@@ -1535,7 +1637,9 @@ impl K7sMcpServer {
     // One-shot exec, rollout status, top, cronjob trigger
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Run a single command in a pod container and return its stdout (kubectl exec). Non-interactive, non-TTY. The command runs via /bin/sh -c; stderr is merged into stdout.")]
+    #[tool(
+        description = "Run a single command in a pod container and return its stdout (kubectl exec). Non-interactive, non-TTY. The command runs via /bin/sh -c; stderr is merged into stdout."
+    )]
     async fn exec_command(
         &self,
         Parameters(p): Parameters<ExecParams>,
@@ -1543,7 +1647,11 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let container = if p.container.is_empty() {
+            None
+        } else {
+            Some(p.container.as_str())
+        };
         let argv = vec!["/bin/sh".to_string(), "-c".to_string(), p.command];
         let out = kube_api::exec_capture(&client, &p.namespace, &p.pod, container, argv)
             .await
@@ -1551,7 +1659,9 @@ impl K7sMcpServer {
         Ok(CallToolResult::success(vec![Content::text(out)]))
     }
 
-    #[tool(description = "Inspect a workload's rollout state (kubectl rollout status). Returns replica counts, conditions, and a `done` flag. Accepts deployments, statefulsets, daemonsets, replicasets.")]
+    #[tool(
+        description = "Inspect a workload's rollout state (kubectl rollout status). Returns replica counts, conditions, and a `done` flag. Accepts deployments, statefulsets, daemonsets, replicasets."
+    )]
     async fn rollout_status(
         &self,
         Parameters(p): Parameters<GetResourceParams>,
@@ -1562,7 +1672,9 @@ impl K7sMcpServer {
         json_result(&status)
     }
 
-    #[tool(description = "Snapshot of per-pod CPU/memory usage from metrics.k8s.io (kubectl top pods). Requires metrics-server.")]
+    #[tool(
+        description = "Snapshot of per-pod CPU/memory usage from metrics.k8s.io (kubectl top pods). Requires metrics-server."
+    )]
     async fn top_pods(
         &self,
         Parameters(p): Parameters<TopPodsParams>,
@@ -1570,12 +1682,18 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let ns = if p.namespace.is_empty() { None } else { Some(p.namespace.as_str()) };
+        let ns = if p.namespace.is_empty() {
+            None
+        } else {
+            Some(p.namespace.as_str())
+        };
         let rows = kube_api::top_pods(&client, ns).await.map_err(tool_error)?;
         json_result(&rows)
     }
 
-    #[tool(description = "Snapshot of per-node CPU/memory usage and capacity (kubectl top nodes). Requires metrics-server.")]
+    #[tool(
+        description = "Snapshot of per-node CPU/memory usage and capacity (kubectl top nodes). Requires metrics-server."
+    )]
     async fn top_nodes(&self) -> Result<CallToolResult, McpError> {
         let client = kube_api::require_client(&self.manager())
             .await
@@ -1584,7 +1702,9 @@ impl K7sMcpServer {
         json_result(&rows)
     }
 
-    #[tool(description = "Manually trigger a CronJob by creating a Job from its spec (kubectl create job --from=cronjob/<name>). Returns the new Job's name.")]
+    #[tool(
+        description = "Manually trigger a CronJob by creating a Job from its spec (kubectl create job --from=cronjob/<name>). Returns the new Job's name."
+    )]
     async fn trigger_cronjob(
         &self,
         Parameters(p): Parameters<NameNamespaceNameParams>,
@@ -1605,7 +1725,9 @@ impl K7sMcpServer {
     // Multi-document YAML apply / dry-run
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Apply a multi-document YAML bundle (documents separated by ---). Each doc is applied via server-side apply; stops at the first error and returns per-document status.")]
+    #[tool(
+        description = "Apply a multi-document YAML bundle (documents separated by ---). Each doc is applied via server-side apply; stops at the first error and returns per-document status."
+    )]
     async fn apply_yaml_bundle(
         &self,
         Parameters(p): Parameters<YamlBundleParams>,
@@ -1619,7 +1741,9 @@ impl K7sMcpServer {
         json_result(&results)
     }
 
-    #[tool(description = "Dry-run a multi-document YAML bundle without writing anything. Returns per-document proposed YAML and any error.")]
+    #[tool(
+        description = "Dry-run a multi-document YAML bundle without writing anything. Returns per-document proposed YAML and any error."
+    )]
     async fn dry_run_yaml_bundle(
         &self,
         Parameters(p): Parameters<YamlBundleParams>,
@@ -1637,7 +1761,9 @@ impl K7sMcpServer {
     // API resources discovery + Endpoints
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Discover every resource the API server serves (kubectl api-resources). Returns name, group, version, kind, namespaced, verbs for each.")]
+    #[tool(
+        description = "Discover every resource the API server serves (kubectl api-resources). Returns name, group, version, kind, namespaced, verbs for each."
+    )]
     async fn list_api_resources(&self) -> Result<CallToolResult, McpError> {
         let client = kube_api::require_client(&self.manager())
             .await
@@ -1648,7 +1774,9 @@ impl K7sMcpServer {
         json_result(&rows)
     }
 
-    #[tool(description = "List EndpointSlices. Optional namespace scopes the list; optional service filters to one Service's slices. Without filters, lists cluster-wide.")]
+    #[tool(
+        description = "List EndpointSlices. Optional namespace scopes the list; optional service filters to one Service's slices. Without filters, lists cluster-wide."
+    )]
     async fn list_endpoints(
         &self,
         Parameters(p): Parameters<ListEndpointsParams>,
@@ -1674,7 +1802,9 @@ impl K7sMcpServer {
     // Pod file operations
     // -----------------------------------------------------------------------
 
-    #[tool(description = "List a directory inside a pod container. Returns file/dir/symlink entries with size, mtime, and POSIX mode.")]
+    #[tool(
+        description = "List a directory inside a pod container. Returns file/dir/symlink entries with size, mtime, and POSIX mode."
+    )]
     async fn pod_list_files(
         &self,
         Parameters(p): Parameters<PodFileParams>,
@@ -1682,7 +1812,11 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let container = if p.container.is_empty() {
+            None
+        } else {
+            Some(p.container.as_str())
+        };
         let entries = pod_files::list_dir(client, &p.namespace, &p.pod, container, &p.path)
             .await
             .map_err(tool_error)?;
@@ -1697,14 +1831,20 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let container = if p.container.is_empty() {
+            None
+        } else {
+            Some(p.container.as_str())
+        };
         let text = pod_files::read_file(client, &p.namespace, &p.pod, container, &p.path)
             .await
             .map_err(tool_error)?;
         Ok(CallToolResult::success(vec![Content::text(text)]))
     }
 
-    #[tool(description = "Write a file inside a pod container. Creates parent directories as needed.")]
+    #[tool(
+        description = "Write a file inside a pod container. Creates parent directories as needed."
+    )]
     async fn pod_write_file(
         &self,
         Parameters(p): Parameters<PodFileWriteParams>,
@@ -1712,7 +1852,11 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let container = if p.container.is_empty() {
+            None
+        } else {
+            Some(p.container.as_str())
+        };
         pod_files::write_file(client, &p.namespace, &p.pod, container, &p.path, &p.content)
             .await
             .map_err(tool_error)?;
@@ -1728,7 +1872,11 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let container = if p.container.is_empty() {
+            None
+        } else {
+            Some(p.container.as_str())
+        };
         let bytes = pod_files::download_path(client, &p.namespace, &p.pod, container, &p.path)
             .await
             .map_err(tool_error)?;
@@ -1736,7 +1884,9 @@ impl K7sMcpServer {
         Ok(CallToolResult::success(vec![Content::text(b64)]))
     }
 
-    #[tool(description = "Upload a base64-encoded tar archive into a directory inside a pod container.")]
+    #[tool(
+        description = "Upload a base64-encoded tar archive into a directory inside a pod container."
+    )]
     async fn pod_upload_file(
         &self,
         Parameters(p): Parameters<PodFileUploadParams>,
@@ -1748,7 +1898,11 @@ impl K7sMcpServer {
         let bytes = base64::engine::general_purpose::STANDARD
             .decode(&p.tar_b64)
             .map_err(|e| tool_error(AppError::Other(format!("base64 decode: {e}"))))?;
-        let container = if p.container.is_empty() { None } else { Some(p.container.as_str()) };
+        let container = if p.container.is_empty() {
+            None
+        } else {
+            Some(p.container.as_str())
+        };
         pod_files::upload_path(client, &p.namespace, &p.pod, container, &p.dest_dir, &bytes)
             .await
             .map_err(tool_error)?;
@@ -1759,7 +1913,9 @@ impl K7sMcpServer {
     // Import kubeconfig content
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Register every context in a kubeconfig YAML blob so a later `connect` can build from it. Returns the merged context list.")]
+    #[tool(
+        description = "Register every context in a kubeconfig YAML blob so a later `connect` can build from it. Returns the merged context list."
+    )]
     async fn import_kubeconfig(
         &self,
         Parameters(p): Parameters<ImportKubeconfigParams>,
@@ -1804,7 +1960,9 @@ impl K7sMcpServer {
     // Monitoring: Prometheus / AlertManager / Grafana
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Run an instant PromQL query against a configured Prometheus instance (by name).")]
+    #[tool(
+        description = "Run an instant PromQL query against a configured Prometheus instance (by name)."
+    )]
     async fn prometheus_query(
         &self,
         Parameters(p): Parameters<PrometheusQueryParams>,
@@ -1815,14 +1973,17 @@ impl K7sMcpServer {
         json_result(&result)
     }
 
-    #[tool(description = "Run a range PromQL query (start/end epoch-ms, step seconds) against a configured Prometheus instance.")]
+    #[tool(
+        description = "Run a range PromQL query (start/end epoch-ms, step seconds) against a configured Prometheus instance."
+    )]
     async fn prometheus_query_range(
         &self,
         Parameters(p): Parameters<PrometheusQueryRangeParams>,
     ) -> Result<CallToolResult, McpError> {
-        let result = metrics_config::query_range(&p.name, &p.promql, p.start_ms, p.end_ms, p.step_seconds)
-            .await
-            .map_err(tool_error)?;
+        let result =
+            metrics_config::query_range(&p.name, &p.promql, p.start_ms, p.end_ms, p.step_seconds)
+                .await
+                .map_err(tool_error)?;
         json_result(&result)
     }
 
@@ -1840,19 +2001,19 @@ impl K7sMcpServer {
         &self,
         Parameters(p): Parameters<InstanceNameParams>,
     ) -> Result<CallToolResult, McpError> {
-        let silences = alerting::list_silences(&p.name)
-            .await
-            .map_err(tool_error)?;
+        let silences = alerting::list_silences(&p.name).await.map_err(tool_error)?;
         json_result(&silences)
     }
 
-    #[tool(description = "Build a direct Grafana dashboard URL (by instance name, dashboard uid, from/to epoch-ms).")]
+    #[tool(
+        description = "Build a direct Grafana dashboard URL (by instance name, dashboard uid, from/to epoch-ms)."
+    )]
     async fn grafana_dashboard_url(
         &self,
         Parameters(p): Parameters<GrafanaDashboardParams>,
     ) -> Result<CallToolResult, McpError> {
-        let url = grafana::dashboard_url(&p.name, &p.uid, p.from_ms, p.to_ms)
-            .map_err(tool_error)?;
+        let url =
+            grafana::dashboard_url(&p.name, &p.uid, p.from_ms, p.to_ms).map_err(tool_error)?;
         Ok(CallToolResult::success(vec![Content::text(url)]))
     }
 
@@ -1860,7 +2021,9 @@ impl K7sMcpServer {
     // Image registry queries
     // -----------------------------------------------------------------------
 
-    #[tool(description = "List tags for a repository in a configured image registry (by registry name).")]
+    #[tool(
+        description = "List tags for a repository in a configured image registry (by registry name)."
+    )]
     async fn image_registry_tags(
         &self,
         Parameters(p): Parameters<ImageRegistryRepoParams>,
@@ -1869,7 +2032,12 @@ impl K7sMcpServer {
             .map_err(tool_error)?
             .into_iter()
             .find(|r| r.name == p.name)
-            .ok_or_else(|| tool_error(AppError::NotFound(format!("registry '{}' not found", p.name))))?;
+            .ok_or_else(|| {
+                tool_error(AppError::NotFound(format!(
+                    "registry '{}' not found",
+                    p.name
+                )))
+            })?;
         let tags = imagerepo::list_tags(&reg, &p.repo)
             .await
             .map_err(tool_error)?;
@@ -1885,14 +2053,21 @@ impl K7sMcpServer {
             .map_err(tool_error)?
             .into_iter()
             .find(|r| r.name == p.name)
-            .ok_or_else(|| tool_error(AppError::NotFound(format!("registry '{}' not found", p.name))))?;
+            .ok_or_else(|| {
+                tool_error(AppError::NotFound(format!(
+                    "registry '{}' not found",
+                    p.name
+                )))
+            })?;
         let manifest = imagerepo::manifest(&reg, &p.repo, &p.tag)
             .await
             .map_err(tool_error)?;
         json_result(&manifest)
     }
 
-    #[tool(description = "Run a previously-saved PromQL query (by saved-query name) against a Prometheus instance. Set forceRefresh=true to bypass the cache.")]
+    #[tool(
+        description = "Run a previously-saved PromQL query (by saved-query name) against a Prometheus instance. Set forceRefresh=true to bypass the cache."
+    )]
     async fn saved_query_run(
         &self,
         Parameters(p): Parameters<SavedQueryRunParams>,
@@ -1901,7 +2076,12 @@ impl K7sMcpServer {
             .map_err(tool_error)?
             .into_iter()
             .find(|q| q.name == p.name)
-            .ok_or_else(|| tool_error(AppError::NotFound(format!("saved query '{}' not found", p.name))))?;
+            .ok_or_else(|| {
+                tool_error(AppError::NotFound(format!(
+                    "saved query '{}' not found",
+                    p.name
+                )))
+            })?;
         let result = saved_queries::run_saved(&query, &p.instance, p.force_refresh)
             .await
             .map_err(tool_error)?;
@@ -1912,19 +2092,27 @@ impl K7sMcpServer {
     // Image sync / import (air-gapped clusters)
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Check whether skopeo is installed and usable. Call this before image_copy to confirm the host can sync images. Returns the resolved path and version, or an install hint.")]
+    #[tool(
+        description = "Check whether skopeo is installed and usable. Call this before image_copy to confirm the host can sync images. Returns the resolved path and version, or an install hint."
+    )]
     async fn image_sync_status(&self) -> Result<CallToolResult, McpError> {
         let avail = image_sync::check_skopeo().await;
         json_result(&avail)
     }
 
-    #[tool(description = "Copy an image into a configured destination registry using skopeo (air-gapped / offline clusters). `source` is any skopeo transport: docker://nginx:1.25 (public registry), docker-archive:/tmp/img.tar (local docker-save tarball), oci:…, dir:…. The destination registry is resolved by name from the configured image registries (its stored credentials are used automatically). Streams copy progress to the event sink.")]
+    #[tool(
+        description = "Copy an image into a configured destination registry using skopeo (air-gapped / offline clusters). `source` is any skopeo transport: docker://nginx:1.25 (public registry), docker-archive:/tmp/img.tar (local docker-save tarball), oci:…, dir:…. The destination registry is resolved by name from the configured image registries (its stored credentials are used automatically). Streams copy progress to the event sink."
+    )]
     async fn image_copy(
         &self,
         Parameters(p): Parameters<ImageCopyParams>,
     ) -> Result<CallToolResult, McpError> {
         let sink = self.manager().sink();
-        let src_creds = if p.src_creds.is_empty() { None } else { Some(p.src_creds.as_str()) };
+        let src_creds = if p.src_creds.is_empty() {
+            None
+        } else {
+            Some(p.src_creds.as_str())
+        };
         let result = image_sync::copy_image(
             &p.source,
             &p.dest_registry,
@@ -1940,7 +2128,9 @@ impl K7sMcpServer {
         json_result(&result)
     }
 
-    #[tool(description = "Inspect a local docker-save tarball (or OCI archive) before copying it: returns the image name, tags, digest, architecture, os, and total size. Use this to confirm a tar's contents before image_copy.")]
+    #[tool(
+        description = "Inspect a local docker-save tarball (or OCI archive) before copying it: returns the image name, tags, digest, architecture, os, and total size. Use this to confirm a tar's contents before image_copy."
+    )]
     async fn image_inspect_archive(
         &self,
         Parameters(p): Parameters<ImageArchiveParams>,
@@ -1955,16 +2145,20 @@ impl K7sMcpServer {
     // Phase 4 — Enhanced AI integration tools
     // -----------------------------------------------------------------------
 
-    #[tool(description = "Auto-diagnose cluster issues. Checks node health, pod failures, deployment availability, recent warning events, and resource pressure. Returns a structured diagnostic report with severity levels and recommendations.")]
-    async fn diagnose_cluster(
-        &self,
-    ) -> Result<CallToolResult, McpError> {
-        let client = kube_api::require_client(&self.manager()).await.map_err(tool_error)?;
+    #[tool(
+        description = "Auto-diagnose cluster issues. Checks node health, pod failures, deployment availability, recent warning events, and resource pressure. Returns a structured diagnostic report with severity levels and recommendations."
+    )]
+    async fn diagnose_cluster(&self) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
         let mut issues: Vec<serde_json::Value> = Vec::new();
 
         // Check nodes
-        let nodes: Vec<k8s_openapi::api::core::v1::Node> =
-            kube::Api::all(client.clone()).list(&Default::default()).await.map_err(tool_error)?;
+        let nodes: Vec<k8s_openapi::api::core::v1::Node> = kube::Api::all(client.clone())
+            .list(&Default::default())
+            .await
+            .map_err(tool_error)?;
         for node in &nodes.items {
             let name = node.metadata.name.clone().unwrap_or_default();
             let conditions = node.status.as_ref().and_then(|s| s.conditions.as_ref());
@@ -1976,7 +2170,9 @@ impl K7sMcpServer {
                             "issue": "NotReady", "message": c.message.as_deref().unwrap_or("")
                         }));
                     }
-                    if (c.type_ == "DiskPressure" || c.type_ == "MemoryPressure") && c.status == "True" {
+                    if (c.type_ == "DiskPressure" || c.type_ == "MemoryPressure")
+                        && c.status == "True"
+                    {
                         issues.push(serde_json::json!({
                             "severity": "warning", "kind": "Node", "name": name,
                             "issue": c.type_, "message": c.message.as_deref().unwrap_or("")
@@ -1988,18 +2184,32 @@ impl K7sMcpServer {
 
         // Check pods
         let pods: Vec<k8s_openapi::api::core::v1::Pod> =
-            kube::Api::<k8s_openapi::api::core::v1::Pod>::all(client.clone()).list(&Default::default()).await.map_err(tool_error)?;
+            kube::Api::<k8s_openapi::api::core::v1::Pod>::all(client.clone())
+                .list(&Default::default())
+                .await
+                .map_err(tool_error)?;
         let mut failed_count = 0;
         for pod in &pods.items {
-            let phase = pod.status.as_ref().and_then(|s| s.phase.as_deref()).unwrap_or("");
+            let phase = pod
+                .status
+                .as_ref()
+                .and_then(|s| s.phase.as_deref())
+                .unwrap_or("");
             if phase == "Failed" {
                 failed_count += 1;
             }
-            if let Some(statuses) = pod.status.as_ref().and_then(|s| s.container_statuses.as_ref()) {
+            if let Some(statuses) = pod
+                .status
+                .as_ref()
+                .and_then(|s| s.container_statuses.as_ref())
+            {
                 for cs in statuses {
                     if let Some(waiting) = &cs.waiting {
                         if let Some(reason) = &waiting.reason {
-                            if reason == "CrashLoopBackOff" || reason == "ImagePullBackOff" || reason == "ErrImagePull" {
+                            if reason == "CrashLoopBackOff"
+                                || reason == "ImagePullBackOff"
+                                || reason == "ErrImagePull"
+                            {
                                 issues.push(serde_json::json!({
                                     "severity": "critical", "kind": "Pod",
                                     "name": format!("{}/{}", pod.metadata.namespace.as_deref().unwrap_or(""), pod.metadata.name.as_deref().unwrap_or("?")),
@@ -2021,12 +2231,19 @@ impl K7sMcpServer {
 
         // Check deployments
         let deployments: Vec<k8s_openapi::api::apps::v1::Deployment> =
-            kube::Api::all(client.clone()).list(&Default::default()).await.map_err(tool_error)?;
+            kube::Api::all(client.clone())
+                .list(&Default::default())
+                .await
+                .map_err(tool_error)?;
         for dep in &deployments.items {
             let name = dep.metadata.name.clone().unwrap_or_default();
             let ns = dep.metadata.namespace.clone().unwrap_or_default();
             let spec_replicas = dep.spec.as_ref().and_then(|s| s.replicas).unwrap_or(1);
-            let ready = dep.status.as_ref().and_then(|s| s.ready_replicas).unwrap_or(0);
+            let ready = dep
+                .status
+                .as_ref()
+                .and_then(|s| s.ready_replicas)
+                .unwrap_or(0);
             if ready < spec_replicas {
                 issues.push(serde_json::json!({
                     "severity": "warning", "kind": "Deployment",
@@ -2043,26 +2260,38 @@ impl K7sMcpServer {
         }))
     }
 
-    #[tool(description = "Suggest fixes for a specific resource problem. Examines the resource's status, conditions, and events to propose actionable fixes (scale, restart, rollback, edit image, etc.).")]
+    #[tool(
+        description = "Suggest fixes for a specific resource problem. Examines the resource's status, conditions, and events to propose actionable fixes (scale, restart, rollback, edit image, etc.)."
+    )]
     async fn suggest_fix(
         &self,
         Parameters(p): Parameters<GetResourceParams>,
     ) -> Result<CallToolResult, McpError> {
-        let client = kube_api::require_client(&self.manager()).await.map_err(tool_error)?;
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
         let kind_id = p.kind.to_lowercase();
         let ns = p.namespace.as_deref().unwrap_or("default");
 
         // Get the resource YAML
-        let yaml = kube_api::get_resource_yaml(&client, &kind_id, ns, &p.name).await.map_err(tool_error)?;
-        let val: serde_json::Value = serde_yaml::from_str(&yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let yaml = kube_api::get_resource_yaml(&client, &kind_id, ns, &p.name)
+            .await
+            .map_err(tool_error)?;
+        let val: serde_json::Value =
+            serde_yaml::from_str(&yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         // Get events
-        let events = kube_api::get_object_events(&client, &kind_id, ns, &p.name).await.unwrap_or_default();
+        let events = kube_api::get_object_events(&client, &kind_id, ns, &p.name)
+            .await
+            .unwrap_or_default();
 
         let mut suggestions: Vec<serde_json::Value> = Vec::new();
 
         // Check container statuses for common issues
-        if let Some(statuses) = val.pointer("/status/containerStatuses").and_then(|s| s.as_array()) {
+        if let Some(statuses) = val
+            .pointer("/status/containerStatuses")
+            .and_then(|s| s.as_array())
+        {
             for cs in statuses {
                 let state = cs.get("state");
                 if let Some(waiting) = state.and_then(|s| s.get("waiting")) {
@@ -2082,7 +2311,12 @@ impl K7sMcpServer {
                                 "action": "check_image", "description": "Image pull failed. Verify the image name, tag, and registry credentials."
                             }));
                         }
-                        "OOMKilled" | _ if cs.pointer("/state/terminated/reason").and_then(|r| r.as_str()) == Some("OOMKilled") => {
+                        "OOMKilled" | _
+                            if cs
+                                .pointer("/state/terminated/reason")
+                                .and_then(|r| r.as_str())
+                                == Some("OOMKilled") =>
+                        {
                             suggestions.push(serde_json::json!({
                                 "action": "increase_memory", "description": "Container was OOMKilled. Increase memory limits in the pod spec."
                             }));
@@ -2114,7 +2348,9 @@ impl K7sMcpServer {
         }))
     }
 
-    #[tool(description = "Find resources by label selector. Returns matching resources with their key metadata. Useful for finding all pods belonging to a deployment, or all resources with a specific label.")]
+    #[tool(
+        description = "Find resources by label selector. Returns matching resources with their key metadata. Useful for finding all pods belonging to a deployment, or all resources with a specific label."
+    )]
     async fn find_resources_by_label(
         &self,
         Parameters(p): Parameters<FindByLabelParams>,
@@ -2128,46 +2364,65 @@ impl K7sMcpServer {
         json_result(&serde_json::json!({ "count": results.len(), "items": results }))
     }
 
-    #[tool(description = "Create an AlertManager silence to suppress matching alerts for a duration. matchers is an array of {name, value, isRegex}; durationHours sets the silence length (default 4h). Returns the silence ID.")]
+    #[tool(
+        description = "Create an AlertManager silence to suppress matching alerts for a duration. matchers is an array of {name, value, isRegex}; durationHours sets the silence length (default 4h). Returns the silence ID."
+    )]
     async fn create_silence(
         &self,
         Parameters(p): Parameters<CreateSilenceParams>,
     ) -> Result<CallToolResult, McpError> {
-        let ends_at = (chrono::Utc::now() + chrono::Duration::hours(p.duration_hours.unwrap_or(4))).to_rfc3339();
+        let ends_at = (chrono::Utc::now() + chrono::Duration::hours(p.duration_hours.unwrap_or(4)))
+            .to_rfc3339();
         let request = alerting::CreateSilenceRequest {
-            matchers: p.matchers.iter().map(|m| alerting::SilenceMatcher {
-                name: m.name.clone(),
-                value: m.value.clone(),
-                is_regex: m.is_regex.unwrap_or(false),
-            }).collect(),
+            matchers: p
+                .matchers
+                .iter()
+                .map(|m| alerting::SilenceMatcher {
+                    name: m.name.clone(),
+                    value: m.value.clone(),
+                    is_regex: m.is_regex.unwrap_or(false),
+                })
+                .collect(),
             comment: p.comment.unwrap_or_default(),
             created_by: "k7s-mcp".to_string(),
             starts_at: String::new(),
             ends_at,
         };
-        let id = alerting::create_silence(&p.instance, &request).await.map_err(tool_error)?;
+        let id = alerting::create_silence(&p.instance, &request)
+            .await
+            .map_err(tool_error)?;
         json_result(&serde_json::json!({ "silenceId": id }))
     }
 
-    #[tool(description = "Expire (delete) an AlertManager silence by ID. The silence will immediately stop suppressing alerts.")]
+    #[tool(
+        description = "Expire (delete) an AlertManager silence by ID. The silence will immediately stop suppressing alerts."
+    )]
     async fn delete_silence(
         &self,
         Parameters(p): Parameters<DeleteSilenceParams>,
     ) -> Result<CallToolResult, McpError> {
-        alerting::delete_silence(&p.instance, &p.silence_id).await.map_err(tool_error)?;
+        alerting::delete_silence(&p.instance, &p.silence_id)
+            .await
+            .map_err(tool_error)?;
         json_result(&serde_json::json!({ "deleted": true }))
     }
 
-    #[tool(description = "List alerting rules from a Prometheus instance. Returns rule groups with their alerting rules (name, state, severity, query, duration).")]
+    #[tool(
+        description = "List alerting rules from a Prometheus instance. Returns rule groups with their alerting rules (name, state, severity, query, duration)."
+    )]
     async fn list_alert_rules(
         &self,
         Parameters(p): Parameters<InstanceNameParams>,
     ) -> Result<CallToolResult, McpError> {
-        let groups = alerting::prometheus_rules(&p.name).await.map_err(tool_error)?;
+        let groups = alerting::prometheus_rules(&p.name)
+            .await
+            .map_err(tool_error)?;
         json_result(&groups)
     }
 
-    #[tool(description = "Search K8s audit logs from a configured Loki instance. Filters: namespace, resource, user, sinceSeconds (default 3600), limit (default 200). Returns parsed audit events with verb, resource, user, status code, and timestamps.")]
+    #[tool(
+        description = "Search K8s audit logs from a configured Loki instance. Filters: namespace, resource, user, sinceSeconds (default 3600), limit (default 200). Returns parsed audit events with verb, resource, user, status code, and timestamps."
+    )]
     async fn audit_search(
         &self,
         Parameters(p): Parameters<AuditSearchParams>,
@@ -2180,41 +2435,64 @@ impl K7sMcpServer {
             since_seconds: p.since_seconds.unwrap_or(3600),
             limit: p.limit.unwrap_or(200) as usize,
         };
-        let events = audit::query_audit_events(&query).await.map_err(tool_error)?;
+        let events = audit::query_audit_events(&query)
+            .await
+            .map_err(tool_error)?;
         json_result(&events)
     }
 
-    #[tool(description = "Search Grafana dashboards by query string. Returns matching dashboards with uid, title, tags, and URL. Use grafana_dashboard_url with the returned uid to build an embeddable URL.")]
+    #[tool(
+        description = "Search Grafana dashboards by query string. Returns matching dashboards with uid, title, tags, and URL. Use grafana_dashboard_url with the returned uid to build an embeddable URL."
+    )]
     async fn grafana_search(
         &self,
         Parameters(p): Parameters<GrafanaSearchParams>,
     ) -> Result<CallToolResult, McpError> {
-        let results = grafana::search_dashboards(&p.name, &p.query).await.map_err(tool_error)?;
+        let results = grafana::search_dashboards(&p.name, &p.query)
+            .await
+            .map_err(tool_error)?;
         json_result(&results)
     }
 
-    #[tool(description = "Get the current cluster health score (0-100, letter grade A-F) with individual check results for node readiness, pod health, deployment availability, resource pressure, PVC status, and more.")]
-    async fn cluster_health(
-        &self,
-    ) -> Result<CallToolResult, McpError> {
-        let client = kube_api::require_client(&self.manager()).await.map_err(tool_error)?;
+    #[tool(
+        description = "Get the current cluster health score (0-100, letter grade A-F) with individual check results for node readiness, pod health, deployment availability, resource pressure, PVC status, and more."
+    )]
+    async fn cluster_health(&self) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
 
-        let nodes: Vec<k8s_openapi::api::core::v1::Node> =
-            kube::Api::all(client.clone()).list(&Default::default()).await.map_err(tool_error)?;
-        let pods: Vec<k8s_openapi::api::core::v1::Pod> =
-            kube::Api::all(client.clone()).list(&Default::default()).await.map_err(tool_error)?;
+        let nodes: Vec<k8s_openapi::api::core::v1::Node> = kube::Api::all(client.clone())
+            .list(&Default::default())
+            .await
+            .map_err(tool_error)?;
+        let pods: Vec<k8s_openapi::api::core::v1::Pod> = kube::Api::all(client.clone())
+            .list(&Default::default())
+            .await
+            .map_err(tool_error)?;
         let deployments: Vec<k8s_openapi::api::apps::v1::Deployment> =
-            kube::Api::all(client.clone()).list(&Default::default()).await.map_err(tool_error)?;
+            kube::Api::all(client.clone())
+                .list(&Default::default())
+                .await
+                .map_err(tool_error)?;
 
-        let ready_nodes = nodes.items.iter().filter(|n| {
-            n.status.as_ref().and_then(|s| s.conditions.as_ref())
-                .map(|c| c.iter().any(|c| c.type_ == "Ready" && c.status == "True"))
-                .unwrap_or(false)
-        }).count();
+        let ready_nodes = nodes
+            .items
+            .iter()
+            .filter(|n| {
+                n.status
+                    .as_ref()
+                    .and_then(|s| s.conditions.as_ref())
+                    .map(|c| c.iter().any(|c| c.type_ == "Ready" && c.status == "True"))
+                    .unwrap_or(false)
+            })
+            .count();
 
-        let running_pods = pods.items.iter().filter(|p| {
-            p.status.as_ref().and_then(|s| s.phase.as_deref()) == Some("Running")
-        }).count();
+        let running_pods = pods
+            .items
+            .iter()
+            .filter(|p| p.status.as_ref().and_then(|s| s.phase.as_deref()) == Some("Running"))
+            .count();
 
         let total_nodes = nodes.items.len();
         let total_pods = pods.items.len();

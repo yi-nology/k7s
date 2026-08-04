@@ -94,7 +94,13 @@ mod tests {
     use serde_json::json;
 
     /// Build a CRD fixture with the given versions as (name, served, storage).
-    fn crd(group: &str, kind: &str, plural: &str, scope: &str, versions: &[(&str, bool, bool)]) -> CustomResourceDefinition {
+    fn crd(
+        group: &str,
+        kind: &str,
+        plural: &str,
+        scope: &str,
+        versions: &[(&str, bool, bool)],
+    ) -> CustomResourceDefinition {
         let versions: Vec<_> = versions
             .iter()
             .map(|(name, served, storage)| {
@@ -117,7 +123,13 @@ mod tests {
     /// The id is "group/plural" and the scope maps to `namespaced`.
     #[test]
     fn maps_crd_to_custom_kind() {
-        let c = crd("argoproj.io", "Application", "applications", "Namespaced", &[("v1alpha1", true, true)]);
+        let c = crd(
+            "argoproj.io",
+            "Application",
+            "applications",
+            "Namespaced",
+            &[("v1alpha1", true, true)],
+        );
         let k = to_custom_kind(&c).unwrap();
         assert_eq!(k.id, "argoproj.io/applications");
         assert_eq!(k.kind, "Application");
@@ -128,29 +140,56 @@ mod tests {
     /// Cluster-scoped CRDs are marked so the namespace filter can ignore them.
     #[test]
     fn cluster_scoped_crd() {
-        let c = crd("cert-manager.io", "ClusterIssuer", "clusterissuers", "Cluster", &[("v1", true, true)]);
+        let c = crd(
+            "cert-manager.io",
+            "ClusterIssuer",
+            "clusterissuers",
+            "Cluster",
+            &[("v1", true, true)],
+        );
         assert!(!to_custom_kind(&c).unwrap().namespaced);
     }
 
     /// Multi-version CRDs are watched at the storage version, not merely a served one.
     #[test]
     fn prefers_storage_version() {
-        let c = crd("example.com", "Widget", "widgets", "Namespaced",
-                    &[("v1alpha1", true, false), ("v1beta1", true, true), ("v2", false, false)]);
+        let c = crd(
+            "example.com",
+            "Widget",
+            "widgets",
+            "Namespaced",
+            &[
+                ("v1alpha1", true, false),
+                ("v1beta1", true, true),
+                ("v2", false, false),
+            ],
+        );
         assert_eq!(to_custom_kind(&c).unwrap().version, "v1beta1");
     }
 
     /// A CRD with no storage version still resolves via the first served version.
     #[test]
     fn falls_back_to_served_version() {
-        let c = crd("example.com", "Widget", "widgets", "Namespaced", &[("v1", true, false)]);
+        let c = crd(
+            "example.com",
+            "Widget",
+            "widgets",
+            "Namespaced",
+            &[("v1", true, false)],
+        );
         assert_eq!(to_custom_kind(&c).unwrap().version, "v1");
     }
 
     /// The ApiResource uses the CRD's declared plural rather than a guessed one.
     #[test]
     fn api_resource_uses_declared_plural() {
-        let c = crd("traefik.io", "IngressRoute", "ingressroutes", "Namespaced", &[("v1alpha1", true, true)]);
+        let c = crd(
+            "traefik.io",
+            "IngressRoute",
+            "ingressroutes",
+            "Namespaced",
+            &[("v1alpha1", true, true)],
+        );
         let ar = to_custom_kind(&c).unwrap().api_resource();
         assert_eq!(ar.plural, "ingressroutes");
         assert_eq!(ar.kind, "IngressRoute");

@@ -75,7 +75,11 @@ pub async fn multi_apply(
         let gvk = GroupVersionKind::try_from(&tm)
             .map_err(|e| AppError::Other(format!("parse gvk: {e}")))?;
         let (ar, namespaced) = resolve_api_resource(&client, &gvk).await?;
-        let ns = obj.metadata.namespace.clone().unwrap_or_else(|| "default".into());
+        let ns = obj
+            .metadata
+            .namespace
+            .clone()
+            .unwrap_or_else(|| "default".into());
         let api: Api<DynamicObject> = if namespaced {
             Api::namespaced_with(client.clone(), &ns, &ar)
         } else {
@@ -131,10 +135,7 @@ pub struct DocDryRun {
 /// patch per doc, collecting the server-defaulted proposed YAML. Stops at the
 /// first hard error (parse/resolve), but a *rejected* dry run is recorded as a
 /// per-doc error and the loop continues so the caller sees every problem.
-pub async fn multi_dry_run(
-    yaml: &str,
-    client: kube::Client,
-) -> AppResult<Vec<DocDryRun>> {
+pub async fn multi_dry_run(yaml: &str, client: kube::Client) -> AppResult<Vec<DocDryRun>> {
     let docs = split_documents(yaml);
     if docs.is_empty() {
         return Err(AppError::Other("no documents in YAML bundle".into()));
@@ -166,7 +167,11 @@ pub async fn multi_dry_run(
         let gvk = GroupVersionKind::try_from(&tm)
             .map_err(|e| AppError::Other(format!("parse gvk: {e}")))?;
         let (ar, namespaced) = resolve_api_resource(&client, &gvk).await?;
-        let ns = obj.metadata.namespace.clone().unwrap_or_else(|| "default".into());
+        let ns = obj
+            .metadata
+            .namespace
+            .clone()
+            .unwrap_or_else(|| "default".into());
         let api: Api<DynamicObject> = if namespaced {
             Api::namespaced_with(client.clone(), &ns, &ar)
         } else {

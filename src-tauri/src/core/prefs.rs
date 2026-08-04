@@ -87,11 +87,18 @@ pub fn load_prefs_json(data_dir: &Path) -> Option<Prefs> {
 /// enforces — a hand-edited prefs.json shouldn't be able to hammer the API server.
 pub fn poll_intervals(prefs: &Prefs) -> crate::kube::metrics::PollIntervals {
     let clamp = |v: Option<u64>, default: std::time::Duration| {
-        v.map(|s| std::time::Duration::from_secs(s.clamp(5, 300))).unwrap_or(default)
+        v.map(|s| std::time::Duration::from_secs(s.clamp(5, 300)))
+            .unwrap_or(default)
     };
     crate::kube::metrics::PollIntervals {
-        metrics: clamp(prefs.metrics_interval_secs, crate::kube::metrics::METRICS_INTERVAL),
-        status: clamp(prefs.status_interval_secs, crate::kube::metrics::STATUS_INTERVAL),
+        metrics: clamp(
+            prefs.metrics_interval_secs,
+            crate::kube::metrics::METRICS_INTERVAL,
+        ),
+        status: clamp(
+            prefs.status_interval_secs,
+            crate::kube::metrics::STATUS_INTERVAL,
+        ),
     }
 }
 

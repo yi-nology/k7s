@@ -18,7 +18,11 @@ use tokio::sync::{mpsc, oneshot};
 async fn main() -> anyhow::Result<()> {
     let client = Client::try_default().await?;
 
-    for node in Api::<Node>::all(client.clone()).list(&ListParams::default()).await?.items {
+    for node in Api::<Node>::all(client.clone())
+        .list(&ListParams::default())
+        .await?
+        .items
+    {
         let name = node.name_any();
         let ready = node
             .status
@@ -60,7 +64,13 @@ async fn main() -> anyhow::Result<()> {
         // Four scrapes two seconds apart: the first is only a baseline, so this
         // yields three real samples.
         for i in 0..4 {
-            let text = http.get(&url).timeout(Duration::from_secs(10)).send().await?.text().await?;
+            let text = http
+                .get(&url)
+                .timeout(Duration::from_secs(10))
+                .send()
+                .await?
+                .text()
+                .await?;
             if i == 0 {
                 println!("  scrape: {} bytes", text.len());
             }
@@ -84,7 +94,13 @@ async fn main() -> anyhow::Result<()> {
         }
 
         // Filesystems come from the last sample; they barely move.
-        let text = http.get(&url).timeout(Duration::from_secs(10)).send().await?.text().await?;
+        let text = http
+            .get(&url)
+            .timeout(Duration::from_secs(10))
+            .send()
+            .await?
+            .text()
+            .await?;
         let raw = exporter::parse(&text, chrono::Utc::now().timestamp_millis());
         if let Some(s) = sampler.push(raw) {
             println!("  filesystems:");

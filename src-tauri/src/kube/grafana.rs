@@ -98,13 +98,11 @@ fn load_file() -> AppResult<GrafanaFile> {
 
 fn save_file(f: &GrafanaFile) -> AppResult<()> {
     let path = config_path()?;
-    let text = serde_json::to_string_pretty(f)
-        .map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+    let text =
+        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, text)
-        .map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
-    std::fs::rename(&tmp, &path)
-        .map_err(|e| AppError::Other(format!("rename: {e}")))?;
+    std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
+    std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
     Ok(())
 }
 
@@ -275,12 +273,7 @@ pub struct DashboardPreset {
 /// Build the URL the iframe should `src` to. We don't try to honour
 /// every Grafana URL knob — `from`/`to` get a sensible default, the
 /// rest is whatever Grafana's default state is.
-pub fn dashboard_url(
-    name: &str,
-    uid: &str,
-    from_ms: i64,
-    to_ms: i64,
-) -> AppResult<String> {
+pub fn dashboard_url(name: &str, uid: &str, from_ms: i64, to_ms: i64) -> AppResult<String> {
     let cfg = find(name)?;
     let ds = if cfg.default_datasource.is_empty() {
         "Prometheus".to_string()
@@ -291,7 +284,11 @@ pub fn dashboard_url(
     let to_secs = to_ms / 1000;
     Ok(format!(
         "{}/d/{}?from={}&to={}&var-datasource={}&kiosk",
-        cfg.url, uid, from_secs, to_secs, urlencode(&ds)
+        cfg.url,
+        uid,
+        from_secs,
+        to_secs,
+        urlencode(&ds)
     ))
 }
 
@@ -332,10 +329,7 @@ pub struct DashboardSearchResult {
 }
 
 /// Search dashboards on a Grafana instance via `/api/search`.
-pub async fn search_dashboards(
-    name: &str,
-    query: &str,
-) -> AppResult<Vec<DashboardSearchResult>> {
+pub async fn search_dashboards(name: &str, query: &str) -> AppResult<Vec<DashboardSearchResult>> {
     let cfg = find(name)?;
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(15))

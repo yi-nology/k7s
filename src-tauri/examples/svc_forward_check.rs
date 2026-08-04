@@ -33,7 +33,10 @@ async fn main() -> anyhow::Result<()> {
     let (srv_pod, srv_port) =
         portforward::resolve_service(client.clone(), "argocd", "argocd-server", 80).await?;
     println!("argocd-server:80 → pod {srv_pod} port {srv_port}");
-    assert_eq!(srv_port, 8080, "targetPort 8080 should win over the service port");
+    assert_eq!(
+        srv_port, 8080,
+        "targetPort 8080 should win over the service port"
+    );
 
     // Selector-less Service: must fail with a readable message, not a panic.
     match portforward::resolve_service(client.clone(), "default", "kubernetes", 443).await {
@@ -69,7 +72,10 @@ async fn main() -> anyhow::Result<()> {
     let n = sock.read(&mut buf).await?;
     let resp = String::from_utf8_lossy(&buf[..n]).to_string();
     println!("redis replied: {resp:?}");
-    assert!(resp.contains("PONG"), "expected a PONG through the service forward");
+    assert!(
+        resp.contains("PONG"),
+        "expected a PONG through the service forward"
+    );
 
     // No per-connection errors should have been reported for a healthy forward.
     assert!(err_rx.try_recv().is_err(), "unexpected forward error");

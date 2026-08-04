@@ -48,12 +48,20 @@ pub struct NavTarget {
 impl NavTarget {
     /// A target in `namespace`.
     pub fn namespaced(kind: &str, namespace: impl Into<String>, name: impl Into<String>) -> Self {
-        NavTarget { kind: kind.into(), namespace: Some(namespace.into()), name: name.into() }
+        NavTarget {
+            kind: kind.into(),
+            namespace: Some(namespace.into()),
+            name: name.into(),
+        }
     }
 
     /// A cluster-scoped target (Nodes, PVs, StorageClasses).
     pub fn cluster(kind: &str, name: impl Into<String>) -> Self {
-        NavTarget { kind: kind.into(), namespace: None, name: name.into() }
+        NavTarget {
+            kind: kind.into(),
+            namespace: None,
+            name: name.into(),
+        }
     }
 }
 
@@ -92,12 +100,26 @@ fn is_false(b: &bool) -> bool {
 impl Cell {
     /// A plain text cell with a tone.
     pub fn new(text: impl Into<String>, tone: Tone) -> Self {
-        Cell { text: text.into(), tone, dot: false, format: None, sort: None, nav: None }
+        Cell {
+            text: text.into(),
+            tone,
+            dot: false,
+            format: None,
+            sort: None,
+            nav: None,
+        }
     }
 
     /// A status cell: tone + a leading colored dot.
     pub fn status(text: impl Into<String>, tone: Tone) -> Self {
-        Cell { text: text.into(), tone, dot: true, format: None, sort: None, nav: None }
+        Cell {
+            text: text.into(),
+            tone,
+            dot: true,
+            format: None,
+            sort: None,
+            nav: None,
+        }
     }
 
     /// An age cell carrying an RFC3339 timestamp for the frontend to format.

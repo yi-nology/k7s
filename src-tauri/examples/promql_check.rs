@@ -40,7 +40,10 @@ async fn main() -> anyhow::Result<()> {
 
     let now = chrono::Utc::now().timestamp();
     let samples = promql::node_history(&client, &svc, &name, now, 3600, 30).await?;
-    println!("node {name}: {} backfilled sample(s) over the last hour\n", samples.len());
+    println!(
+        "node {name}: {} backfilled sample(s) over the last hour\n",
+        samples.len()
+    );
 
     for s in samples.iter().rev().take(5).rev() {
         println!(
@@ -55,7 +58,10 @@ async fn main() -> anyhow::Result<()> {
         );
     }
 
-    assert!(!samples.is_empty(), "a Prometheus with node metrics must yield history");
+    assert!(
+        !samples.is_empty(),
+        "a Prometheus with node metrics must yield history"
+    );
     // Timestamps ascending and distinct — the charts plot these as an x axis.
     assert!(
         samples.windows(2).all(|w| w[0].ts < w[1].ts),
@@ -65,7 +71,11 @@ async fn main() -> anyhow::Result<()> {
     // values rather than a row of structurally-present zeroes.
     let with_mem = samples.iter().filter(|s| s.mem_total_bytes > 0.0).count();
     let with_cpu = samples.iter().filter(|s| s.cpu_percent > 0.0).count();
-    println!("\n{with_mem}/{} carry memory, {with_cpu}/{} carry cpu", samples.len(), samples.len());
+    println!(
+        "\n{with_mem}/{} carry memory, {with_cpu}/{} carry cpu",
+        samples.len(),
+        samples.len()
+    );
     assert!(with_mem > 0, "memory series must have landed");
     assert!(with_cpu > 0, "cpu series must have landed");
     // Filesystems are a *current* reading; backfilled points must not carry them.

@@ -75,14 +75,41 @@ pub struct RawSample {
 /// those would double-count every packet — traffic to a pod crosses both its veth
 /// and the physical NIC — and the total would jump around as pods come and go.
 const VIRTUAL_IFACE_PREFIXES: &[&str] = &[
-    "lo", "veth", "docker", "br-", "cni", "flannel", "kube-ipvs", "tunl", "dummy", "virbr", "tap",
-    "vxlan", "nodelocaldns", "cali", "wg",
+    "lo",
+    "veth",
+    "docker",
+    "br-",
+    "cni",
+    "flannel",
+    "kube-ipvs",
+    "tunl",
+    "dummy",
+    "virbr",
+    "tap",
+    "vxlan",
+    "nodelocaldns",
+    "cali",
+    "wg",
 ];
 
 /// Filesystem types that aren't real storage — mostly RAM pretending to be a disk.
 const VIRTUAL_FSTYPES: &[&str] = &[
-    "tmpfs", "devtmpfs", "ramfs", "overlay", "squashfs", "iso9660", "autofs", "binfmt_misc",
-    "cgroup", "cgroup2", "proc", "sysfs", "debugfs", "tracefs", "fuse.portal", "nsfs",
+    "tmpfs",
+    "devtmpfs",
+    "ramfs",
+    "overlay",
+    "squashfs",
+    "iso9660",
+    "autofs",
+    "binfmt_misc",
+    "cgroup",
+    "cgroup2",
+    "proc",
+    "sysfs",
+    "debugfs",
+    "tracefs",
+    "fuse.portal",
+    "nsfs",
 ];
 
 /// True for an interface whose bytes should be counted.
@@ -95,15 +122,25 @@ fn is_physical_iface(dev: &str) -> bool {
 /// The fstype blocklist doesn't catch these: murphy-yi mounts nfsd under /proc and
 /// efivars under /sys, both of which report a real fstype and zero bytes, and
 /// kubelet remounts the same devices once per pod.
-const NON_STORAGE_MOUNT_PREFIXES: &[&str] =
-    &["/proc", "/sys", "/dev", "/run", "/var/lib/kubelet", "/var/lib/docker", "/host/proc", "/host/sys"];
+const NON_STORAGE_MOUNT_PREFIXES: &[&str] = &[
+    "/proc",
+    "/sys",
+    "/dev",
+    "/run",
+    "/var/lib/kubelet",
+    "/var/lib/docker",
+    "/host/proc",
+    "/host/sys",
+];
 
 /// True for a filesystem worth showing.
 fn is_real_filesystem(fstype: &str, mountpoint: &str) -> bool {
     if VIRTUAL_FSTYPES.contains(&fstype) {
         return false;
     }
-    !NON_STORAGE_MOUNT_PREFIXES.iter().any(|p| mountpoint.starts_with(p))
+    !NON_STORAGE_MOUNT_PREFIXES
+        .iter()
+        .any(|p| mountpoint.starts_with(p))
 }
 
 /// Value of one label from a metric line's `{...}` section.
@@ -134,7 +171,10 @@ fn split_line(line: &str) -> Option<(&str, &str, f64)> {
 
 /// Parse the families we plot out of a node-exporter scrape.
 pub fn parse(text: &str, ts: i64) -> RawSample {
-    let mut s = RawSample { ts, ..Default::default() };
+    let mut s = RawSample {
+        ts,
+        ..Default::default()
+    };
     // size/avail arrive on separate lines, so filesystems are assembled as we go.
     let mut fs_size: BTreeMap<String, f64> = BTreeMap::new();
     let mut fs_avail: BTreeMap<String, f64> = BTreeMap::new();
@@ -144,7 +184,9 @@ pub fn parse(text: &str, ts: i64) -> RawSample {
         if line.starts_with('#') || line.is_empty() {
             continue;
         }
-        let Some((name, labels, value)) = split_line(line) else { continue };
+        let Some((name, labels, value)) = split_line(line) else {
+            continue;
+        };
 
         match name {
             "node_cpu_seconds_total" => {
@@ -265,7 +307,10 @@ impl Sampler {
 /// the node rebooted. The true delta is unknowable, and the difference is a large
 /// negative number that would render as a spike; zero is the honest answer.
 fn delta(now: &BTreeMap<String, f64>, prev: &BTreeMap<String, f64>, key: &str) -> f64 {
-    let (a, b) = (now.get(key).copied().unwrap_or(0.0), prev.get(key).copied().unwrap_or(0.0));
+    let (a, b) = (
+        now.get(key).copied().unwrap_or(0.0),
+        prev.get(key).copied().unwrap_or(0.0),
+    );
     (a - b).max(0.0)
 }
 
@@ -333,7 +378,15 @@ node_filesystem_avail_bytes{{device="tmpfs",fstype="tmpfs",mountpoint="/dev/shm"
         for real in ["eth0", "enp5s0", "wlan0", "bond0", "eno1"] {
             assert!(is_physical_iface(real), "{real} is a real NIC");
         }
-        for virt in ["lo", "veth9a8b", "docker0", "flannel.1", "cni0", "br-abc", "cali123"] {
+        for virt in [
+            "lo",
+            "veth9a8b",
+            "docker0",
+            "flannel.1",
+            "cni0",
+            "br-abc",
+            "cali123",
+        ] {
             assert!(!is_physical_iface(virt), "{virt} is virtual");
         }
     }
@@ -343,7 +396,10 @@ node_filesystem_avail_bytes{{device="tmpfs",fstype="tmpfs",mountpoint="/dev/shm"
     fn keeps_only_real_filesystems() {
         let s = parse(&scrape(100.0, 50.0, 1000.0, 500.0), 0);
         assert!(s.filesystems.contains_key("/"));
-        assert!(!s.filesystems.contains_key("/dev/shm"), "tmpfs is not storage");
+        assert!(
+            !s.filesystems.contains_key("/dev/shm"),
+            "tmpfs is not storage"
+        );
         assert_eq!(s.filesystems["/"], (1.0e12, 4.0e11));
     }
 
@@ -389,7 +445,11 @@ node_filesystem_avail_bytes{{device="tmpfs",fstype="tmpfs",mountpoint="/dev/shm"
         s.push(parse(&scrape(100.0, 50.0, 0.0, 0.0), 0));
         // Over the next second: idle +1s per core, user +1s per core → 50% busy.
         let out = s.push(parse(&scrape(101.0, 51.0, 0.0, 0.0), 1000)).unwrap();
-        assert!((out.cpu_percent - 50.0).abs() < 1e-9, "got {}", out.cpu_percent);
+        assert!(
+            (out.cpu_percent - 50.0).abs() < 1e-9,
+            "got {}",
+            out.cpu_percent
+        );
     }
 
     /// A fully idle interval reads 0%, not "the average since boot".
@@ -407,7 +467,9 @@ node_filesystem_avail_bytes{{device="tmpfs",fstype="tmpfs",mountpoint="/dev/shm"
         let mut s = Sampler::default();
         s.push(parse(&scrape(100.0, 50.0, 1000.0, 500.0), 0));
         // 5000 bytes over 5 seconds = 1000 B/s.
-        let out = s.push(parse(&scrape(101.0, 51.0, 6000.0, 5500.0), 5000)).unwrap();
+        let out = s
+            .push(parse(&scrape(101.0, 51.0, 6000.0, 5500.0), 5000))
+            .unwrap();
         assert_eq!(out.net_rx_bps, 1000.0);
         assert_eq!(out.net_tx_bps, 1000.0);
     }
@@ -449,10 +511,19 @@ node_filesystem_avail_bytes{{device="tmpfs",fstype="tmpfs",mountpoint="/dev/shm"
     /// them, and values can contain commas.
     #[test]
     fn label_lookup_is_positional_agnostic() {
-        assert_eq!(label(r#"cpu="3",mode="iowait""#, "mode"), Some("iowait".into()));
-        assert_eq!(label(r#"mode="iowait",cpu="3""#, "mode"), Some("iowait".into()));
         assert_eq!(
-            label(r#"device="/dev/x",mountpoint="/mnt/a,b",fstype="ext4""#, "mountpoint"),
+            label(r#"cpu="3",mode="iowait""#, "mode"),
+            Some("iowait".into())
+        );
+        assert_eq!(
+            label(r#"mode="iowait",cpu="3""#, "mode"),
+            Some("iowait".into())
+        );
+        assert_eq!(
+            label(
+                r#"device="/dev/x",mountpoint="/mnt/a,b",fstype="ext4""#,
+                "mountpoint"
+            ),
             Some("/mnt/a,b".into()),
             "a comma inside a value must not split the label"
         );
@@ -462,7 +533,10 @@ node_filesystem_avail_bytes{{device="tmpfs",fstype="tmpfs",mountpoint="/dev/shm"
     /// Junk lines are skipped rather than poisoning a sample.
     #[test]
     fn malformed_lines_are_ignored() {
-        let s = parse("node_load1 NaN\nnode_load5 +Inf\ngarbage\nnode_load15 0.5\n", 0);
+        let s = parse(
+            "node_load1 NaN\nnode_load5 +Inf\ngarbage\nnode_load15 0.5\n",
+            0,
+        );
         assert_eq!(s.load1, 0.0, "NaN must not land in the series");
         assert_eq!(s.load5, 0.0, "+Inf must not land in the series");
         assert_eq!(s.load15, 0.5);

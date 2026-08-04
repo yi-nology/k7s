@@ -218,7 +218,8 @@ fn save_window_state_on_sigterm(app: tauri::AppHandle) {
     use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
     tauri::async_runtime::spawn(async move {
-        let Ok(mut term) = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        let Ok(mut term) =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         else {
             // Nothing to do if the handler can't be installed; the app still exits
             // on SIGTERM, just without remembering where it was.

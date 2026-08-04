@@ -228,7 +228,10 @@ fn assemble(series: Vec<(&'static str, Vec<(i64, f64)>)>) -> Vec<NodeSample> {
     let mut by_ts: BTreeMap<i64, NodeSample> = BTreeMap::new();
     for (name, points) in series {
         for (ts, v) in points {
-            let s = by_ts.entry(ts).or_insert_with(|| NodeSample { ts, ..Default::default() });
+            let s = by_ts.entry(ts).or_insert_with(|| NodeSample {
+                ts,
+                ..Default::default()
+            });
             match name {
                 "cpu" => s.cpu_percent = v,
                 "mem_used" => s.mem_used_bytes = v,
@@ -288,7 +291,14 @@ mod tests {
             "spec": { "ports": [{ "port": 9090 }, { "port": 9002 }] },
         }));
         let (_, p) = score(&s).expect("recognised");
-        assert_eq!(p, PromService { namespace: "panoptes".into(), name: "prometheus".into(), port: 9090 });
+        assert_eq!(
+            p,
+            PromService {
+                namespace: "panoptes".into(),
+                name: "prometheus".into(),
+                port: 9090
+            }
+        );
     }
 
     /// A Service is not Prometheus just because it exists.
@@ -319,14 +329,20 @@ mod tests {
     fn exact_name_outranks_prefix_and_label() {
         let exact = score(&svc(json!({
             "metadata": { "name": "prometheus", "namespace": "a" },
-            "spec": { "ports": [{ "port": 9090 }] } }))).unwrap().0;
+            "spec": { "ports": [{ "port": 9090 }] } })))
+        .unwrap()
+        .0;
         let prefix = score(&svc(json!({
             "metadata": { "name": "prometheus-operated", "namespace": "a" },
-            "spec": { "ports": [{ "port": 9090 }] } }))).unwrap().0;
+            "spec": { "ports": [{ "port": 9090 }] } })))
+        .unwrap()
+        .0;
         let labelled = score(&svc(json!({
             "metadata": { "name": "mon", "namespace": "a",
                           "labels": { "app": "prometheus" } },
-            "spec": { "ports": [{ "port": 9090 }] } }))).unwrap().0;
+            "spec": { "ports": [{ "port": 9090 }] } })))
+        .unwrap()
+        .0;
         assert!(exact > prefix && prefix > labelled);
     }
 
@@ -334,7 +350,11 @@ mod tests {
     /// `name:port` form that selects the service port.
     #[test]
     fn builds_the_service_proxy_path() {
-        let p = PromService { namespace: "panoptes".into(), name: "prometheus".into(), port: 9090 };
+        let p = PromService {
+            namespace: "panoptes".into(),
+            name: "prometheus".into(),
+            port: 9090,
+        };
         assert_eq!(
             p.path("query_range", "query=up&start=1&end=2&step=30"),
             "/api/v1/namespaces/panoptes/services/prometheus:9090/proxy/api/v1/query_range?query=up&start=1&end=2&step=30"
@@ -345,8 +365,14 @@ mod tests {
     /// string intact.
     #[test]
     fn encodes_promql_punctuation() {
-        assert_eq!(urlencode("node_load1{node=\"murphy-yi\"}"), "node_load1%7Bnode%3D%22murphy-yi%22%7D");
-        assert_eq!(urlencode("rate(x[2m]) * 100"), "rate%28x%5B2m%5D%29%20%2A%20100");
+        assert_eq!(
+            urlencode("node_load1{node=\"murphy-yi\"}"),
+            "node_load1%7Bnode%3D%22murphy-yi%22%7D"
+        );
+        assert_eq!(
+            urlencode("rate(x[2m]) * 100"),
+            "rate%28x%5B2m%5D%29%20%2A%20100"
+        );
     }
 
     /// Series are joined on timestamp, not zipped by position — a gap in one
@@ -361,9 +387,16 @@ mod tests {
         assert_eq!(out.len(), 3);
         assert_eq!(out[0].ts, 1_000);
         assert_eq!(out[1].ts, 2_000);
-        assert_eq!((out[1].cpu_percent, out[1].load1), (20.0, 0.0), "gap leaves a default, not a shift");
+        assert_eq!(
+            (out[1].cpu_percent, out[1].load1),
+            (20.0, 0.0),
+            "gap leaves a default, not a shift"
+        );
         assert_eq!((out[2].cpu_percent, out[2].load15), (30.0, 0.0));
-        assert_eq!(out[2].load1, 0.3, "the later load value stays on its own timestamp");
+        assert_eq!(
+            out[2].load1, 0.3,
+            "the later load value stays on its own timestamp"
+        );
     }
 
     /// Backfilled points carry no filesystems: the UI shows those as current
@@ -383,7 +416,10 @@ mod tests {
         assert!(qs.iter().any(|(k, _)| *k == "cpu"));
         // Virtual interfaces are excluded, or the network totals double-count.
         let rx = &qs.iter().find(|(k, _)| *k == "rx").unwrap().1;
-        assert!(rx.contains("device!~"), "rx must exclude virtual interfaces");
+        assert!(
+            rx.contains("device!~"),
+            "rx must exclude virtual interfaces"
+        );
         assert!(rx.contains("veth"));
     }
 }

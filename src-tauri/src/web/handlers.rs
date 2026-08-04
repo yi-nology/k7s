@@ -21,12 +21,7 @@
 //! "see a real cluster in the browser". They get added in the next pass —
 //! the stubs make the unimplemented state obvious to the front-end.
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
-};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use kube::ResourceExt;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -39,8 +34,9 @@ use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
 use crate::kube::{
     client::{self, ClusterInfo, ContextInfo},
-    discovery, properties, watchers,
+    discovery,
     manager::{ConnectionInfo, ImportedContext},
+    properties, watchers,
 };
 use k8s_openapi::api::core::v1::{Event, Secret};
 use kube::api::{Api, ListParams};
@@ -89,7 +85,11 @@ impl IntoResponse for InvokeError {
 fn respond<T: Serialize>(r: AppResult<T>) -> axum::response::Response {
     match r {
         Ok(data) => InvokeResponse { ok: true, data }.into_response(),
-        Err(e) => InvokeError { ok: false, error: e.to_string() }.into_response(),
+        Err(e) => InvokeError {
+            ok: false,
+            error: e.to_string(),
+        }
+        .into_response(),
     }
 }
 
@@ -317,9 +317,7 @@ pub struct DryRunYamlBundleArgs {
 // ---------------------------------------------------------------------------
 
 /// `POST /invoke/list_contexts` — list kubeconfig contexts (with imports).
-pub async fn list_contexts(
-    State(state): State<WebState>,
-) -> axum::response::Response {
+pub async fn list_contexts(State(state): State<WebState>) -> axum::response::Response {
     let core = state.core.clone();
     let result = shell_common::merged_contexts(&core.manager).await;
     respond(Ok(result))
@@ -431,7 +429,11 @@ pub async fn import_kubeconfig_content(
                     .as_ref()
                     .map(|c| c.cluster.clone())
                     .unwrap_or_default();
-                ContextInfo { name: ctx.name.clone(), cluster, current: false }
+                ContextInfo {
+                    name: ctx.name.clone(),
+                    cluster,
+                    current: false,
+                }
             })
             .collect();
 
@@ -454,8 +456,12 @@ pub async fn import_kubeconfig_content(
         }
 
         let merged = shell_common::merged_contexts(&core.manager).await;
-        Ok(ImportResultWire { contexts: merged, path: args.filename })
-    })().await;
+        Ok(ImportResultWire {
+            contexts: merged,
+            path: args.filename,
+        })
+    })()
+    .await;
     respond(result)
 }
 
@@ -485,7 +491,8 @@ pub async fn connect(
         //   2. It was imported from a file the web shell uploaded — we
         //      stashed the parsed `Kubeconfig` in the manager, use that.
         //   3. It's a context in the default kubeconfig.
-        let (kube_client, server) = if let Some(kc) = core.manager.import_kubeconfig(&context).await {
+        let (kube_client, server) = if let Some(kc) = core.manager.import_kubeconfig(&context).await
+        {
             build_client_from_kubeconfig(kc, &context).await?
         } else if let Some(path) = core.manager.import_path(&context).await {
             client::build_client_from_file(&path, &context).await?
@@ -495,24 +502,23 @@ pub async fn connect(
         let version = client::probe_version(&kube_client).await?;
 
         // Watchers for all built-in kinds (B1).
-        let watcher_count =
-            watchers::spawn_all(&core.manager, kube_client.clone()).await;
+        let watcher_count = watchers::spawn_all(&core.manager, kube_client.clone()).await;
 
         // Metrics + status pollers (B23). Read intervals from prefs at connect,
         // so a settings change takes effect on the next connection.
         let pi = prefs::poll_intervals(&prefs::read_prefs(&core.data_dir));
-        let (metrics_task, status_task) = crate::kube::metrics::spawn_pollers(
-            core.manager.sink(),
-            kube_client.clone(),
-            pi,
-        );
+        let (metrics_task, status_task) =
+            crate::kube::metrics::spawn_pollers(core.manager.sink(), kube_client.clone(), pi);
         let _ = core.manager.push_task(metrics_task).await;
         let _ = core.manager.push_task(status_task).await;
 
         // CRD discovery — the same as the Tauri `connect` does (B15).
         let custom = discovery::discover(&kube_client).await;
         core.manager.set_custom_kinds(custom.clone()).await;
-        let _ = core.manager.sink().emit(crate::kube::events::CUSTOM_KINDS, &custom);
+        let _ = core
+            .manager
+            .sink()
+            .emit(crate::kube::events::CUSTOM_KINDS, &custom);
 
         let _ = core
             .manager
@@ -533,7 +539,8 @@ pub async fn connect(
             server,
             version,
         })
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -548,7 +555,13 @@ pub async fn get_yaml(
 ) -> axum::response::Response {
     let result: AppResult<String> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, is_helm) = shell_common::dynamic_api(client.clone(), &args.kind, &args.namespace, &state.core.manager).await?;
+        let (api, is_helm) = shell_common::dynamic_api(
+            client.clone(),
+            &args.kind,
+            &args.namespace,
+            &state.core.manager,
+        )
+        .await?;
         if is_helm {
             return shell_common::helm_manifest(client, &args.namespace, &args.name).await;
         }
@@ -558,7 +571,8 @@ pub async fn get_yaml(
             shell_common::redact_secret(&mut obj);
         }
         Ok(serde_yaml::to_string(&obj)?)
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -664,7 +678,8 @@ pub async fn get_events(
         });
         out.reverse();
         Ok(out)
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -680,7 +695,8 @@ pub async fn get_properties(
     let result: AppResult<crate::kube::properties::Properties> = (|| async {
         let client = core_client(&state.core).await?;
         properties::gather(client, &args.kind, &args.namespace, &args.name).await
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -702,16 +718,23 @@ pub async fn get_secret_data(
     let result: AppResult<Vec<WireSecretEntry>> = (|| async {
         let client = core_client(&state.core).await?;
         let api: Api<Secret> = Api::namespaced(client, &args.namespace);
-        let sec = api.get(&args.name).await.map_err(|e| AppError::Kube(e.to_string()))?;
+        let sec = api
+            .get(&args.name)
+            .await
+            .map_err(|e| AppError::Kube(e.to_string()))?;
         let mut entries = Vec::new();
         if let Some(data) = &sec.data {
             for (k, v) in data {
                 let decoded = String::from_utf8_lossy(&v.0).to_string();
-                entries.push(WireSecretEntry { key: k.clone(), value: decoded });
+                entries.push(WireSecretEntry {
+                    key: k.clone(),
+                    value: decoded,
+                });
             }
         }
         Ok(entries)
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -729,7 +752,8 @@ pub async fn not_implemented() -> axum::response::Response {
             ok: false,
             error: "this command isn't bridged through the web shell yet".to_string(),
         }),
-    ).into_response()
+    )
+        .into_response()
 }
 
 // ---------------------------------------------------------------------------
@@ -747,10 +771,14 @@ pub async fn apply_yaml(
         let client = core_client(&state.core).await?;
         shell_common::ensure_writable(&args.kind)?;
         let obj: DynamicObject = serde_yaml::from_str(&args.yaml)?;
-        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
-        api.replace(&args.name, &PostParams::default(), &obj).await?;
+        let (api, _is_helm) =
+            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
+                .await?;
+        api.replace(&args.name, &PostParams::default(), &obj)
+            .await?;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -763,17 +791,23 @@ pub async fn dry_run_yaml(
         let client = core_client(&state.core).await?;
         shell_common::ensure_writable(&args.kind)?;
         let obj: DynamicObject = serde_yaml::from_str(&args.yaml)?;
-        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
+        let (api, _is_helm) =
+            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
+                .await?;
         let mut current = api.get(&args.name).await?;
         current.metadata.managed_fields = None;
-        let pp = PostParams { dry_run: true, ..Default::default() };
+        let pp = PostParams {
+            dry_run: true,
+            ..Default::default()
+        };
         let mut proposed = api.replace(&args.name, &pp, &obj).await?;
         proposed.metadata.managed_fields = None;
         Ok(shell_common::YamlDiff {
             current: serde_yaml::to_string(&current)?,
             proposed: serde_yaml::to_string(&proposed)?,
         })
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -798,10 +832,13 @@ pub async fn delete_resource(
     use kube::api::DeleteParams;
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
+        let (api, _is_helm) =
+            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
+                .await?;
         api.delete(&args.name, &DeleteParams::default()).await?;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -812,11 +849,15 @@ pub async fn scale_resource(
     use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
+        let (api, _is_helm) =
+            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
+                .await?;
         let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": args.replicas } }));
-        api.patch(&args.name, &PatchParams::default(), &patch).await?;
+        api.patch(&args.name, &PatchParams::default(), &patch)
+            .await?;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -827,11 +868,15 @@ pub async fn set_cordon(
     use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) = shell_common::dynamic_api(client, "nodes", "", &state.core.manager).await?;
-        let patch = Patch::Merge(serde_json::json!({ "spec": { "unschedulable": args.unschedulable } }));
-        api.patch(&args.name, &PatchParams::default(), &patch).await?;
+        let (api, _is_helm) =
+            shell_common::dynamic_api(client, "nodes", "", &state.core.manager).await?;
+        let patch =
+            Patch::Merge(serde_json::json!({ "spec": { "unschedulable": args.unschedulable } }));
+        api.patch(&args.name, &PatchParams::default(), &patch)
+            .await?;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -852,7 +897,8 @@ pub async fn restart_pod(
         }
         api.delete(&args.name, &DeleteParams::default()).await?;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -863,15 +909,22 @@ pub async fn restart_rollout(
     use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
         if !crate::kube::restart::is_rollout_kind(&args.kind) {
-            return Err(AppError::Other(format!("{} cannot be rollout-restarted", args.kind)));
+            return Err(AppError::Other(format!(
+                "{} cannot be rollout-restarted",
+                args.kind
+            )));
         }
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) = shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager).await?;
+        let (api, _is_helm) =
+            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
+                .await?;
         let now = chrono::Utc::now().to_rfc3339();
         let patch = Patch::Merge(crate::kube::restart::restart_patch(&now));
-        api.patch(&args.name, &PatchParams::default(), &patch).await?;
+        api.patch(&args.name, &PatchParams::default(), &patch)
+            .await?;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -883,7 +936,10 @@ pub async fn list_revisions(
 ) -> axum::response::Response {
     let result: AppResult<Vec<crate::kube::rollout::Revision>> = async {
         if !crate::kube::rollout::is_rollout_kind(&args.kind) {
-            return Err(AppError::Other(format!("{} has no revision history", args.kind)));
+            return Err(AppError::Other(format!(
+                "{} has no revision history",
+                args.kind
+            )));
         }
         let client = core_client(&state.core).await?;
         crate::kube::rollout::list_revisions(client, &args.kind, &args.namespace, &args.name).await
@@ -900,7 +956,10 @@ pub async fn undo_rollout(
 ) -> axum::response::Response {
     let result: AppResult<()> = async {
         if !crate::kube::rollout::is_rollout_kind(&args.kind) {
-            return Err(AppError::Other(format!("{} cannot be rolled back", args.kind)));
+            return Err(AppError::Other(format!(
+                "{} cannot be rolled back",
+                args.kind
+            )));
         }
         let client = core_client(&state.core).await?;
         crate::kube::rollout::undo_to(
@@ -935,7 +994,8 @@ pub async fn drain_node(
         });
         manager.push_task(task).await;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -943,13 +1003,12 @@ pub async fn drain_node(
 // list_endpoints — EndpointSlices for the topology graph.
 // ---------------------------------------------------------------------------
 
-pub async fn list_endpoints(
-    State(state): State<WebState>,
-) -> axum::response::Response {
+pub async fn list_endpoints(State(state): State<WebState>) -> axum::response::Response {
     let result: AppResult<Vec<crate::kube::endpoints::EndpointRow>> = (|| async {
         let client = core_client(&state.core).await?;
         crate::kube::endpoints::list_all(&client).await
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -966,7 +1025,8 @@ pub async fn list_endpoints_for_service(
     let result: AppResult<Vec<crate::kube::endpoints::EndpointRow>> = (|| async {
         let client = core_client(&state.core).await?;
         crate::kube::endpoints::list_for_service(&client, &args.namespace, &args.name).await
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -983,7 +1043,8 @@ pub async fn list_endpoint_addresses(
     let result: AppResult<Vec<crate::kube::endpoints::EndpointAddress>> = (|| async {
         let client = core_client(&state.core).await?;
         crate::kube::endpoints::addresses_for(&client, &args.namespace, &args.name).await
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -1006,7 +1067,11 @@ pub async fn start_log_stream(
 
         // Match the Tauri shell's id format so anything that pokes at the
         // id in logs or tools sees the same shape.
-        let stream_id = format!("{}-{}", args.pod, STREAM_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
+        let stream_id = format!(
+            "{}-{}",
+            args.pod,
+            STREAM_SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        );
         let sink = manager.sink();
         let opts = logs::LogStreamOptions {
             tail: args.tail,
@@ -1029,7 +1094,8 @@ pub async fn start_log_stream(
         });
         manager.add_log(stream_id.clone(), handle).await;
         Ok(stream_id)
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -1040,7 +1106,8 @@ pub async fn stop_log_stream(
     let result: AppResult<()> = (|| async {
         state.core.manager.remove_log(&args.stream_id).await;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -1052,8 +1119,7 @@ pub async fn export_logs(
     use kube::api::{Api, LogParams};
     let result: AppResult<usize> = (|| async {
         let client = core_client(&state.core).await?;
-        let api: Api<k8s_openapi::api::core::v1::Pod> =
-            Api::namespaced(client, &args.namespace);
+        let api: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, &args.namespace);
         let opts = logs::LogStreamOptions {
             tail: None,
             since_time: None,
@@ -1061,7 +1127,10 @@ pub async fn export_logs(
             previous: args.previous,
         };
         let containers = if args.container.is_empty() {
-            let p = api.get(&args.pod).await.map_err(|e| AppError::Kube(e.to_string()))?;
+            let p = api
+                .get(&args.pod)
+                .await
+                .map_err(|e| AppError::Kube(e.to_string()))?;
             p.spec
                 .map(|s| s.containers.into_iter().map(|c| c.name).collect::<Vec<_>>())
                 .unwrap_or_default()
@@ -1072,7 +1141,10 @@ pub async fn export_logs(
         for name in &containers {
             let mut lp: LogParams = logs::log_params(name, &opts);
             lp.follow = false;
-            let text = api.logs(&args.pod, &lp).await.map_err(|e| AppError::Kube(e.to_string()))?;
+            let text = api
+                .logs(&args.pod, &lp)
+                .await
+                .map_err(|e| AppError::Kube(e.to_string()))?;
             if containers.len() > 1 {
                 out.push_str(&format!("===== container: {name} =====\n"));
             }
@@ -1087,10 +1159,10 @@ pub async fn export_logs(
         let _ = args.path; // unused in web mode
         let lines = out.lines().count();
         Ok(lines)
-    })().await;
+    })()
+    .await;
     respond(result)
 }
-
 
 // ---------------------------------------------------------------------------
 // Shell sessions (B4, B53) — the same exec task the Tauri shell spawns, with
@@ -1121,7 +1193,9 @@ pub async fn start_shell(
         let (resize_tx, resize_rx) = mpsc::channel::<(u16, u16)>(8);
         let sink = manager.sink();
         // Per-session prefs read: a setting change shouldn't need a reconnect.
-        let shell_command = prefs::read_prefs(&state.core.data_dir).shell_command.unwrap_or_default();
+        let shell_command = prefs::read_prefs(&state.core.data_dir)
+            .shell_command
+            .unwrap_or_default();
         let id_for_task = id.clone();
         let task = tokio::spawn(async move {
             crate::kube::exec::run_shell(
@@ -1148,7 +1222,8 @@ pub async fn start_shell(
             )
             .await;
         Ok(id)
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -1163,7 +1238,8 @@ pub async fn shell_input(
             .shell_input(&args.stream_id, args.data.into_bytes())
             .await;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -1178,7 +1254,8 @@ pub async fn shell_resize(
             .shell_resize(&args.stream_id, args.cols, args.rows)
             .await;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -1189,7 +1266,8 @@ pub async fn stop_shell(
     let result: AppResult<()> = (|| async {
         state.core.manager.remove_shell(&args.stream_id).await;
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -1211,8 +1289,10 @@ pub async fn start_node_shell(
         // privileged pod. Uses `nodeshell::delete_debug_pod` for consistent
         // cleanup (matches the Tauri shell).
         if let Ok(old) = api
-            .list(&kube::api::ListParams::default()
-                .labels(&crate::kube::nodeshell::node_selector(&args.node)))
+            .list(
+                &kube::api::ListParams::default()
+                    .labels(&crate::kube::nodeshell::node_selector(&args.node)),
+            )
             .await
         {
             for pod in old.items {
@@ -1277,7 +1357,8 @@ pub async fn start_node_shell(
             namespace: crate::kube::nodeshell::DEBUG_NAMESPACE.to_string(),
             pod: pod_name,
         })
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 
@@ -1293,7 +1374,8 @@ pub async fn stop_node_shell(
             crate::kube::nodeshell::delete_debug_pod(&api, &args.pod).await;
         }
         Ok(())
-    })().await;
+    })()
+    .await;
     respond(result)
 }
 

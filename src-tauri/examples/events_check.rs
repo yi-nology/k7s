@@ -6,8 +6,8 @@
 //!
 //! Confirms the column contract, the Warnings-first/newest ordering, and the cap.
 
-use k8s_openapi::api::core::v1::Event;
 use k7s_lib::kube::mappers;
+use k8s_openapi::api::core::v1::Event;
 use kube::api::{Api, ListParams};
 use kube::Client;
 

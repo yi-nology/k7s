@@ -15,7 +15,6 @@
 //! call. Enum dispatch is also faster, and there's only ever one variant
 //! live at a time, so the match is monomorphised by the compiler.
 
-
 use tauri::Emitter;
 use tokio::sync::broadcast;
 
