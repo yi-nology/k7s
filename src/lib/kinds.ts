@@ -316,7 +316,6 @@ export const KINDS_WITH_PROPERTIES: ReadonlySet<string> = new Set<string>([
   "nodes",
   "helm",
   "ingresses",
-  "configmaps",
   "secrets",
   "serviceaccounts",
   "storageclasses",
