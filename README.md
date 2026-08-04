@@ -47,6 +47,24 @@ Open any of these from the **Tools** group in the sidebar.
 
 ---
 
+## ⚡ Quick Install
+
+**macOS (Apple Silicon) / Linux — one-liner:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | bash
+```
+
+The script auto-detects your OS and architecture, downloads the latest release, and installs it:
+- **macOS**: mounts the `.dmg` and copies `k7s.app` to `/Applications`
+- **Linux**: installs the `.deb` package (or falls back to AppImage in `~/.local/bin`)
+
+**Windows / macOS Intel / Linux arm64:**
+
+Download the appropriate installer from [GitHub Releases](https://github.com/zy84338719/k7s/releases).
+
+---
+
 ## ✨ Features
 
 - **Multi-cluster** — kubeconfig context switcher with on-the-fly import
