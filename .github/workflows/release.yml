@@ -55,6 +55,9 @@ jobs:
       - name: install JS deps
         run: pnpm install --frozen-lockfile
 
+      - name: lint
+        run: pnpm lint
+
       - name: typecheck
         run: pnpm typecheck
 
