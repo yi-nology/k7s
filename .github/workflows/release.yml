@@ -184,19 +184,37 @@ jobs:
           releaseDraft: false
           prerelease: false
 
+      - name: build k7s-web
+        run: cargo build --release --features web --bin k7s-web
+        working-directory: src-tauri
+
+      - name: rename and upload k7s-web
+        shell: bash
+        run: |
+          cd src-tauri/target/release
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp k7s-web.exe k7s-web-windows-x64.exe
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            cp k7s-web k7s-web-macos-$(uname -m)
+          else
+            cp k7s-web k7s-web-linux-$(uname -m)
+          fi
+
+      - name: upload k7s-web
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            src-tauri/target/release/k7s-web-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # ────────────────────────────────────────────────────────────────
   # 4) Tag push → container image (linux/amd64 + linux/arm64) to ghcr.io.
   # ────────────────────────────────────────────────────────────────
   docker:
-    name: docker (${{ matrix.platform }})
+    name: docker (multi-arch)
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        platform:
-          - linux/amd64
-          - linux/arm64
     permissions:
       contents: read
       packages: write
@@ -211,6 +229,19 @@ jobs:
           docker image prune -af || true
           docker builder prune -af --filter "until=24h" || true
           df -h /
+
+      - name: build frontend
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: install JS deps and build
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
 
       - name: set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -237,13 +268,13 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
           flavor: latest=auto
 
-      - name: build & push
+      - name: build & push multi-arch
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          platforms: ${{ matrix.platform }}
-          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          platforms: linux/amd64,linux/arm64
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
