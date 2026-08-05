@@ -23,8 +23,8 @@ export function ComponentTable({ components }: Props) {
             </tr>
           </thead>
           <tbody>
-            {components.map((c, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+            {components.map((c) => (
+              <tr key={`${c.name}-${c.version}`} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '6px 12px' }}>{c.name}</td>
                 <td style={{ padding: '6px 12px' }}>{c.version}</td>
                 <td style={{ padding: '6px 12px' }}>{c.componentType}</td>
