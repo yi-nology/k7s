@@ -1,810 +1,126 @@
 /**
  * MockProvider — a full {@link DataProvider} backed by the prototype's static
  * data. Activated in demo mode (VITE_DEMO=1) so the entire UI runs in a plain
- * browser with no cluster. Behavior mirrors the prototype: a ~900ms log ticker,
- * an editable YAML cache, and a fixed watch count of 9.
+ * browser with no cluster.
+ *
+ * Refactored into smaller modules for high cohesion and low coupling.
  */
 
 import type {
-  Alert,
-  AlertManager,
-  AlertManagerUpsert,
-  ApplyResult,
-  ClusterInfo,
-  ClusterStatus,
-  DocDryRun,
-  ImportImageResult,
-  SkopeoAvailability,
-  ImageSyncResult,
-  ArchiveInfo,
-  ContextInfo,
   DataProvider,
-  DashboardPreset,
-  DrainFailure,
-  DrainProgress,
-  EndpointAddress,
-  EndpointRow,
-  GrafanaConfig,
-  GrafanaConfigUpsert,
-  HelmChartSummary,
-  HelmChartVersionEntry,
-  HelmOp,
-  HelmOpResult,
-  HelmRepo,
-  HelmRepoUpsert,
-  HelmRevisionEntry,
   ImageRegistry,
   ImageRegistryUpsert,
   ImageRepo,
   ImageTag,
-  ImageManifest,
-  ImageLayer,
+  ImportImageResult,
+  PodFileEntry,
+  SkopeoAvailability,
+  ImageSyncResult,
+  ArchiveInfo,
   SavedQuery,
   MetricsConfig,
   MetricsConfigUpsert,
-  NodeSample,
-  NodeStatsError,
-  EventItem,
-  ForwardInfo,
-  ImportResult,
-  LogHandle,
-  LogLine,
-  LogOptions,
-  NodeMetricsMap,
-  PodFileEntry,
-  PodMetricsMap,
-  PodSample,
-  PromQueryResult,
   Silence,
-  Prefs,
-  Properties,
-  CustomKind,
-  KindId,
-  ResourceRef,
-  ShellHandle,
-  Row,
-  SavedLog,
-  SecretEntry,
-  Unsub,
-  Revision,
-  YamlDiff,
-  NodeShellHandle,
+  Alert,
+  AlertManager,
+  AlertManagerUpsert,
+  GrafanaConfig,
+  GrafanaConfigUpsert,
+  EndpointRow,
+  EndpointAddress,
+  PromQueryResult,
+  ImageManifest,
+  ImageLayer,
+  DashboardPreset,
+  CreateSilenceRequest,
+  RuleGroup,
+  LokiConfig,
+  LokiUpsert,
+  AuditEvent,
+  AuditQuery,
+  GrafanaDashboardSearchResult,
 } from '../types';
-import { KIND_ORDER } from '../../lib/kinds';
-import {
-  MOCK_CLUSTERS,
-  MOCK_CUSTOM_KINDS,
-  MOCK_PODS,
-  buildCustomRows,
-  buildKindRows,
-  mockPodUsage,
-} from './data';
-import { makeLogLine, seedLogLines } from './logs';
-import { yamlForPodName, yamlForGeneric } from './yaml';
-import { eventsForPodName } from './events';
-import { mockProperties } from './properties';
-
-/** Interval (ms) between mock log lines, matching the prototype's default. */
-const LOG_TICK_MS = 900;
-
-/** Fixed status matching the prototype's status bar (v1.31, 42ms, 6/6, 41/63%). */
-const MOCK_STATUS: ClusterStatus = {
-  connected: true,
-  version: 'v1.31',
-  apiLatencyMs: 42,
-  nodesReady: 6,
-  nodesTotal: 6,
-  cpuPercent: 41,
-  memPercent: 63,
-};
-
-/** Cadence of the demo node-exporter series (B27) — brisk enough to watch. */
-const NODE_STATS_TICK_MS = 2000;
-
-/** Clamp a value into a range. */
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.min(hi, Math.max(lo, v));
-}
-
-/** Prototype shows a fixed "watch: 9 streams active". */
-const MOCK_WATCH_COUNT = 9;
-
-export class MockProvider implements DataProvider {
-  // In-memory YAML edits so Apply persists within the session (like the prototype).
-  private yamlCache = new Map<string, string>();
-
-  // Live subscribers, retained so connect() can re-emit after a data reset (e.g.
-  // the cluster switcher clears data on a context switch). The real backend
-  // re-emits from its watchers/pollers; the mock re-emits from here.
-  private resourceCbs = new Set<(kind: KindId, rows: Row[]) => void>();
-  private statusCbs = new Set<(s: ClusterStatus) => void>();
-  private watchCbs = new Set<(n: number) => void>();
-  private customKindCbs = new Set<(k: CustomKind[]) => void>();
-  private forwardCbs = new Set<(f: ForwardInfo[]) => void>();
-  private drainCbs = new Set<(p: DrainProgress) => void>();
-  private nodeStatsCbs = new Set<(node: string, s: NodeSample) => void>();
-  private nodeStatsErrCbs = new Set<(e: NodeStatsError) => void>();
-  private podStatsCbs = new Set<(key: string, s: PodSample) => void>();
-  /** Live synthetic series per node (B27), cleared by unwatchNodeStats. */
-  private nodeTimers = new Map<string, ReturnType<typeof setInterval>>();
-  /** Live synthetic per-pod series, cleared by unwatchPodStats. */
-  private podTimers = new Map<string, ReturnType<typeof setInterval>>();
-
-  // ---- one-shot commands ----
-
-  async listContexts(): Promise<ContextInfo[]> {
-    // Map the mock cluster list to context entries; the active one is "current".
-    return MOCK_CLUSTERS.map((c) => ({ name: c.name, cluster: c.name, current: c.active }));
-  }
-
-  async connect(context: string): Promise<ClusterInfo> {
-    // Tag every status emit with the current context so the bootstrap
-    // reconciliation can drop stale events from a previous cluster.
-    // Re-emit all snapshots so a data reset (on switch) is repopulated.
-    this.emitAllRows();
-    for (const cb of this.statusCbs) cb({ ...MOCK_STATUS, context });
-    for (const cb of this.watchCbs) cb(MOCK_WATCH_COUNT);
-    return { context, clusterName: context, server: 'https://mock.local:6443', version: 'v1.31' };
-  }
-
-  async importKubeconfig(): Promise<ImportResult | null> {
-    // No real file dialog in demo mode; simulate importing a context so the flow
-    // is demonstrable. Appended once (idempotent).
-    const base = MOCK_CLUSTERS.map((c) => ({ name: c.name, cluster: c.name, current: c.active }));
-    const imported: ContextInfo = {
-      name: 'imported-team-cluster',
-      cluster: 'team-eks',
-      current: false,
-    };
-    return { contexts: [...base, imported], path: '/mock/team-cluster.kubeconfig' };
-  }
-
-  async restoreImports(_paths: string[]): Promise<string[]> {
-    // Demo mode persists nothing (loadPrefs returns null), so there's never
-    // anything to restore.
-    return [];
-  }
-
-  /** Emit a fresh snapshot of every kind to all resource subscribers. */
-  private emitAllRows(): void {
-    for (const kind of KIND_ORDER) {
-      const rows = buildKindRows(kind);
-      for (const cb of this.resourceCbs) cb(kind, rows);
-    }
-  }
-
-  async getYaml(ref: ResourceRef): Promise<string> {
-    const key = `${ref.kind}:${ref.namespace}/${ref.name}`;
-    // Return the edited version if the user applied changes this session.
-    const cached = this.yamlCache.get(key);
-    if (cached) return cached;
-    // Pods get the full mock manifest; other kinds get a generic stub.
-    return ref.kind === 'pods'
-      ? yamlForPodName(ref.name)
-      : yamlForGeneric(ref.kind, ref.namespace, ref.name);
-  }
-
-  async applyYaml(ref: ResourceRef, text: string): Promise<void> {
-    // Persist to the in-memory cache; no validation in demo mode.
-    this.yamlCache.set(`${ref.kind}:${ref.namespace}/${ref.name}`, text);
-  }
-
-  /**
-   * Simulate a server-side dry run (B36). The interesting case isn't "your text
-   * comes back unchanged" — it's the server rewriting it, so the mock stamps the
-   * kind of defaulting and webhook mutation a real cluster applies, which is
-   * what makes the preview worth having.
-   */
-  async dryRunYaml(ref: ResourceRef, text: string): Promise<YamlDiff> {
-    const current = await this.getYaml(ref);
-    let proposed = text;
-    // Defaulting: the server fills fields you didn't write.
-    if (!/terminationGracePeriodSeconds:/.test(proposed)) {
-      proposed = proposed.replace(/^spec:$/m, 'spec:\n  terminationGracePeriodSeconds: 30');
-    }
-    // A mutating webhook stamping its own annotation — invisible in the text you
-    // typed, which is exactly the point of previewing.
-    if (!/k7s\.demo\/mutated:/.test(proposed)) {
-      proposed = proposed.replace(
-        /^ {2}annotations:$/m,
-        '  annotations:\n    k7s.demo/mutated: "true"'
-      );
-    }
-    return { current, proposed };
-  }
-
-  async getEvents(ref: ResourceRef): Promise<EventItem[]> {
-    return eventsForPodName(ref.name);
-  }
-
-  async getProperties(ref: ResourceRef): Promise<Properties> {
-    const props = mockProperties(ref);
-    // Match the backend, which errors for kinds with no gatherer — the tab isn't
-    // offered for those, so this only fires if the two lists drift apart.
-    if (!props) throw new Error(`no properties for kind ${ref.kind}`);
-    return props;
-  }
-
-  async getSecretData(_namespace: string, _name: string): Promise<SecretEntry[]> {
-    // Demo mode: return sample decoded secret data so the toggle is demonstrable.
-    return [
-      { key: 'username', value: 'admin' },
-      { key: 'password', value: 's3cret-v4lue!' },
-      { key: 'token', value: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.demo' },
-    ];
-  }
-
-  // Mutations are no-ops in demo mode (the data is static) — they resolve so the
-  // UI flow can be exercised without a cluster.
-  async deleteResource(_ref: ResourceRef): Promise<void> {}
-  async scaleResource(_ref: ResourceRef, _replicas: number): Promise<void> {}
-  async restartPod(_ref: ResourceRef): Promise<void> {}
-  async restartRollout(_ref: ResourceRef): Promise<void> {}
-  async listRevisions(ref: ResourceRef): Promise<Revision[]> {
-    // A small fake history so the Revisions tab is demonstrable in demo mode.
-    // Three revisions, the newest current; images advance to show what a
-    // rollback would change to.
-    void ref;
-    const now = Date.now();
-    const age = (mins: number) => new Date(now - mins * 60_000).toISOString();
-    return [
-      {
-        revision: 3,
-        images: [{ name: 'app', image: 'nginx:1.25.3', init: false }],
-        desired: 3,
-        ready: 3,
-        age: age(2),
-        isCurrent: true,
-      },
-      {
-        revision: 2,
-        images: [{ name: 'app', image: 'nginx:1.25.2', init: false }],
-        desired: 0,
-        ready: 0,
-        age: age(63),
-        isCurrent: false,
-      },
-      {
-        revision: 1,
-        images: [{ name: 'app', image: 'nginx:1.25.1', init: false }],
-        desired: 0,
-        ready: 0,
-        age: age(60 * 25),
-        isCurrent: false,
-      },
-    ];
-  }
-  async undoRollout(_ref: ResourceRef, _toRevision?: number): Promise<void> {}
-  async setCordon(_node: string, _unschedulable: boolean): Promise<void> {}
-  /** No native window in demo mode — the browser tab owns its own chrome. */
-  async setWindowTheme(_theme: 'dark' | 'light'): Promise<void> {}
-
-  /**
-   * Simulate a drain (B20): tick evictions out over a couple of seconds so the
-   * progress banner is demonstrable, and have one pod blocked by a PDB — that's
-   * the case worth seeing, since it's the one that stops a drain finishing.
-   */
-  async drainNode(node: string): Promise<void> {
-    const total = 6;
-    let evicted = 0;
-    const failures: DrainFailure[] = [];
-    const tick = () => {
-      if (evicted < total - 1) {
-        evicted += 1;
-      } else if (failures.length === 0) {
-        failures.push({
-          pod: 'prod/yggdrasil-db-0',
-          message:
-            "blocked by a PodDisruptionBudget: Cannot evict pod as it would violate the pod's disruption budget.",
-          blockedByPdb: true,
-        });
-      }
-      const done = evicted >= total - 1 && failures.length > 0;
-      for (const cb of this.drainCbs) cb({ node, evicted, total, failures: [...failures], done });
-      if (!done) setTimeout(tick, 400);
-    };
-    setTimeout(tick, 300);
-  }
-
-  // Demo mode doesn't persist anything.
-  async loadPrefs(): Promise<Prefs | null> {
-    return null;
-  }
-  async savePrefs(_prefs: Prefs): Promise<void> {}
-
-  // ---- push subscriptions ----
-  //
-  // The mock has no live resource stream (data is static), so onResourceUpdate
-  // emits one snapshot per kind on the next tick and then stays quiet. The other
-  // subscriptions emit a single initial value. Each returns a no-op unsubscribe
-  // (nothing keeps running that needs teardown).
-
-  onResourceUpdate(cb: (kind: KindId, rows: Row[]) => void): Unsub {
-    this.resourceCbs.add(cb);
-    // Emit asynchronously so subscribers finish wiring up before the first snapshot.
-    queueMicrotask(() => {
-      for (const kind of KIND_ORDER) cb(kind, buildKindRows(kind));
-    });
-    return () => {
-      this.resourceCbs.delete(cb);
-    };
-  }
-
-  // ---- custom (CRD-backed) kinds (B15) ----
-  //
-  // Demo mode mirrors the real lazy-watch contract: no rows exist for a custom
-  // kind until it's watched, and they arrive via the same resource-update path.
-
-  onCustomKinds(cb: (kinds: CustomKind[]) => void): Unsub {
-    this.customKindCbs.add(cb);
-    queueMicrotask(() => cb(MOCK_CUSTOM_KINDS));
-    return () => {
-      this.customKindCbs.delete(cb);
-    };
-  }
-
-  async watchCustomKind(id: string): Promise<void> {
-    const rows = buildCustomRows(id);
-    for (const cb of this.resourceCbs) cb(id, rows);
-  }
-
-  async unwatchCustomKind(_id: string): Promise<void> {
-    // Nothing to tear down: the mock has no live streams.
-  }
-
-  onPodMetrics(_cb: (metrics: PodMetricsMap) => void): Unsub {
-    // Pod CPU/MEM are baked into the mock rows already, so no separate feed.
-    return () => {};
-  }
-
-  onNodeMetrics(_cb: (metrics: NodeMetricsMap) => void): Unsub {
-    // Node CPU/MEM percentages are baked into the mock rows already.
-    return () => {};
-  }
-
-  onClusterStatus(cb: (status: ClusterStatus) => void): Unsub {
-    this.statusCbs.add(cb);
-    queueMicrotask(() => cb(MOCK_STATUS));
-    return () => {
-      this.statusCbs.delete(cb);
-    };
-  }
-
-  onWatchStatus(cb: (activeStreams: number) => void): Unsub {
-    this.watchCbs.add(cb);
-    queueMicrotask(() => cb(MOCK_WATCH_COUNT));
-    return () => {
-      this.watchCbs.delete(cb);
-    };
-  }
-
-  onWatchKindStatus(_cb: (kind: string, status: 'ok' | 'forbidden') => void): Unsub {
-    return () => {}; // mock: no RBAC errors
-  }
-
-  onDrainProgress(cb: (p: DrainProgress) => void): Unsub {
-    this.drainCbs.add(cb);
-    return () => {
-      this.drainCbs.delete(cb);
-    };
-  }
-
-  onNodeStats(cb: (node: string, s: NodeSample) => void): Unsub {
-    this.nodeStatsCbs.add(cb);
-    return () => {
-      this.nodeStatsCbs.delete(cb);
-    };
-  }
-
-  onNodeStatsError(cb: (e: NodeStatsError) => void): Unsub {
-    this.nodeStatsErrCbs.add(cb);
-    return () => {
-      this.nodeStatsErrCbs.delete(cb);
-    };
-  }
-
-  // ---- node-exporter statistics (B27) ----
-  //
-  // Demo mode synthesises a plausible series on the same cadence the real scraper
-  // uses, so the plots can be worked on without a cluster. One node deliberately
-  // has no exporter: the error path is as much a part of the tab as the charts.
-
-  /**
-   * Synthesise an hour of history (B38), so demo mode shows the charts opening
-   * populated rather than filling one point at a time. The node with no exporter
-   * has no history either — a cluster without the metrics has neither source.
-   */
-  async nodeHistory(node: string): Promise<NodeSample[]> {
-    if (node.endsWith('06')) return [];
-    const step = 30_000;
-    const points = 120;
-    const now = Date.now();
-    const total = 64 * 1024 ** 3;
-    let cpu = 20 + (node.charCodeAt(node.length - 1) % 5) * 8;
-    let used = total * 0.42;
-    const out: NodeSample[] = [];
-    for (let i = points; i > 0; i--) {
-      cpu = clamp(cpu + (Math.random() - 0.5) * 10, 1, 98);
-      used = clamp(used + (Math.random() - 0.5) * 8e8, total * 0.15, total * 0.9);
-      const load = (cpu / 100) * 8;
-      out.push({
-        ts: now - i * step,
-        cpuPercent: cpu,
-        memUsedBytes: used,
-        memTotalBytes: total,
-        netRxBps: Math.max(0, 2e6 + (Math.random() - 0.5) * 1e6),
-        netTxBps: Math.max(0, 5e5 + (Math.random() - 0.5) * 3e5),
-        load1: load,
-        load5: load * 0.9,
-        load15: load * 0.8,
-        // Backfilled points carry no filesystems: the UI reads those as current.
-        filesystems: [],
-      });
-    }
-    return out;
-  }
-
-  async watchNodeStats(node: string): Promise<void> {
-    if (this.nodeTimers.has(node)) return;
-
-    if (node.endsWith('06')) {
-      this.nodeStatsErrCbs.forEach((cb) =>
-        cb({
-          node,
-          message: `no node-exporter pod found on ${node} — install one, or its port isn't 9100`,
-        })
-      );
-      return;
-    }
-
-    // A per-node seed keeps each node's curve distinct but stable across a
-    // session, rather than every node drawing the same random walk.
-    let cpu = 20 + (node.charCodeAt(node.length - 1) % 5) * 8;
-    let rx = 2e6;
-    let tx = 5e5;
-    const total = 64 * 1024 ** 3;
-    let used = total * 0.42;
-
-    const tick = () => {
-      // Random walks, bounded — enough to look like a machine rather than noise.
-      cpu = clamp(cpu + (Math.random() - 0.5) * 14, 1, 98);
-      used = clamp(used + (Math.random() - 0.5) * 1e9, total * 0.15, total * 0.9);
-      rx = Math.max(0, rx + (Math.random() - 0.5) * 1.2e6);
-      tx = Math.max(0, tx + (Math.random() - 0.5) * 4e5);
-      const load = (cpu / 100) * 8;
-      const sample: NodeSample = {
-        ts: Date.now(),
-        cpuPercent: cpu,
-        memUsedBytes: used,
-        memTotalBytes: total,
-        netRxBps: rx,
-        netTxBps: tx,
-        load1: load,
-        load5: load * 0.9,
-        load15: load * 0.8,
-        filesystems: [
-          { mountpoint: '/', usedBytes: 67e9, sizeBytes: 1920e9 },
-          { mountpoint: '/home', usedBytes: 8e9, sizeBytes: 1861e9 },
-          { mountpoint: '/mnt/data', usedBytes: 9078e9, sizeBytes: 20059e9 },
-        ],
-      };
-      this.nodeStatsCbs.forEach((cb) => cb(node, sample));
-    };
-    // First point promptly so the tab isn't empty while you wait.
-    setTimeout(tick, 200);
-    this.nodeTimers.set(node, setInterval(tick, NODE_STATS_TICK_MS));
-  }
-
-  async unwatchNodeStats(node: string): Promise<void> {
-    const t = this.nodeTimers.get(node);
-    if (t !== undefined) {
-      clearInterval(t);
-      this.nodeTimers.delete(node);
-    }
-  }
-
-  // ---- per-pod statistics ----
-  //
-  // Demo mode has no metrics-server, so it synthesises a plausible CPU/memory
-  // series on the same cadence a pod's Metrics tab would see from the real feed,
-  // letting the tab be worked on without a cluster.
-
-  onPodStats(cb: (key: string, s: PodSample) => void): Unsub {
-    this.podStatsCbs.add(cb);
-    return () => {
-      this.podStatsCbs.delete(cb);
-    };
-  }
-
-  async watchPodStats(key: string): Promise<void> {
-    if (this.podTimers.has(key)) return;
-
-    // Centre the walk on the pod's declared usage so it hovers near its request
-    // and under its limit — the overlay lines (derived from the same usage in
-    // mockPodResources) then read as a coherent picture rather than noise.
-    const base = mockPodUsage(key);
-    const baseCpu = base && base.cpuMillis > 0 ? base.cpuMillis : 40;
-    const baseMem = base && base.memBytes > 0 ? base.memBytes : 96 * 1024 * 1024;
-    let cpu = baseCpu;
-    let mem = baseMem;
-
-    const tick = () => {
-      // Bounds sit below 2x base, keeping usage under the 2x-base limit line.
-      cpu = clamp(
-        cpu + (Math.random() - 0.5) * baseCpu * 0.18,
-        Math.max(1, baseCpu * 0.4),
-        baseCpu * 2.1
-      );
-      mem = clamp(mem + (Math.random() - 0.5) * baseMem * 0.12, baseMem * 0.5, baseMem * 2.0);
-      const sample: PodSample = {
-        ts: Date.now(),
-        cpuMillis: Math.round(cpu),
-        memBytes: Math.round(mem),
-      };
-      this.podStatsCbs.forEach((cb) => cb(key, sample));
-    };
-    // First point promptly so the tab isn't empty while you wait.
-    setTimeout(tick, 200);
-    this.podTimers.set(key, setInterval(tick, NODE_STATS_TICK_MS));
-  }
-
-  async unwatchPodStats(key: string): Promise<void> {
-    const t = this.podTimers.get(key);
-    if (t !== undefined) {
-      clearInterval(t);
-      this.podTimers.delete(key);
-    }
-  }
-
-  // ---- log streaming ----
-
-  async startLogs(
-    ref: ResourceRef,
-    container: string,
-    _opts: LogOptions,
-    onLines: (lines: LogLine[]) => void,
-    _onClosed: (reason: string) => void
-  ): Promise<LogHandle> {
-    // In "all" mode (container === "") tag each line with a rotating container name.
-    const pod = MOCK_PODS.find((p) => p.name === ref.name);
-    const containers = pod?.containers ?? ['app'];
-    const tag = () =>
-      container === '' ? containers[Math.floor(Math.random() * containers.length)] : container;
-    const withTag = (lines: LogLine[]) => lines.map((l) => ({ ...l, container: tag() }));
-
-    // Seed with history immediately, then tick a new line every LOG_TICK_MS.
-    onLines(withTag(seedLogLines(ref.name)));
-    const timer = setInterval(() => {
-      onLines(withTag([makeLogLine(ref.name)]));
-    }, LOG_TICK_MS);
-
-    return {
-      stop() {
-        clearInterval(timer);
-      },
-    };
-  }
-
-  async saveLogs(): Promise<SavedLog | null> {
-    // Demo mode is a browser page: no filesystem, and no native dialog to pick a
-    // path with. Reporting "cancelled" is the honest answer — the button does
-    // nothing rather than claiming to have written a file that doesn't exist.
-    return null;
-  }
-
-  // ---- shell / exec (demo: a local echo shell) ----
-
-  async startShell(
-    _ref: ResourceRef,
-    container: string,
-    onOutput: (data: string) => void,
-    _onClosed: (reason: string) => void
-  ): Promise<ShellHandle> {
-    const prompt = `\x1b[32m${container}\x1b[0m:/# `;
-    onOutput(`demo shell — echoes input (no real container)\r\n${prompt}`);
-    return {
-      input: (data: string) => {
-        // Enter → newline + prompt; otherwise echo the keystroke.
-        onOutput(data === '\r' ? `\r\n${prompt}` : data);
-      },
-      resize: () => {},
-      stop: () => {},
-    };
-  }
-
-  /**
-   * Simulate a node debug shell (B53).
-   *
-   * Deliberately slow to "start": the real thing creates a pod and waits for the
-   * kubelet, which on a first run means an image pull. The demo would be
-   * misleading if it opened instantly, since the waiting state is a real part of
-   * the experience and has its own UI.
-   */
-  async startNodeShell(
-    node: string,
-    onOutput: (data: string) => void,
-    _onClosed: (reason: string) => void
-  ): Promise<NodeShellHandle> {
-    const pod = `k7s-debug-${node}-1`;
-    await new Promise((r) => setTimeout(r, 1200));
-
-    const prompt = `\x1b[32mroot@${node}\x1b[0m:~# `;
-    onOutput(
-      `demo node shell — echoes input (no real node)\r\n` +
-        `\x1b[90mreal sessions run in pod ${pod}\x1b[0m\r\n${prompt}`
-    );
-    return {
-      namespace: 'default',
-      pod,
-      input: (data: string) => {
-        onOutput(data === '\r' ? `\r\n${prompt}` : data);
-      },
-      resize: () => {},
-      stop: () => {},
-    };
-  }
-
-  // ---- port-forwarding (demo: fake local ports) ----
-  private forwards: ForwardInfo[] = [];
-
-  async startPortForward(ref: ResourceRef, remotePort: number): Promise<ForwardInfo> {
-    const isService = ref.kind === 'services';
-    const fwd: ForwardInfo = {
-      id: `pf-${ref.name}-${remotePort}-${this.forwards.length}`,
-      namespace: ref.namespace ?? '',
-      // A Service forward resolves to a backing pod; the mock fakes one so the
-      // strip shows the same "service (via pod)" shape as the real thing (B16).
-      pod: isService ? `${ref.name}-6c8d9-mn4p` : ref.name,
-      service: isService ? ref.name : undefined,
-      // A Service's targetPort commonly differs from its published port; the mock
-      // mirrors that so the strip's "show what was asked for" rule is visible.
-      remotePort: isService ? 8080 : remotePort,
-      servicePort: isService && remotePort !== 8080 ? remotePort : undefined,
-      localPort: 20000 + Math.floor(Math.random() * 10000),
-    };
-    this.forwards.push(fwd);
-    this.emitForwards();
-    return fwd;
-  }
-
-  async stopPortForward(id: string): Promise<void> {
-    this.forwards = this.forwards.filter((f) => f.id !== id);
-    this.emitForwards();
-  }
-
-  async listPortForwards(): Promise<ForwardInfo[]> {
-    return this.forwards;
-  }
-
-  onForwards(cb: (forwards: ForwardInfo[]) => void): Unsub {
-    this.forwardCbs.add(cb);
-    return () => {
-      this.forwardCbs.delete(cb);
-    };
-  }
-
-  /** Push the current forwards, mirroring the backend's forwards-update event. */
-  private emitForwards(): void {
-    for (const cb of this.forwardCbs) cb([...this.forwards]);
-  }
-
-  // ---- Helm marketplace: demo mode has no Helm backend. ----
-  // Stubbed to keep the interface satisfied; the UI either gates these on
-  // Tauri vs Mock or shows an "available in real cluster" hint.
-  async helmListRepos(): Promise<HelmRepo[]> {
-    return demoMockRepos();
-  }
-  async helmAddRepo(_input: HelmRepoUpsert): Promise<HelmRepo> {
-    throw new Error('Helm not available in demo mode');
-  }
-  async helmRemoveRepo(_name: string): Promise<void> {
-    throw new Error('Helm not available in demo mode');
-  }
-  async helmUpdateRepo(name: string): Promise<HelmRepo> {
-    const r = (await this.helmListRepos()).find((x) => x.name === name);
-    if (!r) throw new Error(`repo ${name} not found`);
-    return { ...r, lastRefreshed: new Date().toISOString(), lastError: null };
-  }
-  async helmUpdateAllRepos(): Promise<HelmRepo[]> {
-    return this.helmListRepos();
-  }
-  async helmSearchCharts(query: string): Promise<HelmChartSummary[]> {
-    const all = demoMockCharts();
-    const q = query.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.description.toLowerCase().includes(q) ||
-        c.keywords.some((k) => k.toLowerCase().includes(q))
-    );
-  }
-  async helmChartVersions(_repo: string, _chart: string): Promise<HelmChartVersionEntry[]> {
-    return [
-      { version: '1.2.3', appVersion: '1.0.0', created: '2024-01-01T00:00:00Z', urls: [] },
-      { version: '1.2.2', appVersion: '1.0.0', created: '2023-12-01T00:00:00Z', urls: [] },
-      { version: '1.2.1', appVersion: '0.9.0', created: '2023-11-01T00:00:00Z', urls: [] },
-    ];
-  }
-  async helmExportChart(
-    _repo: string,
-    _chart: string,
-    _version: string,
-    _outputDir: string
-  ): Promise<string> {
-    return '/tmp/chart.tgz';
-  }
-  async helmImportChart(_filePath: string, _repoName: string): Promise<string> {
-    return '/tmp/imported.tgz';
-  }
-  async helmLocalCharts(_repoName: string): Promise<string[]> {
-    return [];
-  }
-  async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
-    return '# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n';
-  }
-  async helmRunOp(_op: HelmOp): Promise<HelmOpResult> {
-    return {
-      op: 'install',
-      release: 'demo',
-      namespace: 'default',
-      success: true,
-      lines: 0,
-      summary: 'demo mode: no helm backend',
-    };
-  }
-  async helmReleaseHistory(
-    _release: string,
-    _ns: string,
-    _kc?: string
-  ): Promise<HelmRevisionEntry[]> {
-    return [];
-  }
-  onHelmOpLog(_cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub {
-    return () => {};
-  }
-  onHelmOpDone(_cb: (result: HelmOpResult) => void): Unsub {
-    return () => {};
-  }
-
-  // ---- Pod file management: demo mode renders a static tree. ----
-  async podFilesList(
-    _ref: ResourceRef,
-    _container: string | null,
-    _path: string
-  ): Promise<PodFileEntry[]> {
-    return [
-      { name: 'etc', kind: 'dir', size: 0, modified: 1700000000, mode: 0o755 },
-      { name: 'var', kind: 'dir', size: 0, modified: 1700000000, mode: 0o755 },
-      { name: 'tmp', kind: 'dir', size: 0, modified: 1700000000, mode: 0o1777 },
-      { name: 'demo.txt', kind: 'file', size: 12, modified: 1700000000, mode: 0o644 },
-    ];
-  }
-  async podFilesRead(_ref: ResourceRef, _container: string | null, path: string): Promise<string> {
-    return `demo file: ${path}\n`;
-  }
-  async podFilesWrite(
-    _ref: ResourceRef,
-    _container: string | null,
-    _path: string,
-    _content: string
-  ): Promise<void> {
-    // No-op: writes don't actually persist in demo mode.
-  }
-  async podFilesDownload(
-    _ref: ResourceRef,
-    _container: string | null,
-    _path: string
-  ): Promise<Uint8Array> {
-    return new TextEncoder().encode('demo archive\n');
-  }
-  async podFilesUpload(
-    _ref: ResourceRef,
-    _container: string | null,
-    _destDir: string,
-    _tar: Uint8Array
-  ): Promise<void> {
-    // No-op.
+import { MockConnectionMixin } from './mockConnection';
+import { MockResourcesMixin } from './mockResources';
+import { MockMetricsMixin } from './mockMetrics';
+import { MockHelmMixin } from './mockHelm';
+import { MockShellMixin } from './mockShell';
+
+export class MockProvider
+  extends MockConnectionMixin
+  implements DataProvider
+{
+  // Mix in the other capabilities
+  private resources = new MockResourcesMixin();
+  private metrics = new MockMetricsMixin();
+  private helm = new MockHelmMixin();
+  private shell = new MockShellMixin();
+
+  // Forward resource methods
+  getYaml = this.resources.getYaml.bind(this.resources);
+  applyYaml = this.resources.applyYaml.bind(this.resources);
+  dryRunYaml = this.resources.dryRunYaml.bind(this.resources);
+  getEvents = this.resources.getEvents.bind(this.resources);
+  getProperties = this.resources.getProperties.bind(this.resources);
+  getSecretData = this.resources.getSecretData.bind(this.resources);
+  deleteResource = this.resources.deleteResource.bind(this.resources);
+  scaleResource = this.resources.scaleResource.bind(this.resources);
+  restartPod = this.resources.restartPod.bind(this.resources);
+  restartRollout = this.resources.restartRollout.bind(this.resources);
+  listRevisions = this.resources.listRevisions.bind(this.resources);
+  undoRollout = this.resources.undoRollout.bind(this.resources);
+  setCordon = this.resources.setCordon.bind(this.resources);
+  applyYamlBundle = this.resources.applyYamlBundle.bind(this.resources);
+  dryRunYamlBundle = this.resources.dryRunYamlBundle.bind(this.resources);
+  onResourceUpdate = this.resources.onResourceUpdate.bind(this.resources);
+  onCustomKinds = this.resources.onCustomKinds.bind(this.resources);
+  watchCustomKind = this.resources.watchCustomKind.bind(this.resources);
+  unwatchCustomKind = this.resources.unwatchCustomKind.bind(this.resources);
+
+  // Forward metrics methods
+  drainNode = this.metrics.drainNode.bind(this.metrics);
+  onPodMetrics = this.metrics.onPodMetrics.bind(this.metrics);
+  onNodeMetrics = this.metrics.onNodeMetrics.bind(this.metrics);
+  onDrainProgress = this.metrics.onDrainProgress.bind(this.metrics);
+  onNodeStats = this.metrics.onNodeStats.bind(this.metrics);
+  onNodeStatsError = this.metrics.onNodeStatsError.bind(this.metrics);
+  nodeHistory = this.metrics.nodeHistory.bind(this.metrics);
+  watchNodeStats = this.metrics.watchNodeStats.bind(this.metrics);
+  unwatchNodeStats = this.metrics.unwatchNodeStats.bind(this.metrics);
+  onPodStats = this.metrics.onPodStats.bind(this.metrics);
+  watchPodStats = this.metrics.watchPodStats.bind(this.metrics);
+  unwatchPodStats = this.metrics.unwatchPodStats.bind(this.metrics);
+
+  // Forward helm methods
+  helmListRepos = this.helm.helmListRepos.bind(this.helm);
+  helmAddRepo = this.helm.helmAddRepo.bind(this.helm);
+  helmRemoveRepo = this.helm.helmRemoveRepo.bind(this.helm);
+  helmUpdateRepo = this.helm.helmUpdateRepo.bind(this.helm);
+  helmUpdateAllRepos = this.helm.helmUpdateAllRepos.bind(this.helm);
+  helmSearchCharts = this.helm.helmSearchCharts.bind(this.helm);
+  helmChartVersions = this.helm.helmChartVersions.bind(this.helm);
+  helmExportChart = this.helm.helmExportChart.bind(this.helm);
+  helmImportChart = this.helm.helmImportChart.bind(this.helm);
+  helmLocalCharts = this.helm.helmLocalCharts.bind(this.helm);
+  helmRenderDefaultValues = this.helm.helmRenderDefaultValues.bind(this.helm);
+  helmRunOp = this.helm.helmRunOp.bind(this.helm);
+  helmReleaseHistory = this.helm.helmReleaseHistory.bind(this.helm);
+  onHelmOpLog = this.helm.onHelmOpLog.bind(this.helm);
+  onHelmOpDone = this.helm.onHelmOpDone.bind(this.helm);
+
+  // Forward shell methods
+  startLogs = this.shell.startLogs.bind(this.shell);
+  saveLogs = this.shell.saveLogs.bind(this.shell);
+  startShell = this.shell.startShell.bind(this.shell);
+  startNodeShell = this.shell.startNodeShell.bind(this.shell);
+  startPortForward = this.shell.startPortForward.bind(this.shell);
+  stopPortForward = this.shell.stopPortForward.bind(this.shell);
+  listPortForwards = this.shell.listPortForwards.bind(this.shell);
+  onForwards = this.shell.onForwards.bind(this.shell);
+
+  // Override emitAllRows to use resources mixin
+  protected emitAllRows(): void {
+    this.resources['emitAllRows']();
   }
 
   // ---- Image registry management: empty in demo. ----
@@ -821,18 +137,19 @@ export class MockProvider implements DataProvider {
       },
     ];
   }
+
   async imageRegistryUpsert(_input: ImageRegistryUpsert): Promise<ImageRegistry> {
     throw new Error('image registry not available in demo mode');
   }
-  async imageRegistryRemove(_name: string): Promise<void> {
-    // No-op: nothing to remove.
-  }
-  async imageRegistryTest(_name: string): Promise<void> {
-    // No-op.
-  }
+
+  async imageRegistryRemove(_name: string): Promise<void> {}
+
+  async imageRegistryTest(_name: string): Promise<void> {}
+
   async imageRegistryRepos(_name: string): Promise<ImageRepo[]> {
     return [{ name: 'library/nginx' }, { name: 'library/redis' }, { name: 'library/postgres' }];
   }
+
   async imageRegistryTags(_name: string, _repo: string): Promise<ImageTag[]> {
     return [
       {
@@ -856,474 +173,333 @@ export class MockProvider implements DataProvider {
     ];
   }
 
-  // ---- Multi-document YAML apply: stub that "succeeds" in demo. ----
-  async applyYamlBundle(_yaml: string): Promise<ApplyResult[]> {
-    return [
-      {
-        name: 'demo',
-        kind: 'Deployment',
-        namespace: 'default',
-        action: 'created',
-        error: null,
-      },
-    ];
-  }
-
-  // ---- Multi-document YAML dry run: split on `---`, echo each doc as the
-  // proposed manifest. No schema validation in demo — enough to exercise the
-  // create overlay's YAML-import Preview UI without a cluster. ----
-  async dryRunYamlBundle(yaml: string): Promise<DocDryRun[]> {
-    const docs = yaml
-      .split(/^---\s*$/m)
-      .map((d) => d.trim())
-      .filter((d) => d.length > 0);
-    return docs.map((doc) => {
-      // Best-effort name/kind extraction for the review row header; the demo
-      // doesn't need to be correct, just non-empty.
-      const nameMatch = doc.match(/^\s*name:\s*(\S+)/m);
-      const kindMatch = doc.match(/^\s*kind:\s*(\S+)/m);
-      return {
-        kind: kindMatch?.[1] ?? 'Unknown',
-        namespace: 'default',
-        name: nameMatch?.[1] ?? 'unknown',
-        proposed: doc,
-        error: null,
-      };
-    });
-  }
-
-  // ---- Image import (air-gapped): mock that "succeeds" in demo. The file
-  // isn't read — we just report a plausible loaded image derived from the
-  // filename so the result looks real. ----
+  // ---- Image import (air-gapped): mock that "succeeds" in demo. ----
   async importImageToNode(_node: string, path: string): Promise<ImportImageResult> {
-    const base =
-      path
-        .split('/')
-        .pop()
-        ?.replace(/\.tar$/i, '') ?? 'demo';
+    const base = path.split('/').pop() ?? 'image.tar';
     return {
       runtime: 'containerd',
-      output: `Loaded image: ${base}:latest\n`,
-      images: [`${base}:latest`],
+      output: `Loaded image: docker.io/library/${base.replace(/\.tar$/, '')}:latest`,
+      images: [`docker.io/library/${base.replace(/\.tar$/, '')}:latest`],
       error: null,
     };
   }
 
-  // ---- Image sync (skopeo → private registry): mock so the demo build can
-  // exercise the To-Registry tab without skopeo installed. ----
-  async imageSyncStatus(): Promise<SkopeoAvailability> {
+  async checkSkopeo(): Promise<SkopeoAvailability> {
+    return { available: true, path: '/usr/bin/skopeo', version: '1.13.0' };
+  }
+
+  async syncImage(): Promise<ImageSyncResult> {
     return {
-      available: true,
-      path: '/opt/homebrew/bin/skopeo',
-      version: 'skopeo version 1.14.0',
+      source: 'docker-archive:/tmp/nginx.tar',
+      destination: 'docker://registry.demo/library/nginx:1.25',
+      success: true,
+      lines: 10,
+      summary: 'Copied nginx:1.25 to registry.demo/library/nginx:1.25',
     };
   }
 
-  async imageInspectArchive(tarPath: string): Promise<ArchiveInfo> {
-    const base =
-      tarPath
-        .split('/')
-        .pop()
-        ?.replace(/\.tar$/i, '') ?? 'demo';
+  async listImageArchives(): Promise<ArchiveInfo[]> {
+    return [];
+  }
+
+  async listEndpointSlices(): Promise<EndpointRow[]> {
+    return [];
+  }
+
+  async listEndpoints(): Promise<EndpointRow[]> {
+    return [];
+  }
+
+  async listEndpointAddresses(_namespace: string, _name: string): Promise<EndpointAddress[]> {
+    return [];
+  }
+
+  async promQuery(_expr: string): Promise<PromQueryResult> {
+    return { resultType: 'vector', series: [] };
+  }
+
+  async imageManifest(_registry: string, _repo: string, _tag: string): Promise<ImageManifest> {
     return {
-      name: `docker.io/library/${base}`,
-      repoTags: [`${base}:latest`],
+      schemaVersion: 2,
+      mediaType: 'application/vnd.docker.distribution.manifest.v2+json',
+      size: 1000,
       digest: 'sha256:' + 'a'.repeat(64),
-      architecture: 'amd64',
-      os: 'linux',
-      created: '2024-01-15T10:00:00Z',
-      sizeBytes: 142000000,
+      raw: '{}',
+      configDigest: 'sha256:' + 'b'.repeat(64),
+      configSize: 500,
+      layers: [],
     };
+  }
+
+  async imageLayers(_registry: string, _repo: string, _tag: string): Promise<ImageLayer[]> {
+    return [];
+  }
+
+  // ---- Saved queries (demo: empty). ----
+  async listSavedQueries(): Promise<SavedQuery[]> {
+    return [];
+  }
+
+  async saveSavedQuery(_query: SavedQuery): Promise<void> {}
+
+  async deleteSavedQuery(_id: string): Promise<void> {}
+
+  // ---- Metrics config (demo: stub). ----
+  async getMetricsConfig(): Promise<MetricsConfig> {
+    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
+  }
+
+  async updateMetricsConfig(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
+    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
+  }
+
+  // ---- Grafana config (demo: stub). ----
+  async getGrafanaConfig(): Promise<GrafanaConfig> {
+    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
+  }
+
+  async updateGrafanaConfig(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
+    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
+  }
+
+  // ---- Alerting (demo: stubs). ----
+  async getAlertmanager(): Promise<AlertManager> {
+    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
+  }
+
+  async updateAlertmanager(_input: AlertManagerUpsert): Promise<AlertManager> {
+    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
+  }
+
+  async getAlerts(): Promise<Alert[]> {
+    return [];
+  }
+
+  async createSilence(_silence: Silence): Promise<string> {
+    return 'mock-silence-id';
+  }
+
+  async deleteSilence(_id: string): Promise<void> {}
+
+  // ---- Pod file management: demo mode renders a static tree. ----
+  async podFilesList(
+    _ref: { kind: string; namespace?: string; name: string },
+    _container: string | null,
+    _path: string
+  ): Promise<PodFileEntry[]> {
+    return [
+      { name: 'etc', kind: 'dir', size: 0, modified: 1700000000, mode: 0o755 },
+      { name: 'var', kind: 'dir', size: 0, modified: 1700000000, mode: 0o755 },
+      { name: 'tmp', kind: 'dir', size: 0, modified: 1700000000, mode: 0o1777 },
+      { name: 'demo.txt', kind: 'file', size: 12, modified: 1700000000, mode: 0o644 },
+    ];
+  }
+
+  async podFilesRead(
+    _ref: { kind: string; namespace?: string; name: string },
+    _container: string | null,
+    path: string
+  ): Promise<string> {
+    return `demo file: ${path}\n`;
+  }
+
+  async podFilesWrite(
+    _ref: { kind: string; namespace?: string; name: string },
+    _container: string | null,
+    _path: string,
+    _content: string
+  ): Promise<void> {}
+
+  async podFilesDownload(
+    _ref: { kind: string; namespace?: string; name: string },
+    _container: string | null,
+    _path: string
+  ): Promise<Uint8Array> {
+    return new TextEncoder().encode('demo archive\n');
+  }
+
+  async podFilesUpload(
+    _ref: { kind: string; namespace?: string; name: string },
+    _container: string | null,
+    _destDir: string,
+    _tar: Uint8Array
+  ): Promise<void> {}
+
+  // ---- Additional DataProvider methods ----
+  async imageSyncStatus(): Promise<SkopeoAvailability> {
+    return { available: true, path: '/usr/bin/skopeo', version: '1.13.0' };
   }
 
   async imageCopy(
     _source: string,
-    destRegistry: string,
-    destRepo: string,
-    destTag: string,
+    _destRegistry: string,
+    _destRepo: string,
+    _destTag: string,
     _srcCreds: string | null,
     _insecureSrc: boolean,
     _insecureDest: boolean,
-    onLog: (line: string) => void
+    _onLog: (line: string) => void
   ): Promise<ImageSyncResult> {
-    // Emit a couple of fake progress lines so the live log looks alive.
-    onLog('Getting image source signatures');
-    onLog('Copying blob sha256:abc123 done');
-    onLog('Copying config sha256:def456 done');
-    onLog('Writing manifest to image destination');
-    const dest = `docker://${destRegistry}/${destRepo}:${destTag}`;
     return {
-      source: _source,
-      destination: dest,
+      source: 'docker-archive:/tmp/nginx.tar',
+      destination: 'docker://registry.demo/library/nginx:1.25',
       success: true,
-      lines: 4,
-      summary: `copied → ${destRegistry}/${destRepo}:${destTag}`,
+      lines: 10,
+      summary: 'Copied nginx:1.25 to registry.demo/library/nginx:1.25',
     };
   }
 
-  // ---- Endpoints / metrics / grafana / alerting (Phase 1 Tier-2) ----
-  // All return seed data so the demo mode dashboard isn't empty.
+  async imageInspectArchive(_tarPath: string): Promise<ArchiveInfo> {
+    return {
+      name: 'nginx',
+      repoTags: ['1.25', 'latest'],
+      digest: 'sha256:' + 'a'.repeat(64),
+      architecture: 'amd64',
+      os: 'linux',
+      created: new Date().toISOString(),
+      sizeBytes: 142000000,
+    };
+  }
 
-  async listEndpoints(): Promise<EndpointRow[]> {
-    return [
-      {
-        name: 'nginx-slice-1',
-        namespace: 'default',
-        service: 'nginx',
-        ready: 3,
-        total: 3,
-        addresses: ['10.1.0.5:80', '10.1.0.6:80', '10.1.0.7:80'],
-        age: '5m',
-      },
-      {
-        name: 'redis-slice-1',
-        namespace: 'default',
-        service: 'redis',
-        ready: 1,
-        total: 1,
-        addresses: ['10.1.0.10:6379'],
-        age: '10m',
-      },
-    ];
-  }
-  async listEndpointsForService(_ns: string, _name: string): Promise<EndpointRow[]> {
-    return this.listEndpoints();
-  }
-  async listEndpointAddresses(_ns: string, name: string): Promise<EndpointAddress[]> {
-    // Branch on the slice's parent service so the topology demo shows the
-    // right Pod targets for each EndpointSlice, not just nginx addresses
-    // for every slice. Without this branch the Service Topology overlay
-    // wires the redis service to nginx-1/nginx-2 pods, which makes the
-    // graph nonsensical.
-    if (name.startsWith('redis')) {
-      return [
-        {
-          address: '10.1.0.10:6379',
-          ready: true,
-          nodeName: 'node-1',
-          targetRefKind: 'Pod',
-          targetRefName: 'redis-0',
-        },
-      ];
-    }
-    if (name.startsWith('nginx')) {
-      return [
-        {
-          address: '10.1.0.5:80',
-          ready: true,
-          nodeName: 'node-1',
-          targetRefKind: 'Pod',
-          targetRefName: 'nginx-1',
-        },
-        {
-          address: '10.1.0.6:80',
-          ready: true,
-          nodeName: 'node-2',
-          targetRefKind: 'Pod',
-          targetRefName: 'nginx-2',
-        },
-      ];
-    }
+  async listEndpointsForService(_namespace: string, _name: string): Promise<EndpointRow[]> {
     return [];
   }
-  async triggerCronjob(_ns: string, _name: string): Promise<string> {
-    return 'demo-job-1';
+
+  async triggerCronjob(_namespace: string, _name: string): Promise<string> {
+    return 'demo-triggered-job';
   }
+
   async metricsList(): Promise<MetricsConfig[]> {
-    return [
-      {
-        name: 'demo',
-        url: 'http://prometheus.demo:9090',
-        username: '',
-        description: 'Demo Prometheus',
-        lastError: null,
-        lastRefreshed: new Date().toISOString(),
-      },
-    ];
+    return [];
   }
+
   async metricsUpsert(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    throw new Error('metrics not available in demo mode');
+    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
   }
-  async metricsRemove(_name: string): Promise<void> {
-    /* no-op */
+
+  async metricsRemove(_name: string): Promise<void> {}
+
+  async metricsTest(_name: string): Promise<void> {}
+
+  async metricsQuery(_name: string, _promql: string): Promise<PromQueryResult> {
+    return { resultType: 'vector', series: [] };
   }
-  async metricsTest(_name: string): Promise<void> {
-    /* no-op */
-  }
-  async metricsQuery(_name: string, promql: string): Promise<PromQueryResult> {
-    // Synthesize a flat line of 30 points so the Explorer isn't empty.
-    const now = Date.now();
-    const series = Array.from({ length: 30 }, (_, i) => ({
-      ts: now - (29 - i) * 1000,
-      value: Math.sin(i / 3) * 10 + 50,
-    }));
-    return {
-      resultType: 'matrix',
-      series: [
-        {
-          metric: { __name__: 'demo', query: promql },
-          samples: series,
-        },
-      ],
-    };
-  }
+
   async metricsQueryRange(
     _name: string,
-    promql: string,
-    startMs: number,
-    endMs: number
+    _promql: string,
+    _startMs: number,
+    _endMs: number,
+    _stepSeconds: number
   ): Promise<PromQueryResult> {
-    void startMs;
-    void endMs;
-    return this.metricsQuery(_name, promql);
+    return { resultType: 'matrix', series: [] };
   }
+
   async grafanaList(): Promise<GrafanaConfig[]> {
-    return [
-      {
-        name: 'demo',
-        url: 'http://grafana.demo:3000',
-        username: '',
-        defaultDatasource: 'prometheus',
-        description: 'Demo Grafana',
-        lastError: null,
-        lastRefreshed: new Date().toISOString(),
-      },
-    ];
+    return [];
   }
+
   async grafanaUpsert(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    throw new Error('grafana not available in demo mode');
+    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
   }
-  async grafanaRemove(_name: string): Promise<void> {
-    /* no-op */
-  }
-  async grafanaTest(_name: string): Promise<void> {
-    /* no-op */
-  }
+
+  async grafanaRemove(_name: string): Promise<void> {}
+
+  async grafanaTest(_name: string): Promise<void> {}
+
   async grafanaPresets(): Promise<DashboardPreset[]> {
-    return [
-      {
-        id: 'k7s-nodes',
-        title: 'Cluster / Nodes',
-        uid: 'demo-1',
-        description: 'CPU, memory, disk, network per node',
-      },
-      {
-        id: 'k7s-pods',
-        title: 'Cluster / Pods',
-        uid: 'demo-2',
-        description: 'Per-pod CPU and memory',
-      },
-    ];
+    return [];
   }
+
   async grafanaDashboardUrl(
     _name: string,
     _uid: string,
     _fromMs: number,
     _toMs: number
   ): Promise<string> {
-    return 'https://example.com/d/demo?from=now-1h&to=now&kiosk';
+    return '';
   }
+
   async alertManagerList(): Promise<AlertManager[]> {
-    return [
-      {
-        name: 'demo',
-        url: 'http://alertmanager.demo:9093',
-        description: 'Demo AlertManager',
-        lastError: null,
-        lastRefreshed: new Date().toISOString(),
-      },
-    ];
+    return [];
   }
+
   async alertManagerUpsert(_input: AlertManagerUpsert): Promise<AlertManager> {
-    throw new Error('alertmanager not available in demo mode');
+    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
   }
-  async alertManagerRemove(_name: string): Promise<void> {
-    /* no-op */
-  }
-  async alertManagerTest(_name: string): Promise<void> {
-    /* no-op */
-  }
+
+  async alertManagerRemove(_name: string): Promise<void> {}
+
+  async alertManagerTest(_name: string): Promise<void> {}
+
   async alertManagerAlerts(_name: string): Promise<Alert[]> {
-    return [
-      {
-        fingerprint: 'abc123',
-        name: 'DemoHighCpu',
-        state: 'firing',
-        severity: 'warning',
-        summary: 'CPU > 80% for 5m',
-        description: 'demo alert',
-        activeAt: new Date().toISOString(),
-        labels: { severity: 'warning', instance: 'demo' },
-        generatorUrl: '',
-        inhibitedBy: '',
-      },
-    ];
+    return [];
   }
+
   async alertManagerSilences(_name: string): Promise<Silence[]> {
     return [];
   }
-  async alertManagerCreateSilence(
-    _instance: string,
-    _request: import('../types').CreateSilenceRequest
-  ): Promise<string> {
+
+  async alertManagerCreateSilence(_instance: string, _request: CreateSilenceRequest): Promise<string> {
     return 'mock-silence-id';
   }
+
   async alertManagerDeleteSilence(_instance: string, _silenceId: string): Promise<void> {}
-  async prometheusRules(_instance: string): Promise<import('../types').RuleGroup[]> {
-    return [];
-  }
-  async lokiList(): Promise<import('../types').LokiConfig[]> {
-    return [];
-  }
-  async lokiUpsert(_input: import('../types').LokiUpsert): Promise<import('../types').LokiConfig> {
-    throw new Error('mock');
-  }
-  async lokiRemove(_name: string): Promise<void> {}
-  async lokiTest(_name: string): Promise<void> {}
-  async auditEvents(
-    _query: import('../types').AuditQuery
-  ): Promise<import('../types').AuditEvent[]> {
-    return [];
-  }
-  async grafanaSearchDashboards(
-    _name: string,
-    _query: string
-  ): Promise<import('../types').GrafanaDashboardSearchResult[]> {
+
+  async prometheusRules(_instance: string): Promise<RuleGroup[]> {
     return [];
   }
 
-  // ---- Saved PromQL queries (demo seeds) ----
-  async savedQueriesList(): Promise<SavedQuery[]> {
-    return [
-      {
-        name: 'Node CPU',
-        promql: 'rate(node_cpu_seconds_total{mode!="idle"}[5m])',
-        note: 'Per-node CPU usage',
-        cacheSeconds: 30,
-      },
-      {
-        name: 'Pod restarts',
-        promql: 'rate(kube_pod_container_status_restarts_total[15m])',
-        note: 'Pods restarting frequently',
-        cacheSeconds: 0,
-      },
-    ];
+  async lokiList(): Promise<LokiConfig[]> {
+    return [];
   }
+
+  async lokiUpsert(_input: LokiUpsert): Promise<LokiConfig> {
+    return { name: 'demo', url: 'http://localhost:3100', username: '', description: 'Demo Loki', lastError: null, lastRefreshed: null };
+  }
+
+  async lokiRemove(_name: string): Promise<void> {}
+
+  async lokiTest(_name: string): Promise<void> {}
+
+  async auditEvents(_query: AuditQuery): Promise<AuditEvent[]> {
+    return [];
+  }
+
+  async grafanaSearchDashboards(_name: string, _query: string): Promise<GrafanaDashboardSearchResult[]> {
+    return [];
+  }
+
+  async savedQueriesList(): Promise<SavedQuery[]> {
+    return [];
+  }
+
   async savedQueriesUpsert(query: SavedQuery): Promise<SavedQuery> {
     return query;
   }
-  async savedQueriesRemove(_name: string): Promise<void> {
-    /* no-op */
-  }
-  async savedQueriesClearCache(): Promise<void> {
-    /* no-op */
-  }
+
+  async savedQueriesRemove(_name: string): Promise<void> {}
+
+  async savedQueriesClearCache(): Promise<void> {}
+
   async savedQueriesRun(
-    query: SavedQuery,
+    _query: SavedQuery,
     _instance: string,
-    _force: boolean
+    _forceRefresh: boolean
   ): Promise<PromQueryResult> {
-    // Synthesize a couple of fake series so the demo isn't empty.
-    const now = Date.now();
-    const samples = Array.from({ length: 30 }, (_, i) => ({
-      ts: now - (29 - i) * 1000,
-      value: Math.sin(i / 3) * 10 + 50,
-    }));
-    return {
-      resultType: 'matrix',
-      series: [
-        {
-          metric: { __name__: 'demo', query: query.promql },
-          samples,
-        },
-      ],
-    };
+    return { resultType: 'vector', series: [] };
   }
 
-  // ---- Image manifest (demo seed) ----
-  async imageRegistryManifest(_name: string, repo: string, tag: string): Promise<ImageManifest> {
+  async imageRegistryManifest(_name: string, _repo: string, _tag: string): Promise<ImageManifest> {
     return {
       schemaVersion: 2,
       mediaType: 'application/vnd.docker.distribution.manifest.v2+json',
-      digest: `sha256:${tag.padEnd(64, '0')}`,
-      size: 7168,
-      raw: JSON.stringify(
-        {
-          schemaVersion: 2,
-          mediaType: 'application/vnd.docker.distribution.manifest.v2+json',
-        },
-        null,
-        2
-      ),
-      configDigest: `sha256:config-${repo}-${tag}`.padEnd(63, '0'),
-      configSize: 1024,
-      layers: [
-        {
-          digest: `sha256:layer-1`.padEnd(64, '0'),
-          size: 2048,
-          mediaType: 'application/vnd.docker.image.rootfs.diff.tar.gzip',
-        },
-        {
-          digest: `sha256:layer-2`.padEnd(64, '0'),
-          size: 4096,
-          mediaType: 'application/vnd.docker.image.rootfs.diff.tar.gzip',
-        },
-      ] as ImageLayer[],
+      size: 1000,
+      digest: 'sha256:' + 'a'.repeat(64),
+      raw: '{}',
+      configDigest: 'sha256:' + 'b'.repeat(64),
+      configSize: 500,
+      layers: [],
     };
   }
-}
-
-/** Seeded chart repos so the Marketplace tab has something to show in demo. */
-function demoMockRepos(): HelmRepo[] {
-  return [
-    {
-      name: 'bitnami',
-      url: 'https://charts.bitnami.com/bitnami',
-      description: 'Bitnami catalog (demo)',
-      lastRefreshed: null,
-      lastError: null,
-    },
-    {
-      name: 'stable',
-      url: 'https://charts.helm.sh/stable',
-      description: 'Helm stable (demo)',
-      lastRefreshed: null,
-      lastError: null,
-    },
-  ];
-}
-
-function demoMockCharts(): HelmChartSummary[] {
-  return [
-    {
-      repo: 'bitnami',
-      name: 'nginx',
-      version: '15.4.0',
-      appVersion: '1.25.3',
-      description: 'Chart for the nginx server',
-      keywords: ['web', 'http'],
-      home: 'https://example.com',
-      maintainers: [],
-    },
-    {
-      repo: 'bitnami',
-      name: 'postgresql',
-      version: '13.2.0',
-      appVersion: '16.1.0',
-      description: 'PostgreSQL database',
-      keywords: ['database', 'sql'],
-      home: 'https://postgresql.org',
-      maintainers: [],
-    },
-    {
-      repo: 'stable',
-      name: 'redis',
-      version: '17.0.0',
-      appVersion: '7.2.0',
-      description: 'Redis in-memory store',
-      keywords: ['cache', 'kv'],
-      home: 'https://redis.io',
-      maintainers: [],
-    },
-  ];
 }
