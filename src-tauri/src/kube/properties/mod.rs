@@ -341,7 +341,9 @@ fn qty(q: Option<&Quantity>) -> String {
 }
 
 /// Render an IntOrString ("25%" or "1").
-pub(super) fn int_or_string(v: &k8s_openapi::apimachinery::pkg::util::intstr::IntOrString) -> String {
+pub(super) fn int_or_string(
+    v: &k8s_openapi::apimachinery::pkg::util::intstr::IntOrString,
+) -> String {
     use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
     match v {
         IntOrString::Int(i) => i.to_string(),
@@ -672,7 +674,8 @@ mod tests {
         assert_eq!(src, "secrets-store.csi.k8s.io");
 
         // Nothing to name (e.g. an emptyDir) still falls back to the em dash.
-        let (src, nav) = pod::volume_source(&vol(json!({ "name": "scratch", "emptyDir": {} })), "prod");
+        let (src, nav) =
+            pod::volume_source(&vol(json!({ "name": "scratch", "emptyDir": {} })), "prod");
         assert_eq!(src, DASH);
         assert!(nav.is_none());
     }

@@ -6,7 +6,11 @@ use k8s_openapi::api::core::v1::Secret;
 use kube::api::{Api, ListParams};
 use kube::Client;
 
-pub(super) async fn gather_helm(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_helm(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<Secret> = Api::namespaced(client, namespace);
     // Helm labels every release Secret with owner + release name; filtering here
     // avoids decoding every Secret in the namespace.

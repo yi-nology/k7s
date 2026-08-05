@@ -9,7 +9,11 @@ use k8s_openapi::api::core::v1::{PersistentVolumeClaim, Service};
 use kube::api::{Api, ListParams};
 use kube::Client;
 
-pub async fn gather_deployment(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub async fn gather_deployment(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<Deployment> = Api::namespaced(client.clone(), namespace);
     let dep = api
         .get(name)
@@ -186,7 +190,11 @@ fn revision_of(rs: &ReplicaSet) -> Option<i64> {
         .and_then(|v| v.parse().ok())
 }
 
-pub async fn gather_statefulset(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub async fn gather_statefulset(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<StatefulSet> = Api::namespaced(client.clone(), namespace);
     let sts = api
         .get(name)

@@ -6,7 +6,11 @@ use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBind
 use kube::api::Api;
 use kube::Client;
 
-pub(super) async fn gather_role(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_role(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<Role> = Api::namespaced(client, namespace);
     let role = api
         .get(name)
@@ -131,7 +135,11 @@ pub(super) async fn gather_clusterrole(client: Client, name: &str) -> AppResult<
     Ok(props)
 }
 
-pub(super) async fn gather_rolebinding(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_rolebinding(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<RoleBinding> = Api::namespaced(client.clone(), namespace);
     let rb = api
         .get(name)

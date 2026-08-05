@@ -6,7 +6,11 @@ use k8s_openapi::api::core::v1::{ConfigMap, Namespace, ResourceQuota, Secret};
 use kube::api::Api;
 use kube::Client;
 
-pub(super) async fn gather_configmap(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_configmap(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<ConfigMap> = Api::namespaced(client, namespace);
     let cm = api
         .get(name)
@@ -68,7 +72,11 @@ pub(super) async fn gather_configmap(client: Client, namespace: &str, name: &str
     Ok(props)
 }
 
-pub(super) async fn gather_secret(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_secret(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<Secret> = Api::namespaced(client, namespace);
     let sec = api
         .get(name)

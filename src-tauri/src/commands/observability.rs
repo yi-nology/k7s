@@ -4,9 +4,7 @@
 use crate::commands::core::require_client;
 use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
-use crate::kube::{
-    alerting, audit, endpoints, grafana, metrics_config, saved_queries,
-};
+use crate::kube::{alerting, audit, endpoints, grafana, metrics_config, saved_queries};
 use kube::api::Api;
 use std::sync::Arc;
 use tauri::State;
