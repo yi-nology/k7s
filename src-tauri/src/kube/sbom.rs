@@ -594,3 +594,110 @@ fn parse_packages_from_history(cmd: &str) -> Vec<SbomComponent> {
 
     packages
 }
+
+// ---------------------------------------------------------------------------
+// SBOM Engine: three-tier fallback orchestration
+// ---------------------------------------------------------------------------
+
+/// SBOM generation engine with three-tier fallback.
+pub struct SbomEngine {
+    trivy_path: Option<String>,
+    grype_path: Option<String>,
+}
+
+impl SbomEngine {
+    /// Create a new engine, detecting available tools.
+    pub fn new() -> Self {
+        Self {
+            trivy_path: which_trivy(),
+            grype_path: which_grype(),
+        }
+    }
+
+    /// Generate SBOM for a single image with three-tier fallback.
+    pub async fn generate_image_sbom(
+        &self,
+        image_ref: &str,
+        format: &SbomFormat,
+    ) -> AppResult<SbomResult> {
+        if let Some(ref path) = self.trivy_path {
+            return generate_via_trivy(path, image_ref, format).await;
+        }
+        if let Some(ref path) = self.grype_path {
+            return generate_via_grype(path, image_ref, format).await;
+        }
+        generate_native(image_ref, format).await
+    }
+
+    /// Generate SBOM with vulnerability correlation via trivy.
+    pub async fn generate_with_vulns(
+        &self,
+        image_ref: &str,
+        format: &SbomFormat,
+    ) -> AppResult<SbomResult> {
+        let mut sbom = self.generate_image_sbom(image_ref, format).await?;
+
+        if let Some(ref path) = self.trivy_path {
+            let vulns = scan_vulnerabilities(path, image_ref).await?;
+            sbom.vulnerabilities = vulns;
+        }
+
+        Ok(sbom)
+    }
+
+    /// Check which tools are available.
+    pub fn available_tools(&self) -> Vec<&str> {
+        let mut tools = vec![];
+        if self.trivy_path.is_some() { tools.push("trivy"); }
+        if self.grype_path.is_some() { tools.push("grype"); }
+        tools.push("native");
+        tools
+    }
+}
+
+/// Run trivy vulnerability scan and return findings.
+async fn scan_vulnerabilities(
+    trivy_path: &str,
+    image_ref: &str,
+) -> AppResult<Vec<SbomVulnerability>> {
+    let output = Command::new(trivy_path)
+        .args(["image", "--format", "json", "--quiet", image_ref])
+        .output()
+        .await
+        .map_err(|e| AppError::Other(format!("trivy vuln scan failed: {e}")))?;
+
+    if !output.status.success() {
+        return Ok(vec![]);
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let value: serde_json::Value = serde_json::from_str(&raw)
+        .map_err(|e| AppError::Other(format!("Failed to parse trivy vuln output: {e}")))?;
+
+    let vulns = value["Results"]
+        .as_array()
+        .map(|results| {
+            results
+                .iter()
+                .flat_map(|r| {
+                    r["Vulnerabilities"]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                })
+                .map(|v| SbomVulnerability {
+                    id: v["VulnerabilityID"].as_str().unwrap_or("").to_string(),
+                    severity: v["Severity"].as_str().unwrap_or("unknown").to_string(),
+                    affected_components: vec![v["PkgName"]
+                        .as_str()
+                        .unwrap_or("")
+                        .to_string()],
+                    description: v["Description"].as_str().map(String::from),
+                    fixed_version: v["FixedVersion"].as_str().map(String::from),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Ok(vulns)
+}
