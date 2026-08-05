@@ -2,11 +2,9 @@
 
 use super::*;
 use crate::error::AppResult;
-use k8s_openapi::api::core::v1::{
-    PersistentVolume, PersistentVolumeClaim, ServiceAccount,
-};
-use k8s_openapi::api::storage::v1::StorageClass;
 use k8s_openapi::api::core::v1::Node;
+use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim, ServiceAccount};
+use k8s_openapi::api::storage::v1::StorageClass;
 use kube::api::Api;
 use kube::Client;
 
@@ -281,7 +279,11 @@ pub(super) async fn gather_serviceaccount(
     Ok(props)
 }
 
-pub(super) async fn gather_pvc(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_pvc(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<PersistentVolumeClaim> = Api::namespaced(client.clone(), namespace);
     let pvc = api
         .get(name)

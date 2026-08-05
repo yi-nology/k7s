@@ -7,7 +7,11 @@ use kube::api::Api;
 use kube::core::DynamicObject;
 use kube::Client;
 
-pub(super) async fn gather_pdb(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_pdb(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<DynamicObject> = Api::namespaced_with(
         client.clone(),
         namespace,
@@ -89,7 +93,11 @@ pub(super) async fn gather_pdb(client: Client, namespace: &str, name: &str) -> A
     Ok(props)
 }
 
-pub(super) async fn gather_webhook(client: Client, name: &str, mutating: bool) -> AppResult<Properties> {
+pub(super) async fn gather_webhook(
+    client: Client,
+    name: &str,
+    mutating: bool,
+) -> AppResult<Properties> {
     let kind = if mutating {
         ResourceKind::Mutatingwebhookconfigurations
     } else {

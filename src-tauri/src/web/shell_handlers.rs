@@ -7,8 +7,8 @@
 use axum::{extract::State, Json};
 use kube::ResourceExt;
 
-use crate::core::{prefs, shell_common};
 use crate::core::shell_common::{NodeShellInfo, STREAM_SEQ};
+use crate::core::{prefs, shell_common};
 use crate::error::AppResult;
 
 use super::handlers::core_client;

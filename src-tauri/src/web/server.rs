@@ -97,8 +97,14 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/invoke/save_prefs", post(handlers::save_prefs))
         .route("/api/invoke/connect", post(handlers::connect))
         .route("/api/invoke/get_yaml", post(resource_handlers::get_yaml))
-        .route("/api/invoke/get_events", post(resource_handlers::get_events))
-        .route("/api/invoke/get_properties", post(resource_handlers::get_properties))
+        .route(
+            "/api/invoke/get_events",
+            post(resource_handlers::get_events),
+        )
+        .route(
+            "/api/invoke/get_properties",
+            post(resource_handlers::get_properties),
+        )
         .route(
             "/api/invoke/get_secret_data",
             post(resource_handlers::get_secret_data),
@@ -114,8 +120,14 @@ pub fn api_router(state: WebState) -> Router {
         // reachable over HTTP. Added in batches as the Tauri commands grew
         // their own contracts; the catch-all below still 501s anything we
         // haven't bridged.
-        .route("/api/invoke/apply_yaml", post(resource_handlers::apply_yaml))
-        .route("/api/invoke/dry_run_yaml", post(resource_handlers::dry_run_yaml))
+        .route(
+            "/api/invoke/apply_yaml",
+            post(resource_handlers::apply_yaml),
+        )
+        .route(
+            "/api/invoke/dry_run_yaml",
+            post(resource_handlers::dry_run_yaml),
+        )
         .route(
             "/api/invoke/dry_run_yaml_bundle",
             post(resource_handlers::dry_run_yaml_bundle),
@@ -124,16 +136,34 @@ pub fn api_router(state: WebState) -> Router {
             "/api/invoke/delete_resource",
             post(resource_handlers::delete_resource),
         )
-        .route("/api/invoke/scale_resource", post(resource_handlers::scale_resource))
-        .route("/api/invoke/set_cordon", post(resource_handlers::set_cordon))
-        .route("/api/invoke/restart_pod", post(resource_handlers::restart_pod))
+        .route(
+            "/api/invoke/scale_resource",
+            post(resource_handlers::scale_resource),
+        )
+        .route(
+            "/api/invoke/set_cordon",
+            post(resource_handlers::set_cordon),
+        )
+        .route(
+            "/api/invoke/restart_pod",
+            post(resource_handlers::restart_pod),
+        )
         .route(
             "/api/invoke/restart_rollout",
             post(resource_handlers::restart_rollout),
         )
-        .route("/api/invoke/list_revisions", post(resource_handlers::list_revisions))
-        .route("/api/invoke/undo_rollout", post(resource_handlers::undo_rollout))
-        .route("/api/invoke/drain_node", post(resource_handlers::drain_node))
+        .route(
+            "/api/invoke/list_revisions",
+            post(resource_handlers::list_revisions),
+        )
+        .route(
+            "/api/invoke/undo_rollout",
+            post(resource_handlers::undo_rollout),
+        )
+        .route(
+            "/api/invoke/drain_node",
+            post(resource_handlers::drain_node),
+        )
         // Log streaming — the headline feature the previous 501 broke. Lines
         // flow through the same `EventSink` → SSE path the watchers use.
         .route(
@@ -151,7 +181,10 @@ pub fn api_router(state: WebState) -> Router {
         // come through the existing `/api/events` SSE stream.
         .route("/api/invoke/start_shell", post(shell_handlers::start_shell))
         .route("/api/invoke/shell_input", post(shell_handlers::shell_input))
-        .route("/api/invoke/shell_resize", post(shell_handlers::shell_resize))
+        .route(
+            "/api/invoke/shell_resize",
+            post(shell_handlers::shell_resize),
+        )
         .route("/api/invoke/stop_shell", post(shell_handlers::stop_shell))
         .route(
             "/api/invoke/start_node_shell",
@@ -162,7 +195,10 @@ pub fn api_router(state: WebState) -> Router {
             post(shell_handlers::stop_node_shell),
         )
         // EndpointSlices — for the topology graph.
-        .route("/api/invoke/list_endpoints", post(resource_handlers::list_endpoints))
+        .route(
+            "/api/invoke/list_endpoints",
+            post(resource_handlers::list_endpoints),
+        )
         .route(
             "/api/invoke/list_endpoints_for_service",
             post(resource_handlers::list_endpoints_for_service),

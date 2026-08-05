@@ -2,17 +2,19 @@
 
 use super::*;
 use crate::error::AppResult;
+use k8s_openapi::api::core::v1::Pod;
 use k8s_openapi::api::core::v1::{Secret, Service};
 use k8s_openapi::api::discovery::v1::EndpointSlice;
 use k8s_openapi::api::networking::v1::{Ingress, NetworkPolicy};
-use k8s_openapi::api::core::v1::Pod;
 use kube::api::{Api, ListParams};
 use kube::Client;
 
 /// An Ingress backend port, which is *either* a number or a named port on the
 /// Service — murphy-yi's only Ingress uses a name, which is the case a
 /// number-only reading would silently drop.
-pub(super) fn backend_port(p: Option<&k8s_openapi::api::networking::v1::ServiceBackendPort>) -> String {
+pub(super) fn backend_port(
+    p: Option<&k8s_openapi::api::networking::v1::ServiceBackendPort>,
+) -> String {
     match p {
         Some(port) => port
             .number
@@ -31,7 +33,11 @@ pub(super) fn backend_port(p: Option<&k8s_openapi::api::networking::v1::ServiceB
 /// backends were invisible rather than merely unlinked. Every Service and Secret
 /// it names is existence-checked, because an Ingress pointing at a Service that
 /// isn't there is one of the most common ways this breaks.
-pub(super) async fn gather_ingress(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_ingress(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<Ingress> = Api::namespaced(client.clone(), namespace);
     let ing = api
         .get(name)
@@ -144,10 +150,7 @@ pub(super) async fn gather_ingress(client: Client, namespace: &str, name: &str) 
                     c(p.path_type.clone()),
                     svc,
                     c(backend_port(
-                        p.backend
-                            .service
-                            .as_ref()
-                            .and_then(|s| s.port.as_ref()),
+                        p.backend.service.as_ref().and_then(|s| s.port.as_ref()),
                     )),
                 ]);
             }
@@ -195,7 +198,11 @@ pub(super) async fn gather_ingress(client: Client, namespace: &str, name: &str) 
     Ok(props)
 }
 
-pub(super) async fn gather_service(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
+pub(super) async fn gather_service(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
     let api: Api<Service> = Api::namespaced(client.clone(), namespace);
     let svc = api
         .get(name)
