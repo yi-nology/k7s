@@ -35,7 +35,8 @@ export type ActionId =
   | 'pod-files'
   | 'image-repos'
   | 'image-import'
-  | 'templates';
+  | 'templates'
+  | 'sbom';
 
 interface Scored {
   /** Ranking score; only comparable within one query. */
@@ -361,6 +362,12 @@ function actionCandidates(ctx: PaletteContext) {
       id: 'templates',
       key: 'chrome.palette.actions.templates',
       fallback: 'Templates',
+      hint: toolHint,
+    },
+    {
+      id: 'sbom',
+      key: 'chrome.palette.actions.sbom',
+      fallback: 'SBOM',
       hint: toolHint,
     },
   ];
