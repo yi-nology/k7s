@@ -13,6 +13,7 @@
 
 import type { EventItem, Row } from '../providers/types/table';
 import type { ResourceRef } from '../providers/types/cluster';
+import type { Settings } from '../lib/settings';
 
 // ---------------------------------------------------------------------------
 // Kubernetes resource base types
@@ -254,6 +255,35 @@ export function createMockEvent(overrides: Partial<MockEvent> = {}): MockEvent {
       name: 'test-pod',
       namespace: 'default',
     },
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Settings mock
+// ---------------------------------------------------------------------------
+
+/**
+ * A partial mock of the Settings for tests that only exercise a subset
+ * of the settings. Every field has a sensible default so tests can supply
+ * only the fields they care about.
+ */
+export type MockSettings = Partial<Settings>;
+
+/**
+ * Create a mock Settings object with sensible defaults.
+ * Supply only the fields you care about; the rest get safe defaults.
+ */
+export function createMockSettings(overrides: MockSettings = {}): Settings {
+  return {
+    logBufferCap: 200,
+    metricsIntervalSecs: 15,
+    statusIntervalSecs: 10,
+    defaultNamespace: 'default',
+    shellCommand: '',
+    theme: 'system',
+    language: 'en',
+    nodeShellImage: '',
     ...overrides,
   };
 }

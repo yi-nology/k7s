@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { RowContextMenu } from './RowContextMenu';
 import { render, cleanup, createMockRow } from '../../test/componentUtils';
+import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
 vi.mock('../../providers', () => ({
@@ -20,7 +21,6 @@ vi.mock('../../providers', () => ({
   }),
 }));
 
-
 function resetStore() {
   useStore.setState({
     nav: 'pods',
@@ -28,7 +28,7 @@ function resetStore() {
     setPortForwards: vi.fn(),
     viewPods: vi.fn(),
     openOverlay: vi.fn(),
-    settings: { language: 'en' } as any,
+    settings: createMockSettings(),
   });
 }
 
