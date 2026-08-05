@@ -8,7 +8,7 @@
 //! Resource mutation and shell handlers live in their own modules
 //! (`resource_handlers`, `shell_handlers`).
 
-use axum::{extract::State, http::StatusCode, Json};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use kube::config::Kubeconfig;
 use std::sync::Arc;
 
