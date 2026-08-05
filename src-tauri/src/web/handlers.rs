@@ -8,7 +8,12 @@
 //! Resource mutation and shell handlers live in their own modules
 //! (`resource_handlers`, `shell_handlers`).
 
-use axum::{extract::{Path, State}, http::StatusCode, response::IntoResponse, Json};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
 use kube::config::Kubeconfig;
 use std::sync::Arc;
 
@@ -279,15 +284,14 @@ pub async fn sbom_generate_image(
 ) -> axum::response::Response {
     let image_ref = req["image_ref"].as_str().unwrap_or("").to_string();
     let format_str = req["format"].as_str().unwrap_or("cyclonedx");
-    let format = crate::kube::sbom::SbomFormat::from_str(format_str)
+    let format = crate::kube::sbom::SbomFormat::parse(format_str)
         .unwrap_or(crate::kube::sbom::SbomFormat::CycloneDx);
 
     let engine = crate::kube::sbom::SbomEngine::new();
     let result: AppResult<_> = async {
         let sbom = engine.generate_with_vulns(&image_ref, &format).await?;
-        let storage =
-            crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
-        let _ = storage.save(&sbom);
+        let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
+        storage.save(&sbom)?;
         Ok(sbom)
     }
     .await;

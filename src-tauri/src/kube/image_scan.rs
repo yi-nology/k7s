@@ -212,11 +212,7 @@ pub fn build_image_ref(registry_url: &str, repo: &str, tag: &str) -> String {
 /// `engine` must be `"trivy"` or `"grype"`. `image_ref` is the target image —
 /// either a bare reference like `nginx:1.25` or a full `docker://host/repo:tag`
 /// transport string. Progress lines are streamed to the UI via the event sink.
-pub async fn scan_image(
-    engine: &str,
-    image_ref: &str,
-    sink: EventSink,
-) -> AppResult<ScanResult> {
+pub async fn scan_image(engine: &str, image_ref: &str, sink: EventSink) -> AppResult<ScanResult> {
     match engine {
         "trivy" => scan_with_trivy(image_ref, sink).await,
         "grype" => scan_with_grype(image_ref, sink).await,
@@ -297,11 +293,14 @@ async fn scan_with_trivy(image_ref: &str, sink: EventSink) -> AppResult<ScanResu
 
     if !status.success() {
         let msg = format!("trivy exited with {status}");
-        sink.emit(IMAGE_SCAN_LOG_EVENT, &LogLine {
-            engine: "trivy",
-            stream: "stderr",
-            line: msg.clone(),
-        });
+        sink.emit(
+            IMAGE_SCAN_LOG_EVENT,
+            &LogLine {
+                engine: "trivy",
+                stream: "stderr",
+                line: msg.clone(),
+            },
+        );
         return Err(AppError::Other(msg));
     }
 
@@ -323,7 +322,10 @@ fn parse_trivy_report(image_ref: &str, report: &serde_json::Value) -> AppResult<
         .unwrap_or_default();
 
     for result_group in &results {
-        let Some(vuln_list) = result_group.get("Vulnerabilities").and_then(|v| v.as_array()) else {
+        let Some(vuln_list) = result_group
+            .get("Vulnerabilities")
+            .and_then(|v| v.as_array())
+        else {
             continue;
         };
         for v in vuln_list {
@@ -467,11 +469,14 @@ async fn scan_with_grype(image_ref: &str, sink: EventSink) -> AppResult<ScanResu
 
     if !status.success() {
         let msg = format!("grype exited with {status}");
-        sink.emit(IMAGE_SCAN_LOG_EVENT, &LogLine {
-            engine: "grype",
-            stream: "stderr",
-            line: msg.clone(),
-        });
+        sink.emit(
+            IMAGE_SCAN_LOG_EVENT,
+            &LogLine {
+                engine: "grype",
+                stream: "stderr",
+                line: msg.clone(),
+            },
+        );
         return Err(AppError::Other(msg));
     }
 
@@ -545,7 +550,11 @@ fn parse_grype_report(image_ref: &str, report: &serde_json::Value) -> AppResult<
             }
         }
         // grype also stores a Data.namespace that sometimes contains the advisory URL.
-        if let Some(data) = m.get("matchDetails").and_then(|v| v.as_array()).and_then(|arr| arr.first()) {
+        if let Some(data) = m
+            .get("matchDetails")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+        {
             if let Some(matched_on) = data.get("matchedOn").and_then(|v| v.as_object()) {
                 if let Some(v) = matched_on.get("vulnerabilityID").and_then(|v| v.as_str()) {
                     if !v.is_empty() && v.starts_with("http") {

@@ -1971,7 +1971,7 @@ impl K7sMcpServer {
         &self,
         Parameters(p): Parameters<SbomGenerateParams>,
     ) -> Result<CallToolResult, McpError> {
-        let format = crate::kube::sbom::SbomFormat::from_str(&p.format)
+        let format = crate::kube::sbom::SbomFormat::parse(&p.format)
             .unwrap_or(crate::kube::sbom::SbomFormat::CycloneDx);
         let engine = crate::kube::sbom::SbomEngine::new();
         let sbom = engine

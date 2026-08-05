@@ -18,6 +18,7 @@ pub mod helm;
 pub mod helm_market;
 pub mod helm_ops;
 pub mod image_archive;
+pub mod image_scan;
 pub mod image_sync;
 pub mod imageimport;
 pub mod imagerepo;
@@ -37,6 +38,7 @@ pub mod rollout;
 pub mod saved_queries;
 pub mod sbom;
 pub mod sbom_storage;
+pub mod security_audit;
 pub mod templates;
 pub mod watchers;
 

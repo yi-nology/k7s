@@ -66,7 +66,10 @@ pub async fn run_audit(client: Client) -> AppResult<AuditReport> {
 
     // -- Fetch RBAC resources, tolerating permission errors ------------------
 
-    let roles: Vec<Role> = match Api::<Role>::all(client.clone()).list(&Default::default()).await {
+    let roles: Vec<Role> = match Api::<Role>::all(client.clone())
+        .list(&Default::default())
+        .await
+    {
         Ok(list) => list.items,
         Err(e) => {
             findings.push(AuditFinding {
@@ -81,40 +84,47 @@ pub async fn run_audit(client: Client) -> AppResult<AuditReport> {
         }
     };
 
-    let cluster_roles: Vec<ClusterRole> =
-        match Api::<ClusterRole>::all(client.clone()).list(&Default::default()).await {
-            Ok(list) => list.items,
-            Err(e) => {
-                findings.push(AuditFinding {
-                    id: "fetch-error".into(),
-                    severity: "Low".into(),
-                    resource_kind: "ClusterRole".into(),
-                    resource_name: "(listing)".into(),
-                    namespace: None,
-                    message: format!("Could not list ClusterRoles: {e}"),
-                });
-                Vec::new()
-            }
-        };
+    let cluster_roles: Vec<ClusterRole> = match Api::<ClusterRole>::all(client.clone())
+        .list(&Default::default())
+        .await
+    {
+        Ok(list) => list.items,
+        Err(e) => {
+            findings.push(AuditFinding {
+                id: "fetch-error".into(),
+                severity: "Low".into(),
+                resource_kind: "ClusterRole".into(),
+                resource_name: "(listing)".into(),
+                namespace: None,
+                message: format!("Could not list ClusterRoles: {e}"),
+            });
+            Vec::new()
+        }
+    };
 
-    let role_bindings: Vec<RoleBinding> =
-        match Api::<RoleBinding>::all(client.clone()).list(&Default::default()).await {
-            Ok(list) => list.items,
-            Err(e) => {
-                findings.push(AuditFinding {
-                    id: "fetch-error".into(),
-                    severity: "Low".into(),
-                    resource_kind: "RoleBinding".into(),
-                    resource_name: "(listing)".into(),
-                    namespace: None,
-                    message: format!("Could not list RoleBindings: {e}"),
-                });
-                Vec::new()
-            }
-        };
+    let role_bindings: Vec<RoleBinding> = match Api::<RoleBinding>::all(client.clone())
+        .list(&Default::default())
+        .await
+    {
+        Ok(list) => list.items,
+        Err(e) => {
+            findings.push(AuditFinding {
+                id: "fetch-error".into(),
+                severity: "Low".into(),
+                resource_kind: "RoleBinding".into(),
+                resource_name: "(listing)".into(),
+                namespace: None,
+                message: format!("Could not list RoleBindings: {e}"),
+            });
+            Vec::new()
+        }
+    };
 
     let cluster_role_bindings: Vec<ClusterRoleBinding> =
-        match Api::<ClusterRoleBinding>::all(client).list(&Default::default()).await {
+        match Api::<ClusterRoleBinding>::all(client)
+            .list(&Default::default())
+            .await
+        {
             Ok(list) => list.items,
             Err(e) => {
                 findings.push(AuditFinding {
@@ -146,7 +156,11 @@ pub async fn run_audit(client: Client) -> AppResult<AuditReport> {
     for role in &roles {
         let name = role.metadata.name.clone().unwrap_or_default();
         let ns = role.metadata.namespace.clone();
-        findings.extend(check_role_rules(&name, ns.as_deref(), role.rules.as_deref()));
+        findings.extend(check_role_rules(
+            &name,
+            ns.as_deref(),
+            role.rules.as_deref(),
+        ));
     }
 
     // -- Audit ClusterRoles -------------------------------------------------
@@ -189,8 +203,14 @@ pub async fn run_audit(client: Client) -> AppResult<AuditReport> {
 
     // -- Cross-reference checks ---------------------------------------------
 
-    findings.extend(check_default_sa_privileged(&role_bindings, &cluster_role_bindings));
-    findings.extend(check_sa_many_bindings(&role_bindings, &cluster_role_bindings));
+    findings.extend(check_default_sa_privileged(
+        &role_bindings,
+        &cluster_role_bindings,
+    ));
+    findings.extend(check_sa_many_bindings(
+        &role_bindings,
+        &cluster_role_bindings,
+    ));
 
     // -- Sort by severity (Critical first) and build report ------------------
 
@@ -200,7 +220,7 @@ pub async fn run_audit(client: Client) -> AppResult<AuditReport> {
         "Medium" => 2,
         _ => 3,
     };
-    findings.sort_by(|a, b| severity_order(&a.severity).cmp(&severity_order(&b.severity)));
+    findings.sort_by_key(|a| severity_order(&a.severity));
 
     let mut summary = AuditSummary {
         critical: 0,
@@ -239,9 +259,7 @@ pub fn check_role_rules(
     rules
         .unwrap_or(&[])
         .iter()
-        .flat_map(|rule| {
-            check_policy_rule(rule, "Role", name, Some(ns_display))
-        })
+        .flat_map(|rule| check_policy_rule(rule, "Role", name, Some(ns_display)))
         .collect()
 }
 
@@ -273,8 +291,18 @@ fn check_policy_rule(
 ) -> Vec<AuditFinding> {
     let mut out = Vec::new();
     let verbs: Vec<&str> = rule.verbs.iter().map(String::as_str).collect();
-    let resources: Vec<&str> = rule.resources.iter().flatten().map(String::as_str).collect();
-    let api_groups: Vec<&str> = rule.api_groups.iter().flatten().map(String::as_str).collect();
+    let resources: Vec<&str> = rule
+        .resources
+        .iter()
+        .flatten()
+        .map(String::as_str)
+        .collect();
+    let api_groups: Vec<&str> = rule
+        .api_groups
+        .iter()
+        .flatten()
+        .map(String::as_str)
+        .collect();
     let resource_names: Vec<&str> = rule
         .resource_names
         .iter()
@@ -320,7 +348,9 @@ fn check_policy_rule(
 
     // secret-access: get/list/watch on "secrets"
     let is_secret_resource = resources.iter().any(|r| r == &"secrets" || r == &"*");
-    let is_read_verb = verbs.iter().any(|v| matches!(*v, "get" | "list" | "watch" | "*"));
+    let is_read_verb = verbs
+        .iter()
+        .any(|v| matches!(*v, "get" | "list" | "watch" | "*"));
     if is_secret_resource && is_read_verb {
         out.push(finding(
             "secret-access",
@@ -461,10 +491,13 @@ fn check_default_sa_privileged(
 
     // Check RoleBindings where the "default" SA is a subject and the
     // referenced role is not a well-known read-only or empty role.
-    let trivial_roles: std::collections::HashSet<&str> =
-        ["system:discovery", "system:basic-user", "system:public-info-viewer"]
-            .into_iter()
-            .collect();
+    let trivial_roles: std::collections::HashSet<&str> = [
+        "system:discovery",
+        "system:basic-user",
+        "system:public-info-viewer",
+    ]
+    .into_iter()
+    .collect();
 
     for rb in role_bindings {
         let ns = rb.metadata.namespace.as_deref().unwrap_or("default");
@@ -488,9 +521,11 @@ fn check_default_sa_privileged(
 
     // Same check for ClusterRoleBindings
     for crb in cluster_role_bindings {
-        let has_default_sa = crb.subjects.iter().flatten().any(|s| {
-            s.kind == "ServiceAccount" && s.name == "default"
-        });
+        let has_default_sa = crb
+            .subjects
+            .iter()
+            .flatten()
+            .any(|s| s.kind == "ServiceAccount" && s.name == "default");
         if has_default_sa && !trivial_roles.contains(crb.role_ref.name.as_str()) {
             out.push(finding(
                 "default-sa-privileged",
@@ -523,20 +558,24 @@ fn check_sa_many_bindings(
     let mut counts: HashMap<(String, String), u32> = HashMap::new();
 
     for rb in role_bindings {
-        for s in rb.subjects.iter().flatten().filter(|s| s.kind == "ServiceAccount") {
-            let key = (
-                s.namespace.clone().unwrap_or_default(),
-                s.name.clone(),
-            );
+        for s in rb
+            .subjects
+            .iter()
+            .flatten()
+            .filter(|s| s.kind == "ServiceAccount")
+        {
+            let key = (s.namespace.clone().unwrap_or_default(), s.name.clone());
             *counts.entry(key).or_default() += 1;
         }
     }
     for crb in cluster_role_bindings {
-        for s in crb.subjects.iter().flatten().filter(|s| s.kind == "ServiceAccount") {
-            let key = (
-                s.namespace.clone().unwrap_or_default(),
-                s.name.clone(),
-            );
+        for s in crb
+            .subjects
+            .iter()
+            .flatten()
+            .filter(|s| s.kind == "ServiceAccount")
+        {
+            let key = (s.namespace.clone().unwrap_or_default(), s.name.clone());
             *counts.entry(key).or_default() += 1;
         }
     }

@@ -60,6 +60,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # --- Time formatting for log timestamps ---
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
+# Cross-platform directory paths (home dir, temp dir, etc.)
+dirs = "5"
+# Canonicalize paths without UNC prefix on Windows
+dunce = "1"
 
 # --- Raw HTTP requests to metrics.k8s.io (via kube::Client::request) ---
 http = "1"
