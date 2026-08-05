@@ -134,3 +134,106 @@ impl SbomStorage {
         self.write_index(&index)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::kube::sbom::*;
+
+    fn make_test_sbom(id: &str, image: &str) -> SbomResult {
+        SbomResult {
+            id: id.to_string(),
+            source: SbomSource::Image {
+                image_ref: image.to_string(),
+                namespace: "default".to_string(),
+                pod: None,
+            },
+            format: SbomFormat::CycloneDx,
+            spec_version: "1.5".to_string(),
+            metadata: SbomMetadata {
+                tool: "test".to_string(),
+                tool_version: "0.1.0".to_string(),
+                scan_duration_ms: 100,
+            },
+            components: vec![SbomComponent {
+                name: "openssl".to_string(),
+                version: "3.1.4".to_string(),
+                purl: None,
+                cpe: None,
+                component_type: "library".to_string(),
+                licenses: vec![],
+                supplier: None,
+                hashes: vec![],
+            }],
+            dependencies: vec![],
+            vulnerabilities: vec![],
+            raw_output: None,
+            created_at: chrono::Utc::now(),
+        }
+    }
+
+    #[test]
+    fn save_and_load() {
+        let dir = std::env::temp_dir().join("k7s_sbom_test_save_load");
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let storage = SbomStorage::new(&dir);
+        let sbom = make_test_sbom("test-001", "nginx:1.25");
+
+        storage.save(&sbom).unwrap();
+        let loaded = storage.load("test-001").unwrap();
+
+        assert_eq!(loaded.id, "test-001");
+        assert_eq!(loaded.metadata.tool, "test");
+        assert_eq!(loaded.components.len(), 1);
+        assert_eq!(loaded.components[0].name, "openssl");
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn list_history() {
+        let dir = std::env::temp_dir().join("k7s_sbom_test_list");
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let storage = SbomStorage::new(&dir);
+        assert!(storage.list().unwrap().is_empty());
+
+        storage.save(&make_test_sbom("a", "nginx:1.25")).unwrap();
+        storage.save(&make_test_sbom("b", "alpine:3.19")).unwrap();
+
+        let list = storage.list().unwrap();
+        assert_eq!(list.len(), 2);
+        assert!(list.iter().any(|s| s.id == "a"));
+        assert!(list.iter().any(|s| s.id == "b"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn delete_sbom() {
+        let dir = std::env::temp_dir().join("k7s_sbom_test_delete");
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let storage = SbomStorage::new(&dir);
+        storage.save(&make_test_sbom("del-001", "nginx:1.25")).unwrap();
+        assert_eq!(storage.list().unwrap().len(), 1);
+
+        storage.delete("del-001").unwrap();
+        assert!(storage.list().unwrap().is_empty());
+        assert!(storage.load("del-001").is_err());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn load_nonexistent() {
+        let dir = std::env::temp_dir().join("k7s_sbom_test_notfound");
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let storage = SbomStorage::new(&dir);
+        assert!(storage.load("does-not-exist").is_err());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}

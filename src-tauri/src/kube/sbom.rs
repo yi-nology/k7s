@@ -701,3 +701,252 @@ async fn scan_vulnerabilities(
 
     Ok(vulns)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -----------------------------------------------------------------------
+    // SbomFormat
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sbom_format_from_str_cyclonedx() {
+        assert_eq!(SbomFormat::from_str("cyclonedx"), Some(SbomFormat::CycloneDx));
+        assert_eq!(SbomFormat::from_str("CycloneDX"), Some(SbomFormat::CycloneDx));
+        assert_eq!(SbomFormat::from_str("cyclone-dx"), Some(SbomFormat::CycloneDx));
+    }
+
+    #[test]
+    fn sbom_format_from_str_spdx() {
+        assert_eq!(SbomFormat::from_str("spdx"), Some(SbomFormat::Spdx));
+        assert_eq!(SbomFormat::from_str("SPDX"), Some(SbomFormat::Spdx));
+    }
+
+    #[test]
+    fn sbom_format_from_str_unknown() {
+        assert_eq!(SbomFormat::from_str("unknown"), None);
+        assert_eq!(SbomFormat::from_str(""), None);
+    }
+
+    #[test]
+    fn sbom_format_as_str_roundtrip() {
+        assert_eq!(SbomFormat::CycloneDx.as_str(), "cyclonedx");
+        assert_eq!(SbomFormat::Spdx.as_str(), "spdx");
+        // Roundtrip
+        for fmt in [SbomFormat::CycloneDx, SbomFormat::Spdx] {
+            assert_eq!(SbomFormat::from_str(fmt.as_str()), Some(fmt));
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // SbomSource serialization
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sbom_source_image_serde_roundtrip() {
+        let source = SbomSource::Image {
+            image_ref: "nginx:1.25".to_string(),
+            namespace: "default".to_string(),
+            pod: Some("nginx-abc123".to_string()),
+        };
+        let json = serde_json::to_string(&source).unwrap();
+        let deserialized: SbomSource = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            SbomSource::Image { image_ref, namespace, pod } => {
+                assert_eq!(image_ref, "nginx:1.25");
+                assert_eq!(namespace, "default");
+                assert_eq!(pod, Some("nginx-abc123".to_string()));
+            }
+            _ => panic!("Expected Image variant"),
+        }
+    }
+
+    #[test]
+    fn sbom_source_cluster_serde_roundtrip() {
+        let source = SbomSource::Cluster {
+            context: "production".to_string(),
+        };
+        let json = serde_json::to_string(&source).unwrap();
+        let deserialized: SbomSource = serde_json::from_str(&json).unwrap();
+        match deserialized {
+            SbomSource::Cluster { context } => {
+                assert_eq!(context, "production");
+            }
+            _ => panic!("Expected Cluster variant"),
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // SbomResult serialization
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sbom_result_serde_roundtrip() {
+        let result = SbomResult {
+            id: "test-id-001".to_string(),
+            source: SbomSource::Image {
+                image_ref: "alpine:3.19".to_string(),
+                namespace: "default".to_string(),
+                pod: None,
+            },
+            format: SbomFormat::CycloneDx,
+            spec_version: "1.5".to_string(),
+            metadata: SbomMetadata {
+                tool: "trivy".to_string(),
+                tool_version: "0.52.0".to_string(),
+                scan_duration_ms: 1234,
+            },
+            components: vec![SbomComponent {
+                name: "musl".to_string(),
+                version: "1.2.5".to_string(),
+                purl: Some("pkg:apk/alpine/musl@1.2.5".to_string()),
+                cpe: None,
+                component_type: "library".to_string(),
+                licenses: vec!["MIT".to_string()],
+                supplier: None,
+                hashes: vec![],
+            }],
+            dependencies: vec![],
+            vulnerabilities: vec![SbomVulnerability {
+                id: "CVE-2024-TEST".to_string(),
+                severity: "high".to_string(),
+                affected_components: vec!["musl".to_string()],
+                description: Some("Test vulnerability".to_string()),
+                fixed_version: Some("1.2.6".to_string()),
+            }],
+            raw_output: None,
+            created_at: chrono::Utc::now(),
+        };
+
+        let json = serde_json::to_string_pretty(&result).unwrap();
+        let deserialized: SbomResult = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(deserialized.id, "test-id-001");
+        assert_eq!(deserialized.format, SbomFormat::CycloneDx);
+        assert_eq!(deserialized.spec_version, "1.5");
+        assert_eq!(deserialized.metadata.tool, "trivy");
+        assert_eq!(deserialized.components.len(), 1);
+        assert_eq!(deserialized.components[0].name, "musl");
+        assert_eq!(deserialized.vulnerabilities.len(), 1);
+        assert_eq!(deserialized.vulnerabilities[0].id, "CVE-2024-TEST");
+    }
+
+    // -----------------------------------------------------------------------
+    // parse_packages_from_history
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_apt_get_install() {
+        let cmd = "RUN /bin/sh -c apt-get update && apt-get install -y curl wget ca-certificates";
+        let packages = parse_packages_from_history(cmd);
+        let names: Vec<&str> = packages.iter().map(|p| p.name.as_str()).collect();
+        assert!(names.contains(&"curl"), "Expected curl in {names:?}");
+        assert!(names.contains(&"wget"), "Expected wget in {names:?}");
+        assert!(names.contains(&"ca-certificates"), "Expected ca-certificates in {names:?}");
+    }
+
+    #[test]
+    fn parse_apk_add() {
+        let cmd = "/bin/sh -c apk add --no-cache openssl libssl3";
+        let packages = parse_packages_from_history(cmd);
+        let names: Vec<&str> = packages.iter().map(|p| p.name.as_str()).collect();
+        assert!(names.contains(&"openssl"), "Expected openssl in {names:?}");
+        assert!(names.contains(&"libssl3"), "Expected libssl3 in {names:?}");
+    }
+
+    #[test]
+    fn parse_history_no_packages() {
+        let cmd = "RUN /bin/sh -c echo hello";
+        let packages = parse_packages_from_history(cmd);
+        assert!(packages.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // parse_trivy_components (CycloneDX)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_trivy_components_cyclonedx() {
+        let json = serde_json::json!({
+            "components": [
+                {
+                    "name": "openssl",
+                    "version": "3.1.4",
+                    "purl": "pkg:apk/alpine/openssl@3.1.4",
+                    "type": "library",
+                    "licenses": [{"id": "Apache-2.0"}]
+                },
+                {
+                    "name": "zlib",
+                    "version": "1.3",
+                    "type": "library"
+                }
+            ]
+        });
+        let components = parse_trivy_components(&json, &SbomFormat::CycloneDx);
+        assert_eq!(components.len(), 2);
+        assert_eq!(components[0].name, "openssl");
+        assert_eq!(components[0].version, "3.1.4");
+        assert_eq!(components[0].purl, Some("pkg:apk/alpine/openssl@3.1.4".to_string()));
+        assert_eq!(components[0].licenses, vec!["Apache-2.0"]);
+        assert_eq!(components[1].name, "zlib");
+        assert!(components[1].licenses.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // parse_trivy_components (SPDX)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_trivy_components_spdx() {
+        let json = serde_json::json!({
+            "packages": [
+                {
+                    "name": "bash",
+                    "versionInfo": "5.2.15",
+                    "licenseDeclared": "GPL-3.0"
+                }
+            ]
+        });
+        let components = parse_trivy_components(&json, &SbomFormat::Spdx);
+        assert_eq!(components.len(), 1);
+        assert_eq!(components[0].name, "bash");
+        assert_eq!(components[0].version, "5.2.15");
+        assert_eq!(components[0].licenses, vec!["GPL-3.0"]);
+    }
+
+    #[test]
+    fn parse_trivy_components_empty() {
+        let json = serde_json::json!({});
+        let components = parse_trivy_components(&json, &SbomFormat::CycloneDx);
+        assert!(components.is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // SbomSummary
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sbom_summary_serde() {
+        let summary = SbomSummary {
+            id: "sum-001".to_string(),
+            source: SbomSource::Image {
+                image_ref: "node:20".to_string(),
+                namespace: "prod".to_string(),
+                pod: None,
+            },
+            format: SbomFormat::Spdx,
+            component_count: 150,
+            vulnerability_count: 5,
+            tool: "trivy".to_string(),
+            created_at: chrono::Utc::now(),
+        };
+        let json = serde_json::to_string(&summary).unwrap();
+        let deserialized: SbomSummary = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized.id, "sum-001");
+        assert_eq!(deserialized.component_count, 150);
+        assert_eq!(deserialized.vulnerability_count, 5);
+        assert_eq!(deserialized.format, SbomFormat::Spdx);
+    }
+}
