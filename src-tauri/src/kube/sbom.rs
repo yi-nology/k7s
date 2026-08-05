@@ -432,3 +432,165 @@ fn parse_grype_sbom(
         created_at: chrono::Utc::now(),
     })
 }
+
+// ---------------------------------------------------------------------------
+// Native fallback: basic SBOM generation without external tools
+// ---------------------------------------------------------------------------
+
+/// Native fallback: basic SBOM generation without external tools.
+/// Uses `docker inspect` to extract basic image metadata.
+/// Only supports CycloneDX format. Returns a minimal SBOM.
+pub async fn generate_native(
+    image_ref: &str,
+    format: &SbomFormat,
+) -> AppResult<SbomResult> {
+    let start = std::time::Instant::now();
+
+    if *format == SbomFormat::Spdx {
+        return Err(AppError::Other(
+            "SPDX format not supported in native fallback mode. Install trivy or grype for full format support.".to_string(),
+        ));
+    }
+
+    let config_json = get_image_config(image_ref).await?;
+    let elapsed = start.elapsed().as_millis() as u64;
+    let components = extract_components_from_config(&config_json);
+
+    Ok(SbomResult {
+        id: Uuid::new_v4().to_string(),
+        source: SbomSource::Image {
+            image_ref: image_ref.to_string(),
+            namespace: String::new(),
+            pod: None,
+        },
+        format: SbomFormat::CycloneDx,
+        spec_version: "1.5".to_string(),
+        metadata: SbomMetadata {
+            tool: "native".to_string(),
+            tool_version: "0.1.0".to_string(),
+            scan_duration_ms: elapsed,
+        },
+        components,
+        dependencies: vec![],
+        vulnerabilities: vec![],
+        raw_output: None,
+        created_at: chrono::Utc::now(),
+    })
+}
+
+/// Try to get image config via docker inspect.
+async fn get_image_config(image_ref: &str) -> AppResult<serde_json::Value> {
+    let output = Command::new("docker")
+        .args(["inspect", image_ref])
+        .output()
+        .await
+        .map_err(|e| AppError::Other(format!("Failed to run docker inspect: {e}")))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Other(format!(
+            "docker inspect failed (is docker installed and running?): {stderr}"
+        )));
+    }
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let arr: serde_json::Value = serde_json::from_str(&raw)
+        .map_err(|e| AppError::Other(format!("Failed to parse docker inspect output: {e}")))?;
+
+    arr.as_array()
+        .and_then(|a| a.first())
+        .cloned()
+        .ok_or_else(|| AppError::Other("Empty docker inspect output".to_string()))
+}
+
+/// Extract basic components from image config.
+fn extract_components_from_config(config: &serde_json::Value) -> Vec<SbomComponent> {
+    let mut components = vec![];
+
+    // Extract OS info
+    if let Some(os) = config["Os"].as_str().or(config["os"].as_str()) {
+        components.push(SbomComponent {
+            name: os.to_string(),
+            version: config["OsVersion"]
+                .as_str()
+                .or(config["os_version"].as_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            purl: None,
+            cpe: None,
+            component_type: "operating-system".to_string(),
+            licenses: vec![],
+            supplier: None,
+            hashes: vec![],
+        });
+    }
+
+    // Extract from history (package installations)
+    if let Some(history) = config["History"].as_array().or(config["history"].as_array()) {
+        for entry in history {
+            if let Some(created_by) = entry["created_by"].as_str() {
+                let packages = parse_packages_from_history(created_by);
+                components.extend(packages);
+            }
+        }
+    }
+
+    components
+}
+
+/// Parse package names from Dockerfile history commands.
+fn parse_packages_from_history(cmd: &str) -> Vec<SbomComponent> {
+    let mut packages = vec![];
+
+    // apt-get install / apt install pattern
+    if cmd.contains("apt-get install") || cmd.contains("apt install") {
+        let parts: Vec<&str> = cmd.split_whitespace().collect();
+        for part in parts {
+            if !part.starts_with('-')
+                && !part.contains("apt")
+                && !part.contains("install")
+                && !part.contains("&&")
+                && !part.contains("apt-get")
+                && !part.starts_with('/')
+                && !part.is_empty()
+            {
+                packages.push(SbomComponent {
+                    name: part.to_string(),
+                    version: "unknown".to_string(),
+                    purl: None,
+                    cpe: None,
+                    component_type: "library".to_string(),
+                    licenses: vec![],
+                    supplier: None,
+                    hashes: vec![],
+                });
+            }
+        }
+    }
+
+    // apk add pattern
+    if cmd.contains("apk add") {
+        let parts: Vec<&str> = cmd.split_whitespace().collect();
+        let mut after_add = false;
+        for part in parts {
+            if part == "add" {
+                after_add = true;
+                continue;
+            }
+            if after_add && !part.starts_with('-') && !part.contains("&&") && !part.is_empty() {
+                packages.push(SbomComponent {
+                    name: part.to_string(),
+                    version: "unknown".to_string(),
+                    purl: None,
+                    cpe: None,
+                    component_type: "library".to_string(),
+                    licenses: vec![],
+                    supplier: None,
+                    hashes: vec![],
+                });
+            }
+        }
+    }
+
+    packages
+}
