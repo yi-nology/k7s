@@ -51,8 +51,8 @@ export const CONFIG_TEMPLATES: Template[] = [
   {
     id: 'secret',
     kind: 'secrets',
-    title: 'Secret',
-    description: 'Opaque Secret with two key-value pairs.',
+    title: 'Secret (Opaque)',
+    description: 'Opaque Secret with two key/value pairs.',
     params: [
       { key: 'name', label: 'Name', default: 'my-secret', kind: 'text' },
       {
@@ -62,7 +62,13 @@ export const CONFIG_TEMPLATES: Template[] = [
         kind: 'text',
       },
       { key: 'key1', label: 'Key 1', default: 'username', kind: 'text' },
-      { key: 'value1', label: 'Value 1', default: 'admin', kind: 'text' },
+      {
+        key: 'value1',
+        label: 'Value 1',
+        default: 'admin',
+        kind: 'text',
+        help: 'Stored verbatim — this template is for non-sensitive test data. Production secrets should be set via the YAML editor or an external operator.',
+      },
       { key: 'key2', label: 'Key 2', default: 'password', kind: 'text' },
       {
         key: 'value2',
@@ -78,8 +84,10 @@ export const CONFIG_TEMPLATES: Template[] = [
       const v1 = v.value1 || 'admin';
       const k2 = v.key2 || 'password';
       const v2 = v.value2 || 'changeme';
-      // Values are base64-encoded, as required by the Secret spec.
-      const b64 = (s: string): string => btoa(s);
+      // Opaque is the catch-all type; the YAML editor is the right tool for
+      // kubernetes.io/tls, dockerconfigjson, and the rest. The form's help
+      // text steers users away from treating the rendered YAML as production
+      // credentials.
       return [
         `apiVersion: v1`,
         `kind: Secret`,
@@ -87,9 +95,9 @@ export const CONFIG_TEMPLATES: Template[] = [
         `  name: ${name}`,
         `  namespace: ${ns}`,
         `type: Opaque`,
-        `data:`,
-        `  ${k1}: ${b64(String(v1))}`,
-        `  ${k2}: ${b64(String(v2))}`,
+        `stringData:`,
+        `  ${k1}: ${v1}`,
+        `  ${k2}: ${v2}`,
       ].join('\n');
     },
   },

@@ -7,32 +7,45 @@
  * Returns "" when the record is empty or not a plain object.
  */
 export function labelsBlock(labels: unknown, indent: number): string {
-  if (!labels || typeof labels !== 'object' || Array.isArray(labels)) return '';
+  if (!labels || typeof labels !== 'object') return '';
+  const pad = ' '.repeat(indent);
   const entries = Object.entries(labels as Record<string, string>).filter(
-    ([, v]) => typeof v === 'string' && v.length > 0
+    ([k, v]) => k.length > 0 && v !== undefined && v !== null
   );
   if (entries.length === 0) return '';
-  const pad = ' '.repeat(indent);
   return entries.map(([k, v]) => `${pad}${k}: ${v}`).join('\n');
 }
 
 /**
- * Render a `resources.requests:` YAML block from a Record<string, string>.
- * Returns "" when the record is empty or not a plain object.
+ * Format `{cpu, memory}` as a YAML `resources.requests:` block at the
+ * requested indent. Either field may be empty; the block is omitted
+ * entirely when both are. Indents:
+ *   indent+0 → `resources:`
+ *   indent+2 → `requests:`
+ *   indent+4 → `cpu:` / `memory:`
+ *
+ * The +4 / +2 spacing matches the standard k8s manifest style so the
+ * result diffs cleanly against `kubectl get -o yaml` output.
  */
 export function resourcesRequestsBlock(res: unknown, indent: number): string {
   if (!res || typeof res !== 'object' || Array.isArray(res)) return '';
-  const entries = Object.entries(res as Record<string, string>).filter(
-    ([, v]) => typeof v === 'string' && v.length > 0
-  );
-  if (entries.length === 0) return '';
-  const pad = ' '.repeat(indent);
+  const r = res as { cpu?: string; memory?: string };
+  const lines: string[] = [];
+  const pad0 = ' '.repeat(indent);
   const pad2 = ' '.repeat(indent + 2);
-  return [
-    `${pad}resources:`,
-    `${pad}  requests:`,
-    ...entries.map(([k, v]) => `${pad2}${k}: ${v}`),
-  ].join('\n');
+  if (r.cpu) {
+    lines.push(`${pad0}resources:`);
+    lines.push(`${pad2}requests:`);
+    lines.push(`${' '.repeat(indent + 4)}cpu: ${r.cpu}`);
+  }
+  if (r.memory) {
+    if (!r.cpu) {
+      lines.push(`${pad0}resources:`);
+      lines.push(`${pad2}requests:`);
+    }
+    lines.push(`${' '.repeat(indent + 4)}memory: ${r.memory}`);
+  }
+  return lines.join('\n');
 }
 
 /**
