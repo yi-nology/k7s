@@ -7,12 +7,8 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ActionsMenu } from './ActionsMenu';
-import {
-  render,
-  cleanup,
-  createMockRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
+import type { Row } from '../../providers/types/table';
 
 // Mock useClickOutside.
 vi.mock('../../hooks/useClickOutside', () => ({
@@ -21,7 +17,7 @@ vi.mock('../../hooks/useClickOutside', () => ({
 
 // Mock ActionList.
 vi.mock('../actions/ActionList', () => ({
-  ActionList: ({ onClose }: any) => (
+  ActionList: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="action-list">
       <button onClick={onClose}>Close Menu</button>
     </div>
@@ -30,7 +26,7 @@ vi.mock('../actions/ActionList', () => ({
 
 // Mock actionsFor.
 vi.mock('../../lib/actions', () => ({
-  actionsFor: vi.fn((kind: string, _rows: any[]) => {
+  actionsFor: vi.fn((kind: string, _rows: Row[]) => {
     // Return non-empty for pods, empty for nodes
     if (kind === 'pods') return [{ id: 'delete', label: 'Delete' }];
     return [];
@@ -49,9 +45,7 @@ describe('ActionsMenu', () => {
       const row = createMockRow({ uid: 'node-1', name: 'worker-1' });
       const onError = vi.fn();
       const onDeleted = vi.fn();
-      view = render(
-        <ActionsMenu kind="nodes" row={row} onError={onError} onDeleted={onDeleted} />
-      );
+      view = render(<ActionsMenu kind="nodes" row={row} onError={onError} onDeleted={onDeleted} />);
       expect(view.container.innerHTML).toBe('');
     });
   });
@@ -61,9 +55,7 @@ describe('ActionsMenu', () => {
       const row = createMockRow({ uid: 'pod-1', name: 'nginx' });
       const onError = vi.fn();
       const onDeleted = vi.fn();
-      view = render(
-        <ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />
-      );
+      view = render(<ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />);
       const btn = view.queryByText('⋯');
       expect(btn).not.toBeNull();
     });
@@ -72,9 +64,7 @@ describe('ActionsMenu', () => {
       const row = createMockRow({ uid: 'pod-1', name: 'nginx' });
       const onError = vi.fn();
       const onDeleted = vi.fn();
-      view = render(
-        <ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />
-      );
+      view = render(<ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />);
       const btn = view.queryByText('⋯') as HTMLButtonElement;
       expect(btn?.getAttribute('aria-haspopup')).toBe('menu');
       expect(btn?.getAttribute('aria-expanded')).toBe('false');
@@ -84,9 +74,7 @@ describe('ActionsMenu', () => {
       const row = createMockRow({ uid: 'pod-1', name: 'nginx' });
       const onError = vi.fn();
       const onDeleted = vi.fn();
-      view = render(
-        <ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />
-      );
+      view = render(<ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />);
       const btn = view.queryByText('⋯');
       expect(btn).not.toBeNull();
       view.click(btn!);
@@ -97,9 +85,7 @@ describe('ActionsMenu', () => {
       const row = createMockRow({ uid: 'pod-1', name: 'nginx' });
       const onError = vi.fn();
       const onDeleted = vi.fn();
-      view = render(
-        <ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />
-      );
+      view = render(<ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />);
       const btn = view.queryByText('⋯');
       view.click(btn!);
       expect((btn as HTMLButtonElement)?.getAttribute('aria-expanded')).toBe('true');
@@ -109,9 +95,7 @@ describe('ActionsMenu', () => {
       const row = createMockRow({ uid: 'pod-1', name: 'nginx' });
       const onError = vi.fn();
       const onDeleted = vi.fn();
-      view = render(
-        <ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />
-      );
+      view = render(<ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />);
       const btn = view.queryByText('⋯');
       view.click(btn!);
       expect(view.queryByTestId('action-list')).not.toBeNull();
@@ -127,9 +111,7 @@ describe('ActionsMenu', () => {
       const onError = vi.fn();
       const onDeleted = vi.fn();
       // Just verify it renders without crashing
-      view = render(
-        <ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />
-      );
+      view = render(<ActionsMenu kind="pods" row={row} onError={onError} onDeleted={onDeleted} />);
       expect(view.container.firstChild).not.toBeNull();
     });
   });

@@ -9,13 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { useStore } from '../../store';
 import { MetricsTab } from './MetricsTab';
-import {
-  render,
-  cleanup,
-  createMockRow,
-  
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 import type { NodeSample } from '../../providers/types';
 
 // Mock IS_TAURI to control which path renders.
@@ -25,7 +19,7 @@ vi.mock('../../providers', () => ({
 
 // Mock PlotChart — renders a simple div with the title.
 vi.mock('./PlotChart', () => ({
-  Plot: ({ title }: any) =>
+  Plot: ({ title }: { title?: string }) =>
     createElement('div', { 'data-testid': 'plot' }, title || ''),
   useHostPlotColors: () => ({
     accent: '#000',

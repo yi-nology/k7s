@@ -9,12 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { useStore } from '../../store';
 import { YamlTab } from './YamlTab';
-import {
-  render,
-  cleanup,
-  createMockPodRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockPodRow, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
 const mockGetYaml = vi.fn();
@@ -31,7 +26,15 @@ vi.mock('../../providers', () => ({
 
 // Mock CodeEditor to avoid CodeMirror/lit dependencies.
 vi.mock('./CodeEditor', () => ({
-  CodeEditor: ({ value, editable, onChange }: any) =>
+  CodeEditor: ({
+    value,
+    editable,
+    onChange,
+  }: {
+    value?: string;
+    editable?: boolean;
+    onChange?: (text: string) => void;
+  }) =>
     createElement('div', {
       'data-testid': 'code-editor',
       'data-editable': String(editable),

@@ -14,6 +14,7 @@ import {
   createMockCell,
   type RenderResult,
 } from '../../test/componentUtils';
+import type { Row } from '../../providers/types/table';
 
 let view: RenderResult;
 
@@ -25,7 +26,7 @@ function resetStore() {
   });
 }
 
-function makeJobRow(overrides: Record<string, any> = {}) {
+function makeJobRow(overrides: Partial<Row> & { owner?: string } = {}) {
   return createMockRow({
     uid: overrides.uid ?? `job-${Math.random().toString(36).slice(2, 6)}`,
     name: overrides.name ?? 'my-cronjob-abc123',
@@ -41,7 +42,7 @@ function makeJobRow(overrides: Record<string, any> = {}) {
   });
 }
 
-function makeCronJobRow(overrides: Record<string, any> = {}) {
+function makeCronJobRow(overrides: Partial<Row> = {}) {
   return createMockRow({
     uid: overrides.uid ?? 'cronjob-1',
     name: overrides.name ?? 'my-cronjob',
