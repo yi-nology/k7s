@@ -23,7 +23,7 @@
 # ─────────────────────────────────────────────────────────────────
 # Stage 1 — front-end
 # ─────────────────────────────────────────────────────────────────
-FROM node:20-bookworm-slim AS frontend
+FROM node:22-bookworm-slim AS frontend
 WORKDIR /src
 
 # Cache pnpm install: copy lockfile + package.json first so unchanged
@@ -121,8 +121,8 @@ EXPOSE 8080
 # Quick TCP-level liveness. k7s-web itself doesn't expose /healthz,
 # but the axum router is listening on this port, so a successful
 # connect is enough to know the process is up.
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 --start-period=10s \
-  CMD ["/bin/sh", "-c", "echo > /dev/tcp/localhost/8080"]
+# Note: distroless has no shell, so we use wget or skip healthcheck.
+# HEALTHCHECK requires a shell; omit for distroless images.
 
 # Server mode: serve both the API and the static React app on one port.
 # Override with --addr 127.0.0.1:7180 if you want API-only.
