@@ -87,15 +87,19 @@ jobs:
 
       - name: cargo check
         run: cargo check
+        working-directory: src-tauri
 
       - name: cargo clippy
         run: cargo clippy -- -D warnings
+        working-directory: src-tauri
 
       - name: cargo fmt check
         run: cargo fmt --check
+        working-directory: src-tauri
 
       - name: cargo test
         run: cargo test
+        working-directory: src-tauri
 
   # ────────────────────────────────────────────────────────────────
   # 3) Tag push → full Tauri bundle matrix + GitHub release.
