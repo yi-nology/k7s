@@ -24,7 +24,7 @@ vi.mock('../../lib/plugins/manager', () => ({
 
 let view: RenderResult;
 
-function makePlugin(overrides: Record<string, any> = {}) {
+function makePlugin(overrides: Record<string, unknown> = {}) {
   return {
     id: 'test-plugin',
     name: 'Test Plugin',

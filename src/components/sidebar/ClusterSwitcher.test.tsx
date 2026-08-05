@@ -6,7 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useStore } from '../../store';
+import { useStore, type OpenMenu } from '../../store';
 import { ClusterSwitcher } from './ClusterSwitcher';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 import type { ContextInfo } from '../../providers/types';
@@ -34,7 +34,7 @@ function resetStore() {
     clusterStatus: null,
     contexts: [],
     openMenu: null,
-    toggleMenu: (menu: any) => useStore.setState({ openMenu: menu }),
+    toggleMenu: (menu: Exclude<OpenMenu, null>) => useStore.setState({ openMenu: menu }),
     closeMenus: () => useStore.setState({ openMenu: null }),
     setContexts: (ctx: ContextInfo[]) => useStore.setState({ contexts: ctx }),
     addImportedFile: vi.fn(),
@@ -77,7 +77,15 @@ describe('ClusterSwitcher', () => {
     it('shows connected status', () => {
       useStore.setState({
         connection: { phase: 'connected', context: 'prod', clusterName: 'prod' },
-        clusterStatus: { connected: true, version: 'v1.30.0', apiLatencyMs: 5, nodesReady: 3, nodesTotal: 3, cpuPercent: 50, memPercent: 60 },
+        clusterStatus: {
+          connected: true,
+          version: 'v1.30.0',
+          apiLatencyMs: 5,
+          nodesReady: 3,
+          nodesTotal: 3,
+          cpuPercent: 50,
+          memPercent: 60,
+        },
       });
       view = render(<ClusterSwitcher />);
       expect(view.queryByText(/connected/i)).not.toBeNull();
@@ -138,9 +146,7 @@ describe('ClusterSwitcher', () => {
     it('shows cluster info for each context', () => {
       useStore.setState({
         openMenu: 'cluster',
-        contexts: [
-          { name: 'ctx-1', cluster: 'my-cluster', current: false },
-        ],
+        contexts: [{ name: 'ctx-1', cluster: 'my-cluster', current: false }],
       });
       view = render(<ClusterSwitcher />);
       expect(view.queryByText('my-cluster')).not.toBeNull();

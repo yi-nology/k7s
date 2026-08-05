@@ -27,7 +27,7 @@ function resetStore() {
       cronjobs: [],
       namespaces: [],
       resourcequotas: [],
-    } as any,
+    },
     nodeMetrics: {},
     setNav: vi.fn(),
     closeOverlay: vi.fn(),

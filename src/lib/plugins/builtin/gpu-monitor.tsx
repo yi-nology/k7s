@@ -158,22 +158,17 @@ function GpuDashboardCard() {
   };
 
   if (state.loading) {
-    return { type: 'div', props: { style: mutedStyle, children: 'Loading GPU metrics...' } } as any;
+    return <div style={mutedStyle}>Loading GPU metrics...</div>;
   }
   if (!state.prometheusConfigured) {
-    return {
-      type: 'div',
-      props: { style: mutedStyle, children: 'No Prometheus instance configured.' },
-    } as any;
+    return <div style={mutedStyle}>No Prometheus instance configured.</div>;
   }
   if (!state.available) {
-    return {
-      type: 'div',
-      props: {
-        style: mutedStyle,
-        children: 'No GPU resources detected. Install the NVIDIA device plugin to see GPU metrics.',
-      },
-    } as any;
+    return (
+      <div style={mutedStyle}>
+        No GPU resources detected. Install the NVIDIA device plugin to see GPU metrics.
+      </div>
+    );
   }
 
   const rows = [
@@ -183,23 +178,16 @@ function GpuDashboardCard() {
     { label: 'Memory Total', value: state.memTotal },
   ];
 
-  return {
-    type: 'div',
-    props: {
-      style: cardStyle,
-      children: rows.map((r) => ({
-        type: 'div',
-        props: {
-          style: rowStyle,
-          children: [
-            { type: 'span', props: { style: labelStyle, children: r.label }, key: r.label },
-            { type: 'span', props: { style: valueStyle, children: r.value }, key: r.label + '-v' },
-          ],
-        },
-        key: r.label,
-      })),
-    },
-  } as any;
+  return (
+    <div style={cardStyle}>
+      {rows.map((r) => (
+        <div key={r.label} style={rowStyle}>
+          <span style={labelStyle}>{r.label}</span>
+          <span style={valueStyle}>{r.value}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------

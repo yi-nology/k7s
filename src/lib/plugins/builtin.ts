@@ -36,15 +36,14 @@ export const netpolViewerPlugin: K7sPlugin = {
   },
 };
 
-function NetPolTab({ row }: { row: any }) {
+function NetPolTab({ row }: { row: unknown }) {
   // Placeholder: a real version would fetch policies from the store or provider.
-  return {
-    type: 'div',
-    props: {
-      style: { padding: '16px', color: 'var(--text-muted)', fontSize: '13px' },
-      children: `Network policies for ${row?.namespace ?? 'cluster'}/${row?.name ?? '?'}: (stub — install the backend plugin to list policies).`,
-    },
-  } as any;
+  const r = row as { namespace?: string; name?: string } | undefined;
+  return (
+    <div style={{ padding: '16px', color: 'var(--text-muted)', fontSize: '13px' }}>
+      {`Network policies for ${r?.namespace ?? 'cluster'}/${r?.name ?? '?'}: (stub — install the backend plugin to list policies).`}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------

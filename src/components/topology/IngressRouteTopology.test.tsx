@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { IngressRouteTopology } from './IngressRouteTopology';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
+import { createMockSettings } from '../../test/types';
 
 let view: RenderResult;
 
@@ -18,8 +19,8 @@ function resetStore() {
     rows: {
       ingresses: [],
       services: [],
-    } as any,
-    settings: { language: 'en' } as any,
+    },
+    settings: createMockSettings({ language: 'en' }),
   });
 }
 
@@ -86,7 +87,7 @@ describe('IngressRouteTopology', () => {
             ],
           }),
         ],
-      } as any,
+      },
     });
     view = render(<IngressRouteTopology />);
     const svg = view.container.querySelector('svg');
@@ -119,7 +120,7 @@ describe('IngressRouteTopology', () => {
             ],
           }),
         ],
-      } as any,
+      },
     });
     view = render(<IngressRouteTopology />);
     expect(view.queryByText('INGRESS')).not.toBeNull();
@@ -151,7 +152,7 @@ describe('IngressRouteTopology', () => {
             ],
           }),
         ],
-      } as any,
+      },
     });
     view = render(<IngressRouteTopology />);
     expect(view.queryByText('SERVICE')).not.toBeNull();
@@ -183,7 +184,7 @@ describe('IngressRouteTopology', () => {
             ],
           }),
         ],
-      } as any,
+      },
     });
     view = render(<IngressRouteTopology />);
     expect(view.queryByText('TLS')).not.toBeNull();
@@ -215,7 +216,7 @@ describe('IngressRouteTopology', () => {
             ],
           }),
         ],
-      } as any,
+      },
     });
     view = render(<IngressRouteTopology />);
     expect(view.queryByText('No TLS')).not.toBeNull();
@@ -247,7 +248,7 @@ describe('IngressRouteTopology', () => {
             ],
           }),
         ],
-      } as any,
+      },
     });
     view = render(<IngressRouteTopology />);
     // Both ingress and service names should appear

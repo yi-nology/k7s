@@ -46,11 +46,11 @@ export class PluginAPIImpl implements PluginAPI {
     window.dispatchEvent(new CustomEvent('k7s:plugin-notify', { detail: { message, level } }));
   }
 
-  getResources(kind: KindId): any[] {
+  getResources(kind: KindId): unknown[] {
     return rowsFor(useStore.getState().rows, kind);
   }
 
-  getResource(kind: KindId, name: string, namespace?: string): any | undefined {
+  getResource(kind: KindId, name: string, namespace?: string): unknown {
     const rows = rowsFor(useStore.getState().rows, kind);
     return rows.find((r) => r.name === name && (!namespace || r.namespace === namespace));
   }
