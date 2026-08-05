@@ -2,7 +2,7 @@
 
 use super::sbom::{SbomResult, SbomSource, SbomSummary};
 use crate::error::{AppError, AppResult};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 const SBOM_DIR: &str = "sbom";
 const INDEX_FILE: &str = "sbom_index.json";
@@ -12,7 +12,7 @@ pub struct SbomStorage {
 }
 
 impl SbomStorage {
-    pub fn new(data_dir: &PathBuf) -> Self {
+    pub fn new(data_dir: &Path) -> Self {
         let base_dir = data_dir.join(SBOM_DIR);
         Self { base_dir }
     }
@@ -30,8 +30,7 @@ impl SbomStorage {
         let path = source_dir.join(&filename);
         let json = serde_json::to_string_pretty(sbom)
             .map_err(|e| AppError::Other(format!("serialize sbom: {e}")))?;
-        std::fs::write(&path, json)
-            .map_err(|e| AppError::Other(format!("write sbom: {e}")))?;
+        std::fs::write(&path, json).map_err(|e| AppError::Other(format!("write sbom: {e}")))?;
 
         self.update_index(sbom)?;
         Ok(())
@@ -50,8 +49,8 @@ impl SbomStorage {
         let path = source_dir.join(&filename);
         let json = std::fs::read_to_string(&path)
             .map_err(|e| AppError::Other(format!("read sbom: {e}")))?;
-        let sbom: SbomResult = serde_json::from_str(&json)
-            .map_err(|e| AppError::Other(format!("parse sbom: {e}")))?;
+        let sbom: SbomResult =
+            serde_json::from_str(&json).map_err(|e| AppError::Other(format!("parse sbom: {e}")))?;
         Ok(sbom)
     }
 
@@ -75,8 +74,7 @@ impl SbomStorage {
             }
         }
 
-        let new_index: Vec<SbomSummary> =
-            index.into_iter().filter(|e| e.id != id).collect();
+        let new_index: Vec<SbomSummary> = index.into_iter().filter(|e| e.id != id).collect();
         self.write_index(&new_index)?;
         Ok(())
     }
@@ -84,14 +82,11 @@ impl SbomStorage {
     fn source_dir(&self, source: &SbomSource) -> PathBuf {
         match source {
             SbomSource::Image { image_ref, .. } => {
-                let safe_name = image_ref
-                    .replace([':', '/', '@'], "_")
-                    .replace("..", "__");
+                let safe_name = image_ref.replace([':', '/', '@'], "_").replace("..", "__");
                 self.base_dir.join("images").join(safe_name)
             }
             SbomSource::Cluster { context } => {
-                let safe_name = context
-                    .replace([':', '/', '@', '.'], "_");
+                let safe_name = context.replace([':', '/', '@', '.'], "_");
                 self.base_dir.join("clusters").join(safe_name)
             }
         }
@@ -226,7 +221,9 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
 
         let storage = SbomStorage::new(&dir);
-        storage.save(&make_test_sbom("del-001", "nginx:1.25")).unwrap();
+        storage
+            .save(&make_test_sbom("del-001", "nginx:1.25"))
+            .unwrap();
         assert_eq!(storage.list().unwrap().len(), 1);
 
         storage.delete("del-001").unwrap();

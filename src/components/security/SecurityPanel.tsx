@@ -85,12 +85,13 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
     (finding: AuditFinding) => {
       const kindId = RESOURCE_KIND_MAP[finding.resourceKind];
       if (!kindId) return;
-      // Build a minimal Row-like object for jumpTo to select.
+      // Build a minimal Row object for jumpTo to select.
       jumpTo(kindId, {
         uid: '',
         name: finding.resourceName,
         namespace: finding.namespace ?? undefined,
-      } as any);
+        cells: [],
+      });
       onClose?.();
     },
     [jumpTo, onClose]
@@ -171,13 +172,14 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
             </div>
           )}
           {!loading &&
-            filtered.map((finding) => {
-              const active = expandedId === finding.id;
+            filtered.map((finding, index) => {
+              const uniqueKey = `${finding.resourceKind}-${finding.resourceName}-${finding.id}-${index}`;
+              const active = expandedId === uniqueKey;
               return (
                 <div
-                  key={finding.id}
+                  key={uniqueKey}
                   className={`${styles.finding} ${active ? styles.findingActive : ''}`}
-                  onClick={() => setExpandedId(active ? null : finding.id)}
+                  onClick={() => setExpandedId(active ? null : uniqueKey)}
                 >
                   <div className={styles.findingHeader}>
                     <span

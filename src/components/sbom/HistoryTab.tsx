@@ -23,10 +23,11 @@ export function HistoryTab({ onSelect }: Props) {
 
   const handleSelect = async (id: string) => {
     try {
+      setError('');
       const sbom = await getProvider().sbomGet(id);
       onSelect(sbom);
     } catch (e) {
-      alert(`Failed to load SBOM: ${e}`);
+      setError(`Failed to load SBOM: ${e}`);
     }
   };
 

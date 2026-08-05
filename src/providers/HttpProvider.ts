@@ -874,7 +874,7 @@ export class HttpProvider implements DataProvider {
     imageRef: string,
     format: import('./types/sbom').SbomFormat
   ): Promise<import('./types/sbom').SbomResult> {
-    return httpInvoke('sbom_generate_image', { imageRef, format });
+    return httpInvoke('sbom_generate_image', { image_ref: imageRef, format });
   }
 
   async sbomGenerateCluster(format: import('./types/sbom').SbomFormat): Promise<import('./types/sbom').SbomResult> {
@@ -890,7 +890,7 @@ export class HttpProvider implements DataProvider {
   }
 
   async sbomExport(id: string, outputPath: string): Promise<string> {
-    return httpInvoke('sbom_export', { id, outputPath });
+    return httpInvoke('sbom_export', { id, output_path: outputPath });
   }
 
   // ---- RBAC Security Audit ----

@@ -40,7 +40,7 @@ impl SbomFormat {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "cyclonedx" | "cyclone-dx" => Some(Self::CycloneDx),
             "spdx" => Some(Self::Spdx),
@@ -121,54 +121,11 @@ pub struct SbomSummary {
 }
 
 // ---------------------------------------------------------------------------
-// Tool detection
+// Tool detection — re-export from image_scan to avoid duplication
 // ---------------------------------------------------------------------------
 
-/// Detect trivy binary path (same logic as image_scan.rs).
-pub fn which_trivy() -> Option<String> {
-    let candidates = [
-        "/usr/local/bin/trivy",
-        "/opt/homebrew/bin/trivy",
-        "/usr/bin/trivy",
-    ];
-    for path in &candidates {
-        if std::path::Path::new(path).exists() {
-            return Some(path.to_string());
-        }
-    }
-    if let Ok(output) = std::process::Command::new("which").arg("trivy").output() {
-        if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                return Some(path);
-            }
-        }
-    }
-    None
-}
-
-/// Detect grype binary path.
-pub fn which_grype() -> Option<String> {
-    let candidates = [
-        "/usr/local/bin/grype",
-        "/opt/homebrew/bin/grype",
-        "/usr/bin/grype",
-    ];
-    for path in &candidates {
-        if std::path::Path::new(path).exists() {
-            return Some(path.to_string());
-        }
-    }
-    if let Ok(output) = std::process::Command::new("which").arg("grype").output() {
-        if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !path.is_empty() {
-                return Some(path);
-            }
-        }
-    }
-    None
-}
+/// Re-export trivy/grype detection from image_scan module.
+pub use crate::kube::image_scan::{which_grype, which_trivy};
 
 // ---------------------------------------------------------------------------
 // SBOM generation
@@ -223,12 +180,15 @@ fn parse_trivy_sbom(
     format: &SbomFormat,
     elapsed_ms: u64,
 ) -> AppResult<SbomResult> {
-    let value: serde_json::Value =
-        serde_json::from_str(raw).map_err(|e| AppError::Other(format!("Failed to parse trivy output: {e}")))?;
+    let value: serde_json::Value = serde_json::from_str(raw)
+        .map_err(|e| AppError::Other(format!("Failed to parse trivy output: {e}")))?;
 
     let spec_version = match format {
         SbomFormat::CycloneDx => value["specVersion"].as_str().unwrap_or("1.5").to_string(),
-        SbomFormat::Spdx => value["spdxVersion"].as_str().unwrap_or("SPDX-2.3").to_string(),
+        SbomFormat::Spdx => value["spdxVersion"]
+            .as_str()
+            .unwrap_or("SPDX-2.3")
+            .to_string(),
     };
 
     let tool_version = value["metadata"]["tools"]["components"]
@@ -373,12 +333,11 @@ fn parse_grype_sbom(
         .map_err(|e| AppError::Other(format!("Failed to parse grype output: {e}")))?;
 
     let spec_version = match format {
-        SbomFormat::CycloneDx => {
-            value["specVersion"].as_str().unwrap_or("1.5").to_string()
-        }
-        SbomFormat::Spdx => {
-            value["spdxVersion"].as_str().unwrap_or("SPDX-2.3").to_string()
-        }
+        SbomFormat::CycloneDx => value["specVersion"].as_str().unwrap_or("1.5").to_string(),
+        SbomFormat::Spdx => value["spdxVersion"]
+            .as_str()
+            .unwrap_or("SPDX-2.3")
+            .to_string(),
     };
 
     let components = parse_trivy_components(&value, format);
@@ -440,10 +399,7 @@ fn parse_grype_sbom(
 /// Native fallback: basic SBOM generation without external tools.
 /// Uses `docker inspect` to extract basic image metadata.
 /// Only supports CycloneDX format. Returns a minimal SBOM.
-pub async fn generate_native(
-    image_ref: &str,
-    format: &SbomFormat,
-) -> AppResult<SbomResult> {
+pub async fn generate_native(image_ref: &str, format: &SbomFormat) -> AppResult<SbomResult> {
     let start = std::time::Instant::now();
 
     if *format == SbomFormat::Spdx {
@@ -526,7 +482,10 @@ fn extract_components_from_config(config: &serde_json::Value) -> Vec<SbomCompone
     }
 
     // Extract from history (package installations)
-    if let Some(history) = config["History"].as_array().or(config["history"].as_array()) {
+    if let Some(history) = config["History"]
+        .as_array()
+        .or(config["history"].as_array())
+    {
         for entry in history {
             if let Some(created_by) = entry["created_by"].as_str() {
                 let packages = parse_packages_from_history(created_by);
@@ -609,18 +568,40 @@ fn parse_packages_from_history(cmd: &str) -> Vec<SbomComponent> {
 // SBOM Engine: three-tier fallback orchestration
 // ---------------------------------------------------------------------------
 
+use std::sync::OnceLock;
+
+/// Cached tool detection results to avoid spawning processes on every call.
+static TRIVY_PATH: OnceLock<Option<String>> = OnceLock::new();
+static GRYPE_PATH: OnceLock<Option<String>> = OnceLock::new();
+
+/// Get cached trivy path, detecting once per process lifetime.
+fn cached_trivy_path() -> &'static Option<String> {
+    TRIVY_PATH.get_or_init(which_trivy)
+}
+
+/// Get cached grype path, detecting once per process lifetime.
+fn cached_grype_path() -> &'static Option<String> {
+    GRYPE_PATH.get_or_init(which_grype)
+}
+
 /// SBOM generation engine with three-tier fallback.
 pub struct SbomEngine {
     trivy_path: Option<String>,
     grype_path: Option<String>,
 }
 
+impl Default for SbomEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SbomEngine {
-    /// Create a new engine, detecting available tools.
+    /// Create a new engine, using cached tool detection results.
     pub fn new() -> Self {
         Self {
-            trivy_path: which_trivy(),
-            grype_path: which_grype(),
+            trivy_path: cached_trivy_path().clone(),
+            grype_path: cached_grype_path().clone(),
         }
     }
 
@@ -668,8 +649,12 @@ impl SbomEngine {
     /// Check which tools are available.
     pub fn available_tools(&self) -> Vec<&str> {
         let mut tools = vec![];
-        if self.trivy_path.is_some() { tools.push("trivy"); }
-        if self.grype_path.is_some() { tools.push("grype"); }
+        if self.trivy_path.is_some() {
+            tools.push("trivy");
+        }
+        if self.grype_path.is_some() {
+            tools.push("grype");
+        }
         tools.push("native");
         tools
     }
@@ -689,7 +674,9 @@ async fn scan_vulnerabilities(
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         tracing::warn!("trivy vulnerability scan failed for {image_ref}: {stderr}");
-        return Err(AppError::Other(format!("trivy vulnerability scan failed: {stderr}")));
+        return Err(AppError::Other(format!(
+            "trivy vulnerability scan failed: {stderr}"
+        )));
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
@@ -701,19 +688,11 @@ async fn scan_vulnerabilities(
         .map(|results| {
             results
                 .iter()
-                .flat_map(|r| {
-                    r["Vulnerabilities"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                })
+                .flat_map(|r| r["Vulnerabilities"].as_array().into_iter().flatten())
                 .map(|v| SbomVulnerability {
                     id: v["VulnerabilityID"].as_str().unwrap_or("").to_string(),
                     severity: v["Severity"].as_str().unwrap_or("unknown").to_string(),
-                    affected_components: vec![v["PkgName"]
-                        .as_str()
-                        .unwrap_or("")
-                        .to_string()],
+                    affected_components: vec![v["PkgName"].as_str().unwrap_or("").to_string()],
                     description: v["Description"].as_str().map(String::from),
                     fixed_version: v["FixedVersion"].as_str().map(String::from),
                 })
@@ -734,21 +713,21 @@ mod tests {
 
     #[test]
     fn sbom_format_from_str_cyclonedx() {
-        assert_eq!(SbomFormat::from_str("cyclonedx"), Some(SbomFormat::CycloneDx));
-        assert_eq!(SbomFormat::from_str("CycloneDX"), Some(SbomFormat::CycloneDx));
-        assert_eq!(SbomFormat::from_str("cyclone-dx"), Some(SbomFormat::CycloneDx));
+        assert_eq!(SbomFormat::parse("cyclonedx"), Some(SbomFormat::CycloneDx));
+        assert_eq!(SbomFormat::parse("CycloneDX"), Some(SbomFormat::CycloneDx));
+        assert_eq!(SbomFormat::parse("cyclone-dx"), Some(SbomFormat::CycloneDx));
     }
 
     #[test]
     fn sbom_format_from_str_spdx() {
-        assert_eq!(SbomFormat::from_str("spdx"), Some(SbomFormat::Spdx));
-        assert_eq!(SbomFormat::from_str("SPDX"), Some(SbomFormat::Spdx));
+        assert_eq!(SbomFormat::parse("spdx"), Some(SbomFormat::Spdx));
+        assert_eq!(SbomFormat::parse("SPDX"), Some(SbomFormat::Spdx));
     }
 
     #[test]
     fn sbom_format_from_str_unknown() {
-        assert_eq!(SbomFormat::from_str("unknown"), None);
-        assert_eq!(SbomFormat::from_str(""), None);
+        assert_eq!(SbomFormat::parse("unknown"), None);
+        assert_eq!(SbomFormat::parse(""), None);
     }
 
     #[test]
@@ -757,7 +736,7 @@ mod tests {
         assert_eq!(SbomFormat::Spdx.as_str(), "spdx");
         // Roundtrip
         for fmt in [SbomFormat::CycloneDx, SbomFormat::Spdx] {
-            assert_eq!(SbomFormat::from_str(fmt.as_str()), Some(fmt));
+            assert_eq!(SbomFormat::parse(fmt.as_str()), Some(fmt));
         }
     }
 
@@ -775,7 +754,11 @@ mod tests {
         let json = serde_json::to_string(&source).unwrap();
         let deserialized: SbomSource = serde_json::from_str(&json).unwrap();
         match deserialized {
-            SbomSource::Image { image_ref, namespace, pod } => {
+            SbomSource::Image {
+                image_ref,
+                namespace,
+                pod,
+            } => {
                 assert_eq!(image_ref, "nginx:1.25");
                 assert_eq!(namespace, "default");
                 assert_eq!(pod, Some("nginx-abc123".to_string()));
@@ -933,7 +916,10 @@ mod tests {
         assert_eq!(components.len(), 2);
         assert_eq!(components[0].name, "openssl");
         assert_eq!(components[0].version, "3.1.4");
-        assert_eq!(components[0].purl, Some("pkg:apk/alpine/openssl@3.1.4".to_string()));
+        assert_eq!(
+            components[0].purl,
+            Some("pkg:apk/alpine/openssl@3.1.4".to_string())
+        );
         assert_eq!(components[0].licenses, vec!["Apache-2.0"]);
         assert_eq!(components[1].name, "zlib");
         assert!(components[1].licenses.is_empty());

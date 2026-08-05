@@ -205,6 +205,8 @@ pub fn run() {
             commands::sbom_list_history,
             commands::sbom_get,
             commands::sbom_export,
+            // RBAC Security Audit
+            commands::security_audit_run,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");

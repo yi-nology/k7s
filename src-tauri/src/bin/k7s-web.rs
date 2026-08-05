@@ -148,7 +148,9 @@ fn parse_args() -> Args {
                 eprintln!("OPTIONS:");
                 eprintln!("    --addr <SOCKET>     Listen address (default: auto-select port on 127.0.0.1)");
                 eprintln!("    --port <PORT>       Preferred port (default: 7180, auto-increments if busy)");
-                eprintln!("    --static <DIR>      Serve built React app from <DIR> instead of embedded");
+                eprintln!(
+                    "    --static <DIR>      Serve built React app from <DIR> instead of embedded"
+                );
                 eprintln!("    --no-open           Don't auto-open the browser");
                 eprintln!("    -h, --help          Show this help");
                 std::process::exit(0);
