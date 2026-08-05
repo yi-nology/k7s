@@ -42,6 +42,7 @@ import type {
   SbomFormat,
   SbomResult,
   SbomSummary,
+  AuditReport,
 } from '../types';
 import { MockConnectionMixin } from './mockConnection';
 import { MockResourcesMixin } from './mockResources';
@@ -544,6 +545,16 @@ export class MockProvider
         { id: 'CVE-2024-MOCK', severity: 'high', affectedComponents: ['openssl'], fixedVersion: '3.1.5' },
       ],
       createdAt: new Date().toISOString(),
+    };
+  }
+
+  // ---- RBAC Security Audit ----
+
+  async securityAudit(): Promise<AuditReport> {
+    return {
+      findings: [],
+      summary: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+      scannedAt: new Date().toISOString(),
     };
   }
 }
