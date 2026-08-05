@@ -259,6 +259,28 @@ rustup default stable-x86_64-pc-windows-gnu
 winget install --id BrechtSanders.WinLibs.POSIX.UCRT -e --source winget
 ```
 
+### Windows 7 / Web Server 模式
+
+k7s 桌面版基于 Tauri 2 (WebView2)，需要 Windows 10+。Windows 7 用户可以使用 **k7s-web** 独立服务器：
+
+1. 从 [Releases](https://github.com/zy84338719/k7s/releases) 下载 `k7s-web-windows-x64.exe`
+2. 双击运行
+3. 浏览器会自动打开 k7s 界面
+
+k7s-web 包含完整的 k7s 功能，通过浏览器访问。支持：
+- 自动选择可用端口
+- 自动打开默认浏览器
+- 系统托盘图标（复制链接、退出）
+- MCP 服务器（AI 客户端可连接 `/mcp`）
+
+命令行选项：
+```
+k7s-web --port 8080        # 指定首选端口
+k7s-web --no-open          # 不自动打开浏览器
+k7s-web --no-tray          # 不显示系统托盘
+k7s-web --static ./dist    # 使用外部目录而非嵌入资源
+```
+
 ---
 
 ## 📦 Build a release bundle

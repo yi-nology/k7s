@@ -66,6 +66,7 @@ export interface Dictionary {
         observability: string;
         images: string;
         close: string;
+        sbom: string;
       };
     };
     topbar: {
@@ -125,6 +126,7 @@ export interface Dictionary {
         imageImport: string;
         templates: string;
         diff: string;
+        sbom: string;
       };
       /** Right-aligned hint for an app-level action (settings, import). */
       actionHintApp: string;
@@ -754,6 +756,44 @@ export interface Dictionary {
       starts: string;
       ends: string;
       status: string;
+    };
+  };
+
+  /** SBOM (Software Bill of Materials) overlay panel. */
+  sbom: {
+    title: string;
+    tab: { image: string; cluster: string; history: string };
+    image: { placeholder: string; generate: string };
+    cluster: { scan: string };
+    history: {
+      loading: string;
+      empty: string;
+      source: string;
+      format: string;
+      components: string;
+      vulns: string;
+      tool: string;
+      date: string;
+    };
+    components: {
+      title: string;
+      name: string;
+      version: string;
+      type: string;
+      licenses: string;
+    };
+    vulns: {
+      title: string;
+      id: string;
+      severity: string;
+      component: string;
+      fix: string;
+    };
+    info: {
+      components: string;
+      vulns: string;
+      tool: string;
+      duration: string;
     };
   };
 }

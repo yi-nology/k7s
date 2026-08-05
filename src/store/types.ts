@@ -63,7 +63,8 @@ export type OverlayKey =
   | 'audit'
   | 'ingress-editor'
   | 'diff'
-  | 'plugins';
+  | 'plugins'
+  | 'sbom';
 
 /** Connection lifecycle for the active cluster/context. */
 export interface ConnectionState {

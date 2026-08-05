@@ -7,6 +7,8 @@ pub mod core;
 pub mod forward;
 pub mod helm;
 pub mod observability;
+pub mod sbom;
+pub mod security;
 pub mod shell;
 pub mod storage;
 
@@ -15,5 +17,7 @@ pub use core::*;
 pub use forward::*;
 pub use helm::*;
 pub use observability::*;
+pub use sbom::*;
+pub use security::*;
 pub use shell::*;
 pub use storage::*;

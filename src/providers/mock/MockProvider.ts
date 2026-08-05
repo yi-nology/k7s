@@ -39,6 +39,10 @@ import type {
   AuditEvent,
   AuditQuery,
   GrafanaDashboardSearchResult,
+  SbomFormat,
+  SbomResult,
+  SbomSummary,
+  AuditReport,
 } from '../types';
 import { MockConnectionMixin } from './mockConnection';
 import { MockResourcesMixin } from './mockResources';
@@ -500,6 +504,57 @@ export class MockProvider
       configDigest: 'sha256:' + 'b'.repeat(64),
       configSize: 500,
       layers: [],
+    };
+  }
+
+  // ---- SBOM (Software Bill of Materials) ----
+
+  async sbomGenerateImage(_imageRef: string, _format: SbomFormat): Promise<SbomResult> {
+    return this.mockSbomResult();
+  }
+
+  async sbomGenerateCluster(_format: SbomFormat): Promise<SbomResult> {
+    return this.mockSbomResult();
+  }
+
+  async sbomListHistory(): Promise<SbomSummary[]> {
+    return [];
+  }
+
+  async sbomGet(_id: string): Promise<SbomResult> {
+    return this.mockSbomResult();
+  }
+
+  async sbomExport(_id: string, _outputPath: string): Promise<string> {
+    return '/tmp/sbom-export.json';
+  }
+
+  private mockSbomResult(): SbomResult {
+    return {
+      id: 'mock-001',
+      source: { kind: 'image', imageRef: 'nginx:1.25', namespace: 'default' },
+      format: 'cyclonedx',
+      specVersion: '1.5',
+      metadata: { tool: 'mock', toolVersion: '0.1.0', scanDurationMs: 100 },
+      components: [
+        { name: 'openssl', version: '3.1.4', componentType: 'library', licenses: ['Apache-2.0'], hashes: [] },
+        { name: 'nginx', version: '1.25.3', componentType: 'application', licenses: ['BSD-2-Clause'], hashes: [] },
+      ],
+      dependencies: [],
+      vulnerabilities: [
+        { id: 'CVE-2024-MOCK', severity: 'high', affectedComponents: ['openssl'], fixedVersion: '3.1.5' },
+      ],
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  // ---- RBAC Security Audit ----
+
+  async securityAudit(): Promise<AuditReport> {
+    return {
+      findings: [],
+      summary: { critical: 0, high: 0, medium: 0, low: 0, total: 0 },
+      scannedAt: new Date().toISOString(),
     };
   }
 }

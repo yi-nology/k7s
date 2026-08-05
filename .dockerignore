@@ -10,9 +10,9 @@ src-tauri/Cargo.lock.bak
 
 # Node / Vite
 **/node_modules
-**/dist
 **/.vite
 **/.cache
+# Keep the root dist/ for Docker build (pre-built frontend)
 
 # Tooling artefacts
 **/.idea

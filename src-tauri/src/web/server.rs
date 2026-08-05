@@ -45,6 +45,54 @@ use super::sse::events_handler;
 use super::state::WebState;
 use crate::mcp::K7sMcpServer;
 
+/// The built React app embedded at compile time. Only available when the
+/// `web` feature is active and `rust-embed` is linked.
+#[derive(rust_embed::Embed)]
+#[folder = "../dist"]
+pub struct FrontendAssets;
+
+/// Axum fallback handler that serves embedded frontend assets.
+/// For any request path, tries to find a matching file in the embedded
+/// dist/; if not found, serves index.html for SPA client-side routing.
+async fn embedded_fallback(req: axum::extract::Request) -> impl axum::response::IntoResponse {
+    use axum::http::{header, StatusCode};
+    use axum::response::Response;
+
+    let path = req.uri().path().trim_start_matches('/').to_string();
+    let path = if path.is_empty() {
+        "index.html".to_string()
+    } else {
+        path
+    };
+
+    match FrontendAssets::get(&path) {
+        Some(content) => {
+            let mime = mime_guess::from_path(&path)
+                .first_or_octet_stream()
+                .to_string();
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, mime)
+                .body(axum::body::Body::from(content.data.to_vec()))
+                .unwrap()
+        }
+        None => {
+            // SPA fallback: serve index.html for any unmatched path
+            match FrontendAssets::get("index.html") {
+                Some(content) => Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "text/html")
+                    .body(axum::body::Body::from(content.data.to_vec()))
+                    .unwrap(),
+                None => Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            }
+        }
+    }
+}
+
 /// Build the API router (no static files). Exposed so tests can drive it
 /// with `tower::ServiceExt::oneshot` without needing a built `dist/`.
 pub fn api_router(state: WebState) -> Router {
@@ -209,6 +257,10 @@ pub fn api_router(state: WebState) -> Router {
             "/api/invoke/list_endpoint_addresses",
             post(resource_handlers::list_endpoint_addresses),
         )
+        // SBOM endpoints.
+        .route("/api/sbom/image", post(handlers::sbom_generate_image))
+        .route("/api/sbom/history", get(handlers::sbom_list_history))
+        .route("/api/sbom/:id", get(handlers::sbom_get))
         // Stubs for everything else.
         .route("/api/invoke/:cmd", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client
@@ -232,7 +284,7 @@ pub fn api_router(state: WebState) -> Router {
 /// top: any path the API doesn't match falls through to `static_dir`, with
 /// `index.html` as the catch-all so the front-end's client-side router can
 /// take over.
-pub fn router(state: WebState, static_dir: Option<PathBuf>) -> Router {
+pub fn router(state: WebState, static_dir: Option<PathBuf>, use_embedded: bool) -> Router {
     let cors = CorsLayer::new()
         // Dev: Vite proxies through 1420 → 7180, so the browser sees one
         // origin. Prod: same origin (the server serves both). `Any` is
@@ -255,6 +307,8 @@ pub fn router(state: WebState, static_dir: Option<PathBuf>) -> Router {
         // Merge: the API routes are tried first (their paths are
         // more specific), and any unmatched path falls back to `serve_dir`.
         app = app.fallback_service(serve_dir);
+    } else if use_embedded {
+        app = app.fallback(embedded_fallback);
     }
 
     app
@@ -267,14 +321,17 @@ pub async fn serve(
     addr: SocketAddr,
     state: WebState,
     static_dir: Option<PathBuf>,
+    use_embedded: bool,
 ) -> std::io::Result<()> {
     let mode = if static_dir.is_some() {
         "server"
+    } else if use_embedded {
+        "embedded"
     } else {
         "dev-api"
     };
     tracing::info!("k7s-web ({mode}) listening on http://{addr} (MCP: /mcp)");
-    let app = router(state, static_dir);
+    let app = router(state, static_dir, use_embedded);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await
 }

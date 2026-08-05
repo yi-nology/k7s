@@ -2,32 +2,16 @@
 //!
 //! Boots a tokio runtime, builds a [`k7s_lib::web::WebState`] (kube client +
 //! watchers + SSE plumbing all wired up to a fresh `WebEventSink`), and
-//! serves an axum router on the address given by `--addr` (default
-//! `127.0.0.1:7180`).
+//! serves an axum router.
 //!
-//! Two operating modes:
-//!
-//! - **dev API** (no `--static`): the axum server only exposes the API.
-//!   Pair it with `npm run dev` (vite on 1420) which proxies `/api/*` here.
-//!   This is the workflow `dev/web.mjs` automates.
-//!
-//! - **server** (`--static <DIR>`): also serves the built React app from
-//!   `<DIR>`. One process, one port (default `0.0.0.0:8080` in production),
-//!   no node, no vite. `vite build` → drop the `dist/` next to the binary →
-//!   `./k7s-web --static ./dist`.
-//!
-//! ```text
-//! $ cargo run --features web --bin k7s-web -- \
-//!     --addr 0.0.0.0:8080 --static ./dist
-//! ```
-//!
-//! Vite's dev server proxies `/api/*` here (see `vite.config.ts`), so the
-//! browser sees one origin (1420) and the HTTP traffic lands on 7180. The
-//! `/api` prefix is *part of k7s-web's contract*, not a vite proxy artifact
-//! — both modes use the same paths.
+//! Features:
+//! - **Auto port selection**: tries the preferred port, then increments until
+//!   an available port is found.
+//! - **Auto browser open**: opens the default browser to the serving URL.
+//! - **Embedded assets**: serves the built React app from compile-time
+//!   embedded files when no `--static` dir is given.
 
-use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener as StdTcpListener};
 
 use k7s_lib::web::{serve, WebState};
 
@@ -41,23 +25,25 @@ async fn main() -> std::io::Result<()> {
         )
         .init();
 
-    let Args { addr, static_dir } = parse_args();
-    let addr = addr.unwrap_or_else(|| "127.0.0.1:7180".parse().expect("default addr parses"));
+    let args = parse_args();
 
-    // Where prefs and any future state lives. The Tauri shell uses
-    // `app.path().app_config_dir()`; here we use a XDG-style fallback that
-    // matches what kubectl itself reads.
+    // ── Port selection ───────────────────────────────────────────────
+    // If --addr is given, use it directly. Otherwise try the preferred
+    // port and increment until we find a free port.
+    let addr = if let Some(a) = args.addr {
+        a
+    } else {
+        pick_port(args.preferred_port).await
+    };
+
+    // Where prefs and any future state lives.
     let data_dir = default_data_dir();
-
     if let Err(e) = std::fs::create_dir_all(&data_dir) {
         tracing::warn!("could not create {}: {e}", data_dir.display());
     }
 
-    // If we were told to serve static files, make sure the directory exists
-    // before we start — a missing dist/ in server mode means the user
-    // forgot to `npm run build`, and they'd rather hear that now than at
-    // the first 404.
-    if let Some(dir) = &static_dir {
+    // Validate --static if given.
+    if let Some(dir) = &args.static_dir {
         if !dir.join("index.html").exists() {
             tracing::error!(
                 "{} does not contain index.html — did you `npm run build`?",
@@ -67,36 +53,106 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
+    // Determine whether to use embedded assets.
+    // Embedded mode is active when no --static is given.
+    let use_embedded = args.static_dir.is_none();
+
     let state = WebState::new(data_dir);
-    serve(addr, state, static_dir).await
+
+    // Print the access URL prominently.
+    let url = format!("http://{addr}");
+    tracing::info!("k7s-web listening on {url}");
+    println!();
+    println!("  k7s-web is running at: {url}");
+    println!();
+
+    // ── Auto-open browser ────────────────────────────────────────────
+    if !args.no_open {
+        if let Err(e) = open::that(&url) {
+            tracing::warn!("failed to open browser: {e}");
+        }
+    }
+
+    // ── Start server ─────────────────────────────────────────────────
+    // Race between the server and Ctrl+C.
+    tokio::select! {
+        result = serve(addr, state, args.static_dir, use_embedded) => {
+            result?;
+        }
+        _ = tokio::signal::ctrl_c() => {
+            tracing::info!("Ctrl+C received, shutting down");
+        }
+    }
+
+    Ok(())
 }
 
-#[derive(Default)]
+/// Try to bind to `preferred` port; if busy, try the next 100 ports.
+/// Falls back to OS-assigned port (port 0).
+async fn pick_port(preferred: u16) -> SocketAddr {
+    // Try the preferred port first.
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), preferred);
+    if StdTcpListener::bind(addr).is_ok() {
+        return addr;
+    }
+    // Try the next 100 ports.
+    for port in (preferred + 1)..=(preferred + 100) {
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
+        if StdTcpListener::bind(addr).is_ok() {
+            tracing::info!("port {preferred} busy, using {port}");
+            return addr;
+        }
+    }
+    // Fall back to OS-assigned.
+    let listener = StdTcpListener::bind("127.0.0.1:0").expect("bind to port 0");
+    let addr = listener.local_addr().expect("get local addr");
+    tracing::info!("port {preferred}+ busy, OS assigned {addr}");
+    addr
+}
+
+// ── CLI argument parsing ─────────────────────────────────────────────
+
 struct Args {
     addr: Option<SocketAddr>,
-    static_dir: Option<PathBuf>,
+    preferred_port: u16,
+    static_dir: Option<std::path::PathBuf>,
+    no_open: bool,
 }
 
 fn parse_args() -> Args {
-    let mut out = Args::default();
-    let mut args = std::env::args().skip(1);
-    while let Some(arg) = args.next() {
+    let mut args = Args {
+        addr: None,
+        preferred_port: 7180,
+        static_dir: None,
+        no_open: false,
+    };
+    let mut iter = std::env::args().skip(1);
+    while let Some(arg) = iter.next() {
         match arg.as_str() {
             "--addr" => {
-                out.addr = args.next().and_then(|s| s.parse().ok());
+                args.addr = iter.next().and_then(|s| s.parse().ok());
+            }
+            "--port" => {
+                args.preferred_port = iter.next().and_then(|s| s.parse().ok()).unwrap_or(7180);
             }
             "--static" | "--static-dir" => {
-                out.static_dir = args.next().map(PathBuf::from);
+                args.static_dir = iter.next().map(std::path::PathBuf::from);
+            }
+            "--no-open" => {
+                args.no_open = true;
             }
             "-h" | "--help" => {
                 eprintln!("k7s-web — Kubernetes visual monitor (web shell)\n");
                 eprintln!("USAGE:");
-                eprintln!("    k7s-web [--addr <SOCKET>] [--static <DIR>]\n");
+                eprintln!("    k7s-web [OPTIONS]\n");
                 eprintln!("OPTIONS:");
-                eprintln!("    --addr <SOCKET>     Listen address (default: 127.0.0.1:7180)");
-                eprintln!("                         Use 0.0.0.0:8080 in production.");
-                eprintln!("    --static <DIR>      Also serve the built React app from <DIR>.");
-                eprintln!("                         Enables single-binary 'server' mode.");
+                eprintln!("    --addr <SOCKET>     Listen address (default: auto-select port on 127.0.0.1)");
+                eprintln!("    --port <PORT>       Preferred port (default: 7180, auto-increments if busy)");
+                eprintln!(
+                    "    --static <DIR>      Serve built React app from <DIR> instead of embedded"
+                );
+                eprintln!("    --no-open           Don't auto-open the browser");
+                eprintln!("    -h, --help          Show this help");
                 std::process::exit(0);
             }
             other => {
@@ -104,17 +160,15 @@ fn parse_args() -> Args {
             }
         }
     }
-    out
+    args
 }
 
-/// XDG-style data directory: `$XDG_CONFIG_HOME/k7s` on Linux,
-/// `~/Library/Application Support/k7s` on macOS, `%APPDATA%\k7s` on Windows.
-/// Falls back to the current working directory if nothing usable is set.
-fn default_data_dir() -> PathBuf {
+/// XDG-style data directory.
+fn default_data_dir() -> std::path::PathBuf {
     #[cfg(target_os = "macos")]
     {
         if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home)
+            return std::path::PathBuf::from(home)
                 .join("Library")
                 .join("Application Support")
                 .join("k7s");
@@ -124,18 +178,18 @@ fn default_data_dir() -> PathBuf {
     {
         if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
             if !xdg.is_empty() {
-                return PathBuf::from(xdg).join("k7s");
+                return std::path::PathBuf::from(xdg).join("k7s");
             }
         }
         if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home).join(".config").join("k7s");
+            return std::path::PathBuf::from(home).join(".config").join("k7s");
         }
     }
     #[cfg(target_os = "windows")]
     {
         if let Ok(roam) = std::env::var("APPDATA") {
-            return PathBuf::from(roam).join("k7s");
+            return std::path::PathBuf::from(roam).join("k7s");
         }
     }
-    PathBuf::from(".k7s")
+    std::path::PathBuf::from(".k7s")
 }

@@ -21,6 +21,10 @@ src-tauri/gen/
 .env.*
 !.env.example
 
+# Superpowers planning artifacts (local only)
+docs/superpowers/
+.superpowers/
+
 # --- k7s-only additions (legacy / workspace excludes) ---
 # other workspace projects (not part of k7s)
 sshutil/

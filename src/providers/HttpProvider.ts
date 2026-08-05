@@ -868,4 +868,33 @@ export class HttpProvider implements DataProvider {
   async imageRegistryManifest(_name: string, _repo: string, _tag: string): Promise<ImageManifest> {
     throw new Error('image_registry_manifest not implemented in HttpProvider');
   }
+
+  // ---- SBOM (Software Bill of Materials) ----
+  async sbomGenerateImage(
+    imageRef: string,
+    format: import('./types/sbom').SbomFormat
+  ): Promise<import('./types/sbom').SbomResult> {
+    return httpInvoke('sbom_generate_image', { image_ref: imageRef, format });
+  }
+
+  async sbomGenerateCluster(format: import('./types/sbom').SbomFormat): Promise<import('./types/sbom').SbomResult> {
+    return httpInvoke('sbom_generate_cluster', { format });
+  }
+
+  async sbomListHistory(): Promise<import('./types/sbom').SbomSummary[]> {
+    return httpInvoke('sbom_list_history');
+  }
+
+  async sbomGet(id: string): Promise<import('./types/sbom').SbomResult> {
+    return httpInvoke('sbom_get', { id });
+  }
+
+  async sbomExport(id: string, outputPath: string): Promise<string> {
+    return httpInvoke('sbom_export', { id, output_path: outputPath });
+  }
+
+  // ---- RBAC Security Audit ----
+  async securityAudit(): Promise<import('./types/security').AuditReport> {
+    return httpInvoke('security_audit_run');
+  }
 }
