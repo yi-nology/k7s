@@ -62,14 +62,22 @@ fetch_latest_version() {
 
 artifact_name() {
   local ver="$1" os="$2" arch="$3" pkg="$4"
+  # Map uname arch to Tauri bundle naming convention
+  local linux_arch
+  case "$arch" in
+    aarch64) linux_arch="arm64" ;;
+    x86_64)  linux_arch="amd64" ;;
+    *)       linux_arch="$arch" ;;
+  esac
   case "$os" in
     macos)
       echo "k7s_${ver}_${arch}.dmg"
       ;;
     linux)
       case "$pkg" in
-        rpm) echo "k7s_${ver}_${arch}.rpm" ;;
-        *)   echo "k7s_${ver}_${arch}.deb" ;;
+        rpm)      echo "k7s_${ver}_${linux_arch}.rpm" ;;
+        appimage) echo "k7s_${ver}_${linux_arch}.AppImage" ;;
+        *)        echo "k7s_${ver}_${linux_arch}.deb" ;;
       esac
       ;;
     windows)
