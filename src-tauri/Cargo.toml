@@ -59,6 +59,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # --- Time formatting for log timestamps ---
 chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4"] }
 
 # --- Raw HTTP requests to metrics.k8s.io (via kube::Client::request) ---
 http = "1"
