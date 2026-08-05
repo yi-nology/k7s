@@ -78,6 +78,7 @@ import type {
   SkopeoAvailability,
 } from './image';
 import type { ApplyResult, DocDryRun } from './operations';
+import type { SbomFormat, SbomResult, SbomSummary } from './sbom';
 
 /**
  * The full provider contract. See file header for the two implementations.
@@ -450,4 +451,11 @@ export interface DataProvider {
 
   // ---- Image manifest drill-down ----
   imageRegistryManifest(name: string, repo: string, tag: string): Promise<ImageManifest>;
+
+  // ---- SBOM (Software Bill of Materials) ----
+  sbomGenerateImage(imageRef: string, format: SbomFormat): Promise<SbomResult>;
+  sbomGenerateCluster(format: SbomFormat): Promise<SbomResult>;
+  sbomListHistory(): Promise<SbomSummary[]>;
+  sbomGet(id: string): Promise<SbomResult>;
+  sbomExport(id: string, outputPath: string): Promise<string>;
 }
