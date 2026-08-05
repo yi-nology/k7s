@@ -120,3 +120,34 @@ export interface ImageLayer {
   size: number;
   mediaType: string;
 }
+
+// ---- Container image vulnerability scanning ----
+
+/** A single vulnerability found in a container image (e.g. by Trivy / Grype). */
+export interface Vulnerability {
+  id: string;              // CVE ID, e.g. "CVE-2023-1234"
+  severity: string;        // CRITICAL / HIGH / MEDIUM / LOW
+  pkgName: string;
+  installedVersion: string;
+  fixedVersion: string | null;
+  title: string;
+  description: string;
+  references: string[];
+}
+
+/** Severity counts rolled up from a vulnerability scan. */
+export interface ScanSummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+/** Result of a container image vulnerability scan. */
+export interface ScanResult {
+  engine: string;              // scanner name, e.g. "trivy"
+  target: string;              // image reference scanned
+  scannedAt: string;           // ISO 8601
+  summary: ScanSummary;
+  vulnerabilities: Vulnerability[];
+}

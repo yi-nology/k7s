@@ -892,4 +892,9 @@ export class HttpProvider implements DataProvider {
   async sbomExport(id: string, outputPath: string): Promise<string> {
     return httpInvoke('sbom_export', { id, outputPath });
   }
+
+  // ---- RBAC Security Audit ----
+  async securityAudit(): Promise<import('./types/security').AuditReport> {
+    return httpInvoke('security_audit_run');
+  }
 }

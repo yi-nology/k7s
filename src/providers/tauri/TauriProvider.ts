@@ -919,6 +919,11 @@ export class TauriProvider implements DataProvider {
   sbomExport(id: string, outputPath: string): Promise<string> {
     return invoke('sbom_export', { id, outputPath });
   }
+
+  // ---- RBAC Security Audit ----
+  securityAudit(): Promise<import('../types/security').AuditReport> {
+    return invoke('security_audit_run');
+  }
 }
 
 /** Encode a `Uint8Array` to base64 without depending on a Node-only API. */

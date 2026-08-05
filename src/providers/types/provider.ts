@@ -79,6 +79,7 @@ import type {
 } from './image';
 import type { ApplyResult, DocDryRun } from './operations';
 import type { SbomFormat, SbomResult, SbomSummary } from './sbom';
+import type { AuditReport } from './security';
 
 /**
  * The full provider contract. See file header for the two implementations.
@@ -458,4 +459,8 @@ export interface DataProvider {
   sbomListHistory(): Promise<SbomSummary[]>;
   sbomGet(id: string): Promise<SbomResult>;
   sbomExport(id: string, outputPath: string): Promise<string>;
+
+  // ---- RBAC Security Audit ----
+  /** Run an RBAC security audit on the connected cluster. */
+  securityAudit(): Promise<AuditReport>;
 }

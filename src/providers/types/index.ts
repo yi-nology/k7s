@@ -15,4 +15,5 @@ export * from './observability';
 export * from './image';
 export * from './operations';
 export * from './sbom';
+export * from './security';
 export * from './provider';
