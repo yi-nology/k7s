@@ -35,6 +35,7 @@ pub mod properties;
 pub mod restart;
 pub mod rollout;
 pub mod saved_queries;
+pub mod sbom;
 pub mod templates;
 pub mod watchers;
 
