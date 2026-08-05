@@ -92,7 +92,7 @@ export const POD_SAMPLE_CAP = 240;
 /**
  * Ring-buffer cap for the log view.
  */
-export const LOG_BUFFER_CAP_DEFAULT = 10000;
+export const LOG_BUFFER_CAP_DEFAULT = 200;
 
 /** Empty selection state. */
 export const EMPTY_SELECTION: SelectionState = { selected: [], anchor: null };
