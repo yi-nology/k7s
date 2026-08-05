@@ -81,9 +81,11 @@ pub fn api_router(state: WebState) -> Router {
             // SSE keep-alive keeps idle connections from being torn down
             // by intermediate proxies while a long-running tool (e.g.
             // a streaming log tail) is mid-flight.
-            StreamableHttpServerConfig {
-                sse_keep_alive: Some(std::time::Duration::from_secs(15)),
-                stateful_mode: true,
+            {
+                let mut config = StreamableHttpServerConfig::default();
+                config.sse_keep_alive = Some(std::time::Duration::from_secs(15));
+                config.legacy_session_mode = true;
+                config
             },
         );
 

@@ -3,7 +3,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use rmcp::model::{CallToolResult, Content, ErrorData as McpError};
+use rmcp::model::{CallToolResult, ContentBlock, ErrorData as McpError};
 use serde::Serialize;
 use tokio::sync::mpsc;
 
@@ -32,7 +32,7 @@ pub fn tool_error(e: impl std::fmt::Display) -> McpError {
 /// (MCP `2026-07-28`) also see the same JSON there.
 pub fn json_result<T: Serialize>(value: &T) -> Result<CallToolResult, McpError> {
     let text = serde_json::to_string_pretty(value).map_err(|e| tool_error(e))?;
-    Ok(CallToolResult::success(vec![Content::text(text)]))
+    Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
 }
 
 /// Refuse writes for kinds whose YAML must never be applied (mirrors
