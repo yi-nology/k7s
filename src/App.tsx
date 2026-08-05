@@ -38,6 +38,7 @@ import { AuditPanel } from './components/audit/AuditPanel';
 import { IngressEditor } from './components/ingress/IngressEditor';
 import { ResourceDiff } from './components/diff/ResourceDiff';
 import { PluginPanel } from './components/plugins/PluginPanel';
+import { SBOMPanel } from './components/sbom/SBOMPanel';
 import { usePlugins } from './hooks/usePlugins';
 
 export default function App() {
@@ -201,6 +202,13 @@ export default function App() {
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
                   <PluginPanel onClose={closeOverlay} />
+                </div>
+              </div>
+            )}
+            {overlay === 'sbom' && (
+              <div className={styles.overlayBackdrop}>
+                <div className={styles.overlay}>
+                  <SBOMPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}

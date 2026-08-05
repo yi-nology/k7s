@@ -52,6 +52,7 @@ export const en: Dictionary = {
         observability: 'Observability',
         images: 'Images',
         close: 'Click to close',
+        sbom: 'SBOM',
       },
     },
     topbar: {
@@ -107,6 +108,7 @@ export const en: Dictionary = {
         imageImport: 'Image Import',
         templates: 'Templates',
         diff: 'Diff',
+        sbom: 'SBOM',
       },
       actionHintApp: 'app',
       actionHintNode: 'node',
@@ -687,6 +689,41 @@ export const en: Dictionary = {
       status: 'Status',
     },
   },
-};
 
-/** Simplified Chinese. */
+  sbom: {
+    title: 'SBOM',
+    tab: { image: 'Image', cluster: 'Cluster', history: 'History' },
+    image: { placeholder: 'Enter image ref (e.g. nginx:1.25)', generate: 'Generate' },
+    cluster: { scan: 'Scan Cluster' },
+    history: {
+      loading: 'Loading...',
+      empty: 'No SBOM history yet',
+      source: 'Source',
+      format: 'Format',
+      components: 'Components',
+      vulns: 'Vulns',
+      tool: 'Tool',
+      date: 'Date',
+    },
+    components: {
+      title: 'Components',
+      name: 'Name',
+      version: 'Version',
+      type: 'Type',
+      licenses: 'Licenses',
+    },
+    vulns: {
+      title: 'Vulnerabilities',
+      id: 'ID',
+      severity: 'Severity',
+      component: 'Component',
+      fix: 'Fix',
+    },
+    info: {
+      components: 'Components',
+      vulns: 'Vulnerabilities',
+      tool: 'Tool',
+      duration: 'Duration',
+    },
+  },
+};

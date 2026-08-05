@@ -40,6 +40,7 @@ import {
   GitCompareArrows,
   Plug,
   Lock,
+  FileText,
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 import { useStore, type OverlayKey } from '../../store';
@@ -388,6 +389,17 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
           key: 'plugins',
           label: t('chrome.sidebar.tools.plugins', 'Plugins'),
           icon: <Plug size={14} />,
+        }}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      <OverlayItem
+        item={{
+          key: 'sbom',
+          label: t('chrome.sidebar.tools.sbom', 'SBOM'),
+          icon: <FileText size={14} />,
         }}
         overlay={overlay}
         openOverlay={openOverlay}
