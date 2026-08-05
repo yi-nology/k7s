@@ -894,6 +894,31 @@ export class TauriProvider implements DataProvider {
   imageRegistryManifest(name: string, repo: string, tag: string): Promise<ImageManifest> {
     return invoke<ImageManifest>('image_registry_manifest', { name, repo, tag });
   }
+
+  // ---- SBOM (Software Bill of Materials) ----
+
+  sbomGenerateImage(
+    imageRef: string,
+    format: import('../types/sbom').SbomFormat
+  ): Promise<import('../types/sbom').SbomResult> {
+    return invoke('sbom_generate_image', { imageRef, format });
+  }
+
+  sbomGenerateCluster(format: import('../types/sbom').SbomFormat): Promise<import('../types/sbom').SbomResult> {
+    return invoke('sbom_generate_cluster', { format });
+  }
+
+  sbomListHistory(): Promise<import('../types/sbom').SbomSummary[]> {
+    return invoke('sbom_list_history');
+  }
+
+  sbomGet(id: string): Promise<import('../types/sbom').SbomResult> {
+    return invoke('sbom_get', { id });
+  }
+
+  sbomExport(id: string, outputPath: string): Promise<string> {
+    return invoke('sbom_export', { id, outputPath });
+  }
 }
 
 /** Encode a `Uint8Array` to base64 without depending on a Node-only API. */
