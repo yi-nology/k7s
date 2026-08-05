@@ -199,6 +199,12 @@ pub fn run() {
             commands::saved_queries_run,
             // Image manifest drill-down
             commands::image_registry_manifest,
+            // SBOM generation, history, and export
+            commands::sbom_generate_image,
+            commands::sbom_generate_cluster,
+            commands::sbom_list_history,
+            commands::sbom_get,
+            commands::sbom_export,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");
