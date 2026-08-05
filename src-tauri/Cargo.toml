@@ -76,6 +76,18 @@ tower-http = { version = "0.6", features = ["cors", "trace", "fs"], optional = t
 # on the client side, but for the server we only need axum's `Sse` response type
 # from `axum::response::sse` which is part of axum proper.
 async-stream = { version = "0.3", optional = true }
+# Embeds the built React app (dist/) into the k7s-web binary so it can be
+# distributed as a single .exe with no external files needed.
+rust-embed = { version = "8", optional = true }
+# Opens URLs in the default browser — cross-platform, works on Windows 7+.
+open = { version = "5", optional = true }
+# System tray icon with context menu. Uses raw Win32 API (Shell_NotifyIcon)
+# on Windows, compatible with Windows 7+. No WebView dependency.
+tray-icon = { version = "0.19", optional = true }
+# Cross-platform clipboard access (for "Copy URL" tray menu item).
+arboard = { version = "3", optional = true }
+# MIME type guesser for embedded asset serving.
+mime_guess = { version = "2", optional = true }
 
 # --- MCP mode ---
 # `k7s-mcp` is a stdio MCP server that exposes the same kube plumbing to AI
@@ -95,7 +107,7 @@ schemars = { version = "1.0", features = ["chrono04"], optional = true }
 custom-protocol = ["tauri/custom-protocol"]
 # Browser mode: enables axum + SSE so `cargo build --features web --bin k7s-web`
 # produces a standalone HTTP server that fronts the same kube plumbing.
-web = ["dep:axum", "dep:tower", "dep:tower-http", "dep:async-stream", "tower-http/fs", "dep:rmcp", "dep:schemars", "rmcp/transport-streamable-http-server"]
+web = ["dep:axum", "dep:tower", "dep:tower-http", "dep:async-stream", "tower-http/fs", "dep:rmcp", "dep:schemars", "rmcp/transport-streamable-http-server", "dep:rust-embed", "dep:open", "dep:tray-icon", "dep:arboard", "dep:mime_guess"]
 # MCP mode: enables the `k7s-mcp` stdio binary. Pulls the MCP SDK.
 # Independent of `web` — the MCP server stands on its own.
 mcp = ["dep:rmcp", "dep:schemars"]
