@@ -80,6 +80,18 @@ jobs:
         with:
           components: clippy, rustfmt
 
+      - name: install Linux system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            file
+
       - name: cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
