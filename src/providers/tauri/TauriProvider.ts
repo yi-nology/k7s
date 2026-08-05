@@ -901,7 +901,7 @@ export class TauriProvider implements DataProvider {
     imageRef: string,
     format: import('../types/sbom').SbomFormat
   ): Promise<import('../types/sbom').SbomResult> {
-    return invoke('sbom_generate_image', { imageRef, format });
+    return invoke('sbom_generate_image', { image_ref: imageRef, format });
   }
 
   sbomGenerateCluster(format: import('../types/sbom').SbomFormat): Promise<import('../types/sbom').SbomResult> {
@@ -917,7 +917,7 @@ export class TauriProvider implements DataProvider {
   }
 
   sbomExport(id: string, outputPath: string): Promise<string> {
-    return invoke('sbom_export', { id, outputPath });
+    return invoke('sbom_export', { id, output_path: outputPath });
   }
 
   // ---- RBAC Security Audit ----

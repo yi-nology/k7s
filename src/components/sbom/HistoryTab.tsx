@@ -11,9 +11,14 @@ export function HistoryTab({ onSelect }: Props) {
   const { t } = useTranslation();
   const [history, setHistory] = useState<SbomSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    getProvider().sbomListHistory().then(setHistory).finally(() => setLoading(false));
+    getProvider()
+      .sbomListHistory()
+      .then(setHistory)
+      .catch((e) => setError(String(e)))
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSelect = async (id: string) => {
@@ -29,6 +34,7 @@ export function HistoryTab({ onSelect }: Props) {
 
   return (
     <div>
+      {error && <div style={{ padding: 8, background: 'var(--status-err-soft)', color: 'var(--status-err)', borderRadius: 4, marginBottom: 16 }}>{error}</div>}
       {history.length === 0 ? (
         <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: 32 }}>
           {t('sbom.history.empty', 'No SBOM history yet')}

@@ -30,8 +30,8 @@ export function VulnTable({ vulns }: Props) {
             </tr>
           </thead>
           <tbody>
-            {vulns.map((v, i) => (
-              <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+            {vulns.map((v) => (
+              <tr key={v.id} style={{ borderBottom: '1px solid var(--border)' }}>
                 <td style={{ padding: '6px 12px' }}>{v.id}</td>
                 <td style={{ padding: '6px 12px' }}>
                   <span style={{ color: severityColor[v.severity] || 'inherit', fontWeight: 600 }}>

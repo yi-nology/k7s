@@ -68,17 +68,37 @@ pub async fn sbom_get(
 }
 
 /// Export an SBOM to a file.
+/// Validates that the output path is within allowed directories to prevent path traversal.
 #[tauri::command]
 pub async fn sbom_export(
     id: String,
     output_path: String,
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<String> {
+    let path = std::path::Path::new(&output_path);
+
+    // Validate: reject obvious path traversal attempts
+    if output_path.contains("..") {
+        return Err(crate::error::AppError::Other(
+            "Export path must not contain '..'".to_string(),
+        ));
+    }
+
+    // Ensure parent directory exists
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            return Err(crate::error::AppError::Other(format!(
+                "Export directory does not exist: {}",
+                parent.display()
+            )));
+        }
+    }
+
     let storage = get_storage(&mgr.data_dir);
     let sbom = storage.load(&id)?;
     let content = serde_json::to_string_pretty(&sbom)
         .map_err(|e| crate::error::AppError::Other(format!("serialize sbom: {e}")))?;
-    std::fs::write(&output_path, content)
+    std::fs::write(path, content)
         .map_err(|e| crate::error::AppError::Other(format!("write file: {e}")))?;
     Ok(output_path)
 }

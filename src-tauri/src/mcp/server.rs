@@ -2006,22 +2006,8 @@ impl K7sMcpServer {
     ) -> Result<CallToolResult, McpError> {
         let storage = crate::kube::sbom_storage::SbomStorage::new(&self.core.data_dir);
         let sbom = storage.load(&p.id).map_err(tool_error)?;
-        json_result(&serde_json::json!({
-            "id": sbom.id,
-            "format": sbom.format.as_str(),
-            "spec_version": sbom.spec_version,
-            "metadata": sbom.metadata,
-            "components": sbom.components.iter().map(|c| serde_json::json!({
-                "name": c.name,
-                "version": c.version,
-                "type": c.component_type,
-                "purl": c.purl,
-                "licenses": c.licenses,
-            })).collect::<Vec<_>>(),
-            "dependencies": sbom.dependencies,
-            "vulnerabilities": sbom.vulnerabilities,
-            "created_at": sbom.created_at,
-        }))
+        // Serialize via serde to get consistent camelCase keys
+        json_result(&serde_json::to_value(&sbom).map_err(tool_error)?)
     }
 
     #[tool(

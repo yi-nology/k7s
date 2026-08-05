@@ -84,11 +84,15 @@ impl SbomStorage {
     fn source_dir(&self, source: &SbomSource) -> PathBuf {
         match source {
             SbomSource::Image { image_ref, .. } => {
-                let safe_name = image_ref.replace([':', '/', '@'], "_");
+                let safe_name = image_ref
+                    .replace([':', '/', '@'], "_")
+                    .replace("..", "__");
                 self.base_dir.join("images").join(safe_name)
             }
             SbomSource::Cluster { context } => {
-                self.base_dir.join("clusters").join(context)
+                let safe_name = context
+                    .replace([':', '/', '@', '.'], "_");
+                self.base_dir.join("clusters").join(safe_name)
             }
         }
     }
@@ -114,13 +118,19 @@ impl SbomStorage {
             .map_err(|e| AppError::Other(format!("create sbom dir: {e}")))?;
         let json = serde_json::to_string_pretty(index)
             .map_err(|e| AppError::Other(format!("serialize sbom index: {e}")))?;
-        std::fs::write(self.index_path(), json)
-            .map_err(|e| AppError::Other(format!("write sbom index: {e}")))?;
+        // Atomic write: write to temp file then rename
+        let tmp_path = self.index_path().with_extension("json.tmp");
+        std::fs::write(&tmp_path, &json)
+            .map_err(|e| AppError::Other(format!("write sbom index tmp: {e}")))?;
+        std::fs::rename(&tmp_path, self.index_path())
+            .map_err(|e| AppError::Other(format!("rename sbom index: {e}")))?;
         Ok(())
     }
 
     fn update_index(&self, sbom: &SbomResult) -> AppResult<()> {
         let mut index = self.read_index()?;
+        // Remove existing entry with same ID to prevent duplicates
+        index.retain(|e| e.id != sbom.id);
         let summary = SbomSummary {
             id: sbom.id.clone(),
             source: sbom.source.clone(),

@@ -12,7 +12,7 @@ use tokio::process::Command;
 
 /// SBOM generation source
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", tag = "kind")]
 pub enum SbomSource {
     Image {
         image_ref: String,
@@ -541,34 +541,43 @@ fn extract_components_from_config(config: &serde_json::Value) -> Vec<SbomCompone
 /// Parse package names from Dockerfile history commands.
 fn parse_packages_from_history(cmd: &str) -> Vec<SbomComponent> {
     let mut packages = vec![];
+    let make_component = |name: &str| SbomComponent {
+        name: name.to_string(),
+        version: "unknown".to_string(),
+        purl: None,
+        cpe: None,
+        component_type: "library".to_string(),
+        licenses: vec![],
+        supplier: None,
+        hashes: vec![],
+    };
 
-    // apt-get install / apt install pattern
+    // apt-get install / apt install — state machine after "install" keyword
     if cmd.contains("apt-get install") || cmd.contains("apt install") {
         let parts: Vec<&str> = cmd.split_whitespace().collect();
+        let mut after_install = false;
         for part in parts {
-            if !part.starts_with('-')
-                && !part.contains("apt")
-                && !part.contains("install")
-                && !part.contains("&&")
-                && !part.contains("apt-get")
-                && !part.starts_with('/')
-                && !part.is_empty()
-            {
-                packages.push(SbomComponent {
-                    name: part.to_string(),
-                    version: "unknown".to_string(),
-                    purl: None,
-                    cpe: None,
-                    component_type: "library".to_string(),
-                    licenses: vec![],
-                    supplier: None,
-                    hashes: vec![],
-                });
+            if part == "install" {
+                after_install = true;
+                continue;
+            }
+            if after_install {
+                // Stop at shell operators
+                if part == "&&" || part == ";" || part == "|" {
+                    break;
+                }
+                // Skip flags (e.g. -y, --no-install-recommends)
+                if part.starts_with('-') {
+                    continue;
+                }
+                if !part.is_empty() {
+                    packages.push(make_component(part));
+                }
             }
         }
     }
 
-    // apk add pattern
+    // apk add — state machine after "add" keyword
     if cmd.contains("apk add") {
         let parts: Vec<&str> = cmd.split_whitespace().collect();
         let mut after_add = false;
@@ -577,17 +586,18 @@ fn parse_packages_from_history(cmd: &str) -> Vec<SbomComponent> {
                 after_add = true;
                 continue;
             }
-            if after_add && !part.starts_with('-') && !part.contains("&&") && !part.is_empty() {
-                packages.push(SbomComponent {
-                    name: part.to_string(),
-                    version: "unknown".to_string(),
-                    purl: None,
-                    cpe: None,
-                    component_type: "library".to_string(),
-                    licenses: vec![],
-                    supplier: None,
-                    hashes: vec![],
-                });
+            if after_add {
+                // Stop at shell operators
+                if part == "&&" || part == ";" || part == "|" {
+                    break;
+                }
+                // Skip flags
+                if part.starts_with('-') {
+                    continue;
+                }
+                if !part.is_empty() {
+                    packages.push(make_component(part));
+                }
             }
         }
     }
@@ -615,17 +625,27 @@ impl SbomEngine {
     }
 
     /// Generate SBOM for a single image with three-tier fallback.
+    /// Falls through to the next tier on execution failure, not just missing binary.
     pub async fn generate_image_sbom(
         &self,
         image_ref: &str,
         format: &SbomFormat,
     ) -> AppResult<SbomResult> {
+        // Tier 1: trivy
         if let Some(ref path) = self.trivy_path {
-            return generate_via_trivy(path, image_ref, format).await;
+            match generate_via_trivy(path, image_ref, format).await {
+                Ok(result) => return Ok(result),
+                Err(e) => tracing::warn!("trivy SBOM generation failed, falling back: {e}"),
+            }
         }
+        // Tier 2: grype
         if let Some(ref path) = self.grype_path {
-            return generate_via_grype(path, image_ref, format).await;
+            match generate_via_grype(path, image_ref, format).await {
+                Ok(result) => return Ok(result),
+                Err(e) => tracing::warn!("grype SBOM generation failed, falling back: {e}"),
+            }
         }
+        // Tier 3: native fallback
         generate_native(image_ref, format).await
     }
 
@@ -667,7 +687,9 @@ async fn scan_vulnerabilities(
         .map_err(|e| AppError::Other(format!("trivy vuln scan failed: {e}")))?;
 
     if !output.status.success() {
-        return Ok(vec![]);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        tracing::warn!("trivy vulnerability scan failed for {image_ref}: {stderr}");
+        return Err(AppError::Other(format!("trivy vulnerability scan failed: {stderr}")));
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
@@ -841,9 +863,24 @@ mod tests {
         let cmd = "RUN /bin/sh -c apt-get update && apt-get install -y curl wget ca-certificates";
         let packages = parse_packages_from_history(cmd);
         let names: Vec<&str> = packages.iter().map(|p| p.name.as_str()).collect();
-        assert!(names.contains(&"curl"), "Expected curl in {names:?}");
-        assert!(names.contains(&"wget"), "Expected wget in {names:?}");
-        assert!(names.contains(&"ca-certificates"), "Expected ca-certificates in {names:?}");
+        assert_eq!(names, vec!["curl", "wget", "ca-certificates"]);
+    }
+
+    #[test]
+    fn parse_apt_get_no_false_positives() {
+        // Must NOT include "RUN", "update", "rm", etc.
+        let cmd = "RUN /bin/sh -c apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*";
+        let packages = parse_packages_from_history(cmd);
+        let names: Vec<&str> = packages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["curl"]);
+    }
+
+    #[test]
+    fn parse_apt_install_short_form() {
+        let cmd = "RUN apt install -y vim";
+        let packages = parse_packages_from_history(cmd);
+        let names: Vec<&str> = packages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["vim"]);
     }
 
     #[test]
@@ -851,8 +888,16 @@ mod tests {
         let cmd = "/bin/sh -c apk add --no-cache openssl libssl3";
         let packages = parse_packages_from_history(cmd);
         let names: Vec<&str> = packages.iter().map(|p| p.name.as_str()).collect();
-        assert!(names.contains(&"openssl"), "Expected openssl in {names:?}");
-        assert!(names.contains(&"libssl3"), "Expected libssl3 in {names:?}");
+        assert_eq!(names, vec!["openssl", "libssl3"]);
+    }
+
+    #[test]
+    fn parse_apk_add_no_false_positives() {
+        // Must NOT include "rm" after "&&"
+        let cmd = "/bin/sh -c apk add --no-cache openssl && rm -rf /var/cache/apk/*";
+        let packages = parse_packages_from_history(cmd);
+        let names: Vec<&str> = packages.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, vec!["openssl"]);
     }
 
     #[test]
