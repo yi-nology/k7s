@@ -504,3 +504,24 @@ pub struct GrafanaSearchParams {
     pub name: String,
     pub query: String,
 }
+
+// ---------------------------------------------------------------------------
+// SBOM parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SbomGenerateParams {
+    /// Container image reference (e.g. `nginx:1.25`, `docker.io/library/alpine:latest`).
+    pub image_ref: String,
+    /// Output format: `cyclonedx` (default) or `spdx`.
+    #[serde(default)]
+    pub format: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SbomGetParams {
+    /// The SBOM id returned by `sbom_generate_image`.
+    pub id: String,
+}

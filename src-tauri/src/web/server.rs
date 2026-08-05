@@ -257,6 +257,10 @@ pub fn api_router(state: WebState) -> Router {
             "/api/invoke/list_endpoint_addresses",
             post(resource_handlers::list_endpoint_addresses),
         )
+        // SBOM endpoints.
+        .route("/api/sbom/image", post(handlers::sbom_generate_image))
+        .route("/api/sbom/history", get(handlers::sbom_list_history))
+        .route("/api/sbom/:id", get(handlers::sbom_get))
         // Stubs for everything else.
         .route("/api/invoke/:cmd", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client

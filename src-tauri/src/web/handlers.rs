@@ -8,7 +8,7 @@
 //! Resource mutation and shell handlers live in their own modules
 //! (`resource_handlers`, `shell_handlers`).
 
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::{Path, State}, http::StatusCode, response::IntoResponse, Json};
 use kube::config::Kubeconfig;
 use std::sync::Arc;
 
@@ -267,6 +267,52 @@ pub(super) async fn core_client(core: &Arc<CoreState>) -> AppResult<kube::Client
     // classification.
     core.manager.client().await.ok_or(AppError::Disconnected)
 }
+
+// ---------------------------------------------------------------------------
+// SBOM handlers
+// ---------------------------------------------------------------------------
+
+/// `POST /api/sbom/image` — Generate SBOM for a container image.
+pub async fn sbom_generate_image(
+    State(state): State<WebState>,
+    Json(req): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let image_ref = req["image_ref"].as_str().unwrap_or("").to_string();
+    let format_str = req["format"].as_str().unwrap_or("cyclonedx");
+    let format = crate::kube::sbom::SbomFormat::from_str(format_str)
+        .unwrap_or(crate::kube::sbom::SbomFormat::CycloneDx);
+
+    let engine = crate::kube::sbom::SbomEngine::new();
+    let result: AppResult<_> = async {
+        let sbom = engine.generate_with_vulns(&image_ref, &format).await?;
+        let storage =
+            crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
+        let _ = storage.save(&sbom);
+        Ok(sbom)
+    }
+    .await;
+    respond(result)
+}
+
+/// `GET /api/sbom/history` — List SBOM scan history.
+pub async fn sbom_list_history(State(state): State<WebState>) -> axum::response::Response {
+    let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
+    respond(storage.list())
+}
+
+/// `GET /api/sbom/:id` — Get SBOM by ID.
+pub async fn sbom_get(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+) -> axum::response::Response {
+    let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
+    respond(storage.load(&id))
+}
+
+// ---------------------------------------------------------------------------
+// Helpers (re-implementations of the small bits commands.rs's connect/get_yaml
+// need that aren't already in `kube::`).
+// ---------------------------------------------------------------------------
 
 /// Build a kube client from an already-parsed `Kubeconfig` (the web shell
 /// has the file's bytes in memory, not on disk; this avoids re-reading).

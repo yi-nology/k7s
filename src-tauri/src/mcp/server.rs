@@ -1960,6 +1960,70 @@ impl K7sMcpServer {
         json_result(&results)
     }
 
+    // -----------------------------------------------------------------------
+    // SBOM tools
+    // -----------------------------------------------------------------------
+
+    #[tool(
+        description = "Generate an SBOM (Software Bill of Materials) for a container image. Uses trivy, grype, or a native fallback. Returns the SBOM id, component count, vulnerability count, and tool used. Optionally correlate vulnerabilities with the SBOM."
+    )]
+    async fn sbom_generate_image(
+        &self,
+        Parameters(p): Parameters<SbomGenerateParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let format = crate::kube::sbom::SbomFormat::from_str(&p.format)
+            .unwrap_or(crate::kube::sbom::SbomFormat::CycloneDx);
+        let engine = crate::kube::sbom::SbomEngine::new();
+        let sbom = engine
+            .generate_with_vulns(&p.image_ref, &format)
+            .await
+            .map_err(tool_error)?;
+        let storage = crate::kube::sbom_storage::SbomStorage::new(&self.core.data_dir);
+        let _ = storage.save(&sbom);
+        json_result(&serde_json::json!({
+            "id": sbom.id,
+            "components": sbom.components.len(),
+            "vulnerabilities": sbom.vulnerabilities.len(),
+            "tool": sbom.metadata.tool,
+        }))
+    }
+
+    #[tool(
+        description = "List all SBOM scan history entries. Returns id, image reference, format, component count, vulnerability count, tool, and creation time."
+    )]
+    async fn sbom_list_history(&self) -> Result<CallToolResult, McpError> {
+        let storage = crate::kube::sbom_storage::SbomStorage::new(&self.core.data_dir);
+        let list = storage.list().map_err(tool_error)?;
+        json_result(&list)
+    }
+
+    #[tool(
+        description = "Get the full SBOM details by ID. Returns components (name, version, type), vulnerabilities, format, and metadata."
+    )]
+    async fn sbom_get(
+        &self,
+        Parameters(p): Parameters<SbomGetParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let storage = crate::kube::sbom_storage::SbomStorage::new(&self.core.data_dir);
+        let sbom = storage.load(&p.id).map_err(tool_error)?;
+        json_result(&serde_json::json!({
+            "id": sbom.id,
+            "format": sbom.format.as_str(),
+            "spec_version": sbom.spec_version,
+            "metadata": sbom.metadata,
+            "components": sbom.components.iter().map(|c| serde_json::json!({
+                "name": c.name,
+                "version": c.version,
+                "type": c.component_type,
+                "purl": c.purl,
+                "licenses": c.licenses,
+            })).collect::<Vec<_>>(),
+            "dependencies": sbom.dependencies,
+            "vulnerabilities": sbom.vulnerabilities,
+            "created_at": sbom.created_at,
+        }))
+    }
+
     #[tool(
         description = "Get the current cluster health score (0-100, letter grade A-F) with individual check results for node readiness, pod health, deployment availability, resource pressure, PVC status, and more."
     )]
@@ -2052,6 +2116,7 @@ impl rmcp::ServerHandler for K7sMcpServer {
              `image_copy` (copy docker:// or docker-archive: sources into a \
              configured internal registry; requires skopeo on PATH) / \
              `image_inspect_archive`. \
+             SBOM: `sbom_generate_image` / `sbom_list_history` / `sbom_get`. \
              Long-lived sessions return an id you pass to the matching `stop_*` tool."
                 .to_string(),
         );
