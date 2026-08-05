@@ -1,0 +1,259 @@
+/*
+ * SecurityPanel — RBAC security audit overlay.
+ * Follows the Group B panel style: design tokens only, no raw values.
+ */
+
+.panel {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.header {
+  align-items: center;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+}
+
+.header h2 {
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.headerRight {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.lastScan {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 200px 1fr;
+  min-height: 0;
+}
+
+/* ---- Left sidebar: severity filters ---- */
+
+.side {
+  border-right: 1px solid var(--border);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.sideTitle {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-2);
+  text-transform: uppercase;
+}
+
+.severityFilter {
+  align-items: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+  justify-content: space-between;
+  margin-bottom: 2px;
+  padding: var(--space-1) var(--space-2);
+}
+
+.severityFilter:hover {
+  background: var(--bg-hover);
+}
+
+.severityFilterActive {
+  background: var(--bg-control);
+}
+
+.severityBadge {
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  text-align: center;
+}
+
+.badgeCritical {
+  background: var(--status-err);
+  color: var(--text-on-accent);
+}
+
+.badgeHigh {
+  background: var(--status-warn);
+  color: var(--text-on-accent);
+}
+
+.badgeMedium {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.badgeLow {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.badgeAll {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+/* ---- Right main area: findings list ---- */
+
+.main {
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-3);
+}
+
+.finding {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+
+.finding:hover {
+  background: var(--bg-hover);
+}
+
+.findingActive {
+  background: var(--bg-control);
+  border-color: var(--accent);
+}
+
+.findingHeader {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.findingSeverity {
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  padding: 1px var(--space-1);
+}
+
+.findingMessage {
+  color: var(--text-primary);
+  flex: 1;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.findingResource {
+  color: var(--accent);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+  text-decoration: none;
+}
+
+.findingResource:hover {
+  text-decoration: underline;
+}
+
+.findingDetail {
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.findingRuleId {
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs);
+}
+
+/* ---- Shared ---- */
+
+.btn {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.btnPrimary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-on-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.btnPrimary:hover {
+  background: var(--accent-hover);
+}
+
+.btn:disabled,
+.btnPrimary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  background: var(--status-warn-soft);
+  border-bottom: 1px solid var(--status-err);
+  color: var(--status-err);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.loading {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+  justify-content: center;
+  padding: var(--space-4);
+}
