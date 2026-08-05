@@ -8,7 +8,6 @@
 //! - **Auto port selection**: tries the preferred port, then increments until
 //!   an available port is found.
 //! - **Auto browser open**: opens the default browser to the serving URL.
-//! - **System tray**: shows a tray icon with the URL, copy-link, and quit.
 //! - **Embedded assets**: serves the built React app from compile-time
 //!   embedded files when no `--static` dir is given.
 
@@ -74,30 +73,11 @@ async fn main() -> std::io::Result<()> {
         }
     }
 
-    // ── System tray ──────────────────────────────────────────────────
-    // Run the tray in a background thread. The tray needs a Win32
-    // message loop on Windows, which blocks the thread.
-    let (quit_tx, quit_rx) = tokio::sync::oneshot::channel::<()>();
-
-    if !args.no_tray {
-        let url_clone = url.clone();
-        std::thread::spawn(move || {
-            run_tray(&url_clone, quit_tx);
-        });
-    } else {
-        // If no tray, drop the sender so the receiver resolves immediately
-        // on shutdown (Ctrl+C handles it).
-        drop(quit_tx);
-    }
-
     // ── Start server ─────────────────────────────────────────────────
-    // Race between the server and the quit signal.
+    // Race between the server and Ctrl+C.
     tokio::select! {
         result = serve(addr, state, args.static_dir, use_embedded) => {
             result?;
-        }
-        _ = quit_rx => {
-            tracing::info!("quit requested from tray");
         }
         _ = tokio::signal::ctrl_c() => {
             tracing::info!("Ctrl+C received, shutting down");
@@ -130,63 +110,6 @@ async fn pick_port(preferred: u16) -> SocketAddr {
     addr
 }
 
-/// Run the system tray icon with a context menu. Blocks the calling thread
-/// (needs a Win32 message loop on Windows).
-fn run_tray(url: &str, quit_tx: tokio::sync::oneshot::Sender<()>) {
-    use tray_icon::{
-        menu::{Menu, MenuItem, PredefinedMenuItem},
-        TrayIconBuilder,
-    };
-
-    let menu = Menu::new();
-    let copy_url_item = MenuItem::new("Copy URL", true, None);
-    let open_browser_item = MenuItem::new("Open in browser", true, None);
-    let quit_item = MenuItem::new("Quit k7s", true, None);
-
-    let _ = menu.append(&copy_url_item);
-    let _ = menu.append(&open_browser_item);
-    let _ = menu.append(&PredefinedMenuItem::separator());
-    let _ = menu.append(&quit_item);
-
-    let _tray = match TrayIconBuilder::new()
-        .with_menu(Box::new(menu))
-        .with_tooltip(&format!("k7s — {url}"))
-        .build()
-    {
-        Ok(tray) => tray,
-        Err(e) => {
-            tracing::warn!("failed to create tray icon: {e}");
-            let _ = quit_tx.send(());
-            return;
-        }
-    };
-
-    let url_owned = url.to_string();
-
-    // Event loop — blocks until quit.
-    loop {
-        if let Ok(event) = tray_icon::menu::MenuEvent::receiver().try_recv() {
-            if event.id == *copy_url_item.id() {
-                if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                    if let Err(e) = clipboard.set_text(&url_owned) {
-                        tracing::warn!("failed to copy URL: {e}");
-                    } else {
-                        tracing::info!("URL copied to clipboard");
-                    }
-                }
-            } else if event.id == *open_browser_item.id() {
-                if let Err(e) = open::that(&url_owned) {
-                    tracing::warn!("failed to open browser: {e}");
-                }
-            } else if event.id == *quit_item.id() {
-                let _ = quit_tx.send(());
-                break;
-            }
-        }
-        std::thread::sleep(std::time::Duration::from_millis(100));
-    }
-}
-
 // ── CLI argument parsing ─────────────────────────────────────────────
 
 struct Args {
@@ -194,7 +117,6 @@ struct Args {
     preferred_port: u16,
     static_dir: Option<std::path::PathBuf>,
     no_open: bool,
-    no_tray: bool,
 }
 
 fn parse_args() -> Args {
@@ -203,7 +125,6 @@ fn parse_args() -> Args {
         preferred_port: 7180,
         static_dir: None,
         no_open: false,
-        no_tray: false,
     };
     let mut iter = std::env::args().skip(1);
     while let Some(arg) = iter.next() {
@@ -220,9 +141,6 @@ fn parse_args() -> Args {
             "--no-open" => {
                 args.no_open = true;
             }
-            "--no-tray" => {
-                args.no_tray = true;
-            }
             "-h" | "--help" => {
                 eprintln!("k7s-web — Kubernetes visual monitor (web shell)\n");
                 eprintln!("USAGE:");
@@ -232,7 +150,6 @@ fn parse_args() -> Args {
                 eprintln!("    --port <PORT>       Preferred port (default: 7180, auto-increments if busy)");
                 eprintln!("    --static <DIR>      Serve built React app from <DIR> instead of embedded");
                 eprintln!("    --no-open           Don't auto-open the browser");
-                eprintln!("    --no-tray           Don't show system tray icon");
                 eprintln!("    -h, --help          Show this help");
                 std::process::exit(0);
             }

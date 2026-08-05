@@ -2,14 +2,15 @@
 #
 # Multi-stage build for the k7s-web single-binary server.
 #
-#   - Stage 1 builds the React front-end (pnpm + Vite) into dist/.
+#   - Stage 1 holds the pre-built React front-end (dist/).
+#     Build the frontend first with: pnpm build
 #   - Stage 2 builds the Rust binary with --features web so the axum
 #     router and the /mcp Streamable HTTP endpoint are linked in.
-#   - Stage 3 is the runtime: distroless cc-debian12 carries only libc
-#     + ca-certificates, no shell, no package manager. The image runs
-#     as a non-root user.
+#   - Stage 3 is the runtime: debian:bookworm-slim with only runtime
+#     libraries (GTK3, WebKit, etc.). The image runs as a non-root user.
 #
 # Build:
+#   pnpm build  # Build frontend first
 #   docker build -t ghcr.io/zy84338719/k7s:latest .
 #
 # Run:
@@ -21,29 +22,17 @@
 # Or use docker compose.
 
 # ─────────────────────────────────────────────────────────────────
-# Stage 1 — front-end
+# Stage 1 — front-end (pre-built in CI or local build)
 # ─────────────────────────────────────────────────────────────────
-FROM node:22-bookworm-slim AS frontend
-WORKDIR /src
-
-# Cache pnpm install: copy lockfile + package.json first so unchanged
-# deps don't get re-resolved.
-COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable && corepack prepare pnpm@10.33.0 --activate \
- && pnpm install --frozen-lockfile
-
-# Build the React app. The Vite output goes to dist/, which Stage 2
-# ignores and Stage 3 copies into the final image.
-COPY . .
-RUN pnpm build
+# The frontend is pre-built outside Docker to avoid esbuild
+# cross-platform issues. Use a minimal alpine image just to
+# hold the dist/ files.
+FROM alpine:3.19 AS frontend
+COPY dist /dist
 
 # ─────────────────────────────────────────────────────────────────
 # Stage 2 — Rust binary
 # ─────────────────────────────────────────────────────────────────
-# rust:1.83 doesn't understand edition-2024 in the transitive dep
-# graph (rmcp 1.x, etc.) and bails with "Consider trying a newer
-# version of Cargo". 1.85 stabilised edition-2024. 1.86-bookworm
-# is the current stable bookworm tag.
 FROM rust:1.97-bookworm AS backend
 
 # System deps. Bookworm's base image already has gcc/make/cmake,
@@ -66,6 +55,7 @@ RUN apt-get update \
       libsoup-3.0-dev \
       libayatana-appindicator3-dev \
       librsvg2-dev \
+      libxdo-dev \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -78,35 +68,51 @@ COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./src-tauri/
 RUN mkdir -p src-tauri/src \
  && echo "fn main() {}" > src-tauri/src/main.rs \
  && echo "" > src-tauri/src/lib.rs \
- && cd src-tauri && cargo fetch --locked
+ && cd src-tauri && cargo fetch
 
-# Now the real source. Vite's dist/ is in the build context but isn't
-# needed here — Stage 1 produced it and Stage 3 will copy it.
+# Now the real source. Copy dist/ for rust-embed to embed frontend assets.
 COPY src-tauri ./src-tauri
+COPY dist ./dist
 
-# Release build with the `web` feature. `--locked` makes cargo fail
-# rather than silently update Cargo.lock. Strip symbols to shave a few MB.
+# Release build with the `web` feature. Strip symbols to shave a few MB.
 RUN cd src-tauri \
- && cargo build --release --locked \
+ && cargo build --release \
       --features web --bin k7s-web \
  && strip target/release/k7s-web
 
 # ─────────────────────────────────────────────────────────────────
 # Stage 3 — runtime
 # ─────────────────────────────────────────────────────────────────
-# distroless/cc-debian12 carries libc + ca-certificates but no shell.
-# If you need to `docker exec` into the container for debugging, swap
-# this for `debian:bookworm-slim` and add a USER root step.
-FROM gcr.io/distroless/cc-debian12:nonroot AS runtime
+# Use debian:bookworm-slim instead of distroless because k7s-web
+# requires GTK3 libraries (libgdk-3.0, libgtk-3.0) at runtime.
+# distroless only carries libc + ca-certificates, which is too minimal.
+FROM debian:bookworm-slim AS runtime
 
-# Run as the pre-baked nonroot user (uid 65532).
-USER nonroot:nonroot
+# Install only the runtime libraries needed by k7s-web.
+# No -dev packages, no compilers — just the shared objects.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      libgtk-3-0 \
+      libwebkit2gtk-4.1-0 \
+      libsoup-3.0-0 \
+      libayatana-appindicator3-1 \
+      librsvg2-2 \
+      libssl3 \
+      libxdo3 \
+ && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user for security.
+RUN groupadd -r k7s && useradd -r -g k7s -d /home/k7s -s /sbin/nologin k7s \
+ && mkdir -p /home/k7s /data && chown -R k7s:k7s /home/k7s /data
+
+USER k7s:k7s
 WORKDIR /app
 
 # Copy the binary and the built front-end. The binary's --static flag
 # points at /app/dist (see CMD below).
-COPY --from=backend --chown=nonroot:nonroot /src/src-tauri/target/release/k7s-web /app/k7s-web
-COPY --from=frontend --chown=nonroot:nonroot /src/dist /app/dist
+COPY --from=backend --chown=k7s:k7s /src/src-tauri/target/release/k7s-web /app/k7s-web
+COPY --from=frontend --chown=k7s:k7s /dist /app/dist
 
 # Where k7s-web persists per-user prefs (XDG_CONFIG_HOME/k7s).
 ENV XDG_CONFIG_HOME=/data
@@ -118,13 +124,8 @@ ENV RUST_LOG=info
 VOLUME ["/data"]
 EXPOSE 8080
 
-# Quick TCP-level liveness. k7s-web itself doesn't expose /healthz,
-# but the axum router is listening on this port, so a successful
-# connect is enough to know the process is up.
-# Note: distroless has no shell, so we use wget or skip healthcheck.
-# HEALTHCHECK requires a shell; omit for distroless images.
-
 # Server mode: serve both the API and the static React app on one port.
-# Override with --addr 127.0.0.1:7180 if you want API-only.
+# --no-tray disables the system tray icon (no display in container).
+# --no-open disables auto-opening the browser.
 ENTRYPOINT ["/app/k7s-web"]
-CMD ["--addr", "0.0.0.0:8080", "--static", "/app/dist"]
+CMD ["--addr", "0.0.0.0:8080", "--static", "/app/dist", "--no-tray", "--no-open"]
