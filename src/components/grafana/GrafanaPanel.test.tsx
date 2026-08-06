@@ -9,27 +9,31 @@ import { GrafanaPanel } from './GrafanaPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    grafanaList: vi.fn().mockResolvedValue([
-      {
-        name: 'grafana-main',
-        url: 'https://grafana.example.com',
-        defaultDatasource: 'Prometheus',
-      },
-    ]),
-    grafanaPresets: vi
-      .fn()
-      .mockResolvedValue([
-        { uid: 'k8s-resources', title: 'K8s Resources', description: 'Cluster resource usage' },
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      grafanaList: vi.fn().mockResolvedValue([
+        {
+          name: 'grafana-main',
+          url: 'https://grafana.example.com',
+          defaultDatasource: 'Prometheus',
+        },
       ]),
-    grafanaDashboardUrl: vi.fn().mockResolvedValue('https://grafana.example.com/d/k8s-resources'),
-    grafanaUpsert: vi.fn().mockResolvedValue(undefined),
-    grafanaTest: vi.fn().mockResolvedValue(undefined),
-    grafanaRemove: vi.fn().mockResolvedValue(undefined),
-    grafanaSearchDashboards: vi.fn().mockResolvedValue([]),
-  }),
-}));
+      grafanaPresets: vi
+        .fn()
+        .mockResolvedValue([
+          { uid: 'k8s-resources', title: 'K8s Resources', description: 'Cluster resource usage' },
+        ]),
+      grafanaDashboardUrl: vi.fn().mockResolvedValue('https://grafana.example.com/d/k8s-resources'),
+      grafanaUpsert: vi.fn().mockResolvedValue(undefined),
+      grafanaTest: vi.fn().mockResolvedValue(undefined),
+      grafanaRemove: vi.fn().mockResolvedValue(undefined),
+      grafanaSearchDashboards: vi.fn().mockResolvedValue([]),
+    }),
+  };
+});
 
 let view: RenderResult;
 

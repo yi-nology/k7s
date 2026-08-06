@@ -5,7 +5,7 @@
  * via the existing dryRunYaml → applyYaml path.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useStore } from '../../store';
 import { isValidK8sName, isValidNamespace } from '../../lib/security';
@@ -170,7 +170,7 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
         .join('\n');
       setDryRunResult(summary || 'Dry run passed');
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }
@@ -201,7 +201,7 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
       await getProvider().applyYamlBundle(y);
       onClose?.();
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }

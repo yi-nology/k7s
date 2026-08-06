@@ -12,7 +12,7 @@
  * stateless about its container.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { PodFileEntry, ResourceRef } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { sanitizePath, safePathJoin } from '../../lib/security';
@@ -48,7 +48,7 @@ export function PodFilesPanel({
       .then((rows) => {
         if (!cancelled) setEntries(rows);
       })
-      .catch((e: unknown) => !cancelled && setError(String(e)))
+      .catch((e: unknown) => !cancelled && setError(formatError(e)))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -70,7 +70,7 @@ export function PodFilesPanel({
           setDirty(false);
         }
       })
-      .catch((e: unknown) => !cancelled && setError(String(e)))
+      .catch((e: unknown) => !cancelled && setError(formatError(e)))
       .finally(() => !cancelled && setLoading(false));
     return () => {
       cancelled = true;
@@ -87,7 +87,7 @@ export function PodFilesPanel({
       await getProvider().podFilesWrite(ref, container, joinPath(path, selected.name), content);
       setDirty(false);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
     }
   }, [selected, ref, container, path, content]);
 
@@ -184,7 +184,7 @@ export function PodFilesPanel({
                         a.click();
                         URL.revokeObjectURL(url);
                       } catch (e) {
-                        setError(String(e));
+                        setError(formatError(e));
                       }
                     }}
                   >

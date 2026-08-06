@@ -10,42 +10,46 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
 const mockSbomExport = vi.fn();
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    sbomExport: mockSbomExport,
-    sbomGenerateImage: vi.fn().mockResolvedValue({
-      id: 'test-sbom',
-      source: { kind: 'image', imageRef: 'nginx:1.25', namespace: 'default' },
-      format: 'cyclonedx',
-      specVersion: '1.5',
-      metadata: { tool: 'syft', toolVersion: '0.100.0', scanDurationMs: 1200 },
-      components: [
-        {
-          name: 'react',
-          version: '18.2.0',
-          componentType: 'library',
-          licenses: ['MIT'],
-          hashes: [],
-        },
-      ],
-      dependencies: [],
-      vulnerabilities: [],
-      createdAt: '2024-01-01T00:00:00Z',
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      sbomExport: mockSbomExport,
+      sbomGenerateImage: vi.fn().mockResolvedValue({
+        id: 'test-sbom',
+        source: { kind: 'image', imageRef: 'nginx:1.25', namespace: 'default' },
+        format: 'cyclonedx',
+        specVersion: '1.5',
+        metadata: { tool: 'syft', toolVersion: '0.100.0', scanDurationMs: 1200 },
+        components: [
+          {
+            name: 'react',
+            version: '18.2.0',
+            componentType: 'library',
+            licenses: ['MIT'],
+            hashes: [],
+          },
+        ],
+        dependencies: [],
+        vulnerabilities: [],
+        createdAt: '2024-01-01T00:00:00Z',
+      }),
+      sbomListHistory: vi.fn().mockResolvedValue([]),
+      sbomGet: vi.fn().mockResolvedValue({
+        id: 'test-sbom',
+        source: { kind: 'image', imageRef: 'nginx:1.25', namespace: 'default' },
+        format: 'cyclonedx',
+        specVersion: '1.5',
+        metadata: { tool: 'syft', toolVersion: '0.100.0', scanDurationMs: 1200 },
+        components: [],
+        dependencies: [],
+        vulnerabilities: [],
+        createdAt: '2024-01-01T00:00:00Z',
+      }),
     }),
-    sbomListHistory: vi.fn().mockResolvedValue([]),
-    sbomGet: vi.fn().mockResolvedValue({
-      id: 'test-sbom',
-      source: { kind: 'image', imageRef: 'nginx:1.25', namespace: 'default' },
-      format: 'cyclonedx',
-      specVersion: '1.5',
-      metadata: { tool: 'syft', toolVersion: '0.100.0', scanDurationMs: 1200 },
-      components: [],
-      dependencies: [],
-      vulnerabilities: [],
-      createdAt: '2024-01-01T00:00:00Z',
-    }),
-  }),
-}));
+  };
+});
 
 // Mock child components to isolate SBOMPanel tests.
 vi.mock('./ImageSBOMTab', () => ({

@@ -13,7 +13,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './PropertiesTab.module.css';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useNow } from '../../hooks/useNow';
 import { useTranslation } from '../../hooks/useI18n';
 import { formatAge } from '../../lib/format';
@@ -69,7 +69,7 @@ export function PropertiesTab() {
         if (!cancelled) setProps(p);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) setError(formatError(e));
       });
     return () => {
       cancelled = true;
@@ -94,7 +94,7 @@ export function PropertiesTab() {
         setSecretLoading(false);
       })
       .catch((e) => {
-        setSecretError(e instanceof Error ? e.message : String(e));
+        setSecretError(formatError(e));
         setSecretLoading(false);
       });
   }, [showSecrets, secretData, row]);

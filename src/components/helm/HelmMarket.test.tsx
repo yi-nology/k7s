@@ -11,42 +11,46 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    helmListRepos: vi
-      .fn()
-      .mockResolvedValue([
-        { name: 'bitnami', url: 'https://charts.bitnami.com', lastRefreshed: '2024-01-01' },
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      helmListRepos: vi
+        .fn()
+        .mockResolvedValue([
+          { name: 'bitnami', url: 'https://charts.bitnami.com', lastRefreshed: '2024-01-01' },
+        ]),
+      helmSearchCharts: vi.fn().mockResolvedValue([
+        {
+          name: 'nginx',
+          repo: 'bitnami',
+          version: '1.0.0',
+          appVersion: '1.25',
+          description: 'NGINX web server',
+        },
+        {
+          name: 'redis',
+          repo: 'bitnami',
+          version: '18.0.0',
+          appVersion: '7.0',
+          description: 'Redis cache',
+        },
       ]),
-    helmSearchCharts: vi.fn().mockResolvedValue([
-      {
-        name: 'nginx',
-        repo: 'bitnami',
-        version: '1.0.0',
-        appVersion: '1.25',
-        description: 'NGINX web server',
-      },
-      {
-        name: 'redis',
-        repo: 'bitnami',
-        version: '18.0.0',
-        appVersion: '7.0',
-        description: 'Redis cache',
-      },
-    ]),
-    helmUpdateAllRepos: vi.fn().mockResolvedValue(undefined),
-    helmUpdateRepo: vi.fn().mockResolvedValue(undefined),
-    helmRemoveRepo: vi.fn().mockResolvedValue(undefined),
-    helmAddRepo: vi.fn().mockResolvedValue(undefined),
-    helmChartVersions: vi
-      .fn()
-      .mockResolvedValue([{ version: '1.0.0', appVersion: '1.25', created: '', urls: [] }]),
-    helmRenderDefaultValues: vi.fn().mockResolvedValue('# default values'),
-    helmRunOp: vi.fn().mockResolvedValue({ success: true }),
-    onHelmOpLog: vi.fn().mockReturnValue(() => {}),
-    onHelmOpDone: vi.fn().mockReturnValue(() => {}),
-  }),
-}));
+      helmUpdateAllRepos: vi.fn().mockResolvedValue(undefined),
+      helmUpdateRepo: vi.fn().mockResolvedValue(undefined),
+      helmRemoveRepo: vi.fn().mockResolvedValue(undefined),
+      helmAddRepo: vi.fn().mockResolvedValue(undefined),
+      helmChartVersions: vi
+        .fn()
+        .mockResolvedValue([{ version: '1.0.0', appVersion: '1.25', created: '', urls: [] }]),
+      helmRenderDefaultValues: vi.fn().mockResolvedValue('# default values'),
+      helmRunOp: vi.fn().mockResolvedValue({ success: true }),
+      onHelmOpLog: vi.fn().mockReturnValue(() => {}),
+      onHelmOpDone: vi.fn().mockReturnValue(() => {}),
+    }),
+  };
+});
 
 let view: RenderResult;
 

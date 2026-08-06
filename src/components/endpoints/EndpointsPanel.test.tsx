@@ -9,36 +9,40 @@ import { EndpointsPanel } from './EndpointsPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    listEndpoints: vi.fn().mockResolvedValue([
-      {
-        name: 'web-slice-1',
-        namespace: 'default',
-        service: 'web-svc',
-        ready: 2,
-        total: 2,
-        addresses: ['10.0.0.1', '10.0.0.2'],
-      },
-    ]),
-    listEndpointAddresses: vi.fn().mockResolvedValue([
-      {
-        address: '10.0.0.1',
-        ready: true,
-        targetRefKind: 'Pod',
-        targetRefName: 'web-0',
-        nodeName: 'node-1',
-      },
-      {
-        address: '10.0.0.2',
-        ready: true,
-        targetRefKind: 'Pod',
-        targetRefName: 'web-1',
-        nodeName: 'node-2',
-      },
-    ]),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      listEndpoints: vi.fn().mockResolvedValue([
+        {
+          name: 'web-slice-1',
+          namespace: 'default',
+          service: 'web-svc',
+          ready: 2,
+          total: 2,
+          addresses: ['10.0.0.1', '10.0.0.2'],
+        },
+      ]),
+      listEndpointAddresses: vi.fn().mockResolvedValue([
+        {
+          address: '10.0.0.1',
+          ready: true,
+          targetRefKind: 'Pod',
+          targetRefName: 'web-0',
+          nodeName: 'node-1',
+        },
+        {
+          address: '10.0.0.2',
+          ready: true,
+          targetRefKind: 'Pod',
+          targetRefName: 'web-1',
+          nodeName: 'node-2',
+        },
+      ]),
+    }),
+  };
+});
 
 let view: RenderResult;
 

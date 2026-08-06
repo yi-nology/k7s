@@ -15,12 +15,16 @@ import type { Properties } from '../../providers/types';
 // Mock the provider module.
 const mockGetProperties = vi.fn();
 const mockGetSecretData = vi.fn();
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    getProperties: mockGetProperties,
-    getSecretData: mockGetSecretData,
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      getProperties: mockGetProperties,
+      getSecretData: mockGetSecretData,
+    }),
+  };
+});
 
 let view: RenderResult;
 

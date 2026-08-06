@@ -46,7 +46,7 @@
  *    text and were visually noisy.
  */
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { ApplyResult, DocDryRun } from '../../providers/types';
 import {
   defaultValuesFor,
@@ -185,7 +185,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
       const r = await getProvider().applyYamlBundle(yamlPreview);
       setResult(r);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }
@@ -204,7 +204,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
       setReview(r);
       setReviewedDraft(yamlDraft);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
       setReview(null);
     } finally {
       setBusy(false);
@@ -223,7 +223,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
       setResult(r);
       setReview(null);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }

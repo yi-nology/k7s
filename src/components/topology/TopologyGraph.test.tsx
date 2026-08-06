@@ -13,12 +13,16 @@ import { render, cleanup, createMockRow, type RenderResult } from '../../test/co
 import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    listEndpoints: vi.fn().mockResolvedValue([]),
-    listEndpointAddresses: vi.fn().mockResolvedValue([]),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      listEndpoints: vi.fn().mockResolvedValue([]),
+      listEndpointAddresses: vi.fn().mockResolvedValue([]),
+    }),
+  };
+});
 
 // Suppress the xterm canvas error in jsdom.
 HTMLCanvasElement.prototype.getContext = vi

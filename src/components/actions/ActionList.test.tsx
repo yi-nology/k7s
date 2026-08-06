@@ -12,20 +12,24 @@ import { render, cleanup, createMockRow, type RenderResult } from '../../test/co
 import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    setCordon: vi.fn().mockResolvedValue(undefined),
-    deleteResource: vi.fn().mockResolvedValue(undefined),
-    restartPod: vi.fn().mockResolvedValue(undefined),
-    restartRollout: vi.fn().mockResolvedValue(undefined),
-    undoRollout: vi.fn().mockResolvedValue(undefined),
-    drainNode: vi.fn().mockResolvedValue(undefined),
-    scaleResource: vi.fn().mockResolvedValue(undefined),
-    startPortForward: vi.fn().mockResolvedValue({ localPort: 9090 }),
-    listPortForwards: vi.fn().mockResolvedValue([]),
-    getYaml: vi.fn().mockResolvedValue('apiVersion: v1\nkind: Pod\n'),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      setCordon: vi.fn().mockResolvedValue(undefined),
+      deleteResource: vi.fn().mockResolvedValue(undefined),
+      restartPod: vi.fn().mockResolvedValue(undefined),
+      restartRollout: vi.fn().mockResolvedValue(undefined),
+      undoRollout: vi.fn().mockResolvedValue(undefined),
+      drainNode: vi.fn().mockResolvedValue(undefined),
+      scaleResource: vi.fn().mockResolvedValue(undefined),
+      startPortForward: vi.fn().mockResolvedValue({ localPort: 9090 }),
+      listPortForwards: vi.fn().mockResolvedValue([]),
+      getYaml: vi.fn().mockResolvedValue('apiVersion: v1\nkind: Pod\n'),
+    }),
+  };
+});
 
 let view: RenderResult;
 

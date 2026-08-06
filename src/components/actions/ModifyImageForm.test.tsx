@@ -17,13 +17,17 @@ const mockGetYaml = vi
   .mockResolvedValue(
     'apiVersion: apps/v1\nkind: Deployment\nspec:\n  template:\n    spec:\n      containers:\n      - name: app\n        image: nginx:1.25\n'
   );
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    getYaml: mockGetYaml,
-    dryRunYaml: vi.fn().mockResolvedValue(undefined),
-    applyYaml: vi.fn().mockResolvedValue(undefined),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      getYaml: mockGetYaml,
+      dryRunYaml: vi.fn().mockResolvedValue(undefined),
+      applyYaml: vi.fn().mockResolvedValue(undefined),
+    }),
+  };
+});
 
 let view: RenderResult;
 

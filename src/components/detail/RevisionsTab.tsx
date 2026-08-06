@@ -17,7 +17,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import type { ContainerImage, Revision } from '../../providers/types';
 import { ModifyImageForm } from '../actions/ModifyImageForm';
@@ -51,7 +51,7 @@ export function RevisionsTab() {
       .catch((e) => {
         if (!cancelled) {
           setRevisions([]);
-          setError(e instanceof Error ? e.message : String(e));
+          setError(formatError(e));
         }
       });
     return () => {
@@ -73,7 +73,7 @@ export function RevisionsTab() {
       // creates a new revision for the rollback, so the list will grow by one.
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setRollingBack(null);
     }

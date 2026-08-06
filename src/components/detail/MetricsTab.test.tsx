@@ -13,9 +13,13 @@ import { render, cleanup, createMockRow, type RenderResult } from '../../test/co
 import type { NodeSample } from '../../providers/types';
 
 // Mock IS_TAURI to control which path renders.
-vi.mock('../../providers', () => ({
-  IS_TAURI: true,
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    IS_TAURI: true,
+  };
+});
 
 // Mock PlotChart — renders a simple div with the title.
 vi.mock('./PlotChart', () => ({

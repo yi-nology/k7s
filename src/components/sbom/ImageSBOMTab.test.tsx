@@ -22,11 +22,15 @@ vi.mock('../../hooks/useI18n', () => ({
 // Mock provider functions.
 const mockSbomGenerateImage = vi.fn();
 
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    sbomGenerateImage: mockSbomGenerateImage,
-  }),
-}));
+vi.mock('../../providers', async () => {
+  const { formatError } = await import('../../providers/errorHandler');
+  return {
+    getProvider: () => ({
+      sbomGenerateImage: mockSbomGenerateImage,
+    }),
+    formatError,
+  };
+});
 
 // Mock child table components to isolate ImageSBOMTab tests.
 vi.mock('./ComponentTable', () => ({

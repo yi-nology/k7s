@@ -22,12 +22,16 @@ vi.mock('../../hooks/useI18n', () => ({
 const mockSbomListHistory = vi.fn();
 const mockSbomGet = vi.fn();
 
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    sbomListHistory: mockSbomListHistory,
-    sbomGet: mockSbomGet,
-  }),
-}));
+vi.mock('../../providers', async () => {
+  const { formatError } = await import('../../providers/errorHandler');
+  return {
+    getProvider: () => ({
+      sbomListHistory: mockSbomListHistory,
+      sbomGet: mockSbomGet,
+    }),
+    formatError,
+  };
+});
 
 /** Factory for a mock SbomSummary (image source). */
 function makeImageSummary(overrides: Partial<SbomSummary> = {}): SbomSummary {

@@ -9,7 +9,7 @@
  * Clicking a finding's resource reference navigates to that RBAC resource.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { cx } from '../../lib/cx';
 import type { AuditFinding, AuditReport } from '../../providers/types/security';
 import { useStore } from '../../store';
@@ -61,7 +61,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
       const result = await getProvider().securityAudit();
       setReport(result);
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setLoading(false);
     }

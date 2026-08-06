@@ -3,7 +3,7 @@
  * (the Service list), a search box, a header, and a health summary bar.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { cx } from '../../lib/cx';
 import type { EndpointRow } from '../../providers/types';
 import { useStore } from '../../store';
@@ -104,7 +104,7 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
           setServices([...byService.values()].sort((a, b) => a.service.localeCompare(b.service)));
         }
       } catch (e: unknown) {
-        if (!cancelled) setError(String(e));
+        if (!cancelled) setError(formatError(e));
       }
     })();
     return () => {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import type { SbomResult, SbomFormat } from '../../providers/types/sbom';
 import { ComponentTable } from './ComponentTable';
@@ -25,7 +25,7 @@ export function ClusterSBOMTab({ onResult }: Props) {
       setSbom(result);
       onResult(result);
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setLoading(false);
     }

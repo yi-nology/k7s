@@ -11,11 +11,15 @@ import { render, cleanup, createMockRow, type RenderResult } from '../../test/co
 
 // Mock the provider.
 const mockGetYaml = vi.fn().mockResolvedValue('apiVersion: v1\nkind: Pod');
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    getYaml: mockGetYaml,
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      getYaml: mockGetYaml,
+    }),
+  };
+});
 
 // Mock diffLines and diffStat.
 vi.mock('../../lib/diff', () => ({

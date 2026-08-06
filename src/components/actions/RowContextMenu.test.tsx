@@ -12,14 +12,18 @@ import { render, cleanup, createMockRow } from '../../test/componentUtils';
 import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    setCordon: vi.fn().mockResolvedValue(undefined),
-    deleteResource: vi.fn().mockResolvedValue(undefined),
-    restartPod: vi.fn().mockResolvedValue(undefined),
-    getYaml: vi.fn().mockResolvedValue('apiVersion: v1\nkind: Pod\n'),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      setCordon: vi.fn().mockResolvedValue(undefined),
+      deleteResource: vi.fn().mockResolvedValue(undefined),
+      restartPod: vi.fn().mockResolvedValue(undefined),
+      getYaml: vi.fn().mockResolvedValue('apiVersion: v1\nkind: Pod\n'),
+    }),
+  };
+});
 
 function resetStore() {
   useStore.setState({

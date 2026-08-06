@@ -15,11 +15,15 @@ import type { SinceOption } from '../../lib/logview';
 
 // Mock the provider module.
 const mockGetEvents = vi.fn();
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    getEvents: mockGetEvents,
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      getEvents: mockGetEvents,
+    }),
+  };
+});
 
 let view: RenderResult;
 

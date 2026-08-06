@@ -22,9 +22,13 @@ vi.mock('../../hooks/useClickOutside', () => ({
 }));
 
 // Mock importKubeconfigViaInput.
-vi.mock('../../providers', () => ({
-  importKubeconfigViaInput: vi.fn().mockResolvedValue(null),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    importKubeconfigViaInput: vi.fn().mockResolvedValue(null),
+  };
+});
 
 let view: RenderResult;
 

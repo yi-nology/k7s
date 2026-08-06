@@ -16,7 +16,7 @@
  * backend said.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { HelmChartSummary, HelmRepo } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { HelmInstallWizard } from './HelmInstallWizard';
@@ -40,7 +40,7 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
       getProvider()
         .helmListRepos()
         .then(setRepos)
-        .catch((e: unknown) => setError(String(e)));
+        .catch((e: unknown) => setError(formatError(e)));
     },
     []
   );
@@ -56,7 +56,7 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
       .then((rows) => {
         if (!cancelled) setCharts(rows);
       })
-      .catch((e: unknown) => !cancelled && setError(String(e)))
+      .catch((e: unknown) => !cancelled && setError(formatError(e)))
       .finally(() => !cancelled && setLoadingCharts(false));
     return () => {
       cancelled = true;
@@ -108,7 +108,7 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
                 await getProvider().helmUpdateAllRepos();
                 reloadRepos();
               } catch (e) {
-                setError(String(e));
+                setError(formatError(e));
               }
             }}
           >
@@ -218,7 +218,7 @@ function HelmRepos({
                       await getProvider().helmUpdateRepo(r.name);
                       onChange();
                     } catch (e) {
-                      onError(String(e));
+                      onError(formatError(e));
                       onChange();
                     }
                   }}
@@ -235,7 +235,7 @@ function HelmRepos({
                       await getProvider().helmRemoveRepo(r.name);
                       onChange();
                     } catch (e) {
-                      onError(String(e));
+                      onError(formatError(e));
                     }
                   }}
                 >

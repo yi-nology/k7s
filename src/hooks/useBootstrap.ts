@@ -8,7 +8,7 @@
  */
 
 import { useEffect } from 'react';
-import { getProvider, IS_DEMO } from '../providers';
+import { formatError, getProvider, IS_DEMO } from '../providers';
 import { useStore } from '../store';
 import { connectTo } from '../lib/connect';
 import { reconcileClusterStatus } from '../lib/clusterStatus';
@@ -140,7 +140,7 @@ export function useBootstrap(): void {
         }
         await connectTo(target.name);
       } catch (e) {
-        setConnection({ phase: 'error', error: e instanceof Error ? e.message : String(e) });
+        setConnection({ phase: 'error', error: formatError(e) });
       }
     })();
 

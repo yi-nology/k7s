@@ -15,14 +15,18 @@ import { render, cleanup, createMockPodRow, type RenderResult } from '../../test
 const mockGetYaml = vi.fn();
 const mockDryRunYaml = vi.fn();
 const mockApplyYaml = vi.fn();
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    getYaml: mockGetYaml,
-    dryRunYaml: mockDryRunYaml,
-    applyYaml: mockApplyYaml,
-  }),
-  IS_TAURI: false,
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      getYaml: mockGetYaml,
+      dryRunYaml: mockDryRunYaml,
+      applyYaml: mockApplyYaml,
+    }),
+    IS_TAURI: false,
+  };
+});
 
 // Mock CodeEditor to avoid CodeMirror/lit dependencies.
 vi.mock('./CodeEditor', () => ({

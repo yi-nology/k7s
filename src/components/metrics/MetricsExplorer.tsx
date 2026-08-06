@@ -11,7 +11,7 @@
  * so a typo in PromQL doesn't vanish into a black Plotly box.
  */
 import { useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { MetricsConfig, PromQueryResult, SavedQuery } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { Plot } from '../detail/PlotChart';
@@ -77,7 +77,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
           setInstance(rows[0].name);
         }
       })
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -86,7 +86,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
     getProvider()
       .savedQueriesList()
       .then(setSaved)
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
   }, [cacheBust]);
 
   const run = async () => {
@@ -110,7 +110,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       }
       setResult(r);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
       setResult(null);
     } finally {
       setLoading(false);
@@ -126,7 +126,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       const r = await getProvider().savedQueriesRun(q, instance, forceRefresh);
       setResult(r);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
       setResult(null);
     } finally {
       setLoading(false);
@@ -148,7 +148,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       setSaveNote('');
       setCacheBust((c) => c + 1);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setSaving(false);
     }

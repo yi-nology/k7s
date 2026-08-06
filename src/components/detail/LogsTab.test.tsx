@@ -25,11 +25,15 @@ vi.mock('../../hooks/useLogStream', () => ({
 }));
 
 // Mock the provider for saveLogs.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    saveLogs: vi.fn().mockResolvedValue(null),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      saveLogs: vi.fn().mockResolvedValue(null),
+    }),
+  };
+});
 
 let view: RenderResult;
 

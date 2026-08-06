@@ -13,12 +13,16 @@ import type { ForwardInfo } from '../../providers/types';
 // Mock the provider.
 const mockStopPortForward = vi.fn().mockResolvedValue(undefined);
 const mockListPortForwards = vi.fn().mockResolvedValue([]);
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    stopPortForward: mockStopPortForward,
-    listPortForwards: mockListPortForwards,
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      stopPortForward: mockStopPortForward,
+      listPortForwards: mockListPortForwards,
+    }),
+  };
+});
 
 let view: RenderResult;
 

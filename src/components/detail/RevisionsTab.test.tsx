@@ -15,12 +15,16 @@ import type { Revision } from '../../providers/types';
 // Mock the provider.
 const mockListRevisions = vi.fn();
 const mockUndoRollout = vi.fn();
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    listRevisions: mockListRevisions,
-    undoRollout: mockUndoRollout,
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      listRevisions: mockListRevisions,
+      undoRollout: mockUndoRollout,
+    }),
+  };
+});
 
 // Mock ModifyImageForm — returns a React element, not a DOM node.
 vi.mock('../actions/ModifyImageForm', () => ({

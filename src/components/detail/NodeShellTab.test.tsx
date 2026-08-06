@@ -19,16 +19,20 @@ vi.mock('./useTerminal', () => ({
 }));
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    startNodeShell: vi.fn().mockResolvedValue({
-      pod: 'debug-pod-abc',
-      input: vi.fn(),
-      resize: vi.fn(),
-      stop: vi.fn(),
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      startNodeShell: vi.fn().mockResolvedValue({
+        pod: 'debug-pod-abc',
+        input: vi.fn(),
+        resize: vi.fn(),
+        stop: vi.fn(),
+      }),
     }),
-  }),
-}));
+  };
+});
 
 let view: RenderResult;
 

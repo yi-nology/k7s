@@ -10,26 +10,30 @@ import { ImageTransferPanel } from './ImageTransferPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider with IS_TAURI = false.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    importImageToNode: vi
-      .fn()
-      .mockResolvedValue({ runtime: 'containerd', images: ['nginx:latest'], output: '' }),
-    imageSyncStatus: vi.fn().mockResolvedValue({ available: true, version: '1.0' }),
-    imageRegistryList: vi.fn().mockResolvedValue([]),
-    imageCopy: vi.fn().mockResolvedValue({ summary: 'done' }),
-    imageInspectArchive: vi.fn().mockResolvedValue({
-      name: 'test',
-      repoTags: ['nginx:latest'],
-      arch: 'amd64',
-      os: 'linux',
-      sizeBytes: 1024,
-      digest: 'sha256:abc',
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      importImageToNode: vi
+        .fn()
+        .mockResolvedValue({ runtime: 'containerd', images: ['nginx:latest'], output: '' }),
+      imageSyncStatus: vi.fn().mockResolvedValue({ available: true, version: '1.0' }),
+      imageRegistryList: vi.fn().mockResolvedValue([]),
+      imageCopy: vi.fn().mockResolvedValue({ summary: 'done' }),
+      imageInspectArchive: vi.fn().mockResolvedValue({
+        name: 'test',
+        repoTags: ['nginx:latest'],
+        arch: 'amd64',
+        os: 'linux',
+        sizeBytes: 1024,
+        digest: 'sha256:abc',
+      }),
     }),
-  }),
-  IS_TAURI: false,
-  IS_DEMO: false,
-}));
+    IS_TAURI: false,
+    IS_DEMO: false,
+  };
+});
 
 // Mock transport to control IS_TAURI.
 vi.mock('../../providers/transport', () => ({

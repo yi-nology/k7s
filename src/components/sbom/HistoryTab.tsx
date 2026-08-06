@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import type { SbomSummary, SbomResult } from '../../providers/types/sbom';
 
@@ -17,7 +17,7 @@ export function HistoryTab({ onSelect }: Props) {
     getProvider()
       .sbomListHistory()
       .then(setHistory)
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(formatError(e)))
       .finally(() => setLoading(false));
   }, []);
 

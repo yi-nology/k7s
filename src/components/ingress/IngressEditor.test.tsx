@@ -13,12 +13,16 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 // Mock the provider.
 const mockDryRunYamlBundle = vi.fn().mockResolvedValue([]);
 const mockApplyYamlBundle = vi.fn().mockResolvedValue(undefined);
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    dryRunYamlBundle: mockDryRunYamlBundle,
-    applyYamlBundle: mockApplyYamlBundle,
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      dryRunYamlBundle: mockDryRunYamlBundle,
+      applyYamlBundle: mockApplyYamlBundle,
+    }),
+  };
+});
 
 let view: RenderResult;
 

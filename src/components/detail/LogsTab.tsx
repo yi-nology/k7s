@@ -8,7 +8,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import styles from './LogsTab.module.css';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useLogStream } from '../../hooks/useLogStream';
 import { useTranslation } from '../../hooks/useI18n';
 import { cx } from '../../lib/cx';
@@ -86,7 +86,7 @@ export function LogsTab() {
       // null means the dialog was cancelled — not an error, and not worth a note.
       setSaveNote(result ? t('logs.saved', result.lines) : null);
     } catch (e) {
-      setSaveNote(t('logs.saveFailed', e instanceof Error ? e.message : String(e)));
+      setSaveNote(t('logs.saveFailed', formatError(e)));
     }
   }
 

@@ -16,7 +16,7 @@
  * panel shows a notice instead of the form.
  */
 import { Fragment, useEffect, useMemo, useState } from 'react';
-import { getProvider, IS_TAURI } from '../../providers';
+import { formatError, getProvider, IS_TAURI } from '../../providers';
 import type {
   ArchiveInfo,
   ExportFromNodeResult,
@@ -167,7 +167,7 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
         const r = await getProvider().importImageToNode(node, files[i].path);
         setFiles((prev) => prev.map((f, idx) => idx === i ? { ...f, status: r.error ? 'error' : 'done', result: r } : f));
       } catch (e) {
-        setFiles((prev) => prev.map((f, idx) => idx === i ? { ...f, status: 'error', result: { runtime: '', output: '', images: [], error: e instanceof Error ? e.message : String(e) } } : f));
+        setFiles((prev) => prev.map((f, idx) => idx === i ? { ...f, status: 'error', result: { runtime: '', output: '', images: [], error: formatError(e) } } : f));
       }
     }
     setBusy(false);
@@ -337,7 +337,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
         setResult(null);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     }
   };
 
@@ -356,7 +356,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
         setDestTag(idx > 0 ? first.slice(idx + 1) : 'latest');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setInspecting(false);
     }
@@ -388,7 +388,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
       );
       setResult(r);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }
@@ -676,13 +676,13 @@ function FromNodeSection({ onClose }: { onClose?: () => void }) {
           const r = await getProvider().exportFromNode(node, imageRef.trim(), selected);
           setResult(r);
         } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
+          setError(formatError(e));
         } finally {
           setBusy(false);
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     }
   };
 
@@ -694,7 +694,7 @@ function FromNodeSection({ onClose }: { onClose?: () => void }) {
       const imgs = await getProvider().listNodeImages(node);
       setNodeImages(imgs);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setListing(false);
     }
@@ -853,13 +853,13 @@ function FromRegistrySection({ onClose }: { onClose?: () => void }) {
           const r = await provider.exportFromRegistry(selectedRegistry, selectedRepo, selectedTag, selected, insecureSrc, (line) => setLogLines((prev) => [...prev, line]));
           setResult(r);
         } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
+          setError(formatError(e));
         } finally {
           setBusy(false);
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     }
   };
 

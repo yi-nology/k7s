@@ -9,18 +9,22 @@ import { AlertsPanel } from './AlertsPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    alertManagerList: vi
-      .fn()
-      .mockResolvedValue([{ name: 'main', url: 'http://alertmanager:9093' }]),
-    alertManagerAlerts: vi.fn().mockResolvedValue([]),
-    alertManagerSilences: vi.fn().mockResolvedValue([]),
-    alertManagerDeleteSilence: vi.fn().mockResolvedValue(undefined),
-    alertManagerCreateSilence: vi.fn().mockResolvedValue(undefined),
-    prometheusRules: vi.fn().mockResolvedValue([]),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      alertManagerList: vi
+        .fn()
+        .mockResolvedValue([{ name: 'main', url: 'http://alertmanager:9093' }]),
+      alertManagerAlerts: vi.fn().mockResolvedValue([]),
+      alertManagerSilences: vi.fn().mockResolvedValue([]),
+      alertManagerDeleteSilence: vi.fn().mockResolvedValue(undefined),
+      alertManagerCreateSilence: vi.fn().mockResolvedValue(undefined),
+      prometheusRules: vi.fn().mockResolvedValue([]),
+    }),
+  };
+});
 
 let view: RenderResult;
 

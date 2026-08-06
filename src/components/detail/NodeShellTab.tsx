@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from 'react';
 import styles from './ShellTab.module.css';
 import nodeStyles from './NodeShellTab.module.css';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useTerminal } from './useTerminal';
 import type { NodeShellHandle } from '../../providers/types';
@@ -84,7 +84,7 @@ export function NodeShellTab() {
         handle.resize(term.cols, term.rows);
       }
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = formatError(e);
       // Straight to the panel, not the terminal: a start failure usually means no
       // terminal ever appeared, and the backend's message (NotReady node, image
       // pull) is the actionable part.

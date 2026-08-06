@@ -26,11 +26,15 @@ vi.mock('../../hooks/useI18n', () => ({
 // Mock provider functions.
 const mockSbomGenerateCluster = vi.fn();
 
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    sbomGenerateCluster: mockSbomGenerateCluster,
-  }),
-}));
+vi.mock('../../providers', async () => {
+  const { formatError } = await import('../../providers/errorHandler');
+  return {
+    getProvider: () => ({
+      sbomGenerateCluster: mockSbomGenerateCluster,
+    }),
+    formatError,
+  };
+});
 
 // Mock child table components to isolate ClusterSBOMTab tests.
 vi.mock('./ComponentTable', () => ({

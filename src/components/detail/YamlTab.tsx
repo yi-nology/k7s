@@ -7,7 +7,7 @@
 import React, { useEffect, useState } from 'react';
 import styles from './YamlTab.module.css';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { CodeEditor } from './CodeEditor';
 import { diffLines, diffStat, hasChanges, hunks } from '../../lib/diff';
@@ -102,7 +102,7 @@ export function YamlTab() {
         setError(null);
       })
       .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) setError(formatError(e));
       });
     return () => {
       cancelled = true;
@@ -130,7 +130,7 @@ export function YamlTab() {
       setReview(await getProvider().dryRunYaml(ref, yamlDraft));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setApplying(false);
     }
@@ -149,7 +149,7 @@ export function YamlTab() {
       setError(null);
     } catch (e) {
       // Keep the draft and surface the API error inline (Story 5.4).
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setApplying(false);
     }

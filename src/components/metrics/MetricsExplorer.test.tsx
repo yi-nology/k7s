@@ -9,18 +9,22 @@ import { MetricsExplorer } from './MetricsExplorer';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    metricsList: vi.fn().mockResolvedValue([{ name: 'prometheus', url: 'http://prom:9090' }]),
-    metricsQuery: vi.fn().mockResolvedValue({ series: [] }),
-    metricsQueryRange: vi.fn().mockResolvedValue({ series: [] }),
-    savedQueriesList: vi.fn().mockResolvedValue([]),
-    savedQueriesUpsert: vi.fn().mockResolvedValue(undefined),
-    savedQueriesRemove: vi.fn().mockResolvedValue(undefined),
-    savedQueriesRun: vi.fn().mockResolvedValue({ series: [] }),
-    savedQueriesClearCache: vi.fn().mockResolvedValue(undefined),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      metricsList: vi.fn().mockResolvedValue([{ name: 'prometheus', url: 'http://prom:9090' }]),
+      metricsQuery: vi.fn().mockResolvedValue({ series: [] }),
+      metricsQueryRange: vi.fn().mockResolvedValue({ series: [] }),
+      savedQueriesList: vi.fn().mockResolvedValue([]),
+      savedQueriesUpsert: vi.fn().mockResolvedValue(undefined),
+      savedQueriesRemove: vi.fn().mockResolvedValue(undefined),
+      savedQueriesRun: vi.fn().mockResolvedValue({ series: [] }),
+      savedQueriesClearCache: vi.fn().mockResolvedValue(undefined),
+    }),
+  };
+});
 
 // Mock PlotChart to avoid Plotly dependency.
 vi.mock('../detail/PlotChart', () => ({

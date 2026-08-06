@@ -32,12 +32,16 @@ const mockListEndpoints = vi.fn().mockResolvedValue([
     age: '2d',
   },
 ]);
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    listEndpoints: mockListEndpoints,
-    listEndpointAddresses: vi.fn().mockResolvedValue([]),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      listEndpoints: mockListEndpoints,
+      listEndpointAddresses: vi.fn().mockResolvedValue([]),
+    }),
+  };
+});
 
 // Mock TopologyGraph to avoid d3-force complexity.
 vi.mock('./TopologyGraph', () => ({

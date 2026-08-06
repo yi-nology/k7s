@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import styles from './ActionList.module.css';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import type { KindId, ResourceRef, Row, HelmRevisionEntry } from '../../providers/types';
 import { isRolloutKind } from '../../lib/actions';
@@ -81,7 +81,7 @@ function WorkloadRollbackConfirm({
       onDone();
       onClose();
     } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
+      onError(formatError(e));
       setBusy(false);
     }
   }, [resourceRef, onError, onClose, onDone]);
@@ -160,7 +160,7 @@ function HelmRevisionPicker({
       })
       .catch((e) => {
         if (cancelled) return;
-        setError(e instanceof Error ? e.message : String(e));
+        setError(formatError(e));
         setLoading(false);
       });
     return () => {
@@ -179,7 +179,7 @@ function HelmRevisionPicker({
       });
       onClose();
     } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
+      onError(formatError(e));
       setBusy(false);
     }
   }, [selected, release, namespace, onError, onClose]);

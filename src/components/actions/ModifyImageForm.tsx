@@ -21,7 +21,7 @@
  * `applyYaml`, so the cluster is left alone.
  */
 import { useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { extractContainerImages, rewriteContainerImage } from '../../lib/imageUpgrade';
 import { isValidImageRef } from '../../lib/security';
@@ -80,7 +80,7 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
       })
       .catch((e) => {
         if (cancelled) return;
-        setFetchError(e instanceof Error ? e.message : String(e));
+        setFetchError(formatError(e));
       });
     return () => {
       cancelled = true;
