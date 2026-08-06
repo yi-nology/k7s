@@ -9,7 +9,7 @@
  *     all nodes then pull from it.
  *
  * The two paths exist because real air-gapped clusters fall into both camps.
- * See `docs/superpowers/specs/2026-08-03-image-import-design.md` §1 for why
+ * See `docs/superpowers/specs/2026-08-06-image-transfer-design.md` §1 for why
  * they're complementary, not redundant.
  *
  * Desktop (Tauri) only — the web shell has no local-disk access. On web the
@@ -403,7 +403,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
         {registries.length === 0 ? (
           <div className={styles.noticeInline}>
             {t(
-              'imageImport.registry.noRegistries',
+              'imageTransfer.registry.noRegistries',
               'No registries configured — add one in Image Registries first.'
             )}
           </div>
@@ -453,7 +453,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
                 {!(archiveInfo.os === 'linux' && archiveInfo.architecture === 'amd64') && (
                   <div className={styles.warn}>
                     {t(
-                      'imageImport.registry.archWarn',
+                      'imageTransfer.registry.archWarn',
                       'Warning: not linux/amd64 — may not run on your cluster.'
                     )
                       .replace('{arch}', archiveInfo.architecture)
