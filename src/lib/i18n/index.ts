@@ -108,9 +108,9 @@ export function dict(locale: Locale): Dictionary {
  * type-checked against this signature, which is the point.
  */
 export function translate(locale: Locale, key: string, ...args: unknown[]): string {
-  const fromLocale = resolve(locale, key, args);
+  const fromLocale = resolveDictPath(locale, key, args);
   if (fromLocale !== undefined) return fromLocale;
-  const fromEnglish = resolve('en', key, args);
+  const fromEnglish = resolveDictPath('en', key, args);
   if (fromEnglish !== undefined) return fromEnglish;
   // Fallback: a leading string in `args` is treated as the default copy for an
   // untranslated key. A function with the right arity would have consumed it,
@@ -119,8 +119,17 @@ export function translate(locale: Locale, key: string, ...args: unknown[]): stri
   return key;
 }
 
-/** Walk a dotted path, invoking a function leaf when found. */
-function resolve(locale: Locale, path: string, args: unknown[]): string | undefined {
+/**
+ * Walk a dotted path through the locale's dictionary, invoking a function leaf
+ * when found. Returns `undefined` when the path is absent, the leaf is
+ * non-string/non-function, or a function leaf throws (wrong arity is a
+ * dictionary bug, not a runtime problem to surface).
+ *
+ * Exported so the command palette's `paletteStr` can reuse the exact same walk
+ * without duplicating it — its only divergence from `translate` is the
+ * fallback precedence, which lives in its own wrapper.
+ */
+export function resolveDictPath(locale: Locale, path: string, args: unknown[]): string | undefined {
   let cur: unknown = dict(locale);
   for (const seg of path.split('.')) {
     if (cur && typeof cur === 'object' && seg in (cur as Record<string, unknown>)) {
@@ -134,8 +143,6 @@ function resolve(locale: Locale, path: string, args: unknown[]): string | undefi
       const out = cur(...args);
       return typeof out === 'string' ? out : undefined;
     } catch {
-      // A function with the wrong arity is a dictionary bug, not a runtime
-      // problem to surface to the user. Return undefined so the fallback fires.
       return undefined;
     }
   }
