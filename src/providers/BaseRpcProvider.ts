@@ -139,9 +139,10 @@ export abstract class BaseRpcProvider {
   }
   helmRunOp(op: HelmOp): Promise<HelmOpResult> {
     // The backend uses serde's `tag = "op"`, which on the wire means the
-    // discriminant is the *top-level* field. Mirror that on the JS side so
-    // the call site can stay readable.
-    return this.rpc<HelmOpResult>('helm_run_op', op as unknown as Record<string, unknown>);
+    // discriminant (`op`) and the variant's fields (`args`) sit side by side
+    // at the top level. Flatten into a plain object so `rpc` gets a
+    // `Record<string, unknown>` without a type-bypassing cast.
+    return this.rpc<HelmOpResult>('helm_run_op', { op: op.op, ...op.args });
   }
   imageRegistryList(): Promise<ImageRegistry[]> {
     return this.rpc<ImageRegistry[]>('image_registry_list');

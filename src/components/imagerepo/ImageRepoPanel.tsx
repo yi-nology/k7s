@@ -194,7 +194,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                   setAdding(false);
                   reload();
                 } catch (err) {
-                  setError(String(err));
+                  setError(formatError(err));
                 }
               }}
             >
