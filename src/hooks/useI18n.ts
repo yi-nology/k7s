@@ -12,7 +12,7 @@
  * the bundle has loaded. The hook here keeps the two in sync from then on.
  */
 
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useStore } from '../store';
 import {
   cacheLocale,
@@ -49,10 +49,11 @@ export function useLocale(): Locale {
  */
 export function useTranslation() {
   const locale = useLocale();
-  return {
-    locale,
-    t: (key: string, ...args: unknown[]) => translate(locale, key, ...args),
-  };
+  const t = useCallback(
+    (key: string, ...args: unknown[]) => translate(locale, key, ...args),
+    [locale]
+  );
+  return { locale, t };
 }
 
 /**

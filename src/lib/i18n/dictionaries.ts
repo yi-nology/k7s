@@ -67,6 +67,7 @@ export interface Dictionary {
         images: string;
         close: string;
         sbom: string;
+        plugins: string;
       };
     };
     topbar: {
@@ -136,6 +137,8 @@ export interface Dictionary {
       actionHintView: string;
       /** Right-aligned hint for an overlay tool (Helm Market, Images, …). */
       actionHintTool: string;
+      /** aria-label for the command palette container. */
+      ariaLabel: string;
     };
   };
 
@@ -220,6 +223,8 @@ export interface Dictionary {
     new: string;
     /** Hover/tooltip for the same button — explains what the icon does. */
     newTitle: string;
+    /** aria-label for the resource table. */
+    ariaLabel: string;
   };
 
   /** The shared action list and its confirmation wording. */
@@ -284,6 +289,16 @@ export interface Dictionary {
     bulk: {
       allFailed: (n: number, list: string) => string;
       partial: (ok: number, failed: number, list: string) => string;
+    };
+    /** Modify-image form chrome (Bxx — KubePi parity). */
+    modifyImage: {
+      title: (name: string) => string;
+      loading: string;
+      empty: string;
+      noContainers: string;
+      reset: string;
+      applying: string;
+      invalidImage: string;
     };
   };
 
@@ -466,6 +481,7 @@ export interface Dictionary {
       installing: string;
       install: string;
       done: string;
+      invalidNamespace: string;
     };
   };
   podFiles: { title: string; close: string; noPod: string; placeholder: string };
@@ -511,6 +527,25 @@ export interface Dictionary {
       description: string;
       save: string;
       cancel: string;
+    };
+    /** Vulnerability scan sub-panel inside the image registries overlay. */
+    scan: {
+      title: string;
+      close: string;
+      noVulns: string;
+      cveId: string;
+      severity: string;
+      package: string;
+      installed: string;
+      fixed: string;
+      titleCol: string;
+    };
+    /** Severity level labels for vulnerability scan results. */
+    severity: {
+      critical: string;
+      high: string;
+      medium: string;
+      low: string;
     };
   };
   /** Image-import overlay (air-gapped clusters): load a local .tar into a
@@ -633,6 +668,8 @@ export interface Dictionary {
     refresh: string;
     refreshTitle: string;
     empty: string;
+    /** Hint shown when no query has been run yet. */
+    emptyState: string;
     noSources: string;
     addSource: string;
     saved: {
@@ -685,6 +722,8 @@ export interface Dictionary {
     pick: string;
     dashboards: string;
     openInGrafana: string;
+    searchPlaceholder: string;
+    searching: string;
     form: {
       title: string;
       name: string;
@@ -703,6 +742,11 @@ export interface Dictionary {
     pick: string;
     col: { service: string; endpoints: string; pods: string };
     legend: { service: string; endpoint: string; pod: string; container: string };
+    action: { logs: string; navigate: string; shell: string; yaml: string };
+    ctx: { copy: string; logs: string; navigate: string; shell: string; yaml: string };
+    health: { healthy: string; unhealthy: string; unknown: string; total: string };
+    search: { placeholder: string; clear: string };
+    zoom: { fit: string; in: string; out: string };
   };
   dashboard: {
     title: string;
@@ -717,6 +761,10 @@ export interface Dictionary {
     eventsPrev: string;
     eventsNext: string;
     noStatus: string;
+    healthShow: string;
+    healthHide: string;
+    healthScore: string;
+    quotas: string;
   };
   endpoints: {
     title: string;
@@ -738,7 +786,7 @@ export interface Dictionary {
     close: string;
     none: string;
     pick: string;
-    tabs: { alerts: string; silences: string };
+    tabs: { alerts: string; silences: string; rules: string };
     empty: { alerts: string; silences: string };
     /** Column headers for the alerts + silences tables inside the
      *  Alerting overlay. Kept short and uppercased like the rest of
@@ -757,14 +805,124 @@ export interface Dictionary {
       ends: string;
       status: string;
     };
+    /** Alerting rules tab. */
+    rules: {
+      cols: {
+        name: string;
+        query: string;
+        severity: string;
+        state: string;
+        for: string;
+      };
+      empty: string;
+      noRules: string;
+    };
+    /** Alerting silences management. */
+    silences: {
+      addMatcher: string;
+      comment: string;
+      commentPlaceholder: string;
+      create: string;
+      createBtn: string;
+      createTitle: string;
+      createdBy: string;
+      duration: string;
+      expire: string;
+      matchers: string;
+    };
+  };
+
+  /** Audit log overlay panel (Loki-based). */
+  audit: {
+    title: string;
+    close: string;
+    loading: string;
+    empty: string;
+    refresh: string;
+    add: string;
+    instances: string;
+    filter: {
+      namespace: string;
+      resource: string;
+      user: string;
+    };
+    cols: {
+      timestamp: string;
+      user: string;
+      verb: string;
+      resource: string;
+      namespace: string;
+      name: string;
+      sourceIp: string;
+      status: string;
+    };
+  };
+
+  /** Resource diff overlay panel. */
+  diff: {
+    title: string;
+    close: string;
+    loading: string;
+    emptyHint: string;
+    identical: string;
+    left: string;
+    right: string;
+    modeResource: string;
+    modeText: string;
+    selectResource: string;
+  };
+
+  /** Plugins panel. */
+  plugins: {
+    title: string;
+    close: string;
+    empty: string;
+    by: string;
+    load: string;
+    loadHint: string;
+    enable: string;
+    disable: string;
+  };
+
+  /** Security audit overlay. */
+  security: {
+    title: string;
+    close: string;
+    run: string;
+    scanning: string;
+    running: string;
+    lastScan: string;
+    filters: string;
+    all: string;
+    ruleId: string;
+    emptyFindings: string;
+  };
+
+  /** CronJob timeline overlay. */
+  timeline: {
+    noSelection: string;
+    noJobs: string;
+    noJobsHint: string;
+    schedule: string;
+    lastRun: string;
+    duration: string;
+    status: string;
+    age: string;
+    active: string;
+    completions: string;
+    succeeded: string;
+    failed: string;
+    fail: string;
+    ok: string;
+    run: string;
   };
 
   /** SBOM (Software Bill of Materials) overlay panel. */
   sbom: {
     title: string;
-    tab: { image: string; cluster: string; history: string };
+    tab: { image: string; cluster: string; history: string; comingSoon: string };
     image: { placeholder: string; generate: string };
-    cluster: { scan: string };
+    cluster: { scan: string; comingSoon: string; useImage: string };
     history: {
       loading: string;
       empty: string;
@@ -795,6 +953,44 @@ export interface Dictionary {
       tool: string;
       duration: string;
     };
+  };
+
+  /** Ingress editor overlay (form-based ingress creation/editing). */
+  ingressEditor: {
+    title: string;
+    name: string;
+    namespace: string;
+    ingressClass: string;
+    invalidNamespace: string;
+    rules: string;
+    host: string;
+    path: string;
+    pathType: string;
+    port: string;
+    serviceName: string;
+    addRule: string;
+    addPath: string;
+    tls: string;
+    tlsHosts: string;
+    secretName: string;
+    addTls: string;
+    annotations: string;
+    addAnnotation: string;
+    basic: string;
+    form: string;
+    yaml: string;
+    dryRun: string;
+    apply: string;
+    applying: string;
+  };
+
+  /** Ingress routes topology overlay. */
+  ingressRoutes: {
+    title: string;
+    close: string;
+    empty: string;
+    col: { ingress: string; service: string };
+    legend: { tls: string; noTls: string };
   };
 }
 

@@ -5,7 +5,7 @@
  * The stream lifecycle lives in useLogStream.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import styles from './LogsTab.module.css';
 import { useStore } from '../../store';
 import { getProvider } from '../../providers';
@@ -226,8 +226,9 @@ export function LogsTab() {
 }
 
 /** A single log line row: timestamp (optional), container tag (in "all" mode),
- *  level column, message. */
-function LogRow({
+ *  level column, message. Memoized: log streams render hundreds of lines and
+ *  only the showTs/showContainer toggles change between renders. */
+const LogRow = React.memo(function LogRow({
   line,
   showTs,
   showContainer,
@@ -251,4 +252,4 @@ function LogRow({
       </span>
     </div>
   );
-}
+});

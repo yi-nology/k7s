@@ -8,7 +8,7 @@
  * the object has never had any.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styles from './EventsTab.module.css';
 import { useStore } from '../../store';
 import { getProvider } from '../../providers';
@@ -41,22 +41,24 @@ export function EventsTab() {
     return () => {
       cancelled = true;
     };
-  }, [row?.uid, row?.namespace, row?.name, kind]);
+  }, [row, kind]);
 
   // Apply the time-range filter client-side: keep events whose last-seen falls in
   // the window. An event with no parseable timestamp is kept (filtering it out
-  // would hide real data behind a serialization quirk). Computed after the
-  // loading guard so the type is non-null where it's used.
-  if (events === null) {
-    return <div className={styles.empty}>{t('events.loading')}</div>;
-  }
-  const visible =
-    eventsSince === 'all'
+  // would hide real data behind a serialization quirk).
+  const visible = useMemo(() => {
+    if (events === null) return null;
+    return eventsSince === 'all'
       ? events
       : events.filter((ev) => {
           const ms = parseEventMs(ev.lastTimestamp);
           return ms === null || eventWithinSince(ms, eventsSince, now);
         });
+  }, [events, eventsSince, now]);
+
+  if (visible === null) {
+    return <div className={styles.empty}>{t('events.loading')}</div>;
+  }
 
   return (
     <div className={styles.list}>

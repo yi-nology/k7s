@@ -20,11 +20,16 @@ export function ImageScanResult({ result, onClose }: ImageScanResultProps) {
 
   const severityBadgeClass = (sev: string): string => {
     switch (sev.toUpperCase()) {
-      case 'CRITICAL': return styles.severityCritical;
-      case 'HIGH': return styles.severityHigh;
-      case 'MEDIUM': return styles.severityMedium;
-      case 'LOW': return styles.severityLow;
-      default: return '';
+      case 'CRITICAL':
+        return styles.severityCritical;
+      case 'HIGH':
+        return styles.severityHigh;
+      case 'MEDIUM':
+        return styles.severityMedium;
+      case 'LOW':
+        return styles.severityLow;
+      default:
+        return '';
     }
   };
 
@@ -33,10 +38,12 @@ export function ImageScanResult({ result, onClose }: ImageScanResultProps) {
   return (
     <div className={styles.scanResult}>
       <div className={styles.scanResultHeader}>
-        <h3 className={styles.scanResultTitle}>
-          {t('image.scan.title', 'Vulnerability Scan')}
-        </h3>
-        <button className={styles.closeBtn} onClick={onClose} title={t('image.scan.close', 'Close')}>
+        <h3 className={styles.scanResultTitle}>{t('image.scan.title', 'Vulnerability Scan')}</h3>
+        <button
+          className={styles.closeBtn}
+          onClick={onClose}
+          title={t('image.scan.close', 'Close')}
+        >
           {t('image.close', 'Close')}
         </button>
       </div>
@@ -45,9 +52,7 @@ export function ImageScanResult({ result, onClose }: ImageScanResultProps) {
       <div className={styles.header}>
         <span className={styles.engineBadge}>{result.engine}</span>
         <span className={styles.target}>{result.target}</span>
-        <span className={styles.scannedAt}>
-          {new Date(result.scannedAt).toLocaleString()}
-        </span>
+        <span className={styles.scannedAt}>{new Date(result.scannedAt).toLocaleString()}</span>
       </div>
 
       {/* Summary cards */}
@@ -72,9 +77,7 @@ export function ImageScanResult({ result, onClose }: ImageScanResultProps) {
 
       {/* Vulnerability table or empty state */}
       {vulnerabilities.length === 0 ? (
-        <div className={styles.empty}>
-          {t('image.scan.noVulns', 'No vulnerabilities found.')}
-        </div>
+        <div className={styles.empty}>{t('image.scan.noVulns', 'No vulnerabilities found.')}</div>
       ) : (
         <table className={styles.vulnTable}>
           <thead>
@@ -98,7 +101,9 @@ export function ImageScanResult({ result, onClose }: ImageScanResultProps) {
                     onClick={() => setExpanded(isExpanded ? null : vuln.id)}
                   >
                     <td>
-                      <span className={`${styles.engineBadge} ${severityBadgeClass(vuln.severity)}`}>
+                      <span
+                        className={`${styles.engineBadge} ${severityBadgeClass(vuln.severity)}`}
+                      >
                         {vuln.severity}
                       </span>
                     </td>

@@ -9,7 +9,7 @@
  * and node drain progress (B20).
  */
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styles from './DetailPanel.module.css';
 import { useStore } from '../../store';
 import { useNow } from '../../hooks/useNow';
@@ -56,7 +56,7 @@ export function DetailPanel() {
   // (deleted by an external actor, not by us), close the panel. Skips the check
   // while the kind's rows are still empty (watch hasn't delivered yet).
   // When multi-tabs are active, the setRows handler cleans up stale tabs instead.
-  const kindRows = rows[nav] ?? [];
+  const kindRows = useMemo(() => rows[nav] ?? [], [rows, nav]);
   const hasMultiTabs = detailTabs.length > 0;
   useEffect(() => {
     if (!row || hasMultiTabs) return;
@@ -94,7 +94,7 @@ export function DetailPanel() {
 
   // data-surface="panel": in light mode the inspector is dark chrome (tokens.css).
   return (
-    <div className={styles.panel} data-surface="panel">
+    <div className={styles.panel} data-surface="panel" role="region" aria-label="Detail panel">
       {/* Multi-tab strip: shows when 2+ resources are open in tabs. */}
       <TabStrip />
       <div className={styles.header}>
@@ -168,7 +168,7 @@ export function DetailPanel() {
           </div>
         )}
 
-        <div className={styles.tabs} role="tablist">
+        <div className={styles.tabs} role="tablist" aria-label="Detail tabs">
           {tabs.map((tt) => (
             /* Tab strip item. Was a <div onClick> before pass-30 — not focusable
                and not announced as a tab. The keyboard `[/]` cycle keys work
@@ -219,9 +219,10 @@ export function DetailPanel() {
 /**
  * Node drain progress (B20): evicted/total, plus the pods that wouldn't go.
  * The judgement about how it reads (a PDB block is not a failure) lives in
- * lib/drain.ts, where it's tested.
+ * lib/drain.ts, where it's tested. Memoized: drain progress updates
+ * infrequently while the rest of the header re-renders on the 30s tick.
  */
-function DrainBanner({
+const DrainBanner = React.memo(function DrainBanner({
   progress,
   t,
 }: {
@@ -250,7 +251,7 @@ function DrainBanner({
       ))}
     </div>
   );
-}
+});
 
 /**
  * Age for the header: format an RFC3339 timestamp (real mode), or fall back to the

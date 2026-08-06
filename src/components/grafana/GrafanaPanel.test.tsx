@@ -12,11 +12,17 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 vi.mock('../../providers', () => ({
   getProvider: () => ({
     grafanaList: vi.fn().mockResolvedValue([
-      { name: 'grafana-main', url: 'https://grafana.example.com', defaultDatasource: 'Prometheus' },
+      {
+        name: 'grafana-main',
+        url: 'https://grafana.example.com',
+        defaultDatasource: 'Prometheus',
+      },
     ]),
-    grafanaPresets: vi.fn().mockResolvedValue([
-      { uid: 'k8s-resources', title: 'K8s Resources', description: 'Cluster resource usage' },
-    ]),
+    grafanaPresets: vi
+      .fn()
+      .mockResolvedValue([
+        { uid: 'k8s-resources', title: 'K8s Resources', description: 'Cluster resource usage' },
+      ]),
     grafanaDashboardUrl: vi.fn().mockResolvedValue('https://grafana.example.com/d/k8s-resources'),
     grafanaUpsert: vi.fn().mockResolvedValue(undefined),
     grafanaTest: vi.fn().mockResolvedValue(undefined),

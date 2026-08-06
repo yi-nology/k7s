@@ -50,10 +50,7 @@ import { MockMetricsMixin } from './mockMetrics';
 import { MockHelmMixin } from './mockHelm';
 import { MockShellMixin } from './mockShell';
 
-export class MockProvider
-  extends MockConnectionMixin
-  implements DataProvider
-{
+export class MockProvider extends MockConnectionMixin implements DataProvider {
   // Mix in the other capabilities
   private resources = new MockResourcesMixin();
   private metrics = new MockMetricsMixin();
@@ -250,29 +247,71 @@ export class MockProvider
 
   // ---- Metrics config (demo: stub). ----
   async getMetricsConfig(): Promise<MetricsConfig> {
-    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:9090',
+      username: '',
+      description: 'Demo Prometheus',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async updateMetricsConfig(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:9090',
+      username: '',
+      description: 'Demo Prometheus',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   // ---- Grafana config (demo: stub). ----
   async getGrafanaConfig(): Promise<GrafanaConfig> {
-    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:3000',
+      username: '',
+      defaultDatasource: '',
+      description: 'Demo Grafana',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async updateGrafanaConfig(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:3000',
+      username: '',
+      defaultDatasource: '',
+      description: 'Demo Grafana',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   // ---- Alerting (demo: stubs). ----
   async getAlertmanager(): Promise<AlertManager> {
-    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:9093',
+      description: 'Demo AlertManager',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async updateAlertmanager(_input: AlertManagerUpsert): Promise<AlertManager> {
-    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:9093',
+      description: 'Demo AlertManager',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async getAlerts(): Promise<Alert[]> {
@@ -378,7 +417,14 @@ export class MockProvider
   }
 
   async metricsUpsert(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:9090',
+      username: '',
+      description: 'Demo Prometheus',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async metricsRemove(_name: string): Promise<void> {}
@@ -404,7 +450,15 @@ export class MockProvider
   }
 
   async grafanaUpsert(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:3000',
+      username: '',
+      defaultDatasource: '',
+      description: 'Demo Grafana',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async grafanaRemove(_name: string): Promise<void> {}
@@ -429,7 +483,13 @@ export class MockProvider
   }
 
   async alertManagerUpsert(_input: AlertManagerUpsert): Promise<AlertManager> {
-    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:9093',
+      description: 'Demo AlertManager',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async alertManagerRemove(_name: string): Promise<void> {}
@@ -444,7 +504,10 @@ export class MockProvider
     return [];
   }
 
-  async alertManagerCreateSilence(_instance: string, _request: CreateSilenceRequest): Promise<string> {
+  async alertManagerCreateSilence(
+    _instance: string,
+    _request: CreateSilenceRequest
+  ): Promise<string> {
     return 'mock-silence-id';
   }
 
@@ -459,7 +522,14 @@ export class MockProvider
   }
 
   async lokiUpsert(_input: LokiUpsert): Promise<LokiConfig> {
-    return { name: 'demo', url: 'http://localhost:3100', username: '', description: 'Demo Loki', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:3100',
+      username: '',
+      description: 'Demo Loki',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async lokiRemove(_name: string): Promise<void> {}
@@ -470,7 +540,10 @@ export class MockProvider
     return [];
   }
 
-  async grafanaSearchDashboards(_name: string, _query: string): Promise<GrafanaDashboardSearchResult[]> {
+  async grafanaSearchDashboards(
+    _name: string,
+    _query: string
+  ): Promise<GrafanaDashboardSearchResult[]> {
     return [];
   }
 
@@ -537,12 +610,29 @@ export class MockProvider
       specVersion: '1.5',
       metadata: { tool: 'mock', toolVersion: '0.1.0', scanDurationMs: 100 },
       components: [
-        { name: 'openssl', version: '3.1.4', componentType: 'library', licenses: ['Apache-2.0'], hashes: [] },
-        { name: 'nginx', version: '1.25.3', componentType: 'application', licenses: ['BSD-2-Clause'], hashes: [] },
+        {
+          name: 'openssl',
+          version: '3.1.4',
+          componentType: 'library',
+          licenses: ['Apache-2.0'],
+          hashes: [],
+        },
+        {
+          name: 'nginx',
+          version: '1.25.3',
+          componentType: 'application',
+          licenses: ['BSD-2-Clause'],
+          hashes: [],
+        },
       ],
       dependencies: [],
       vulnerabilities: [
-        { id: 'CVE-2024-MOCK', severity: 'high', affectedComponents: ['openssl'], fixedVersion: '3.1.5' },
+        {
+          id: 'CVE-2024-MOCK',
+          severity: 'high',
+          affectedComponents: ['openssl'],
+          fixedVersion: '3.1.5',
+        },
       ],
       createdAt: new Date().toISOString(),
     };

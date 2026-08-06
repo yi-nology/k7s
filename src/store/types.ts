@@ -231,6 +231,9 @@ export interface AppState {
   startYamlEdit: (initial: string) => void;
   cancelYaml: () => void;
   setYamlDraft: (text: string) => void;
-  openOverlay: (key: OverlayKey, podRef?: { namespace: string; name: string; container: string | null } | null) => void;
+  openOverlay: (
+    key: OverlayKey,
+    podRef?: { namespace: string; name: string; container: string | null } | null
+  ) => void;
   closeOverlay: () => void;
 }

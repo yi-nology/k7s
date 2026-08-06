@@ -22,8 +22,20 @@ vi.mock('../../providers', () => ({
       },
     ]),
     listEndpointAddresses: vi.fn().mockResolvedValue([
-      { address: '10.0.0.1', ready: true, targetRefKind: 'Pod', targetRefName: 'web-0', nodeName: 'node-1' },
-      { address: '10.0.0.2', ready: true, targetRefKind: 'Pod', targetRefName: 'web-1', nodeName: 'node-2' },
+      {
+        address: '10.0.0.1',
+        ready: true,
+        targetRefKind: 'Pod',
+        targetRefName: 'web-0',
+        nodeName: 'node-1',
+      },
+      {
+        address: '10.0.0.2',
+        ready: true,
+        targetRefKind: 'Pod',
+        targetRefName: 'web-1',
+        nodeName: 'node-2',
+      },
     ]),
   }),
 }));

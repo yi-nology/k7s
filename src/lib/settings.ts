@@ -11,6 +11,7 @@
 
 import { asTheme, type Theme } from './theme';
 import { asLocale, type Locale } from './i18n';
+import { isValidImageRef } from './security';
 
 /** Everything the settings panel controls. */
 export interface Settings {
@@ -92,6 +93,15 @@ function clampNumber(value: unknown, min: number, max: number, fallback: number)
   return Math.min(max, Math.max(min, Math.round(n)));
 }
 
+/** Sanitize node shell image: validate format if non-empty, trim whitespace. */
+function sanitizeNodeShellImage(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === '') return '';
+  // Use image reference validation to catch obviously invalid/dangerous inputs
+  if (!isValidImageRef(trimmed)) return '';
+  return trimmed;
+}
+
 /**
  * Coerce anything (persisted prefs from an older version, a half-typed field)
  * into usable settings. Every field falls back to its default independently, so
@@ -127,6 +137,7 @@ export function sanitizeSettings(raw: SettingsInput | null | undefined): Setting
     // nearest valid value, so it falls back to the default outright.
     theme: asTheme(s.theme),
     language: asLocale(s.language),
-    nodeShellImage: typeof s.nodeShellImage === 'string' ? s.nodeShellImage.trim() : '',
+    nodeShellImage:
+      typeof s.nodeShellImage === 'string' ? sanitizeNodeShellImage(s.nodeShellImage) : '',
   };
 }

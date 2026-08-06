@@ -15,7 +15,7 @@
  * ReplicaSets; StatefulSet/DaemonSet keep ControllerRevisions), but the backend
  * collapses them to one `Revision` shape so this component is kind-agnostic.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../../store';
 import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
@@ -33,7 +33,10 @@ export function RevisionsTab() {
   const [editing, setEditing] = useState(false);
   const [rollingBack, setRollingBack] = useState<number | null>(null);
 
-  const ref = row ? { kind, namespace: row.namespace, name: row.name } : null;
+  const ref = useMemo(
+    () => (row ? { kind, namespace: row.namespace, name: row.name } : null),
+    [kind, row]
+  );
 
   const load = useCallback(() => {
     if (!ref) return;
@@ -54,7 +57,7 @@ export function RevisionsTab() {
     return () => {
       cancelled = true;
     };
-  }, [ref?.kind, ref?.namespace, ref?.name]);
+  }, [ref]);
 
   useEffect(() => {
     return load();

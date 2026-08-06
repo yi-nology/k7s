@@ -43,7 +43,12 @@ export const LOCALE_LABELS: Record<Locale, string> = {
  */
 export const LOCALE_STORAGE_KEY = 'k7s.locale';
 
-/** Narrow arbitrary persisted junk to a Locale, defaulting to English. */
+/**
+ * Narrow arbitrary persisted junk to a Locale, defaulting to English.
+ *
+ * @param value - Any value (typically from persisted prefs or a form field).
+ * @returns A valid {@link Locale}, or "en" for unrecognised input.
+ */
 export function asLocale(value: unknown): Locale {
   return LOCALES.includes(value as Locale) ? (value as Locale) : 'en';
 }
@@ -204,25 +209,49 @@ const TAB_LABELS_ZH: Record<DetailTabId, string> = {
   timeline: '时间线',
 };
 
-/** Translated group header (or English on en/unknown). */
+/**
+ * Translated group header (or English on en/unknown).
+ *
+ * @param group - The navigation group (e.g. "workloads", "network").
+ * @param locale - The active locale.
+ * @returns Localised group label for the sidebar section header.
+ */
 export function groupLabel(group: NavGroup, locale: Locale): string {
   if (locale === 'zh') return GROUP_LABELS_ZH[group];
   return EN_GROUP_LABELS[group];
 }
 
-/** Translated kind label for built-in kinds. Custom kinds should use kindMeta(). */
+/**
+ * Translated kind label for built-in kinds. Custom kinds should use {@link kindLabelFor}.
+ *
+ * @param kind - The built-in resource kind.
+ * @param locale - The active locale.
+ * @returns Localised kind label (e.g. "Pod" in Chinese, "Pods" in English).
+ */
 export function kindLabel(kind: ResourceKind, locale: Locale): string {
   if (locale === 'zh') return KIND_LABELS_ZH[kind];
   return EN_KIND_META[kind].label;
 }
 
-/** Translated detail-tab label, falling back to the English registry. */
+/**
+ * Translated detail-tab label, falling back to the English registry.
+ *
+ * @param tab - The detail tab id (e.g. "logs", "yaml", "events").
+ * @param locale - The active locale.
+ * @returns Localised tab label.
+ */
 export function tabLabel(tab: DetailTabId, locale: Locale): string {
   if (locale === 'zh') return TAB_LABELS_ZH[tab];
   return EN_DETAIL_TABS.find((t) => t.id === tab)?.label ?? tab;
 }
 
-/** Localised kind meta (label only — columns stay English by design). */
+/**
+ * Localised kind meta (label only — columns stay English by design).
+ *
+ * @param kind - The built-in resource kind.
+ * @param locale - The active locale.
+ * @returns A {@link KindMeta} with the label translated for the locale.
+ */
 export function localizedKindMeta(kind: ResourceKind, locale: Locale): KindMeta {
   const base = EN_KIND_META[kind];
   if (locale === 'zh') {

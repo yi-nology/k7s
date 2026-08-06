@@ -176,8 +176,7 @@ function makeQueries(container: HTMLElement): RenderResult {
 // ---------------------------------------------------------------------------
 
 function findByText(root: HTMLElement, text: string | RegExp): HTMLElement | null {
-  const match = (s: string) =>
-    typeof text === 'string' ? s === text : text.test(s);
+  const match = (s: string) => (typeof text === 'string' ? s === text : text.test(s));
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) {
     const node = walker.currentNode;

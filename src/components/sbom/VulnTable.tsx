@@ -19,10 +19,25 @@ export function VulnTable({ vulns }: Props) {
       <h3 style={{ fontSize: 14, marginBottom: 8 }}>
         {t('sbom.vulns.title', 'Vulnerabilities')} ({vulns.length})
       </h3>
-      <div style={{ maxHeight: 200, overflow: 'auto', border: '1px solid var(--border)', borderRadius: 4 }}>
+      <div
+        style={{
+          maxHeight: 200,
+          overflow: 'auto',
+          border: '1px solid var(--border)',
+          borderRadius: 4,
+        }}
+      >
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, background: 'var(--bg-chrome)' }}>
+            <tr
+              style={{
+                textAlign: 'left',
+                borderBottom: '1px solid var(--border)',
+                position: 'sticky',
+                top: 0,
+                background: 'var(--bg-chrome)',
+              }}
+            >
               <th style={{ padding: '6px 12px' }}>{t('sbom.vulns.id', 'ID')}</th>
               <th style={{ padding: '6px 12px' }}>{t('sbom.vulns.severity', 'Severity')}</th>
               <th style={{ padding: '6px 12px' }}>{t('sbom.vulns.component', 'Component')}</th>

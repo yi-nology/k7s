@@ -97,9 +97,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
     [jumpTo, onClose]
   );
 
-  const lastScanTime = report?.scannedAt
-    ? new Date(report.scannedAt).toLocaleString()
-    : null;
+  const lastScanTime = report?.scannedAt ? new Date(report.scannedAt).toLocaleString() : null;
 
   return (
     <div className={styles.panel}>
@@ -111,14 +109,8 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
               {t('security.lastScan', 'Last scan')}: {lastScanTime}
             </span>
           )}
-          <button
-            className={styles.btnPrimary}
-            onClick={handleRunAudit}
-            disabled={loading}
-          >
-            {loading
-              ? t('security.running', 'Scanning…')
-              : t('security.run', 'Run Audit')}
+          <button className={styles.btnPrimary} onClick={handleRunAudit} disabled={loading}>
+            {loading ? t('security.running', 'Scanning…') : t('security.run', 'Run Audit')}
           </button>
           {onClose && (
             <button className={styles.btn} onClick={onClose}>
@@ -130,9 +122,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.body}>
         <aside className={styles.side}>
-          <div className={styles.sideTitle}>
-            {t('security.filters', 'Filters')}
-          </div>
+          <div className={styles.sideTitle}>{t('security.filters', 'Filters')}</div>
           <div
             className={`${styles.severityFilter} ${severityFilter === 'All' ? styles.severityFilterActive : ''}`}
             onClick={() => setSeverityFilter('All')}
@@ -149,9 +139,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
               onClick={() => setSeverityFilter(sev)}
             >
               <span>{sev}</span>
-              <span className={`${styles.severityBadge} ${severityClass(sev)}`}>
-                {counts[sev]}
-              </span>
+              <span className={`${styles.severityBadge} ${severityClass(sev)}`}>{counts[sev]}</span>
             </div>
           ))}
         </aside>
@@ -163,7 +151,10 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
           )}
           {!loading && !report && (
             <div className={styles.empty}>
-              {t('security.emptyStart', 'Click "Run Audit" to scan RBAC resources for security issues.')}
+              {t(
+                'security.emptyStart',
+                'Click "Run Audit" to scan RBAC resources for security issues.'
+              )}
             </div>
           )}
           {!loading && report && filtered.length === 0 && (

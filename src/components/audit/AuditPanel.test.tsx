@@ -11,9 +11,7 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 // Mock the provider.
 vi.mock('../../providers', () => ({
   getProvider: () => ({
-    lokiList: vi.fn().mockResolvedValue([
-      { name: 'loki-main', url: 'http://loki:3100' },
-    ]),
+    lokiList: vi.fn().mockResolvedValue([{ name: 'loki-main', url: 'http://loki:3100' }]),
     lokiUpsert: vi.fn().mockResolvedValue(undefined),
     lokiRemove: vi.fn().mockResolvedValue(undefined),
     auditEvents: vi.fn().mockResolvedValue([

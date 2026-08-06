@@ -39,7 +39,8 @@ function demoMockCharts(): HelmChartSummary[] {
       name: 'nginx',
       version: '1.25.3',
       appVersion: '1.25.3',
-      description: 'NGINX Open Source is a web server that can be also used as a reverse proxy, load balancer, and HTTP cache.',
+      description:
+        'NGINX Open Source is a web server that can be also used as a reverse proxy, load balancer, and HTTP cache.',
       keywords: ['nginx', 'web', 'server'],
       home: 'https://nginx.org',
       maintainers: [],

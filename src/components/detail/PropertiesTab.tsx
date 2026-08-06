@@ -10,7 +10,7 @@
  * Fetched in one backend call on open / selection change.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './PropertiesTab.module.css';
 import { useStore } from '../../store';
 import { getProvider } from '../../providers';
@@ -74,7 +74,7 @@ export function PropertiesTab() {
     return () => {
       cancelled = true;
     };
-  }, [row?.uid, row?.namespace, row?.name, kind]);
+  }, [row, kind]);
 
   // Fetch decoded secret data on first toggle.
   const handleToggleSecrets = useCallback(() => {
@@ -318,9 +318,16 @@ function SectionView({
 /**
  * A reference to another object, rendered as a click-through link (B33, B40).
  * Inherits the surrounding colour so a linked status keeps its tone; the
- * underline is what marks it navigable.
+ * underline is what marks it navigable. Memoized: used inside table rows that
+ * re-render on the 30s age tick.
  */
-function NavLink({ target, children }: { target: NavTarget; children: React.ReactNode }) {
+const NavLink = React.memo(function NavLink({
+  target,
+  children,
+}: {
+  target: NavTarget;
+  children: React.ReactNode;
+}) {
   const navigateTo = useStore((s) => s.navigateTo);
   const { t } = useTranslation();
   return (
@@ -333,11 +340,12 @@ function NavLink({ target, children }: { target: NavTarget; children: React.Reac
       {children}
     </button>
   );
-}
+});
 
 /** One key/value row in a field grid. A field with a nav target (B33) renders as
- * a click-through link (e.g. a pod's owner → its Deployment). */
-function FieldRow({ field, now }: { field: Field; now: number }) {
+ * a click-through link (e.g. a pod's owner → its Deployment). Memoized: the
+ * properties grid can have dozens of rows that only change on selection change. */
+const FieldRow = React.memo(function FieldRow({ field, now }: { field: Field; now: number }) {
   const { label, value, nav } = field;
   const color = toneColor(value.tone);
   return (
@@ -348,7 +356,7 @@ function FieldRow({ field, now }: { field: Field; now: number }) {
       </span>
     </>
   );
-}
+});
 
 /** Cell text, formatting age cells like the resource tables do. */
 function cellText(cell: Cell, now: number): string {

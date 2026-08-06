@@ -11,9 +11,11 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 // Mock the provider.
 vi.mock('../../providers', () => ({
   getProvider: () => ({
-    imageRegistryList: vi.fn().mockResolvedValue([
-      { name: 'harbor', url: 'https://harbor.example.com', description: 'Test registry' },
-    ]),
+    imageRegistryList: vi
+      .fn()
+      .mockResolvedValue([
+        { name: 'harbor', url: 'https://harbor.example.com', description: 'Test registry' },
+      ]),
     imageRegistryRepos: vi.fn().mockResolvedValue([]),
     imageRegistryTags: vi.fn().mockResolvedValue([]),
     imageRegistryManifest: vi.fn().mockResolvedValue(null),

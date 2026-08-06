@@ -904,7 +904,9 @@ export class TauriProvider implements DataProvider {
     return invoke('sbom_generate_image', { image_ref: imageRef, format });
   }
 
-  sbomGenerateCluster(format: import('../types/sbom').SbomFormat): Promise<import('../types/sbom').SbomResult> {
+  sbomGenerateCluster(
+    format: import('../types/sbom').SbomFormat
+  ): Promise<import('../types/sbom').SbomResult> {
     return invoke('sbom_generate_cluster', { format });
   }
 

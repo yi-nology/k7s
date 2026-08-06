@@ -17,11 +17,7 @@ import type {
   Unsub,
 } from '../types';
 import { KIND_ORDER } from '../../lib/kinds';
-import {
-  MOCK_CUSTOM_KINDS,
-  buildCustomRows,
-  buildKindRows,
-} from './data';
+import { MOCK_CUSTOM_KINDS, buildCustomRows, buildKindRows } from './data';
 import { eventsForPodName } from './events';
 import { mockProperties } from './properties';
 import { yamlForPodName, yamlForGeneric } from './yaml';

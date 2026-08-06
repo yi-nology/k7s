@@ -7,12 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { NodeShellTab } from './NodeShellTab';
-import {
-  render,
-  cleanup,
-  createMockRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 
 // Mock useTerminal.
 vi.mock('./useTerminal', () => ({

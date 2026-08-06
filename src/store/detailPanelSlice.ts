@@ -280,8 +280,7 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
       tableFilter: selector,
     })),
   setLogSearch: (q) => set({ logSearch: q }),
-  cycleContainer: () =>
-    set((s) => ({ containerIndex: s.containerIndex + 1, logBuffer: [] })),
+  cycleContainer: () => set((s) => ({ containerIndex: s.containerIndex + 1, logBuffer: [] })),
   toggleTimestamps: () => set((s) => ({ showTimestamps: !s.showTimestamps })),
   toggleFollow: () => set((s) => ({ following: !s.following })),
   setFollowing: (value) => set({ following: value }),

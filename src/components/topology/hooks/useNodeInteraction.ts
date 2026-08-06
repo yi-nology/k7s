@@ -8,6 +8,22 @@ import type { GraphNode, GraphLink } from '../types';
 import { TOOLTIP_OFFSET } from '../constants';
 import { useStore } from '../../../store';
 
+/**
+ * Manages all node interaction state for the topology graph: drag, click,
+ * double-click (navigate), hover tooltips, and context menus.
+ *
+ * @param containerRef - Ref to the graph container div (for coordinate conversion).
+ * @param simRef - Ref to the d3-force simulation (for drag alpha control).
+ * @param nodeMapRef - Ref to the node lookup map (for resolving drag targets).
+ * @param viewTransform - Current zoom/pan transform (for screen-to-graph conversion).
+ * @returns Interaction state and event handlers to spread onto nodes and the canvas.
+ *
+ * @example
+ * ```tsx
+ * const interaction = useNodeInteraction(containerRef, simRef, nodeMapRef, viewTransform);
+ * // <circle onClick={(e) => interaction.handleNodeClick(node, e)} />
+ * ```
+ */
 export function useNodeInteraction(
   containerRef: React.RefObject<HTMLDivElement | null>,
   simRef: React.RefObject<Simulation<GraphNode, GraphLink> | null>,
@@ -60,32 +76,38 @@ export function useNodeInteraction(
   );
 
   // Node drag handlers.
-  const handleNodeDragStart = useCallback((node: GraphNode, e: ReactMouseEvent) => {
-    e.stopPropagation();
-    const sim = simRef.current;
-    if (sim) sim.alphaTarget(0.3).restart();
-    nodeDragRef.current = { active: true, nodeId: node.id };
-    node.fx = node.x ?? null;
-    node.fy = node.y ?? null;
-    setDragging(true);
-  }, [simRef]);
+  const handleNodeDragStart = useCallback(
+    (node: GraphNode, e: ReactMouseEvent) => {
+      e.stopPropagation();
+      const sim = simRef.current;
+      if (sim) sim.alphaTarget(0.3).restart();
+      nodeDragRef.current = { active: true, nodeId: node.id };
+      node.fx = node.x ?? null;
+      node.fy = node.y ?? null;
+      setDragging(true);
+    },
+    [simRef]
+  );
 
-  const handleNodeDragMove = useCallback((e: ReactMouseEvent) => {
-    if (!nodeDragRef.current?.active) return false;
-    const el = containerRef.current;
-    if (!el) return false;
-    const rect = el.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const graphX = (mx - viewTransform.x) / viewTransform.k;
-    const graphY = (my - viewTransform.y) / viewTransform.k;
-    const node = nodeMapRef.current.get(nodeDragRef.current.nodeId);
-    if (node) {
-      node.fx = graphX;
-      node.fy = graphY;
-    }
-    return true;
-  }, [containerRef, nodeMapRef, viewTransform]);
+  const handleNodeDragMove = useCallback(
+    (e: ReactMouseEvent) => {
+      if (!nodeDragRef.current?.active) return false;
+      const el = containerRef.current;
+      if (!el) return false;
+      const rect = el.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const graphX = (mx - viewTransform.x) / viewTransform.k;
+      const graphY = (my - viewTransform.y) / viewTransform.k;
+      const node = nodeMapRef.current.get(nodeDragRef.current.nodeId);
+      if (node) {
+        node.fx = graphX;
+        node.fy = graphY;
+      }
+      return true;
+    },
+    [containerRef, nodeMapRef, viewTransform]
+  );
 
   const handleNodeDragEnd = useCallback(() => {
     if (!nodeDragRef.current?.active) return;
@@ -114,45 +136,54 @@ export function useNodeInteraction(
     [handleNavigate]
   );
 
-  const handleNodeContextMenu = useCallback((node: GraphNode, e: ReactMouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const container = containerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    setContextMenu({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-      node,
-    });
-  }, [containerRef]);
+  const handleNodeContextMenu = useCallback(
+    (node: GraphNode, e: ReactMouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      setContextMenu({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+        node,
+      });
+    },
+    [containerRef]
+  );
 
-  const handleNodeMouseEnter = useCallback((node: GraphNode, e: ReactMouseEvent) => {
-    setHover(node.id);
-    const container = containerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    setTooltip({
-      x: e.clientX - rect.left + TOOLTIP_OFFSET,
-      y: e.clientY - rect.top - TOOLTIP_OFFSET,
-      node,
-    });
-  }, [containerRef]);
+  const handleNodeMouseEnter = useCallback(
+    (node: GraphNode, e: ReactMouseEvent) => {
+      setHover(node.id);
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      setTooltip({
+        x: e.clientX - rect.left + TOOLTIP_OFFSET,
+        y: e.clientY - rect.top - TOOLTIP_OFFSET,
+        node,
+      });
+    },
+    [containerRef]
+  );
 
-  const handleNodeMouseMove = useCallback((node: GraphNode, e: ReactMouseEvent) => {
-    const container = containerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-    setTooltip((prev) =>
-      prev && prev.node.id === node.id
-        ? {
-            ...prev,
-            x: e.clientX - rect.left + TOOLTIP_OFFSET,
-            y: e.clientY - rect.top - TOOLTIP_OFFSET,
-          }
-        : prev
-    );
-  }, [containerRef]);
+  const handleNodeMouseMove = useCallback(
+    (node: GraphNode, e: ReactMouseEvent) => {
+      const container = containerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      setTooltip((prev) =>
+        prev && prev.node.id === node.id
+          ? {
+              ...prev,
+              x: e.clientX - rect.left + TOOLTIP_OFFSET,
+              y: e.clientY - rect.top - TOOLTIP_OFFSET,
+            }
+          : prev
+      );
+    },
+    [containerRef]
+  );
 
   const handleNodeMouseLeave = useCallback(() => {
     setHover(null);

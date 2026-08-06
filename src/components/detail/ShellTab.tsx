@@ -90,7 +90,7 @@ export function ShellTab() {
       handle?.stop();
       sessionRef.current = null;
     };
-  }, [pod?.uid, container, attempt]);
+  }, [pod, container, attempt, termRef, sessionRef, t]);
 
   /** Start a fresh session in the same terminal, marking the break in scrollback. */
   const reconnect = () => {

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getProvider } from '../../providers';
 import type { PodFileEntry, ResourceRef } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { sanitizePath, safePathJoin } from '../../lib/security';
 import styles from './PodFilesPanel.module.css';
 
 export function PodFilesPanel({
@@ -52,7 +53,7 @@ export function PodFilesPanel({
     return () => {
       cancelled = true;
     };
-  }, [ref.namespace, ref.name, container, path]);
+  }, [ref, container, path]);
 
   // When a file is selected, load its contents.
   useEffect(() => {
@@ -74,7 +75,7 @@ export function PodFilesPanel({
     return () => {
       cancelled = true;
     };
-  }, [selected, ref.namespace, ref.name, container, path]);
+  }, [selected, ref, container, path]);
 
   const navigateInto = useCallback((name: string) => setPath((p) => joinPath(p, name)), []);
   const navigateUp = useCallback(() => setPath((p) => parentPath(p)), []);
@@ -88,7 +89,7 @@ export function PodFilesPanel({
     } catch (e) {
       setError(String(e));
     }
-  }, [selected, ref.namespace, ref.name, container, path, content]);
+  }, [selected, ref, container, path, content]);
 
   const breadcrumbs = useMemo(() => path.split('/').filter(Boolean), [path]);
 
@@ -224,12 +225,16 @@ function humanSize(n: number): string {
 }
 
 function joinPath(a: string, b: string): string {
-  if (a.endsWith('/')) return a + b;
-  return a + '/' + b;
+  const result = safePathJoin(a, b);
+  // Fallback for safety — should never happen with validated inputs
+  if (result === null) return a;
+  return result;
 }
 
 function parentPath(p: string): string {
-  const parts = p.split('/').filter(Boolean);
+  const sanitized = sanitizePath(p);
+  if (sanitized === null || sanitized === '/') return '/';
+  const parts = sanitized.split('/').filter(Boolean);
   parts.pop();
   return '/' + parts.join('/');
 }

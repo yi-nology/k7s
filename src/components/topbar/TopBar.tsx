@@ -9,7 +9,7 @@
  * same control in case the user is in a flow that already has the panel open.
  */
 
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import styles from './TopBar.module.css';
 import { useStore, type OverlayKey } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
@@ -84,6 +84,14 @@ export function TopBar() {
     return ['all', ...names];
   }, [nsRows]);
 
+  const handleLangPick = useCallback(
+    (l: Locale) => {
+      closeMenus();
+      setSettings({ language: l });
+    },
+    [closeMenus, setSettings]
+  );
+
   return (
     <div className={styles.topbar}>
       <div className={styles.breadcrumb}>
@@ -126,14 +134,7 @@ export function TopBar() {
       {/* Language switcher: the current locale's short code, with a dropdown of
           every supported language on click. Lives next to the namespace picker
           because both are "set the working context" controls. */}
-      <LanguageSwitcher
-        ref={langRef}
-        current={locale}
-        onPick={(l) => {
-          closeMenus();
-          setSettings({ language: l });
-        }}
-      />
+      <LanguageSwitcher ref={langRef} current={locale} onPick={handleLangPick} />
 
       <div className={styles.nsWrap} ref={nsRef}>
         <button type="button" className={styles.nsButton} onClick={() => toggleMenu('ns')}>

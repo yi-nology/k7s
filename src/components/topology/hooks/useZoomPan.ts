@@ -2,7 +2,14 @@
  * Hook for zoom and pan interactions.
  */
 
-import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type WheelEvent as ReactWheelEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type WheelEvent as ReactWheelEvent,
+} from 'react';
 import { clamp, MIN_ZOOM, MAX_ZOOM, MINIMAP_SIZE } from '../constants';
 
 interface ViewTransform {
@@ -18,7 +25,27 @@ interface GraphBounds {
   maxY: number;
 }
 
-export function useZoomPan(containerRef: React.RefObject<HTMLDivElement | null>, graphBounds: GraphBounds) {
+/**
+ * Manages zoom and pan state for the topology graph canvas.
+ *
+ * Handles wheel zoom (cursor-centered), click-drag pan, zoom buttons
+ * (+/-/fit), minimap click-to-navigate, and auto-fit on first render.
+ * Tracks container size via ResizeObserver.
+ *
+ * @param containerRef - Ref to the graph container div.
+ * @param graphBounds - Bounding box of all graph nodes (for fit-to-graph).
+ * @returns View transform, container size, and event handlers for the canvas.
+ *
+ * @example
+ * ```tsx
+ * const { viewTransform, handleWheel, startPan } = useZoomPan(containerRef, bounds);
+ * // <div onWheel={handleWheel} onMouseDown={startPan}>...</div>
+ * ```
+ */
+export function useZoomPan(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  graphBounds: GraphBounds
+) {
   const [viewTransform, setViewTransform] = useState<ViewTransform>({ k: 1, x: 0, y: 0 });
   const [containerSize, setContainerSize] = useState({ w: 800, h: 500 });
   const panRef = useRef<{
@@ -67,33 +94,39 @@ export function useZoomPan(containerRef: React.RefObject<HTMLDivElement | null>,
   }, [containerRef, graphBounds]);
 
   // Zoom/pan handlers.
-  const handleWheel = useCallback((e: ReactWheelEvent) => {
-    e.preventDefault();
-    const factor = e.deltaY > 0 ? 0.9 : 1.1;
-    setViewTransform((v) => {
-      const el = containerRef.current;
-      if (!el) return v;
-      const rect = el.getBoundingClientRect();
-      const newK = clamp(v.k * factor, MIN_ZOOM, MAX_ZOOM);
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const graphX = (mx - v.x) / v.k;
-      const graphY = (my - v.y) / v.k;
-      const newX = mx - graphX * newK;
-      const newY = my - graphY * newK;
-      return { k: newK, x: newX, y: newY };
-    });
-  }, [containerRef]);
+  const handleWheel = useCallback(
+    (e: ReactWheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      setViewTransform((v) => {
+        const el = containerRef.current;
+        if (!el) return v;
+        const rect = el.getBoundingClientRect();
+        const newK = clamp(v.k * factor, MIN_ZOOM, MAX_ZOOM);
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const graphX = (mx - v.x) / v.k;
+        const graphY = (my - v.y) / v.k;
+        const newX = mx - graphX * newK;
+        const newY = my - graphY * newK;
+        return { k: newK, x: newX, y: newY };
+      });
+    },
+    [containerRef]
+  );
 
-  const startPan = useCallback((e: ReactMouseEvent) => {
-    panRef.current = {
-      active: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: viewTransform.x,
-      origY: viewTransform.y,
-    };
-  }, [viewTransform.x, viewTransform.y]);
+  const startPan = useCallback(
+    (e: ReactMouseEvent) => {
+      panRef.current = {
+        active: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        origX: viewTransform.x,
+        origY: viewTransform.y,
+      };
+    },
+    [viewTransform.x, viewTransform.y]
+  );
 
   const handlePanMove = useCallback((e: ReactMouseEvent): boolean => {
     if (!panRef.current.active) return false;

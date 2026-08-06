@@ -78,14 +78,17 @@ export class PluginAPIImpl implements PluginAPI {
 }
 
 // Accessors for the UI layer to read runtime-registered extensions.
+/** Get all runtime-registered sidebar items from plugins. */
 export function getPluginSidebarItems(): SidebarItemDef[] {
   return _sidebarItems;
 }
 
+/** Get all runtime-registered detail tabs from plugins. */
 export function getPluginDetailTabs(): DetailTabDef[] {
   return _detailTabs;
 }
 
+/** Get all runtime-registered dashboard cards from plugins. */
 export function getPluginDashboardCards(): DashboardCardDef[] {
   return _dashboardCards;
 }

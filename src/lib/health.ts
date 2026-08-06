@@ -216,7 +216,12 @@ export function calculateHealth(
   return { score, grade, checks };
 }
 
-/** Map a grade to a CSS color variable. */
+/**
+ * Map a health grade to a CSS color variable.
+ *
+ * @param grade - The letter grade (A-F).
+ * @returns A CSS `var(...)` string for the corresponding status color.
+ */
 export function gradeColor(grade: HealthScore['grade']): string {
   switch (grade) {
     case 'A':

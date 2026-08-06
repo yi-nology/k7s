@@ -115,6 +115,16 @@ const MAX_ACTIONS = 20;
  * `ns:prod wiki` → search "wiki" within prod. The scope is only recognised at
  * the start: a bare "ns:" mid-query is far more likely to be someone typing a
  * name than reaching for a filter.
+ *
+ * @param raw - The raw query string from the palette input.
+ * @returns A {@link ParsedQuery} with optional namespace and the remaining text.
+ *
+ * @example
+ * ```ts
+ * parseQuery("ns:prod wiki");  // { namespace: "prod", text: "wiki" }
+ * parseQuery("wiki");           // { text: "wiki" }
+ * parseQuery("ns:");            // { text: "" }
+ * ```
  */
 export function parseQuery(raw: string): ParsedQuery {
   const m = /^ns:(\S*)\s*(.*)$/s.exec(raw.trimStart());
@@ -125,7 +135,22 @@ export function parseQuery(raw: string): ParsedQuery {
   return namespace === '' ? { text: text.trim() } : { namespace, text: text.trim() };
 }
 
-/** Build the ranked result list for a query. */
+/**
+ * Build the ranked result list for a query.
+ *
+ * Combines kind, object, and action candidates into a single list sorted by
+ * fuzzy match score. Objects are only listed once the query is non-empty.
+ *
+ * @param raw - The raw query string (may include `ns:` prefix).
+ * @param ctx - Store snapshot providing rows, custom kinds, nav state, and locale.
+ * @returns A merged, score-sorted list of {@link PaletteItem} results.
+ *
+ * @example
+ * ```ts
+ * const items = buildPalette("wiki", { rows, customKinds: [], nav: "pods", selectedRow: null });
+ * // items[0] might be { type: "object", label: "wiki-6b6d775f4-djpwx", ... }
+ * ```
+ */
 export function buildPalette(raw: string, ctx: PaletteContext): PaletteItem[] {
   const { namespace, text } = parseQuery(raw);
 

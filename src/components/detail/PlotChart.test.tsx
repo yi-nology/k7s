@@ -73,13 +73,7 @@ describe('Plot', () => {
     });
 
     it('accepts layoutExtra prop', () => {
-      view = render(
-        <Plot
-          title="Test"
-          data={[]}
-          layoutExtra={{ yaxis: { range: [0, 100] } }}
-        />
-      );
+      view = render(<Plot title="Test" data={[]} layoutExtra={{ yaxis: { range: [0, 100] } }} />);
       expect(view.container.firstChild).not.toBeNull();
     });
   });

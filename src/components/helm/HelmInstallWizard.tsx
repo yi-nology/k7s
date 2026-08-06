@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getProvider } from '../../providers';
 import type { HelmChartSummary, HelmChartVersionEntry, HelmOpResult } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { isValidHelmReleaseName, isValidNamespace, isSafeHelmValues } from '../../lib/security';
 import styles from './HelmMarket.module.css';
 
 type Step = 'version' | 'values' | 'review';
@@ -90,6 +91,47 @@ export function HelmInstallWizard({
   }, [logs]);
 
   const doInstall = async () => {
+    // Validate inputs before proceeding
+    if (!isValidHelmReleaseName(releaseName)) {
+      setResult({
+        op: 'install',
+        release: releaseName,
+        namespace,
+        success: false,
+        lines: 0,
+        summary: t(
+          'helm.wizard.invalidReleaseName',
+          'Invalid release name: must be lowercase alphanumeric with hyphens, max 63 chars'
+        ),
+      });
+      return;
+    }
+    if (!isValidNamespace(namespace)) {
+      setResult({
+        op: 'install',
+        release: releaseName,
+        namespace,
+        success: false,
+        lines: 0,
+        summary: t('helm.wizard.invalidNamespace', 'Invalid namespace name'),
+      });
+      return;
+    }
+    if (!isSafeHelmValues(values)) {
+      setResult({
+        op: 'install',
+        release: releaseName,
+        namespace,
+        success: false,
+        lines: 0,
+        summary: t(
+          'helm.wizard.unsafeValues',
+          'Values contain potentially unsafe content (template injection or command substitution)'
+        ),
+      });
+      return;
+    }
+
     setRunning(true);
     setResult(null);
     setLogs([]);

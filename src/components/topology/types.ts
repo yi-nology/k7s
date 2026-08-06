@@ -4,8 +4,10 @@
 
 import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force';
 
+/** The four node types rendered in the topology graph. */
 export type NodeKind = 'service' | 'endpoint' | 'pod' | 'ingress';
 
+/** A node in the topology graph, extended with d3-force simulation fields. */
 export interface GraphNode extends SimulationNodeDatum {
   id: string;
   kind: NodeKind;
@@ -18,11 +20,13 @@ export interface GraphNode extends SimulationNodeDatum {
   _dimmed?: boolean;
 }
 
+/** An edge between two nodes in the topology graph. */
 export interface GraphLink extends SimulationLinkDatum<GraphNode> {
   source: string | GraphNode;
   target: string | GraphNode;
 }
 
+/** The complete graph data structure returned by {@link buildGraph}. */
 export interface ClusterGraph {
   nodes: GraphNode[];
   links: GraphLink[];

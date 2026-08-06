@@ -9,12 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { useStore } from '../../store';
 import { PropertiesTab } from './PropertiesTab';
-import {
-  render,
-  cleanup,
-  createMockPodRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockPodRow, type RenderResult } from '../../test/componentUtils';
 import type { Properties } from '../../providers/types';
 
 // Mock the provider module.

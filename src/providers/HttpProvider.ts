@@ -877,7 +877,9 @@ export class HttpProvider implements DataProvider {
     return httpInvoke('sbom_generate_image', { image_ref: imageRef, format });
   }
 
-  async sbomGenerateCluster(format: import('./types/sbom').SbomFormat): Promise<import('./types/sbom').SbomResult> {
+  async sbomGenerateCluster(
+    format: import('./types/sbom').SbomFormat
+  ): Promise<import('./types/sbom').SbomResult> {
     return httpInvoke('sbom_generate_cluster', { format });
   }
 

@@ -24,6 +24,7 @@ import { useEffect, useState } from 'react';
 import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { extractContainerImages, rewriteContainerImage } from '../../lib/imageUpgrade';
+import { isValidImageRef } from '../../lib/security';
 import type { ResourceRef } from '../../providers/types';
 import styles from './ModifyImageForm.module.css';
 
@@ -55,8 +56,13 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
   useEffect(() => {
     let cancelled = false;
     setFetchError(null);
+    const effectRef: ResourceRef = {
+      kind: resourceRef.kind,
+      namespace: resourceRef.namespace,
+      name: resourceRef.name,
+    };
     void getProvider()
-      .getYaml(resourceRef)
+      .getYaml(effectRef)
       .then((yaml) => {
         if (cancelled) return;
         const containers = extractContainerImages(yaml);
@@ -79,7 +85,7 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
     return () => {
       cancelled = true;
     };
-  }, [resourceRef.kind, resourceRef.namespace, resourceRef.name]);
+  }, [resourceRef.kind, resourceRef.namespace, resourceRef.name, t]);
 
   const apply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +107,16 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
           // The form's required attribute already blocks this, but
           // the trim catches pasted whitespace.
           onError(t('actions.modifyImage.empty', 'image must not be empty'));
+          return;
+        }
+        // Validate image reference format to prevent injection
+        if (!isValidImageRef(newImage)) {
+          onError(
+            t(
+              'actions.modifyImage.invalidImage',
+              'invalid image reference: contains disallowed characters'
+            )
+          );
           return;
         }
         next = rewriteContainerImage(next, name, newImage);

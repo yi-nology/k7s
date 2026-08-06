@@ -12,8 +12,12 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 // Mock CodeMirror modules to avoid heavy dependencies.
 vi.mock('@codemirror/state', () => ({
   Compartment: class {
-    of() { return []; }
-    reconfigure() { return []; }
+    of() {
+      return [];
+    }
+    reconfigure() {
+      return [];
+    }
   },
   EditorState: {
     create: vi.fn(() => ({})),

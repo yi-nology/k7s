@@ -12,7 +12,10 @@ import { useCustomKindWatch } from './hooks/useCustomKindWatch';
 import { useGlobalKeys } from './hooks/useGlobalKeys';
 import { useTheme } from './hooks/useTheme';
 import { useLocaleSync, useTranslation } from './hooks/useI18n';
+import { useErrorToast } from './hooks/useErrorToast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ErrorToast } from './components/common/ErrorToast';
+import { setErrorReporter } from './providers/errorHandler';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { TopBar } from './components/topbar/TopBar';
 import { StatusBar } from './components/statusbar/StatusBar';
@@ -55,6 +58,12 @@ export default function App() {
   useLocaleSync();
   // Register built-in plugins and restore enabled state from prefs.
   usePlugins();
+
+  // Error toast system — registers the global error reporter on mount so
+  // provider-level errors automatically show as toasts.
+  const { toasts, showError, dismissToast } = useErrorToast();
+  // Register the reporter once (the hook identity is stable).
+  setErrorReporter(showError);
 
   // Which feature overlay is open, if any (Phase 1/2/4/5 entry points).
   const overlay = useStore((s) => s.overlay);
@@ -220,6 +229,8 @@ export default function App() {
             everything — ⌘K works from anywhere, including the settings panel. */}
         <SettingsPanel />
         <CommandPalette />
+        {/* Error toasts — rendered above everything else. */}
+        <ErrorToast toasts={toasts} onDismiss={dismissToast} />
       </div>
     </ErrorBoundary>
   );

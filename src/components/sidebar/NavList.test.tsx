@@ -9,12 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
 import type { CustomKind } from '../../providers/types';
 import { NavList } from './NavList';
-import {
-  render,
-  cleanup,
-  createMockRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 
 let view: RenderResult;
 

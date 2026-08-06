@@ -21,7 +21,7 @@
  * those aren't watched until you open them.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Zap,
   CircleDot,
@@ -68,7 +68,7 @@ export function NavList() {
   const { locale, t } = useTranslation();
 
   return (
-    <div className={styles.nav}>
+    <div className={styles.nav} role="navigation" aria-label="Resource navigation">
       {/* Dashboard — pinned at top, above all resource groups */}
       <OverlayItem
         item={{
@@ -109,6 +109,16 @@ export function NavList() {
                   key={kind}
                   className={`${styles.navItem} ${active ? styles.navItemActive : ''}`}
                   onClick={() => setNav(kind)}
+                  role="link"
+                  aria-current={active ? 'page' : undefined}
+                  aria-label={label}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setNav(kind);
+                    }
+                  }}
                 >
                   <span className={styles.navIcon}>{meta?.icon}</span>
                   <span className={styles.navLabel}>{label}</span>
@@ -201,10 +211,11 @@ export function NavList() {
   );
 }
 
-/** A single overlay sidebar entry — reusable across groups and sections. */
+/** A single overlay sidebar entry — reusable across groups and sections.
+ *  Memoized: the sidebar renders many OverlayItems and their props are stable. */
 type OverlayItemDef = { key: OverlayKey; label: string; icon: ReactNode };
 
-function OverlayItem({
+const OverlayItem = React.memo(function OverlayItem({
   item,
   overlay,
   openOverlay,
@@ -225,13 +236,23 @@ function OverlayItem({
     <div
       className={`${styles.navItem} ${nested ? styles.navItemNested : ''} ${active ? styles.navItemActive : ''}`}
       onClick={() => (active ? closeOverlay() : openOverlay(item.key))}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          active ? closeOverlay() : openOverlay(item.key);
+        }
+      }}
       title={active ? titleClose : item.label}
+      role="button"
+      aria-pressed={active}
+      aria-label={item.label}
+      tabIndex={0}
     >
       <span className={styles.navIcon}>{item.icon}</span>
       <span className={styles.navLabel}>{item.label}</span>
     </div>
   );
-}
+});
 
 /** A collapsible group of overlay entries (e.g. Observability, Images). */
 function CollapsibleOverlayGroup({
@@ -262,8 +283,12 @@ function CollapsibleOverlayGroup({
         type="button"
         className={`${styles.navGroup} ${styles.navGroupOverlay}`}
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={header}
       >
-        <span className={styles.navGroupChevron}>{open ? '⌄' : '›'}</span>
+        <span className={styles.navGroupChevron} aria-hidden="true">
+          {open ? '⌄' : '›'}
+        </span>
         <span className={styles.navGroupLabel}>{header}</span>
       </button>
       {open &&
@@ -296,41 +321,47 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
   const closeOverlay = useStore((s) => s.closeOverlay);
   const titleClose = t('chrome.sidebar.tools.close', 'Click to close');
 
-  const observabilityItems: OverlayItemDef[] = [
-    {
-      key: 'metrics',
-      label: t('chrome.sidebar.tools.metrics', 'Metrics'),
-      icon: <BarChart3 size={14} />,
-    },
-    {
-      key: 'alerting',
-      label: t('chrome.sidebar.tools.alerting', 'Alerting'),
-      icon: <Bell size={14} />,
-    },
-    {
-      key: 'grafana',
-      label: t('chrome.sidebar.tools.grafana', 'Grafana'),
-      icon: <LineChart size={14} />,
-    },
-    {
-      key: 'audit',
-      label: t('chrome.sidebar.tools.audit', 'Audit'),
-      icon: <ClipboardList size={14} />,
-    },
-  ];
+  const observabilityItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'metrics',
+        label: t('chrome.sidebar.tools.metrics', 'Metrics'),
+        icon: <BarChart3 size={14} />,
+      },
+      {
+        key: 'alerting',
+        label: t('chrome.sidebar.tools.alerting', 'Alerting'),
+        icon: <Bell size={14} />,
+      },
+      {
+        key: 'grafana',
+        label: t('chrome.sidebar.tools.grafana', 'Grafana'),
+        icon: <LineChart size={14} />,
+      },
+      {
+        key: 'audit',
+        label: t('chrome.sidebar.tools.audit', 'Audit'),
+        icon: <ClipboardList size={14} />,
+      },
+    ],
+    [t]
+  );
 
-  const imageItems: OverlayItemDef[] = [
-    {
-      key: 'image-repos',
-      label: t('chrome.sidebar.tools.imageRepos', 'Image Registries'),
-      icon: <Container size={14} />,
-    },
-    {
-      key: 'image-import',
-      label: t('chrome.sidebar.tools.imageImport', 'Image Import'),
-      icon: <Upload size={14} />,
-    },
-  ];
+  const imageItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'image-repos',
+        label: t('chrome.sidebar.tools.imageRepos', 'Image Registries'),
+        icon: <Container size={14} />,
+      },
+      {
+        key: 'image-import',
+        label: t('chrome.sidebar.tools.imageImport', 'Image Import'),
+        icon: <Upload size={14} />,
+      },
+    ],
+    [t]
+  );
 
   return (
     <div>
@@ -456,12 +487,15 @@ function CustomSection({
     setExpanded((prev) => (prev.has(activeGroup) ? prev : new Set(prev).add(activeGroup)));
   }, [activeGroup]);
 
-  const toggle = (group: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(group)) next.add(group);
-      return next;
-    });
+  const toggle = useCallback(
+    (group: string) =>
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (!next.delete(group)) next.add(group);
+        return next;
+      }),
+    []
+  );
 
   // While filtering, show every match: folds would hide the thing being searched for.
   const filtering = filter.trim() !== '';
@@ -480,6 +514,7 @@ function CustomSection({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder={filterPlaceholder}
+          aria-label={filterPlaceholder}
         />
       )}
 
@@ -492,8 +527,12 @@ function CustomSection({
               className={styles.navGroup}
               onClick={() => toggle(group)}
               title={group}
+              aria-expanded={open}
+              aria-label={group}
             >
-              <span className={styles.navGroupChevron}>{open ? '⌄' : '›'}</span>
+              <span className={styles.navGroupChevron} aria-hidden="true">
+                {open ? '⌄' : '›'}
+              </span>
               <span className={styles.navGroupLabel}>{group}</span>
               <span className={styles.navCount}>{groupKinds.length}</span>
             </button>
@@ -507,7 +546,17 @@ function CustomSection({
                       active ? styles.navItemActive : ''
                     }`}
                     onClick={() => setNav(ck.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setNav(ck.id);
+                      }
+                    }}
                     title={`${ck.kind} · ${ck.group}/${ck.version}`}
+                    role="link"
+                    aria-current={active ? 'page' : undefined}
+                    aria-label={ck.kind}
+                    tabIndex={0}
                   >
                     <span className={styles.navLabel}>{ck.kind}</span>
                   </div>

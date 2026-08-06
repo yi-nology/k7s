@@ -4,7 +4,7 @@
  * API-error reporting. Cancel discards the draft.
  */
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './YamlTab.module.css';
 import { useStore } from '../../store';
 import { getProvider } from '../../providers';
@@ -19,9 +19,10 @@ import type { ResourceRef, YamlDiff } from '../../providers/types';
  * before anything is written.
  *
  * Only changed regions are shown. A manifest is mostly unchanged, and rendering
- * the whole file would bury the one line that matters.
+ * the whole file would bury the one line that matters. Memoized: the diff
+ * object is stable between renders.
  */
-function DiffView({ diff }: { diff: YamlDiff }) {
+const DiffView = React.memo(function DiffView({ diff }: { diff: YamlDiff }) {
   const { t } = useTranslation();
   const lines = diffLines(diff.current, diff.proposed);
   const groups = hunks(lines);
@@ -64,7 +65,7 @@ function DiffView({ diff }: { diff: YamlDiff }) {
       ))}
     </div>
   );
-}
+});
 
 export function YamlTab() {
   const row = useStore((s) => s.selectedRow);

@@ -272,6 +272,7 @@ export function ResourceTable() {
             value={tableFilter}
             onChange={(e) => setTableFilter(e.target.value)}
             placeholder={t('table.filterPlaceholder')}
+            aria-label={t('table.filterPlaceholder')}
             data-table-filter
           />
         </div>
@@ -326,7 +327,11 @@ export function ResourceTable() {
         </button>
       </div>
       <div className={styles.wrap} ref={scrollRef}>
-        <table className={`${styles.table} ${styles.tableFixed}`}>
+        <table
+          className={`${styles.table} ${styles.tableFixed}`}
+          role="grid"
+          aria-label={t('table.ariaLabel', `${nav} resources`)}
+        >
           {/* Fixed layout takes its widths from <col>, and divides the width
             equally when there are none — which would squeeze NAME to the same
             share as RESTARTS. Always rendered so columns stay consistent
@@ -341,10 +346,19 @@ export function ResourceTable() {
           <thead>
             <tr>
               {columns.map((col, i) => (
-                <th key={col} className={styles.th} onClick={() => toggleSort(i)}>
+                <th
+                  key={col}
+                  className={styles.th}
+                  onClick={() => toggleSort(i)}
+                  aria-sort={
+                    sortCol === i ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'
+                  }
+                >
                   {col}
                   {sortCol === i && (
-                    <span className={styles.sortArrow}>{sortDir === 'asc' ? ' ▲' : ' ▼'}</span>
+                    <span className={styles.sortArrow} aria-hidden="true">
+                      {sortDir === 'asc' ? ' ▲' : ' ▼'}
+                    </span>
                   )}
                 </th>
               ))}
@@ -366,6 +380,8 @@ export function ResourceTable() {
                 <tr
                   key={row.uid}
                   data-row-index={index}
+                  role="row"
+                  aria-selected={selected || inSelection}
                   className={[
                     styles.row,
                     virtual ? styles.rowFixed : '',
@@ -390,6 +406,7 @@ export function ResourceTable() {
                     // tinted by the table's tone.
                     <td
                       key={j}
+                      role="gridcell"
                       className={styles.td}
                       style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
                     >

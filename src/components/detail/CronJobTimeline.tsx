@@ -129,7 +129,7 @@ export function CronJobTimeline() {
         return tb - ta;
       })
       .slice(0, MAX_TIMELINE_JOBS);
-  }, [row?.name, row?.namespace, rows.jobs]);
+  }, [row, rows.jobs]);
 
   if (!row) {
     return <div className={styles.empty}>{t('timeline.noSelection', 'No CronJob selected.')}</div>;

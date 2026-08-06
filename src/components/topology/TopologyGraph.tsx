@@ -5,11 +5,22 @@
  * Refactored into smaller modules for high cohesion and low coupling.
  */
 
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
 import type { TopologyGraphProps } from './types';
-import { KIND_COLORS, NODE_RADIUS, MINIMAP_SIZE, clamp, resolveNodeId, resolveNode, getX, getY, buildNsRegionPath, NS_PADDING } from './constants';
+import {
+  KIND_COLORS,
+  NODE_RADIUS,
+  MINIMAP_SIZE,
+  clamp,
+  resolveNodeId,
+  resolveNode,
+  getX,
+  getY,
+  buildNsRegionPath,
+  NS_PADDING,
+} from './constants';
 import { NodeShape } from './nodeShapes';
 import { useSimulation } from './hooks/useSimulation';
 import { useZoomPan } from './hooks/useZoomPan';
@@ -25,45 +36,57 @@ export function TopologyGraph({ focusedService, searchQuery, onHealthChange }: T
   // Use custom hooks.
   const { simRef, nodesRef, linksRef, nodeMapRef, graphKey } = useSimulation(rows);
 
-  // Compute graph bounds.
+  // Compute graph bounds and health counts — memoized by graphKey so the
+  // object identity stays stable between simulation ticks.
   const nodes = nodesRef.current;
   const links = linksRef.current;
   const nodeMap = nodeMapRef.current;
 
-  let bMinX = Infinity,
-    bMinY = Infinity,
-    bMaxX = -Infinity,
-    bMaxY = -Infinity;
-  let healthyCount = 0,
-    unhealthyCount = 0,
-    unknownCount = 0;
+  const { graphBounds, healthyCount, unhealthyCount, unknownCount } = useMemo(() => {
+    // graphKey changes when the simulation graph changes — reading it here
+    // establishes the dependency so the memo recomputes on graph updates.
+    void graphKey;
+    const currentNodes = nodesRef.current;
+    let bMinX = Infinity,
+      bMinY = Infinity,
+      bMaxX = -Infinity,
+      bMaxY = -Infinity;
+    let hc = 0,
+      uc = 0,
+      okc = 0;
 
-  for (const n of nodes) {
-    const nx = n.x;
-    const ny = n.y;
-    if (nx != null && ny != null) {
-      if (nx < bMinX) bMinX = nx;
-      if (ny < bMinY) bMinY = ny;
-      if (nx > bMaxX) bMaxX = nx;
-      if (ny > bMaxY) bMaxY = ny;
+    for (const n of currentNodes) {
+      const nx = n.x;
+      const ny = n.y;
+      if (nx != null && ny != null) {
+        if (nx < bMinX) bMinX = nx;
+        if (ny < bMinY) bMinY = ny;
+        if (nx > bMaxX) bMaxX = nx;
+        if (ny > bMaxY) bMaxY = ny;
+      }
+      if (n.unhealthy) uc++;
+      else if (n.meta[0] === 'Running' || n.meta[0] === 'Succeeded') hc++;
+      else okc++;
     }
-    if (n.unhealthy) unhealthyCount++;
-    else if (n.meta[0] === 'Running' || n.meta[0] === 'Succeeded') healthyCount++;
-    else unknownCount++;
-  }
-  if (!isFinite(bMinX)) {
-    bMinX = 0;
-    bMinY = 0;
-    bMaxX = 800;
-    bMaxY = 500;
-  }
+    if (!isFinite(bMinX)) {
+      bMinX = 0;
+      bMinY = 0;
+      bMaxX = 800;
+      bMaxY = 500;
+    }
 
-  const graphBounds = {
-    minX: bMinX - 50,
-    minY: bMinY - 50,
-    maxX: bMaxX + 50,
-    maxY: bMaxY + 50,
-  };
+    return {
+      graphBounds: {
+        minX: bMinX - 50,
+        minY: bMinY - 50,
+        maxX: bMaxX + 50,
+        maxY: bMaxY + 50,
+      },
+      healthyCount: hc,
+      unhealthyCount: uc,
+      unknownCount: okc,
+    };
+  }, [graphKey, nodesRef]);
 
   const {
     viewTransform,
@@ -195,17 +218,23 @@ export function TopologyGraph({ focusedService, searchQuery, onHealthChange }: T
   const transformStr = `translate(${viewTransform.x},${viewTransform.y}) scale(${viewTransform.k})`;
 
   // Combined mouse handlers.
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const target = e.target as SVGElement;
-    if (target.tagName !== 'svg' && !target.closest('[class*="canvas"]')) return;
-    if (target.closest('[class*="node"]')) return;
-    startPan(e);
-  }, [startPan]);
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as SVGElement;
+      if (target.tagName !== 'svg' && !target.closest('[class*="canvas"]')) return;
+      if (target.closest('[class*="node"]')) return;
+      startPan(e);
+    },
+    [startPan]
+  );
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (handlePanMove(e)) return;
-    handleNodeDragMove(e);
-  }, [handlePanMove, handleNodeDragMove]);
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (handlePanMove(e)) return;
+      handleNodeDragMove(e);
+    },
+    [handlePanMove, handleNodeDragMove]
+  );
 
   const handleMouseUp = useCallback(() => {
     handlePanEnd();

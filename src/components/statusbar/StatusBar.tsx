@@ -15,6 +15,7 @@
  * session said "api 24ms  nodes 2/3 ready  cpu 12%  mem 38%  kubectl ctx: …".
  */
 
+import React from 'react';
 import styles from './StatusBar.module.css';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
@@ -72,7 +73,7 @@ export function StatusBar() {
   );
 }
 
-/** Middle-dot separator between facts. Plain <span> so it can sit in the flex row. */
-function Sep() {
+/** Middle-dot separator between facts. Memoized: renders many times with no props. */
+const Sep = React.memo(function Sep() {
   return <span className={styles.sep}>·</span>;
-}
+});

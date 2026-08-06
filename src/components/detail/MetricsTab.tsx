@@ -13,7 +13,7 @@
  * Both paths are live-only and start empty; the first point takes one poll.
  */
 
-import { useRef } from 'react';
+import React, { useRef } from 'react';
 import styles from './MetricsTab.module.css';
 import { useStore } from '../../store';
 import { useNodeStats } from '../../hooks/useNodeStats';
@@ -289,8 +289,9 @@ function KubeMetricsIoMetrics() {
   );
 }
 
-/** Current filesystem usage as a horizontal bar per mount. (Desktop path only.) */
-function Filesystems({
+/** Current filesystem usage as a horizontal bar per mount. (Desktop path only.)
+ *  Memoized: filesystem data only changes on node-exporter scrape intervals. */
+const Filesystems = React.memo(function Filesystems({
   sample,
   colors: PLOT_COLORS,
   title,
@@ -334,7 +335,7 @@ function Filesystems({
       }}
     />
   );
-}
+});
 
 /** "42%" for a used/total pair. */
 function pct(used: number, total: number): string {
