@@ -4,13 +4,16 @@
  * and clears any pod selection.
  *
  * Some resource groups carry overlay entries alongside their kinds:
- *   - Network: Endpoints, Service Topology (views that belong with networking)
+ *   - Network: Endpoints, Service Topology, Ingress Routes (networking views)
  *   - Helm: Helm Market (action wizard alongside releases)
  *
- * The bottom section holds the remaining overlays:
- *   - Dashboard, PromQL, Alerting, Grafana (flat, always visible)
- *   - Images (collapsible): Registries, Import
- *   - Pod Files, Templates (flat)
+ * Below a "Tools" section header, the remaining overlays are grouped:
+ *   - Dashboard (pinned at the very top, above the resource groups)
+ *   - Observability: Metrics, Alerting, Grafana
+ *   - Security: Audit, SBOM
+ *   - Images: Registries, Transfer
+ *   - Tooling: Templates, Diff, Pod Files
+ *   - System: Plugins
  *
  * The Custom section (B15) lists CRD-backed kinds discovered on connect, folded
  * under their API group the way Lens does — murphy-yi has 44 CRDs across 10 groups, so

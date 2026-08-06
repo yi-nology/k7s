@@ -315,7 +315,7 @@ function actionCandidates(ctx: PaletteContext) {
       fallback: 'Dashboard',
       hint: viewHint,
     },
-    { id: 'metrics', key: 'chrome.palette.actions.metrics', fallback: 'PromQL', hint: viewHint },
+    { id: 'metrics', key: 'chrome.palette.actions.metrics', fallback: 'Metrics', hint: viewHint },
     { id: 'grafana', key: 'chrome.palette.actions.grafana', fallback: 'Grafana', hint: viewHint },
     {
       id: 'endpoints',
