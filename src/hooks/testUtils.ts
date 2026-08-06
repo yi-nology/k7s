@@ -26,7 +26,7 @@ afterEach(() => {
 });
 
 /** Mount a component that calls `hook`, running its effects. */
-export function renderHook(hook: () => void): void {
+export function renderHook(hook: () => void): { unmount: () => void } {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
@@ -38,6 +38,18 @@ export function renderHook(hook: () => void): void {
     root.render(createElement(Harness));
   });
   mounted.push({ root, container });
+  // Detach so afterEach cleanup no longer double-unmounts this root.
+  let active = true;
+  return {
+    unmount: () => {
+      if (!active) return;
+      active = false;
+      act(() => root.unmount());
+      container.remove();
+      const idx = mounted.findIndex((m) => m.root === root);
+      if (idx >= 0) mounted.splice(idx, 1);
+    },
+  };
 }
 
 /** Unmount everything, so a hook's listeners don't leak into the next test. */

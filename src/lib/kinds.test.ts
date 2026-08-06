@@ -226,8 +226,8 @@ describe('ReplicaSets and StorageClasses (B40)', () => {
 });
 
 describe('ServiceAccounts', () => {
-  it("sits in Config, namespaced, with kubectl's columns", () => {
-    expect(kindMeta('serviceaccounts', CUSTOM)?.group).toBe('config');
+  it("sits in Access (RBAC subject), namespaced, with kubectl's columns", () => {
+    expect(kindMeta('serviceaccounts', CUSTOM)?.group).toBe('access');
     expect(kindMeta('serviceaccounts', CUSTOM)?.columns).toEqual([
       'NAME',
       'NAMESPACE',

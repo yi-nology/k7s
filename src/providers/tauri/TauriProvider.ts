@@ -10,67 +10,40 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { exportFilename } from '../../lib/logview';
+import { BaseRpcProvider } from '../BaseRpcProvider';
 import type {
-  Alert,
-  AlertManager,
-  AlertManagerUpsert,
-  ApplyResult,
-  ClusterInfo,
-  DocDryRun,
-  ImportImageResult,
-  SkopeoAvailability,
-  ImageSyncResult,
-  ArchiveInfo,
-  ClusterStatus,
   ContextInfo,
   DataProvider,
-  DashboardPreset,
-  DrainProgress,
-  EndpointAddress,
-  EndpointRow,
-  GrafanaConfig,
-  GrafanaConfigUpsert,
-  HelmChartSummary,
-  HelmChartVersionEntry,
-  HelmOp,
   HelmOpResult,
-  HelmRepo,
-  HelmRepoUpsert,
-  HelmRevisionEntry,
-  ImageRegistry,
-  ImageRegistryUpsert,
-  ImageRepo,
-  ImageTag,
-  ImageManifest,
   SavedQuery,
-  MetricsConfig,
-  MetricsConfigUpsert,
   NodeSample,
-  NodeStatsError,
-  EventItem,
   ForwardInfo,
+  PromQueryResult,
+  ClusterStatus,
+  CustomKind,
+  DrainProgress,
+  EventItem,
+  ExportFromRegistryResult,
+  HelmRevisionEntry,
+  ImageSyncResult,
   ImportResult,
+  KindId,
   LogHandle,
   LogLine,
   LogOptions,
-  NodeShellHandle,
   NodeMetricsMap,
+  NodeShellHandle,
+  NodeStatsError,
   PodFileEntry,
   PodMetricsMap,
   PodSample,
-  PromQueryResult,
-  Silence,
-  Prefs,
   Properties,
-  CustomKind,
-  KindId,
   ResourceRef,
-  ShellHandle,
+  Revision,
   Row,
   SavedLog,
-  SecretEntry,
+  ShellHandle,
   Unsub,
-  Revision,
   YamlDiff,
 } from '../types';
 
@@ -102,7 +75,7 @@ function subscribe<T>(event: string, handler: (payload: T) => void): Unsub {
   };
 }
 
-export class TauriProvider implements DataProvider {
+export class TauriProvider extends BaseRpcProvider implements DataProvider {
   // ---- pod-stats fanout (see watchPodStats / onPodStats) ----
   //
   // A pod's Metrics tab is fed by filtering the cluster-wide `pod-metrics` event
@@ -113,18 +86,9 @@ export class TauriProvider implements DataProvider {
   /** Lazily attached on the first onPodStats subscription; lives for the app. */
   private podMetricsFanout: Unsub | null = null;
 
-  // ---- one-shot commands ----
-
-  listContexts(): Promise<ContextInfo[]> {
-    return invoke<ContextInfo[]>('list_contexts');
-  }
-
-  connect(context: string): Promise<ClusterInfo> {
-    return invoke<ClusterInfo>('connect', { context });
-  }
-
-  restoreImports(paths: string[]): Promise<string[]> {
-    return invoke<string[]>('restore_imports', { paths });
+  /** Bind the shared one-shot RPCs to Tauri's `invoke`. */
+  protected rpc<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+    return invoke<T>(cmd, args);
   }
 
   async importKubeconfig(): Promise<ImportResult | null> {
@@ -187,10 +151,6 @@ export class TauriProvider implements DataProvider {
     });
   }
 
-  getSecretData(namespace: string, name: string): Promise<SecretEntry[]> {
-    return invoke<SecretEntry[]>('get_secret_data', { namespace, name });
-  }
-
   deleteResource(ref: ResourceRef): Promise<void> {
     return invoke<void>('delete_resource', {
       kind: ref.kind,
@@ -240,14 +200,6 @@ export class TauriProvider implements DataProvider {
     });
   }
 
-  setCordon(node: string, unschedulable: boolean): Promise<void> {
-    return invoke<void>('set_cordon', { name: node, unschedulable });
-  }
-
-  drainNode(node: string): Promise<void> {
-    return invoke<void>('drain_node', { name: node });
-  }
-
   async setWindowTheme(theme: 'dark' | 'light'): Promise<void> {
     // Lazy-imported like the dialog plugin, so it isn't pulled into demo bundles.
     const { getCurrentWindow } = await import('@tauri-apps/api/window');
@@ -262,18 +214,6 @@ export class TauriProvider implements DataProvider {
 
   // ---- node-exporter statistics (B27) ----
 
-  nodeHistory(node: string): Promise<NodeSample[]> {
-    return invoke<NodeSample[]>('node_history', { node });
-  }
-
-  watchNodeStats(node: string): Promise<void> {
-    return invoke<void>('watch_node_stats', { node });
-  }
-
-  unwatchNodeStats(node: string): Promise<void> {
-    return invoke<void>('unwatch_node_stats', { node });
-  }
-
   // ---- per-pod statistics ----
 
   async watchPodStats(key: string): Promise<void> {
@@ -286,25 +226,9 @@ export class TauriProvider implements DataProvider {
     this.watchedPods.delete(key);
   }
 
-  loadPrefs(): Promise<Prefs | null> {
-    return invoke<Prefs | null>('load_prefs');
-  }
-
-  savePrefs(prefs: Prefs): Promise<void> {
-    return invoke<void>('save_prefs', { prefs });
-  }
-
   // ---- push subscriptions ----
 
   // ---- custom (CRD-backed) kinds (B15) ----
-
-  watchCustomKind(id: string): Promise<void> {
-    return invoke('watch_custom_kind', { kind: id });
-  }
-
-  unwatchCustomKind(id: string): Promise<void> {
-    return invoke('unwatch_custom_kind', { kind: id });
-  }
 
   onCustomKinds(cb: (kinds: CustomKind[]) => void): Unsub {
     return subscribe<CustomKind[]>('custom-kinds', cb);
@@ -526,63 +450,14 @@ export class TauriProvider implements DataProvider {
     return subscribe<ForwardInfo[]>('forwards-update', cb);
   }
 
-  stopPortForward(id: string): Promise<void> {
-    return invoke<void>('stop_port_forward', { id });
-  }
-
-  listPortForwards(): Promise<ForwardInfo[]> {
-    return invoke<ForwardInfo[]>('list_port_forwards');
-  }
-
   // ---- Helm marketplace (Phase 1 of KubePi parity) ----
 
-  helmListRepos(): Promise<HelmRepo[]> {
-    return invoke<HelmRepo[]>('helm_list_repos');
-  }
-  helmAddRepo(input: HelmRepoUpsert): Promise<HelmRepo> {
-    return invoke<HelmRepo>('helm_add_repo', { ...input });
-  }
-  helmRemoveRepo(name: string): Promise<void> {
-    return invoke<void>('helm_remove_repo', { name });
-  }
-  helmUpdateRepo(name: string): Promise<HelmRepo> {
-    return invoke<HelmRepo>('helm_update_repo', { name });
-  }
-  helmUpdateAllRepos(): Promise<HelmRepo[]> {
-    return invoke<HelmRepo[]>('helm_update_all_repos');
-  }
-  helmSearchCharts(query: string): Promise<HelmChartSummary[]> {
-    return invoke<HelmChartSummary[]>('helm_search_charts', { query });
-  }
-  helmChartVersions(repo: string, chart: string): Promise<HelmChartVersionEntry[]> {
-    return invoke<HelmChartVersionEntry[]>('helm_chart_versions', { repo, chart });
-  }
-  helmExportChart(
-    repo: string,
-    chart: string,
-    version: string,
-    outputDir: string
-  ): Promise<string> {
-    return invoke<string>('helm_export_chart', { repo, chart, version, outputDir });
-  }
-  helmImportChart(filePath: string, repoName: string): Promise<string> {
-    return invoke<string>('helm_import_chart', { filePath, repoName });
-  }
-  helmLocalCharts(repoName: string): Promise<string[]> {
-    return invoke<string[]>('helm_local_charts', { repoName });
-  }
   helmRenderDefaultValues(chart: string, version: string, kubeconfig?: string): Promise<string> {
     return invoke<string>('helm_render_default_values', {
       chart,
       version,
       kubeconfig: kubeconfig ?? null,
     });
-  }
-  helmRunOp(op: HelmOp): Promise<HelmOpResult> {
-    // The backend uses serde's `tag = "op"`, which on the wire means the
-    // discriminant is the *top-level* field. Mirror that on the JS side so
-    // the call site can stay readable.
-    return invoke<HelmOpResult>('helm_run_op', op as unknown as Record<string, unknown>);
   }
   helmReleaseHistory(
     release: string,
@@ -661,47 +536,30 @@ export class TauriProvider implements DataProvider {
     });
   }
 
-  // ---- Image registry management (Phase 5 of KubePi parity) ----
+  // ---- Image transfer (registry export / copy) ----
 
-  imageRegistryList(): Promise<ImageRegistry[]> {
-    return invoke<ImageRegistry[]>('image_registry_list');
-  }
-  imageRegistryUpsert(input: ImageRegistryUpsert): Promise<ImageRegistry> {
-    return invoke<ImageRegistry>('image_registry_upsert', { ...input });
-  }
-  imageRegistryRemove(name: string): Promise<void> {
-    return invoke<void>('image_registry_remove', { name });
-  }
-  imageRegistryTest(name: string): Promise<void> {
-    return invoke<void>('image_registry_test', { name });
-  }
-  imageRegistryRepos(name: string): Promise<ImageRepo[]> {
-    return invoke<ImageRepo[]>('image_registry_repos', { name });
-  }
-  imageRegistryTags(name: string, repo: string): Promise<ImageTag[]> {
-    return invoke<ImageTag[]>('image_registry_tags', { name, repo });
-  }
-
-  // ---- Multi-document YAML apply (Phase 4 — templates) ----
-
-  applyYamlBundle(yaml: string): Promise<ApplyResult[]> {
-    return invoke<ApplyResult[]>('apply_yaml_bundle', { yaml });
-  }
-
-  dryRunYamlBundle(yaml: string): Promise<DocDryRun[]> {
-    return invoke<DocDryRun[]>('dry_run_yaml_bundle', { yaml });
-  }
-
-  importImageToNode(node: string, path: string): Promise<ImportImageResult> {
-    return invoke<ImportImageResult>('import_image_to_node', { node, path });
-  }
-
-  imageSyncStatus(): Promise<SkopeoAvailability> {
-    return invoke<SkopeoAvailability>('image_sync_status');
-  }
-
-  imageInspectArchive(tarPath: string): Promise<ArchiveInfo> {
-    return invoke<ArchiveInfo>('image_inspect_archive', { tarPath });
+  async exportFromRegistry(
+    registryName: string,
+    repo: string,
+    tag: string,
+    savePath: string,
+    insecureSrc: boolean,
+    onLog: (line: string) => void
+  ): Promise<ExportFromRegistryResult> {
+    const off = subscribe<{ stream: string; line: string }>('image-sync-log', (p) => {
+      onLog(p.line);
+    });
+    try {
+      return await invoke<ExportFromRegistryResult>('export_from_registry', {
+        registryName,
+        repo,
+        tag,
+        savePath,
+        insecureSrc,
+      });
+    } finally {
+      off();
+    }
   }
 
   async imageCopy(
@@ -734,41 +592,8 @@ export class TauriProvider implements DataProvider {
     }
   }
 
-  // ---- Endpoints (Phase 1 Tier-2) ----
+  // ---- Metrics range query (the only metrics method not shared via BaseRpcProvider) ----
 
-  listEndpoints(): Promise<EndpointRow[]> {
-    return invoke<EndpointRow[]>('list_endpoints');
-  }
-  listEndpointsForService(namespace: string, name: string): Promise<EndpointRow[]> {
-    return invoke<EndpointRow[]>('list_endpoints_for_service', { namespace, name });
-  }
-  listEndpointAddresses(namespace: string, name: string): Promise<EndpointAddress[]> {
-    return invoke<EndpointAddress[]>('list_endpoint_addresses', { namespace, name });
-  }
-
-  // ---- CronJob manual trigger (Phase 2 Tier-2) ----
-
-  triggerCronjob(namespace: string, name: string): Promise<string> {
-    return invoke<string>('trigger_cronjob', { namespace, name });
-  }
-
-  // ---- Metrics / Prometheus multi-instance ----
-
-  metricsList(): Promise<MetricsConfig[]> {
-    return invoke<MetricsConfig[]>('metrics_list');
-  }
-  metricsUpsert(input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    return invoke<MetricsConfig>('metrics_upsert', { ...input });
-  }
-  metricsRemove(name: string): Promise<void> {
-    return invoke<void>('metrics_remove', { name });
-  }
-  metricsTest(name: string): Promise<void> {
-    return invoke<void>('metrics_test', { name });
-  }
-  metricsQuery(name: string, promql: string): Promise<PromQueryResult> {
-    return invoke<PromQueryResult>('metrics_query', { name, promql });
-  }
   metricsQueryRange(
     name: string,
     promql: string,
@@ -785,74 +610,8 @@ export class TauriProvider implements DataProvider {
     });
   }
 
-  // ---- Grafana ----
+  // ---- Grafana dashboard search (range methods live in BaseRpcProvider) ----
 
-  grafanaList(): Promise<GrafanaConfig[]> {
-    return invoke<GrafanaConfig[]>('grafana_list');
-  }
-  grafanaUpsert(input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return invoke<GrafanaConfig>('grafana_upsert', { ...input });
-  }
-  grafanaRemove(name: string): Promise<void> {
-    return invoke<void>('grafana_remove', { name });
-  }
-  grafanaTest(name: string): Promise<void> {
-    return invoke<void>('grafana_test', { name });
-  }
-  grafanaPresets(): Promise<DashboardPreset[]> {
-    return invoke<DashboardPreset[]>('grafana_presets');
-  }
-  grafanaDashboardUrl(name: string, uid: string, fromMs: number, toMs: number): Promise<string> {
-    return invoke<string>('grafana_dashboard_url', { name, uid, fromMs, toMs });
-  }
-
-  // ---- AlertManager ----
-
-  alertManagerList(): Promise<AlertManager[]> {
-    return invoke<AlertManager[]>('alertmanager_list');
-  }
-  alertManagerUpsert(input: AlertManagerUpsert): Promise<AlertManager> {
-    return invoke<AlertManager>('alertmanager_upsert', { ...input });
-  }
-  alertManagerRemove(name: string): Promise<void> {
-    return invoke<void>('alertmanager_remove', { name });
-  }
-  alertManagerTest(name: string): Promise<void> {
-    return invoke<void>('alertmanager_test', { name });
-  }
-  alertManagerAlerts(name: string): Promise<Alert[]> {
-    return invoke<Alert[]>('alertmanager_alerts', { name });
-  }
-  alertManagerSilences(name: string): Promise<Silence[]> {
-    return invoke<Silence[]>('alertmanager_silences', { name });
-  }
-  alertManagerCreateSilence(
-    instance: string,
-    request: import('../types').CreateSilenceRequest
-  ): Promise<string> {
-    return invoke<string>('alertmanager_create_silence', { instance, request });
-  }
-  alertManagerDeleteSilence(instance: string, silenceId: string): Promise<void> {
-    return invoke<void>('alertmanager_delete_silence', { instance, silenceId });
-  }
-  prometheusRules(instance: string): Promise<import('../types').RuleGroup[]> {
-    return invoke<import('../types').RuleGroup[]>('prometheus_rules', { instance });
-  }
-  lokiList(): Promise<import('../types').LokiConfig[]> {
-    return invoke<import('../types').LokiConfig[]>('loki_list');
-  }
-  lokiUpsert(input: import('../types').LokiUpsert): Promise<import('../types').LokiConfig> {
-    return invoke<import('../types').LokiConfig>('loki_upsert', { ...input });
-  }
-  lokiRemove(name: string): Promise<void> {
-    return invoke<void>('loki_remove', { name });
-  }
-  lokiTest(name: string): Promise<void> {
-    return invoke<void>('loki_test', { name });
-  }
-  auditEvents(query: import('../types').AuditQuery): Promise<import('../types').AuditEvent[]> {
-    return invoke<import('../types').AuditEvent[]>('audit_events', { query });
-  }
   grafanaSearchDashboards(
     name: string,
     query: string
@@ -865,18 +624,6 @@ export class TauriProvider implements DataProvider {
 
   // ---- Saved PromQL queries ----
 
-  savedQueriesList(): Promise<SavedQuery[]> {
-    return invoke<SavedQuery[]>('saved_queries_list');
-  }
-  savedQueriesUpsert(query: SavedQuery): Promise<SavedQuery> {
-    return invoke<SavedQuery>('saved_queries_upsert', { ...query });
-  }
-  savedQueriesRemove(name: string): Promise<void> {
-    return invoke<void>('saved_queries_remove', { name });
-  }
-  savedQueriesClearCache(): Promise<void> {
-    return invoke<void>('saved_queries_clear_cache');
-  }
   savedQueriesRun(
     query: SavedQuery,
     instance: string,
@@ -887,42 +634,6 @@ export class TauriProvider implements DataProvider {
       instance,
       forceRefresh,
     });
-  }
-
-  // ---- Image manifest drill-down ----
-
-  imageRegistryManifest(name: string, repo: string, tag: string): Promise<ImageManifest> {
-    return invoke<ImageManifest>('image_registry_manifest', { name, repo, tag });
-  }
-
-  // ---- SBOM (Software Bill of Materials) ----
-
-  sbomGenerateImage(
-    imageRef: string,
-    format: import('../types/sbom').SbomFormat
-  ): Promise<import('../types/sbom').SbomResult> {
-    return invoke('sbom_generate_image', { image_ref: imageRef, format });
-  }
-
-  sbomGenerateCluster(format: import('../types/sbom').SbomFormat): Promise<import('../types/sbom').SbomResult> {
-    return invoke('sbom_generate_cluster', { format });
-  }
-
-  sbomListHistory(): Promise<import('../types/sbom').SbomSummary[]> {
-    return invoke('sbom_list_history');
-  }
-
-  sbomGet(id: string): Promise<import('../types/sbom').SbomResult> {
-    return invoke('sbom_get', { id });
-  }
-
-  sbomExport(id: string, outputPath: string): Promise<string> {
-    return invoke('sbom_export', { id, output_path: outputPath });
-  }
-
-  // ---- RBAC Security Audit ----
-  securityAudit(): Promise<import('../types/security').AuditReport> {
-    return invoke('security_audit_run');
   }
 }
 

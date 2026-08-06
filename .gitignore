@@ -4,6 +4,9 @@ dist/
 dist-ssr/
 *.local
 
+# Docker image build artifacts (large tarballs, never commit — >100MB breaks GitHub)
+dist-docker/
+
 # Rust / Tauri
 **/target/
 src-tauri/target/

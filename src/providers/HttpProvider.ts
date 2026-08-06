@@ -30,6 +30,8 @@ import type {
   Alert,
   AlertManager,
   DocDryRun,
+  ExportFromNodeResult,
+  ExportFromRegistryResult,
   ImportImageResult,
   SkopeoAvailability,
   ImageSyncResult,
@@ -93,6 +95,16 @@ import type {
 function notImplemented(method: string): Promise<never> {
   return Promise.reject(new Error(`${method} is not bridged through the browser shell yet`));
 }
+
+/** Features that require the native desktop runtime (skopeo, containerd import).
+ *  Kept distinct from `notImplemented`: these are intentionally desktop-only by
+ *  design, not "TODO: bridge through the browser shell". */
+function desktopOnly(feature: string): Promise<never> {
+  return Promise.reject(new Error(`${feature} is only available in the desktop app`));
+}
+
+/** Shared no-op unsubscribe for the `on*` events the web shell doesn't push. */
+const noopUnsub: Unsub = () => {};
 
 /**
  * Fallback for callers that haven't refactored yet: spin up a transient
@@ -576,38 +588,38 @@ export class HttpProvider implements DataProvider {
   onDrainProgress(_cb: (progress: DrainProgress) => void): Unsub {
     // No drain support in the web shell; return a no-op so the UI doesn't
     // have to special-case it.
-    return () => {};
+    return noopUnsub;
   }
 
   onNodeStats(_cb: (node: string, sample: NodeSample) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
   onNodeStatsError(_cb: (err: NodeStatsError) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
   onPodStats(_cb: (key: string, sample: PodSample) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
 
   onForwards(_cb: (forwards: ForwardInfo[]) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
 
   // ---- Helm marketplace: web shell doesn't proxy these yet. ----
   async helmListRepos(): Promise<HelmRepo[]> {
-    throw new Error('helm_list_repos not implemented in HttpProvider');
+    return notImplemented('helm_list_repos');
   }
   async helmAddRepo(_input: HelmRepoUpsert): Promise<HelmRepo> {
-    throw new Error('helm_add_repo not implemented in HttpProvider');
+    return notImplemented('helm_add_repo');
   }
   async helmRemoveRepo(_name: string): Promise<void> {
-    throw new Error('helm_remove_repo not implemented in HttpProvider');
+    return notImplemented('helm_remove_repo');
   }
   async helmUpdateRepo(_name: string): Promise<HelmRepo> {
-    throw new Error('helm_update_repo not implemented in HttpProvider');
+    return notImplemented('helm_update_repo');
   }
   async helmUpdateAllRepos(): Promise<HelmRepo[]> {
-    throw new Error('helm_update_all_repos not implemented in HttpProvider');
+    return notImplemented('helm_update_all_repos');
   }
   async helmSearchCharts(_q: string): Promise<HelmChartSummary[]> {
     return [];
@@ -621,10 +633,10 @@ export class HttpProvider implements DataProvider {
     _version: string,
     _outputDir: string
   ): Promise<string> {
-    throw new Error('helm_export_chart not implemented in HttpProvider');
+    return notImplemented('helm_export_chart');
   }
   async helmImportChart(_filePath: string, _repoName: string): Promise<string> {
-    throw new Error('helm_import_chart not implemented in HttpProvider');
+    return notImplemented('helm_import_chart');
   }
   async helmLocalCharts(_repoName: string): Promise<string[]> {
     return [];
@@ -633,16 +645,16 @@ export class HttpProvider implements DataProvider {
     return '';
   }
   async helmRunOp(_op: HelmOp): Promise<HelmOpResult> {
-    throw new Error('helm_run_op not implemented in HttpProvider');
+    return notImplemented('helm_run_op');
   }
   async helmReleaseHistory(_r: string, _ns: string, _kc?: string): Promise<HelmRevisionEntry[]> {
     return [];
   }
   onHelmOpLog(_cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
   onHelmOpDone(_cb: (result: HelmOpResult) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
 
   // ---- Pod files: not proxied yet. ----
@@ -677,7 +689,7 @@ export class HttpProvider implements DataProvider {
     return [];
   }
   async imageRegistryUpsert(_input: ImageRegistryUpsert): Promise<ImageRegistry> {
-    throw new Error('image_registry_upsert not implemented in HttpProvider');
+    return notImplemented('image_registry_upsert');
   }
   async imageRegistryRemove(_name: string): Promise<void> {
     // No-op.
@@ -707,15 +719,40 @@ export class HttpProvider implements DataProvider {
   // and there's no HTTP route to bridge. Throw a clear message; the panel
   // surfaces it as a "desktop app only" notice. ----
   async importImageToNode(_node: string, _path: string): Promise<ImportImageResult> {
-    throw new Error('Image import is only available in the desktop app');
+    return desktopOnly('Image import');
   }
 
   async imageSyncStatus(): Promise<SkopeoAvailability> {
-    throw new Error('Image sync is only available in the desktop app');
+    return desktopOnly('Image sync');
   }
 
   async imageInspectArchive(_tarPath: string): Promise<ArchiveInfo> {
-    throw new Error('Image inspect is only available in the desktop app');
+    return desktopOnly('Image inspect');
+  }
+
+  async exportFromNode(node: string, imageRef: string, savePath: string): Promise<ExportFromNodeResult> {
+    return httpInvoke<ExportFromNodeResult>('export_from_node', { node, imageRef, savePath });
+  }
+
+  async listNodeImages(node: string): Promise<string[]> {
+    return httpInvoke<string[]>('list_node_images', { node });
+  }
+
+  async exportFromRegistry(
+    registryName: string,
+    repo: string,
+    tag: string,
+    savePath: string,
+    insecureSrc: boolean,
+    _onLog: (line: string) => void
+  ): Promise<ExportFromRegistryResult> {
+    return httpInvoke<ExportFromRegistryResult>('export_from_registry', {
+      registryName,
+      repo,
+      tag,
+      savePath,
+      insecureSrc,
+    });
   }
 
   async imageCopy(
@@ -728,7 +765,7 @@ export class HttpProvider implements DataProvider {
     _insecureDest: boolean,
     _onLog: (line: string) => void
   ): Promise<ImageSyncResult> {
-    throw new Error('Image sync is only available in the desktop app');
+    return desktopOnly('Image sync');
   }
 
   // ---- Endpoints / metrics / grafana / alerting (Phase 1 Tier-2) ----
@@ -745,13 +782,13 @@ export class HttpProvider implements DataProvider {
     return httpInvoke<EndpointAddress[]>('list_endpoint_addresses', { namespace: ns, name });
   }
   async triggerCronjob(_ns: string, _name: string): Promise<string> {
-    throw new Error('trigger_cronjob not implemented in HttpProvider');
+    return notImplemented('trigger_cronjob');
   }
   async metricsList(): Promise<MetricsConfig[]> {
     return [];
   }
   async metricsUpsert(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    throw new Error('metrics_upsert not implemented in HttpProvider');
+    return notImplemented('metrics_upsert');
   }
   async metricsRemove(_name: string): Promise<void> {
     /* no-op */
@@ -776,7 +813,7 @@ export class HttpProvider implements DataProvider {
     return [];
   }
   async grafanaUpsert(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    throw new Error('grafana_upsert not implemented in HttpProvider');
+    return notImplemented('grafana_upsert');
   }
   async grafanaRemove(_name: string): Promise<void> {
     /* no-op */
@@ -799,7 +836,7 @@ export class HttpProvider implements DataProvider {
     return [];
   }
   async alertManagerUpsert(_input: AlertManagerUpsert): Promise<AlertManager> {
-    throw new Error('alertmanager_upsert not implemented in HttpProvider');
+    return notImplemented('alertmanager_upsert');
   }
   async alertManagerRemove(_name: string): Promise<void> {
     /* no-op */
@@ -817,10 +854,10 @@ export class HttpProvider implements DataProvider {
     _instance: string,
     _request: import('./types').CreateSilenceRequest
   ): Promise<string> {
-    throw new Error('alertmanager_create_silence not implemented in HttpProvider');
+    return notImplemented('alertmanager_create_silence');
   }
   async alertManagerDeleteSilence(_instance: string, _silenceId: string): Promise<void> {
-    throw new Error('alertmanager_delete_silence not implemented in HttpProvider');
+    return notImplemented('alertmanager_delete_silence');
   }
   async prometheusRules(_instance: string): Promise<import('./types').RuleGroup[]> {
     return [];
@@ -829,7 +866,7 @@ export class HttpProvider implements DataProvider {
     return [];
   }
   async lokiUpsert(_input: import('./types').LokiUpsert): Promise<import('./types').LokiConfig> {
-    throw new Error('loki_upsert not implemented in HttpProvider');
+    return notImplemented('loki_upsert');
   }
   async lokiRemove(_name: string): Promise<void> {}
   async lokiTest(_name: string): Promise<void> {}
@@ -848,7 +885,7 @@ export class HttpProvider implements DataProvider {
     return [];
   }
   async savedQueriesUpsert(_query: SavedQuery): Promise<SavedQuery> {
-    throw new Error('saved_queries_upsert not implemented in HttpProvider');
+    return notImplemented('saved_queries_upsert');
   }
   async savedQueriesRemove(_name: string): Promise<void> {
     /* no-op */
@@ -866,7 +903,7 @@ export class HttpProvider implements DataProvider {
 
   // ---- Image manifest (Http shell: not proxied yet) ----
   async imageRegistryManifest(_name: string, _repo: string, _tag: string): Promise<ImageManifest> {
-    throw new Error('image_registry_manifest not implemented in HttpProvider');
+    return notImplemented('image_registry_manifest');
   }
 
   // ---- SBOM (Software Bill of Materials) ----
@@ -877,7 +914,9 @@ export class HttpProvider implements DataProvider {
     return httpInvoke('sbom_generate_image', { image_ref: imageRef, format });
   }
 
-  async sbomGenerateCluster(format: import('./types/sbom').SbomFormat): Promise<import('./types/sbom').SbomResult> {
+  async sbomGenerateCluster(
+    format: import('./types/sbom').SbomFormat
+  ): Promise<import('./types/sbom').SbomResult> {
     return httpInvoke('sbom_generate_cluster', { format });
   }
 

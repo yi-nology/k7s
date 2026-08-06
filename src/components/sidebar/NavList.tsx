@@ -4,13 +4,16 @@
  * and clears any pod selection.
  *
  * Some resource groups carry overlay entries alongside their kinds:
- *   - Network: Endpoints, Service Topology (views that belong with networking)
+ *   - Network: Endpoints, Service Topology, Ingress Routes (networking views)
  *   - Helm: Helm Market (action wizard alongside releases)
  *
- * The bottom section holds the remaining overlays:
- *   - Dashboard, PromQL, Alerting, Grafana (flat, always visible)
- *   - Images (collapsible): Registries, Import
- *   - Pod Files, Templates (flat)
+ * Below a "Tools" section header, the remaining overlays are grouped:
+ *   - Dashboard (pinned at the very top, above the resource groups)
+ *   - Observability: Metrics, Alerting, Grafana
+ *   - Security: Audit, SBOM
+ *   - Images: Registries, Transfer
+ *   - Tooling: Templates, Diff, Pod Files
+ *   - System: Plugins
  *
  * The Custom section (B15) lists CRD-backed kinds discovered on connect, folded
  * under their API group the way Lens does — murphy-yi has 44 CRDs across 10 groups, so
@@ -21,12 +24,11 @@
  * those aren't watched until you open them.
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   Zap,
   CircleDot,
   ArrowRightFromLine,
-  Pencil,
   Package,
   LayoutDashboard,
   BarChart3,
@@ -34,7 +36,7 @@ import {
   LineChart,
   ClipboardList,
   Container,
-  Upload,
+  ArrowLeftRight,
   FolderOpen,
   PlusSquare,
   GitCompareArrows,
@@ -52,6 +54,7 @@ import {
   type NavGroup,
   type ResourceKind,
 } from '../../lib/kinds';
+import { cx } from '../../lib/cx';
 import { groupLabel, kindLabelFor } from '../../lib/i18n';
 import { useTranslation } from '../../hooks/useI18n';
 import type { CustomKind } from '../../providers/types';
@@ -68,7 +71,7 @@ export function NavList() {
   const { locale, t } = useTranslation();
 
   return (
-    <div className={styles.nav}>
+    <div className={styles.nav} role="navigation" aria-label="Resource navigation">
       {/* Dashboard — pinned at top, above all resource groups */}
       <OverlayItem
         item={{
@@ -107,8 +110,18 @@ export function NavList() {
               return (
                 <div
                   key={kind}
-                  className={`${styles.navItem} ${active ? styles.navItemActive : ''}`}
+                  className={cx(styles.navItem, active && styles.navItemActive)}
                   onClick={() => setNav(kind)}
+                  role="link"
+                  aria-current={active ? 'page' : undefined}
+                  aria-label={label}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setNav(kind);
+                    }
+                  }}
                 >
                   <span className={styles.navIcon}>{meta?.icon}</span>
                   <span className={styles.navLabel}>{label}</span>
@@ -163,17 +176,6 @@ export function NavList() {
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
-                <OverlayItem
-                  item={{
-                    key: 'ingress-editor',
-                    label: t('chrome.sidebar.tools.ingressEditor', 'Ingress Editor'),
-                    icon: <Pencil size={14} />,
-                  }}
-                  overlay={overlay}
-                  openOverlay={openOverlay}
-                  closeOverlay={closeOverlay}
-                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
-                />
               </>
             )}
             {/* Helm extras: Helm Market (action wizard that belongs with
@@ -194,17 +196,21 @@ export function NavList() {
           </div>
         )
       )}
-      {/* Divider between resource groups and the overlay section below. */}
+      {/* Tools section — overlays (panels) rather than resources. A real section
+          header makes the resources↔tools split legible; before, overlay items
+          used the same chrome as resource items and were indistinguishable. */}
       <div className={styles.sectionDivider} />
+      <div className={styles.sectionHeader}>{t('chrome.sidebar.toolsSection')}</div>
       <OverlaySection t={t} />
     </div>
   );
 }
 
-/** A single overlay sidebar entry — reusable across groups and sections. */
+/** A single overlay sidebar entry — reusable across groups and sections.
+ *  Memoized: the sidebar renders many OverlayItems and their props are stable. */
 type OverlayItemDef = { key: OverlayKey; label: string; icon: ReactNode };
 
-function OverlayItem({
+const OverlayItem = React.memo(function OverlayItem({
   item,
   overlay,
   openOverlay,
@@ -223,15 +229,25 @@ function OverlayItem({
   const active = overlay === item.key;
   return (
     <div
-      className={`${styles.navItem} ${nested ? styles.navItemNested : ''} ${active ? styles.navItemActive : ''}`}
+      className={cx(styles.navItem, nested && styles.navItemNested, active && styles.navItemActive)}
       onClick={() => (active ? closeOverlay() : openOverlay(item.key))}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          active ? closeOverlay() : openOverlay(item.key);
+        }
+      }}
       title={active ? titleClose : item.label}
+      role="button"
+      aria-pressed={active}
+      aria-label={item.label}
+      tabIndex={0}
     >
       <span className={styles.navIcon}>{item.icon}</span>
       <span className={styles.navLabel}>{item.label}</span>
     </div>
   );
-}
+});
 
 /** A collapsible group of overlay entries (e.g. Observability, Images). */
 function CollapsibleOverlayGroup({
@@ -262,8 +278,12 @@ function CollapsibleOverlayGroup({
         type="button"
         className={`${styles.navGroup} ${styles.navGroupOverlay}`}
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={header}
       >
-        <span className={styles.navGroupChevron}>{open ? '⌄' : '›'}</span>
+        <span className={styles.navGroupChevron} aria-hidden="true">
+          {open ? '⌄' : '›'}
+        </span>
         <span className={styles.navGroupLabel}>{header}</span>
       </button>
       {open &&
@@ -284,60 +304,123 @@ function CollapsibleOverlayGroup({
 
 /** Remaining sidebar overlay entries not absorbed by resource groups.
  *
- *  Items absorbed by resource groups (Endpoints/Topology → Network, Helm Market → Helm)
- *  are rendered inline in the main loop above. What remains here:
- *  - Dashboard (flat — first entry, primary home)
+ *  Items absorbed by resource groups (Endpoints/Topology/IngressRoutes → Network,
+ *  Helm Market → Helm) are rendered inline in the main loop above. What remains
+ *  lives under the Tools section header, grouped so each panel sits with its kin:
  *  - Observability (collapsible): Metrics, Alerting, Grafana
- *  - Images (collapsible): Image Registries, Image Import
- *  - Pod Files, Templates (flat) */
+ *  - Security      (collapsible): Audit, SBOM
+ *  - Images        (collapsible): Image Registries, Image Transfer
+ *  - Tooling       (collapsible): Templates, Diff, Pod Files
+ *  - System        (collapsible): Plugins
+ *
+ *  Dashboard is pinned at the very top of the sidebar (above the resource groups)
+ *  as the primary home view, so it isn't repeated here. */
 function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
   const overlay = useStore((s) => s.overlay);
   const openOverlay = useStore((s) => s.openOverlay);
   const closeOverlay = useStore((s) => s.closeOverlay);
   const titleClose = t('chrome.sidebar.tools.close', 'Click to close');
 
-  const observabilityItems: OverlayItemDef[] = [
-    {
-      key: 'metrics',
-      label: t('chrome.sidebar.tools.metrics', 'Metrics'),
-      icon: <BarChart3 size={14} />,
-    },
-    {
-      key: 'alerting',
-      label: t('chrome.sidebar.tools.alerting', 'Alerting'),
-      icon: <Bell size={14} />,
-    },
-    {
-      key: 'grafana',
-      label: t('chrome.sidebar.tools.grafana', 'Grafana'),
-      icon: <LineChart size={14} />,
-    },
-    {
-      key: 'audit',
-      label: t('chrome.sidebar.tools.audit', 'Audit'),
-      icon: <ClipboardList size={14} />,
-    },
-  ];
+  const observabilityItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'metrics',
+        label: t('chrome.sidebar.tools.metrics', 'Metrics'),
+        icon: <BarChart3 size={14} />,
+      },
+      {
+        key: 'alerting',
+        label: t('chrome.sidebar.tools.alerting', 'Alerting'),
+        icon: <Bell size={14} />,
+      },
+      {
+        key: 'grafana',
+        label: t('chrome.sidebar.tools.grafana', 'Grafana'),
+        icon: <LineChart size={14} />,
+      },
+    ],
+    [t]
+  );
 
-  const imageItems: OverlayItemDef[] = [
-    {
-      key: 'image-repos',
-      label: t('chrome.sidebar.tools.imageRepos', 'Image Registries'),
-      icon: <Container size={14} />,
-    },
-    {
-      key: 'image-import',
-      label: t('chrome.sidebar.tools.imageImport', 'Image Import'),
-      icon: <Upload size={14} />,
-    },
-  ];
+  const securityItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'audit',
+        label: t('chrome.sidebar.tools.audit', 'Audit'),
+        icon: <ClipboardList size={14} />,
+      },
+      {
+        key: 'sbom',
+        label: t('chrome.sidebar.tools.sbom', 'SBOM'),
+        icon: <FileText size={14} />,
+      },
+    ],
+    [t]
+  );
+
+  const imageItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'image-repos',
+        label: t('chrome.sidebar.tools.imageRepos', 'Image Registries'),
+        icon: <Container size={14} />,
+      },
+      {
+        key: 'image-transfer',
+        label: t('chrome.sidebar.tools.imageTransfer', 'Image Transfer'),
+        icon: <ArrowLeftRight size={14} />,
+      },
+    ],
+    [t]
+  );
+
+  const toolingItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'templates',
+        label: t('chrome.sidebar.tools.templates', 'Templates'),
+        icon: <PlusSquare size={14} />,
+      },
+      {
+        key: 'diff',
+        label: t('chrome.sidebar.tools.diff', 'Diff'),
+        icon: <GitCompareArrows size={14} />,
+      },
+      {
+        key: 'pod-files',
+        label: t('chrome.sidebar.tools.podFiles', 'Pod Files'),
+        icon: <FolderOpen size={14} />,
+      },
+    ],
+    [t]
+  );
+
+  const systemItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'plugins',
+        label: t('chrome.sidebar.tools.plugins', 'Plugins'),
+        icon: <Plug size={14} />,
+      },
+    ],
+    [t]
+  );
 
   return (
     <div>
-      {/* Observability — Metrics, Alerting, Grafana grouped together. */}
       <CollapsibleOverlayGroup
         header={t('chrome.sidebar.tools.observability', 'Observability')}
         items={observabilityItems}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      {/* Security — Audit (K8s audit log) + SBOM (software bill of materials):
+          both are compliance/finding surfaces, not observability metrics. */}
+      <CollapsibleOverlayGroup
+        header={t('chrome.sidebar.tools.security', 'Security')}
+        items={securityItems}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
@@ -351,56 +434,17 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
         closeOverlay={closeOverlay}
         titleClose={titleClose}
       />
-      <OverlayItem
-        item={{
-          key: 'pod-files',
-          label: t('chrome.sidebar.tools.podFiles', 'Pod Files'),
-          icon: <FolderOpen size={14} />,
-        }}
+      <CollapsibleOverlayGroup
+        header={t('chrome.sidebar.tools.tooling', 'Tooling')}
+        items={toolingItems}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
         titleClose={titleClose}
       />
-      <OverlayItem
-        item={{
-          key: 'templates',
-          label: t('chrome.sidebar.tools.templates', 'Templates'),
-          icon: <PlusSquare size={14} />,
-        }}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <OverlayItem
-        item={{
-          key: 'diff',
-          label: t('chrome.sidebar.tools.diff', 'Diff'),
-          icon: <GitCompareArrows size={14} />,
-        }}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <OverlayItem
-        item={{
-          key: 'plugins',
-          label: t('chrome.sidebar.tools.plugins', 'Plugins'),
-          icon: <Plug size={14} />,
-        }}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <OverlayItem
-        item={{
-          key: 'sbom',
-          label: t('chrome.sidebar.tools.sbom', 'SBOM'),
-          icon: <FileText size={14} />,
-        }}
+      <CollapsibleOverlayGroup
+        header={t('chrome.sidebar.tools.system', 'System')}
+        items={systemItems}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
@@ -456,12 +500,15 @@ function CustomSection({
     setExpanded((prev) => (prev.has(activeGroup) ? prev : new Set(prev).add(activeGroup)));
   }, [activeGroup]);
 
-  const toggle = (group: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(group)) next.add(group);
-      return next;
-    });
+  const toggle = useCallback(
+    (group: string) =>
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (!next.delete(group)) next.add(group);
+        return next;
+      }),
+    []
+  );
 
   // While filtering, show every match: folds would hide the thing being searched for.
   const filtering = filter.trim() !== '';
@@ -480,6 +527,7 @@ function CustomSection({
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
           placeholder={filterPlaceholder}
+          aria-label={filterPlaceholder}
         />
       )}
 
@@ -492,8 +540,12 @@ function CustomSection({
               className={styles.navGroup}
               onClick={() => toggle(group)}
               title={group}
+              aria-expanded={open}
+              aria-label={group}
             >
-              <span className={styles.navGroupChevron}>{open ? '⌄' : '›'}</span>
+              <span className={styles.navGroupChevron} aria-hidden="true">
+                {open ? '⌄' : '›'}
+              </span>
               <span className={styles.navGroupLabel}>{group}</span>
               <span className={styles.navCount}>{groupKinds.length}</span>
             </button>
@@ -507,7 +559,17 @@ function CustomSection({
                       active ? styles.navItemActive : ''
                     }`}
                     onClick={() => setNav(ck.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setNav(ck.id);
+                      }
+                    }}
                     title={`${ck.kind} · ${ck.group}/${ck.version}`}
+                    role="link"
+                    aria-current={active ? 'page' : undefined}
+                    aria-label={ck.kind}
+                    tabIndex={0}
                   >
                     <span className={styles.navLabel}>{ck.kind}</span>
                   </div>

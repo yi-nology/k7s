@@ -9,19 +9,23 @@ import { PodFilesPanel } from './PodFilesPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    podFilesList: vi.fn().mockResolvedValue([
-      { name: 'etc', kind: 'dir', size: 0 },
-      { name: 'var', kind: 'dir', size: 0 },
-      { name: 'config.yaml', kind: 'file', size: 1024 },
-      { name: 'link', kind: 'symlink', size: 0, target: '/etc' },
-    ]),
-    podFilesRead: vi.fn().mockResolvedValue('file content here'),
-    podFilesWrite: vi.fn().mockResolvedValue(undefined),
-    podFilesDownload: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      podFilesList: vi.fn().mockResolvedValue([
+        { name: 'etc', kind: 'dir', size: 0 },
+        { name: 'var', kind: 'dir', size: 0 },
+        { name: 'config.yaml', kind: 'file', size: 1024 },
+        { name: 'link', kind: 'symlink', size: 0, target: '/etc' },
+      ]),
+      podFilesRead: vi.fn().mockResolvedValue('file content here'),
+      podFilesWrite: vi.fn().mockResolvedValue(undefined),
+      podFilesDownload: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
+    }),
+  };
+});
 
 const mockRef = { kind: 'pods' as const, namespace: 'default', name: 'nginx' };
 

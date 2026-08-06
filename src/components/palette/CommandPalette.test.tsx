@@ -8,12 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
 import { CommandPalette } from './CommandPalette';
-import {
-  render,
-  cleanup,
-  createMockRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 
 let view: RenderResult;
 
@@ -29,9 +24,7 @@ function resetStore() {
         createMockRow({ uid: 'p1', name: 'nginx-pod', namespace: 'default' }),
         createMockRow({ uid: 'p2', name: 'redis-pod', namespace: 'default' }),
       ],
-      deployments: [
-        createMockRow({ uid: 'd1', name: 'nginx-deploy', namespace: 'default' }),
-      ],
+      deployments: [createMockRow({ uid: 'd1', name: 'nginx-deploy', namespace: 'default' })],
       namespaces: [],
     },
     customKinds: [],

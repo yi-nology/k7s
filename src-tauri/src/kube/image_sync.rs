@@ -293,6 +293,173 @@ pub async fn copy_image(
     }
 }
 
+/// The result of exporting an image from a registry to a local .tar file.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExportRegistryResult {
+    /// Source image reference (e.g. "docker://harbor.local/nginx:1.25").
+    pub source: String,
+    /// Local file path the tar was saved to.
+    pub saved_path: String,
+    /// Whether skopeo exited 0.
+    pub success: bool,
+    /// Number of output lines.
+    pub lines: usize,
+    /// Human-readable summary.
+    pub summary: String,
+}
+
+/// Construct the `skopeo copy` argv for exporting to a docker-archive.
+pub fn build_export_argv(
+    skopeo: &str,
+    source: &str,
+    dest: &str,
+    src_user: &str,
+    src_pass: &str,
+    insecure_src: bool,
+) -> Vec<String> {
+    let _ = skopeo;
+    let mut argv: Vec<String> = vec![
+        "copy".into(),
+        "--retry-times".into(),
+        "3".into(),
+        "--override-os".into(),
+        "linux".into(),
+        "--override-arch".into(),
+        "amd64".into(),
+    ];
+    if !src_user.is_empty() {
+        argv.push("--src-creds".into());
+        argv.push(format!("{src_user}:{src_pass}"));
+    }
+    if insecure_src {
+        argv.push("--src-tls-verify=false".into());
+    }
+    argv.push(source.into());
+    argv.push(dest.into());
+    argv
+}
+
+/// Export an image from a configured registry to a local docker-archive tarball.
+pub async fn export_from_registry(
+    registry_name: &str,
+    repo: &str,
+    tag: &str,
+    save_path: &str,
+    insecure_src: bool,
+    sink: EventSink,
+) -> AppResult<ExportRegistryResult> {
+    let skopeo = which_skopeo().ok_or_else(|| {
+        AppError::Other(
+            "skopeo CLI not found in PATH — install skopeo \
+             (brew install skopeo / apt install skopeo) and retry"
+                .into(),
+        )
+    })?;
+
+    let reg = imagerepo::list_registries()
+        .map_err(|e| AppError::Other(format!("load registries: {e}")))?
+        .into_iter()
+        .find(|r| r.name == registry_name)
+        .ok_or_else(|| {
+            AppError::NotFound(format!(
+                "registry '{registry_name}' is not configured — add it via the registries UI first"
+            ))
+        })?;
+
+    let host = registry_host(&reg.url);
+    let source_ref = format!("docker://{host}/{}:{}", repo.trim_start_matches('/'), tag);
+    let dest_ref = format!("docker-archive:{save_path}");
+
+    let argv = build_export_argv(
+        &skopeo,
+        &source_ref,
+        &dest_ref,
+        reg.username.as_str(),
+        reg.password.as_str(),
+        insecure_src,
+    );
+
+    let mut cmd = Command::new(&skopeo);
+    cmd.args(&argv)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .envs(std::env::vars().filter(|(k, _)| k == "HOME" || k == "PATH"));
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| AppError::Other(format!("spawn skopeo: {e}")))?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| AppError::Other("no stdout from skopeo".into()))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| AppError::Other("no stderr from skopeo".into()))?;
+
+    let line_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let sink_out = sink.clone();
+    let count_out = line_count.clone();
+    let out_task = tokio::spawn(async move {
+        let mut reader = BufReader::new(stdout).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            count_out.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            sink_out.emit(
+                IMAGE_SYNC_LOG_EVENT,
+                &LogLine {
+                    stream: "stdout",
+                    line,
+                },
+            );
+        }
+    });
+    let sink_err = sink.clone();
+    let count_err = line_count.clone();
+    let err_task = tokio::spawn(async move {
+        let mut reader = BufReader::new(stderr).lines();
+        while let Ok(Some(line)) = reader.next_line().await {
+            count_err.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            sink_err.emit(
+                IMAGE_SYNC_LOG_EVENT,
+                &LogLine {
+                    stream: "stderr",
+                    line,
+                },
+            );
+        }
+    });
+
+    let status = child
+        .wait()
+        .await
+        .map_err(|e| AppError::Other(format!("wait skopeo: {e}")))?;
+    let _ = tokio::join!(out_task, err_task);
+
+    let success = status.success();
+    let lines = line_count.load(std::sync::atomic::Ordering::Relaxed);
+    let summary = if success {
+        format!("exported {source_ref} → {save_path}")
+    } else {
+        format!("skopeo copy failed: {status}")
+    };
+
+    let result = ExportRegistryResult {
+        source: source_ref,
+        saved_path: save_path.to_string(),
+        success,
+        lines,
+        summary,
+    };
+    sink.emit(IMAGE_SYNC_DONE_EVENT, &result);
+    if success {
+        Ok(result)
+    } else {
+        Err(AppError::Other(result.summary))
+    }
+}
+
 /// Construct the `skopeo copy` argv. Kept separate from `copy_image` so a unit
 /// test can assert the flag ordering without spinning up skopeo.
 #[allow(clippy::too_many_arguments)]
@@ -497,5 +664,65 @@ mod tests {
         );
         assert_eq!(argv[argv.len() - 2], "docker://nginx:1");
         assert_eq!(argv[argv.len() - 1], "docker://h/app:1");
+    }
+
+    #[test]
+    fn export_argv_docker_archive_dest() {
+        let argv = build_export_argv(
+            "skopeo",
+            "docker://harbor.local/library/nginx:1.25",
+            "docker-archive:/tmp/nginx.tar",
+            "admin",
+            "s3cret",
+            false,
+        );
+        assert_eq!(argv[argv.len() - 2], "docker://harbor.local/library/nginx:1.25");
+        assert_eq!(argv[argv.len() - 1], "docker-archive:/tmp/nginx.tar");
+        assert!(argv.contains(&"--src-creds".into()));
+        assert!(argv.contains(&"admin:s3cret".into()));
+    }
+
+    #[test]
+    fn export_argv_no_creds_when_user_empty() {
+        let argv = build_export_argv(
+            "skopeo",
+            "docker://reg.local/nginx:1",
+            "docker-archive:/tmp/x.tar",
+            "",
+            "",
+            false,
+        );
+        assert!(!argv.contains(&"--src-creds".into()));
+    }
+
+    #[test]
+    fn export_argv_insecure_flag() {
+        let argv = build_export_argv(
+            "skopeo",
+            "docker://reg.local/nginx:1",
+            "docker-archive:/tmp/x.tar",
+            "",
+            "",
+            true,
+        );
+        assert!(argv.contains(&"--src-tls-verify=false".into()));
+    }
+
+    #[test]
+    fn build_export_argv_forces_linux_amd64() {
+        // Regression guard: the override flags must always be present so a
+        // macOS host doesn't silently export a darwin/arm64 image.
+        let argv = build_export_argv(
+            "skopeo",
+            "docker://nginx:1",
+            "docker-archive:/tmp/nginx.tar",
+            "",
+            "",
+            false,
+        );
+        assert!(argv.contains(&"--override-os".into()));
+        assert!(argv.contains(&"linux".into()));
+        assert!(argv.contains(&"--override-arch".into()));
+        assert!(argv.contains(&"amd64".into()));
     }
 }

@@ -26,15 +26,19 @@ vi.mock('./useTerminal', () => ({
 }));
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    startShell: vi.fn().mockResolvedValue({
-      input: vi.fn(),
-      resize: vi.fn(),
-      stop: vi.fn(),
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      startShell: vi.fn().mockResolvedValue({
+        input: vi.fn(),
+        resize: vi.fn(),
+        stop: vi.fn(),
+      }),
     }),
-  }),
-}));
+  };
+});
 
 let view: RenderResult;
 

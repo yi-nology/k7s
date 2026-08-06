@@ -121,12 +121,44 @@ export interface ImageLayer {
   mediaType: string;
 }
 
+/** Result of exporting an image from a node to a local .tar file.
+ * Mirrors the Rust `ExportResult` in `src-tauri/src/kube/imageexport.rs`. */
+export interface ExportFromNodeResult {
+  /** Detected runtime: "containerd" | "docker". */
+  runtime: string;
+  /** Raw output from the export command. */
+  output: string;
+  /** Exported image refs. */
+  images: string[];
+  /** Local file path the tar was saved to. */
+  savedPath: string;
+  /** null on success; failure reason on error. */
+  error: string | null;
+}
+
+/** Result of exporting an image from a registry to a local .tar file.
+ * Mirrors the Rust `ExportRegistryResult` in `src-tauri/src/kube/image_sync.rs`. */
+export interface ExportFromRegistryResult {
+  /** Source image reference (e.g. "docker://harbor.local/nginx:1.25"). */
+  source: string;
+  /** Local file path the tar was saved to. */
+  savedPath: string;
+  /** Whether skopeo exited 0. */
+  success: boolean;
+  /** Number of output lines. */
+  lines: number;
+  /** Human-readable summary. */
+  summary: string;
+}
+
+// TODO: ImportProgressEvent for streaming progress (future enhancement)
+
 // ---- Container image vulnerability scanning ----
 
 /** A single vulnerability found in a container image (e.g. by Trivy / Grype). */
 export interface Vulnerability {
-  id: string;              // CVE ID, e.g. "CVE-2023-1234"
-  severity: string;        // CRITICAL / HIGH / MEDIUM / LOW
+  id: string; // CVE ID, e.g. "CVE-2023-1234"
+  severity: string; // CRITICAL / HIGH / MEDIUM / LOW
   pkgName: string;
   installedVersion: string;
   fixedVersion: string | null;
@@ -145,9 +177,9 @@ export interface ScanSummary {
 
 /** Result of a container image vulnerability scan. */
 export interface ScanResult {
-  engine: string;              // scanner name, e.g. "trivy"
-  target: string;              // image reference scanned
-  scannedAt: string;           // ISO 8601
+  engine: string; // scanner name, e.g. "trivy"
+  target: string; // image reference scanned
+  scannedAt: string; // ISO 8601
   summary: ScanSummary;
   vulnerabilities: Vulnerability[];
 }

@@ -14,7 +14,7 @@
  */
 
 import type { DataProvider } from '../providers/types';
-import { getProvider } from '../providers';
+import { formatError, getProvider } from '../providers';
 import { useStore } from '../store';
 
 /** Monotonic request id. Bumped on every call; only the latest call writes. */
@@ -49,7 +49,7 @@ export async function connectTo(
     if (myToken !== currentToken) return;
     store.setConnection({
       phase: 'error',
-      error: e instanceof Error ? e.message : String(e),
+      error: formatError(e),
     });
   }
 }

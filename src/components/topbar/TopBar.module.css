@@ -127,9 +127,17 @@
     background 0.12s ease,
     border-color 0.12s ease;
 }
-.nsButton:hover {
+.nsButton:hover:not(:disabled) {
   border-color: var(--border-hover);
   background: var(--bg-hover);
+}
+/* Disabled when the ns filter doesn't apply: a tool panel is open, or the
+   active kind is cluster-scoped. Matches the disabled pattern used across the
+   app (opacity + pointer-events + cursor) so the affordance reads the same. */
+.nsButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .nsPrefix {
   color: var(--text-faint);

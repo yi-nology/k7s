@@ -9,22 +9,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { ActionList } from './ActionList';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
+import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    setCordon: vi.fn().mockResolvedValue(undefined),
-    deleteResource: vi.fn().mockResolvedValue(undefined),
-    restartPod: vi.fn().mockResolvedValue(undefined),
-    restartRollout: vi.fn().mockResolvedValue(undefined),
-    undoRollout: vi.fn().mockResolvedValue(undefined),
-    drainNode: vi.fn().mockResolvedValue(undefined),
-    scaleResource: vi.fn().mockResolvedValue(undefined),
-    startPortForward: vi.fn().mockResolvedValue({ localPort: 9090 }),
-    listPortForwards: vi.fn().mockResolvedValue([]),
-    getYaml: vi.fn().mockResolvedValue('apiVersion: v1\nkind: Pod\n'),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      setCordon: vi.fn().mockResolvedValue(undefined),
+      deleteResource: vi.fn().mockResolvedValue(undefined),
+      restartPod: vi.fn().mockResolvedValue(undefined),
+      restartRollout: vi.fn().mockResolvedValue(undefined),
+      undoRollout: vi.fn().mockResolvedValue(undefined),
+      drainNode: vi.fn().mockResolvedValue(undefined),
+      scaleResource: vi.fn().mockResolvedValue(undefined),
+      startPortForward: vi.fn().mockResolvedValue({ localPort: 9090 }),
+      listPortForwards: vi.fn().mockResolvedValue([]),
+      getYaml: vi.fn().mockResolvedValue('apiVersion: v1\nkind: Pod\n'),
+    }),
+  };
+});
 
 let view: RenderResult;
 
@@ -35,7 +40,7 @@ function resetStore() {
     setPortForwards: vi.fn(),
     viewPods: vi.fn(),
     openOverlay: vi.fn(),
-    settings: { language: 'en' } as any,
+    settings: createMockSettings(),
   });
 }
 
@@ -98,9 +103,7 @@ describe('ActionList', () => {
     );
     // Delete is a danger action
     const dangerBtns = view.container.querySelectorAll('button');
-    const hasDelete = Array.from(dangerBtns).some(
-      (b) => b.textContent?.includes('Delete')
-    );
+    const hasDelete = Array.from(dangerBtns).some((b) => b.textContent?.includes('Delete'));
     expect(hasDelete).toBe(true);
   });
 
@@ -115,9 +118,7 @@ describe('ActionList', () => {
       />
     );
     const buttons = view.container.querySelectorAll('button');
-    const hasRestart = Array.from(buttons).some(
-      (b) => b.textContent?.includes('Restart')
-    );
+    const hasRestart = Array.from(buttons).some((b) => b.textContent?.includes('Restart'));
     expect(hasRestart).toBe(true);
   });
 
@@ -178,9 +179,7 @@ describe('ActionList', () => {
       />
     );
     const buttons = view.container.querySelectorAll('button');
-    const hasCordon = Array.from(buttons).some(
-      (b) => b.textContent?.includes('Cordon')
-    );
+    const hasCordon = Array.from(buttons).some((b) => b.textContent?.includes('Cordon'));
     expect(hasCordon).toBe(true);
   });
 
@@ -209,9 +208,7 @@ describe('ActionList', () => {
       />
     );
     const buttons = view.container.querySelectorAll('button');
-    const hasDownload = Array.from(buttons).some(
-      (b) => b.textContent?.includes('Download')
-    );
+    const hasDownload = Array.from(buttons).some((b) => b.textContent?.includes('Download'));
     expect(hasDownload).toBe(true);
   });
 });

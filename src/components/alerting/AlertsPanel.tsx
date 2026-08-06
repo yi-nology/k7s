@@ -6,7 +6,7 @@
  * alerting rules (read-only).
  */
 import { useCallback, useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type {
   Alert,
   AlertManager,
@@ -38,7 +38,7 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
           setSelected(rows[0].name);
         }
       })
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -49,12 +49,12 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
       getProvider()
         .alertManagerAlerts(selected)
         .then(setAlerts)
-        .catch((e: unknown) => setError(String(e)));
+        .catch((e: unknown) => setError(formatError(e)));
     } else if (tab === 'silences') {
       getProvider()
         .alertManagerSilences(selected)
         .then(setSilences)
-        .catch((e: unknown) => setError(String(e)));
+        .catch((e: unknown) => setError(formatError(e)));
     }
   }, [selected, tab]);
 
@@ -74,7 +74,7 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
     getProvider()
       .prometheusRules(promInstance)
       .then(setRuleGroups)
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
   }, [tab, selected, instances]);
 
   const handleExpireSilence = useCallback(
@@ -85,7 +85,7 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
         await getProvider().alertManagerDeleteSilence(selected, silenceId);
         refresh();
       } catch (e: unknown) {
-        setError(String(e));
+        setError(formatError(e));
       }
     },
     [selected, refresh]
@@ -101,7 +101,7 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
         setTab('silences');
         refresh();
       } catch (e: unknown) {
-        setError(String(e));
+        setError(formatError(e));
       }
     },
     [selected, refresh]

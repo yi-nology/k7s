@@ -4,7 +4,7 @@
 use crate::commands::core::require_client;
 use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
-use crate::kube::{image_archive, image_sync, imageimport, imagerepo, pod_files, templates};
+use crate::kube::{image_archive, image_sync, imageexport, imageimport, imagerepo, pod_files, templates};
 use std::sync::Arc;
 use tauri::State;
 
@@ -281,6 +281,47 @@ pub async fn image_copy(
 #[tauri::command]
 pub async fn image_inspect_archive(tar_path: String) -> AppResult<image_archive::ArchiveInfo> {
     image_archive::inspect_archive(&tar_path).await
+}
+
+// ---------------------------------------------------------------------------
+// Image export — get images out of a cluster node or registry to a local .tar.
+// ---------------------------------------------------------------------------
+
+/// Export a container image from a K8s node to a local .tar file.
+#[tauri::command]
+pub async fn export_from_node(
+    node: String,
+    image_ref: String,
+    save_path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<imageexport::ExportResult> {
+    let client = require_client(&mgr.manager).await?;
+    imageexport::export_from_node(client, &node, &image_ref, &save_path).await
+}
+
+/// List container images present on a K8s node.
+#[tauri::command]
+pub async fn list_node_images(
+    node: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<String>> {
+    let client = require_client(&mgr.manager).await?;
+    imageexport::list_node_images(client, &node).await
+}
+
+/// Export an image from a configured private registry to a local .tar file.
+#[tauri::command]
+pub async fn export_from_registry(
+    registry_name: String,
+    repo: String,
+    tag: String,
+    save_path: String,
+    insecure_src: bool,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<image_sync::ExportRegistryResult> {
+    let sink = mgr.manager.sink();
+    image_sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink)
+        .await
 }
 
 // ---------------------------------------------------------------------------

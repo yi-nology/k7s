@@ -10,13 +10,12 @@ import { EMPTY_SELECTION, type SelectionState } from '../lib/selection';
 import type { SinceOption } from '../lib/logview';
 
 /**
- * The state change that *is* selecting a row.
+ * The eight log/YAML-related fields that reset to defaults whenever the detail
+ * context changes (new selection, tab switch, close). Centralised so the reset
+ * stays consistent instead of being re-typed at every call site.
  */
-function selectionPatch(row: Row) {
+function logResetPatch() {
   return {
-    selectedRow: row,
-    selection: { selected: [row.uid], anchor: row.uid } as SelectionState,
-    activeTab: (row.pod ? 'logs' : 'yaml') as DetailTab,
     yamlEditing: false,
     yamlDraft: '',
     logBuffer: [] as LogLine[],
@@ -25,6 +24,18 @@ function selectionPatch(row: Row) {
     following: true,
     logPrevious: false,
     logSince: 'all' as SinceOption,
+  };
+}
+
+/**
+ * The state change that *is* selecting a row.
+ */
+function selectionPatch(row: Row) {
+  return {
+    selectedRow: row,
+    selection: { selected: [row.uid], anchor: row.uid } as SelectionState,
+    activeTab: (row.pod ? 'logs' : 'yaml') as DetailTab,
+    ...logResetPatch(),
   };
 }
 
@@ -122,14 +133,7 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
             detailTabs: [],
             activeDetailTabUid: null,
             selectedRow: null,
-            logBuffer: [],
-            logSearch: '',
-            containerIndex: 0,
-            following: true,
-            logPrevious: false,
-            logSince: 'all',
-            yamlEditing: false,
-            yamlDraft: '',
+            ...logResetPatch(),
           };
         }
         const newActive =
@@ -145,26 +149,12 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
           nav: newActive.kind,
           selectedRow: newActive.row,
           activeTab: newActive.activeTab,
-          yamlEditing: false,
-          yamlDraft: '',
-          logBuffer: [],
-          logSearch: '',
-          containerIndex: 0,
-          following: true,
-          logPrevious: false,
-          logSince: 'all',
+          ...logResetPatch(),
         };
       }
       return {
         selectedRow: null,
-        logBuffer: [],
-        logSearch: '',
-        containerIndex: 0,
-        following: true,
-        logPrevious: false,
-        logSince: 'all',
-        yamlEditing: false,
-        yamlDraft: '',
+        ...logResetPatch(),
       };
     }),
   setActiveTab: (tab) =>
@@ -207,14 +197,7 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
         nav: tab.kind,
         selectedRow: tab.row,
         activeTab: tab.activeTab,
-        yamlEditing: false,
-        yamlDraft: '',
-        logBuffer: [],
-        logSearch: '',
-        containerIndex: 0,
-        following: true,
-        logPrevious: false,
-        logSince: 'all',
+        ...logResetPatch(),
       };
     }),
   cycleDetailTab: (direction) =>
@@ -228,14 +211,7 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
         nav: next.kind,
         selectedRow: next.row,
         activeTab: next.activeTab,
-        yamlEditing: false,
-        yamlDraft: '',
-        logBuffer: [],
-        logSearch: '',
-        containerIndex: 0,
-        following: true,
-        logPrevious: false,
-        logSince: 'all',
+        ...logResetPatch(),
       };
     }),
   openSelectedInTab: () =>
@@ -280,8 +256,7 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
       tableFilter: selector,
     })),
   setLogSearch: (q) => set({ logSearch: q }),
-  cycleContainer: () =>
-    set((s) => ({ containerIndex: s.containerIndex + 1, logBuffer: [] })),
+  cycleContainer: () => set((s) => ({ containerIndex: s.containerIndex + 1, logBuffer: [] })),
   toggleTimestamps: () => set((s) => ({ showTimestamps: !s.showTimestamps })),
   toggleFollow: () => set((s) => ({ following: !s.following })),
   setFollowing: (value) => set({ following: value }),

@@ -10,10 +10,11 @@
  * Fetched in one backend call on open / selection change.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './PropertiesTab.module.css';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useNow } from '../../hooks/useNow';
 import { useTranslation } from '../../hooks/useI18n';
 import { formatAge } from '../../lib/format';
@@ -58,23 +59,21 @@ export function PropertiesTab() {
     }
   }, [row?.uid]);
 
-  useEffect(() => {
+  useAsyncEffect(async (isMounted) => {
     if (!row) return;
-    let cancelled = false;
     setProps(null);
     setError(null);
-    void getProvider()
-      .getProperties({ kind, namespace: row.namespace, name: row.name })
-      .then((p) => {
-        if (!cancelled) setProps(p);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+    try {
+      const p = await getProvider().getProperties({
+        kind,
+        namespace: row.namespace,
+        name: row.name,
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [row?.uid, row?.namespace, row?.name, kind]);
+      if (isMounted()) setProps(p);
+    } catch (e) {
+      if (isMounted()) setError(formatError(e));
+    }
+  }, [row, kind]);
 
   // Fetch decoded secret data on first toggle.
   const handleToggleSecrets = useCallback(() => {
@@ -94,7 +93,7 @@ export function PropertiesTab() {
         setSecretLoading(false);
       })
       .catch((e) => {
-        setSecretError(e instanceof Error ? e.message : String(e));
+        setSecretError(formatError(e));
         setSecretLoading(false);
       });
   }, [showSecrets, secretData, row]);
@@ -318,9 +317,16 @@ function SectionView({
 /**
  * A reference to another object, rendered as a click-through link (B33, B40).
  * Inherits the surrounding colour so a linked status keeps its tone; the
- * underline is what marks it navigable.
+ * underline is what marks it navigable. Memoized: used inside table rows that
+ * re-render on the 30s age tick.
  */
-function NavLink({ target, children }: { target: NavTarget; children: React.ReactNode }) {
+const NavLink = React.memo(function NavLink({
+  target,
+  children,
+}: {
+  target: NavTarget;
+  children: React.ReactNode;
+}) {
   const navigateTo = useStore((s) => s.navigateTo);
   const { t } = useTranslation();
   return (
@@ -333,11 +339,12 @@ function NavLink({ target, children }: { target: NavTarget; children: React.Reac
       {children}
     </button>
   );
-}
+});
 
 /** One key/value row in a field grid. A field with a nav target (B33) renders as
- * a click-through link (e.g. a pod's owner → its Deployment). */
-function FieldRow({ field, now }: { field: Field; now: number }) {
+ * a click-through link (e.g. a pod's owner → its Deployment). Memoized: the
+ * properties grid can have dozens of rows that only change on selection change. */
+const FieldRow = React.memo(function FieldRow({ field, now }: { field: Field; now: number }) {
   const { label, value, nav } = field;
   const color = toneColor(value.tone);
   return (
@@ -348,7 +355,7 @@ function FieldRow({ field, now }: { field: Field; now: number }) {
       </span>
     </>
   );
-}
+});
 
 /** Cell text, formatting age cells like the resource tables do. */
 function cellText(cell: Cell, now: number): string {

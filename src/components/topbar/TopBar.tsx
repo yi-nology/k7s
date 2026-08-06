@@ -9,12 +9,13 @@
  * same control in case the user is in a flow that already has the panel open.
  */
 
-import { useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import styles from './TopBar.module.css';
 import { useStore, type OverlayKey } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTranslation } from '../../hooks/useI18n';
-import { kindMeta, type KindId } from '../../lib/kinds';
+import { isClusterScoped, kindMeta, type KindId } from '../../lib/kinds';
+import { cx } from '../../lib/cx';
 import { groupLabel, kindLabelFor, LOCALES, LOCALE_LABELS, type Locale } from '../../lib/i18n';
 
 /** Human-readable labels for each overlay key, used in the breadcrumb when an
@@ -24,7 +25,7 @@ const OVERLAY_LABELS: Partial<Record<OverlayKey, string>> = {
   'helm-market': 'Helm Market',
   'pod-files': 'Pod Files',
   'image-repos': 'Image Repos',
-  'image-import': 'Image Import',
+  'image-transfer': 'Image Transfer',
   templates: 'Templates',
   dashboard: 'Dashboard',
   metrics: 'Metrics Explorer',
@@ -78,11 +79,28 @@ export function TopBar() {
   // KIND_META label and finally to the raw nav id if neither resolves.
   const kindText = kindLabelFor(nav, customKinds, locale) ?? meta?.label ?? nav;
 
+  // The namespace filter only affects namespaced resource tables. When a tool
+  // panel (overlay) is open the table is hidden, and cluster-scoped kinds
+  // ignore the filter outright (see ResourceTable). In both cases the dropdown
+  // is a no-op that would mislead — disable it with a tooltip explaining why.
+  const nsDisabled = overlay !== null || isClusterScoped(nav as KindId, customKinds);
+  const nsDisabledTitle = overlay
+    ? t('chrome.topbar.nsDisabledOverlay')
+    : t('chrome.topbar.nsDisabledScope');
+
   // "all" plus the live namespace names (sorted for stable display).
   const namespaces = useMemo(() => {
     const names = nsRows.map((r) => r.name).sort();
     return ['all', ...names];
   }, [nsRows]);
+
+  const handleLangPick = useCallback(
+    (l: Locale) => {
+      closeMenus();
+      setSettings({ language: l });
+    },
+    [closeMenus, setSettings]
+  );
 
   return (
     <div className={styles.topbar}>
@@ -126,17 +144,19 @@ export function TopBar() {
       {/* Language switcher: the current locale's short code, with a dropdown of
           every supported language on click. Lives next to the namespace picker
           because both are "set the working context" controls. */}
-      <LanguageSwitcher
-        ref={langRef}
-        current={locale}
-        onPick={(l) => {
-          closeMenus();
-          setSettings({ language: l });
-        }}
-      />
+      <LanguageSwitcher ref={langRef} current={locale} onPick={handleLangPick} />
 
       <div className={styles.nsWrap} ref={nsRef}>
-        <button type="button" className={styles.nsButton} onClick={() => toggleMenu('ns')}>
+        <button
+          type="button"
+          className={styles.nsButton}
+          onClick={() => {
+            if (nsDisabled) return;
+            toggleMenu('ns');
+          }}
+          disabled={nsDisabled}
+          title={nsDisabled ? nsDisabledTitle : undefined}
+        >
           <span className={styles.nsPrefix}>{t('chrome.topbar.nsPrefix')}</span>
           <span className={styles.nsValue}>{namespace}</span>
           <span className={styles.nsChevron}>▼</span>
@@ -150,7 +170,7 @@ export function TopBar() {
                 <button
                   key={ns}
                   type="button"
-                  className={`${styles.nsRow} ${selected ? styles.nsRowSelected : ''}`}
+                  className={cx(styles.nsRow, selected && styles.nsRowSelected)}
                   onClick={() => setNamespace(ns)}
                 >
                   <span className={styles.nsCheck}>{selected ? '✓' : ''}</span>
@@ -199,7 +219,7 @@ function LanguageSwitcher({
               <button
                 key={l}
                 type="button"
-                className={`${styles.langRow} ${selected ? styles.langRowSelected : ''}`}
+                className={cx(styles.langRow, selected && styles.langRowSelected)}
                 onClick={() => onPick(l)}
               >
                 <span className={styles.langCheck}>{selected ? '✓' : ''}</span>

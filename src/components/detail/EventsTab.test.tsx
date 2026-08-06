@@ -9,21 +9,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act } from 'react';
 import { useStore } from '../../store';
 import { EventsTab } from './EventsTab';
-import {
-  render,
-  cleanup,
-  createMockPodRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockPodRow, type RenderResult } from '../../test/componentUtils';
 import type { EventItem } from '../../providers/types';
+import type { SinceOption } from '../../lib/logview';
 
 // Mock the provider module.
 const mockGetEvents = vi.fn();
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    getEvents: mockGetEvents,
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      getEvents: mockGetEvents,
+    }),
+  };
+});
 
 let view: RenderResult;
 
@@ -32,7 +32,7 @@ function resetStore() {
     nav: 'pods',
     selectedRow: null,
     eventsSince: 'all',
-    setEventsSince: (v: string) => useStore.setState({ eventsSince: v as any }),
+    setEventsSince: (v: string) => useStore.setState({ eventsSince: v as SinceOption }),
   });
 }
 

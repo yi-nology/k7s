@@ -9,19 +9,25 @@ import { ImageRepoPanel } from './ImageRepoPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    imageRegistryList: vi.fn().mockResolvedValue([
-      { name: 'harbor', url: 'https://harbor.example.com', description: 'Test registry' },
-    ]),
-    imageRegistryRepos: vi.fn().mockResolvedValue([]),
-    imageRegistryTags: vi.fn().mockResolvedValue([]),
-    imageRegistryManifest: vi.fn().mockResolvedValue(null),
-    imageRegistryUpsert: vi.fn().mockResolvedValue(undefined),
-    imageRegistryTest: vi.fn().mockResolvedValue(undefined),
-    imageRegistryRemove: vi.fn().mockResolvedValue(undefined),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      imageRegistryList: vi
+        .fn()
+        .mockResolvedValue([
+          { name: 'harbor', url: 'https://harbor.example.com', description: 'Test registry' },
+        ]),
+      imageRegistryRepos: vi.fn().mockResolvedValue([]),
+      imageRegistryTags: vi.fn().mockResolvedValue([]),
+      imageRegistryManifest: vi.fn().mockResolvedValue(null),
+      imageRegistryUpsert: vi.fn().mockResolvedValue(undefined),
+      imageRegistryTest: vi.fn().mockResolvedValue(undefined),
+      imageRegistryRemove: vi.fn().mockResolvedValue(undefined),
+    }),
+  };
+});
 
 let view: RenderResult;
 

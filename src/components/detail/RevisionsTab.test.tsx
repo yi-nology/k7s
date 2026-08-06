@@ -9,28 +9,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { useStore } from '../../store';
 import { RevisionsTab } from './RevisionsTab';
-import {
-  render,
-  cleanup,
-  createMockRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 import type { Revision } from '../../providers/types';
 
 // Mock the provider.
 const mockListRevisions = vi.fn();
 const mockUndoRollout = vi.fn();
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    listRevisions: mockListRevisions,
-    undoRollout: mockUndoRollout,
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      listRevisions: mockListRevisions,
+      undoRollout: mockUndoRollout,
+    }),
+  };
+});
 
 // Mock ModifyImageForm — returns a React element, not a DOM node.
 vi.mock('../actions/ModifyImageForm', () => ({
-  ModifyImageForm: ({ onClose }: any) =>
-    createElement('div', { 'data-testid': 'modify-image-form' },
+  ModifyImageForm: ({ onClose }: { onClose?: () => void }) =>
+    createElement(
+      'div',
+      { 'data-testid': 'modify-image-form' },
       createElement('button', { onClick: () => onClose?.() }, 'Close Form')
     ),
 }));
@@ -176,9 +177,7 @@ describe('RevisionsTab', () => {
       await act(() => new Promise((r) => setTimeout(r, 0)));
       // Count actual <button> elements with "Rollback" text
       const allBtns = view.container.querySelectorAll('button');
-      const rollbackBtns = Array.from(allBtns).filter(
-        (b) => b.textContent?.trim() === 'Rollback'
-      );
+      const rollbackBtns = Array.from(allBtns).filter((b) => b.textContent?.trim() === 'Rollback');
       // Two non-current revisions should have rollback buttons
       expect(rollbackBtns.length).toBe(2);
     });
@@ -191,9 +190,7 @@ describe('RevisionsTab', () => {
       view = render(<RevisionsTab />);
       await act(() => new Promise((r) => setTimeout(r, 0)));
       const allBtns = view.container.querySelectorAll('button');
-      const rollbackBtns = Array.from(allBtns).filter(
-        (b) => b.textContent?.trim() === 'Rollback'
-      );
+      const rollbackBtns = Array.from(allBtns).filter((b) => b.textContent?.trim() === 'Rollback');
       // Click the first rollback button (revision 2)
       view.click(rollbackBtns[0]);
       await act(() => new Promise((r) => setTimeout(r, 0)));

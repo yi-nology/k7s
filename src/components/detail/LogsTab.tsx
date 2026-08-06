@@ -5,12 +5,13 @@
  * The stream lifecycle lives in useLogStream.
  */
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import styles from './LogsTab.module.css';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useLogStream } from '../../hooks/useLogStream';
 import { useTranslation } from '../../hooks/useI18n';
+import { cx } from '../../lib/cx';
 import { hasPrevious, sinceSeconds, SINCE_OPTIONS } from '../../lib/logview';
 import type { LogLine } from '../../providers/types';
 
@@ -85,7 +86,7 @@ export function LogsTab() {
       // null means the dialog was cancelled — not an error, and not worth a note.
       setSaveNote(result ? t('logs.saved', result.lines) : null);
     } catch (e) {
-      setSaveNote(t('logs.saveFailed', e instanceof Error ? e.message : String(e)));
+      setSaveNote(t('logs.saveFailed', formatError(e)));
     }
   }
 
@@ -143,7 +144,7 @@ export function LogsTab() {
           {/* Timestamp toggle. */}
           <button
             type="button"
-            className={`${styles.toggle} ${showTimestamps ? styles.toggleActive : ''}`}
+            className={cx(styles.toggle, showTimestamps && styles.toggleActive)}
             onClick={toggleTimestamps}
           >
             {t('logs.ts')}
@@ -169,7 +170,7 @@ export function LogsTab() {
           {showPrevious && (
             <button
               type="button"
-              className={`${styles.toggle} ${previous ? styles.toggleActive : ''}`}
+              className={cx(styles.toggle, previous && styles.toggleActive)}
               onClick={() => setLogPrevious(!previous)}
               title={t('logs.previousTitle')}
             >
@@ -226,8 +227,9 @@ export function LogsTab() {
 }
 
 /** A single log line row: timestamp (optional), container tag (in "all" mode),
- *  level column, message. */
-function LogRow({
+ *  level column, message. Memoized: log streams render hundreds of lines and
+ *  only the showTs/showContainer toggles change between renders. */
+const LogRow = React.memo(function LogRow({
   line,
   showTs,
   showContainer,
@@ -251,4 +253,4 @@ function LogRow({
       </span>
     </div>
   );
-}
+});

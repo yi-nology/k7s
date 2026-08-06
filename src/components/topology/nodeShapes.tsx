@@ -6,6 +6,7 @@ import type { GraphNode } from './types';
 import { KIND_COLORS, STATUS_COLORS } from './constants';
 import styles from './TopologyGraph.module.css';
 
+/** Rounded rectangle with gradient fill for Service nodes. */
 export function ServiceShape({ unhealthy }: { unhealthy: boolean }) {
   const w = 36,
     h = 24;
@@ -32,6 +33,7 @@ export function ServiceShape({ unhealthy }: { unhealthy: boolean }) {
   );
 }
 
+/** Circle with status-based fill color for Pod nodes. */
 export function PodShape({ unhealthy, status }: { unhealthy: boolean; status: string }) {
   const r = 14;
   const fill = STATUS_COLORS[status] || (unhealthy ? '#ef4444' : KIND_COLORS.pod);
@@ -46,6 +48,7 @@ export function PodShape({ unhealthy, status }: { unhealthy: boolean; status: st
   );
 }
 
+/** Rotated square (diamond) for Endpoint nodes. */
 export function EndpointShape({ unhealthy }: { unhealthy: boolean }) {
   const s = 10;
   return (
@@ -63,6 +66,7 @@ export function EndpointShape({ unhealthy }: { unhealthy: boolean }) {
   );
 }
 
+/** Hexagon for Ingress nodes. */
 export function IngressShape({ unhealthy }: { unhealthy: boolean }) {
   const r = 16;
   const pts = Array.from({ length: 6 }, (_, i) => {
@@ -80,6 +84,7 @@ export function IngressShape({ unhealthy }: { unhealthy: boolean }) {
   );
 }
 
+/** Dispatch to the correct shape component based on node kind. */
 export function NodeShape({ node }: { node: GraphNode }) {
   switch (node.kind) {
     case 'service':

@@ -15,6 +15,22 @@ import {
 import type { GraphLink, GraphNode } from '../types';
 import { buildGraph } from '../graphBuilder';
 
+/**
+ * Manages the d3-force simulation for the topology graph.
+ *
+ * Initializes forces (charge, link, center, x/y gravity), builds the initial
+ * graph from cluster data, and rebuilds when rows change. The simulation ticks
+ * trigger React re-renders via a counter state.
+ *
+ * @param rows - Current resource rows from the store (passed to {@link buildGraph}).
+ * @returns Refs to the simulation, nodes, links, node map, and a render key.
+ *
+ * @example
+ * ```tsx
+ * const { simRef, nodeMapRef, graphKey } = useSimulation(rows);
+ * // graphKey changes on every simulation tick, triggering re-render
+ * ```
+ */
 export function useSimulation(rows: Record<string, unknown>) {
   const simRef = useRef<Simulation<GraphNode, GraphLink> | null>(null);
   const nodesRef = useRef<GraphNode[]>([]);

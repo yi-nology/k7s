@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import type { SbomSummary, SbomResult } from '../../providers/types/sbom';
 
@@ -17,7 +17,7 @@ export function HistoryTab({ onSelect }: Props) {
     getProvider()
       .sbomListHistory()
       .then(setHistory)
-      .catch((e) => setError(String(e)))
+      .catch((e) => setError(formatError(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -35,7 +35,19 @@ export function HistoryTab({ onSelect }: Props) {
 
   return (
     <div>
-      {error && <div style={{ padding: 8, background: 'var(--status-err-soft)', color: 'var(--status-err)', borderRadius: 4, marginBottom: 16 }}>{error}</div>}
+      {error && (
+        <div
+          style={{
+            padding: 8,
+            background: 'var(--status-err-soft)',
+            color: 'var(--status-err)',
+            borderRadius: 4,
+            marginBottom: 16,
+          }}
+        >
+          {error}
+        </div>
+      )}
       {history.length === 0 ? (
         <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: 32 }}>
           {t('sbom.history.empty', 'No SBOM history yet')}
@@ -60,7 +72,9 @@ export function HistoryTab({ onSelect }: Props) {
                 style={{ cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
               >
                 <td style={{ padding: '8px 12px' }}>
-                  {item.source.kind === 'image' ? item.source.imageRef : `Cluster: ${item.source.context}`}
+                  {item.source.kind === 'image'
+                    ? item.source.imageRef
+                    : `Cluster: ${item.source.context}`}
                 </td>
                 <td style={{ padding: '8px 12px' }}>{item.format.toUpperCase()}</td>
                 <td style={{ padding: '8px 12px' }}>{item.componentCount}</td>

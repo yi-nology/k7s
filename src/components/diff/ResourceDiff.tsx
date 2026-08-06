@@ -10,8 +10,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { diffLines, diffStat, type DiffLine } from '../../lib/diff';
+import { cx } from '../../lib/cx';
 import type { KindId, ResourceRef } from '../../providers/types';
 import styles from './ResourceDiff.module.css';
 
@@ -99,7 +100,7 @@ export function ResourceDiff({ onClose }: { onClose: () => void }) {
       const yaml = await provider.getYaml(toRef(leftKind, leftNs, leftName));
       setLeftYaml(yaml);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setLeftLoading(false);
     }
@@ -114,7 +115,7 @@ export function ResourceDiff({ onClose }: { onClose: () => void }) {
       const yaml = await provider.getYaml(toRef(rightKind, rightNs, rightName));
       setRightYaml(yaml);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setRightLoading(false);
     }
@@ -205,13 +206,13 @@ export function ResourceDiff({ onClose }: { onClose: () => void }) {
           <div className={styles.selectorLabel}>{t('diff.right', 'Right (comparison)')}</div>
           <div className={styles.modeToggle}>
             <button
-              className={`${styles.modeBtn} ${rightMode === 'text' ? styles.modeBtnActive : ''}`}
+              className={cx(styles.modeBtn, rightMode === 'text' && styles.modeBtnActive)}
               onClick={() => setRightMode('text')}
             >
               {t('diff.modeText', 'Paste YAML')}
             </button>
             <button
-              className={`${styles.modeBtn} ${rightMode === 'resource' ? styles.modeBtnActive : ''}`}
+              className={cx(styles.modeBtn, rightMode === 'resource' && styles.modeBtnActive)}
               onClick={() => setRightMode('resource')}
             >
               {t('diff.modeResource', 'Resource')}

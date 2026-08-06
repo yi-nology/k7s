@@ -9,29 +9,31 @@ import { AuditPanel } from './AuditPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    lokiList: vi.fn().mockResolvedValue([
-      { name: 'loki-main', url: 'http://loki:3100' },
-    ]),
-    lokiUpsert: vi.fn().mockResolvedValue(undefined),
-    lokiRemove: vi.fn().mockResolvedValue(undefined),
-    auditEvents: vi.fn().mockResolvedValue([
-      {
-        auditId: 'evt-1',
-        timestamp: '2024-01-01T12:00:00Z',
-        verb: 'create',
-        resource: 'pods',
-        namespace: 'default',
-        name: 'nginx',
-        user: 'admin',
-        statusCode: 201,
-        sourceIp: '10.0.0.1',
-        raw: '{"test": true}',
-      },
-    ]),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      lokiList: vi.fn().mockResolvedValue([{ name: 'loki-main', url: 'http://loki:3100' }]),
+      lokiUpsert: vi.fn().mockResolvedValue(undefined),
+      lokiRemove: vi.fn().mockResolvedValue(undefined),
+      auditEvents: vi.fn().mockResolvedValue([
+        {
+          auditId: 'evt-1',
+          timestamp: '2024-01-01T12:00:00Z',
+          verb: 'create',
+          resource: 'pods',
+          namespace: 'default',
+          name: 'nginx',
+          user: 'admin',
+          statusCode: 201,
+          sourceIp: '10.0.0.1',
+          raw: '{"test": true}',
+        },
+      ]),
+    }),
+  };
+});
 
 let view: RenderResult;
 

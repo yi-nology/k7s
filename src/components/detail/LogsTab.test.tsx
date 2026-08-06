@@ -17,6 +17,7 @@ import {
   type RenderResult,
 } from '../../test/componentUtils';
 import type { LogLine } from '../../providers/types';
+import type { SinceOption } from '../../lib/logview';
 
 // Mock the log stream hook (no-op — we feed lines via store).
 vi.mock('../../hooks/useLogStream', () => ({
@@ -24,11 +25,15 @@ vi.mock('../../hooks/useLogStream', () => ({
 }));
 
 // Mock the provider for saveLogs.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    saveLogs: vi.fn().mockResolvedValue(null),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      saveLogs: vi.fn().mockResolvedValue(null),
+    }),
+  };
+});
 
 let view: RenderResult;
 
@@ -44,10 +49,8 @@ function resetStore() {
     logPrevious: false,
     logSince: 'all',
     setLogSearch: (q: string) => useStore.setState({ logSearch: q }),
-    toggleTimestamps: () =>
-      useStore.setState((s) => ({ showTimestamps: !s.showTimestamps })),
-    toggleFollow: () =>
-      useStore.setState((s) => ({ following: !s.following })),
+    toggleTimestamps: () => useStore.setState((s) => ({ showTimestamps: !s.showTimestamps })),
+    toggleFollow: () => useStore.setState((s) => ({ following: !s.following })),
     cycleContainer: () =>
       useStore.setState((s) => {
         const pod = s.selectedRow;
@@ -56,7 +59,7 @@ function resetStore() {
         return { containerIndex: (s.containerIndex + 1) % Math.max(options.length, 1) };
       }),
     setLogPrevious: (v: boolean) => useStore.setState({ logPrevious: v }),
-    setLogSince: (v: any) => useStore.setState({ logSince: v }),
+    setLogSince: (v: SinceOption) => useStore.setState({ logSince: v }),
   });
 }
 

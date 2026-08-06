@@ -15,7 +15,7 @@ import type { ReactNode } from 'react';
 import { Box } from 'lucide-react';
 import { fuzzyMatch } from './fuzzy';
 import { isCustomKind, KIND_META, KIND_ORDER, type KindId } from './kinds';
-import { dict, kindLabelFor as i18nKindLabel, type Locale } from './i18n';
+import { kindLabelFor as i18nKindLabel, resolveDictPath, type Locale } from './i18n';
 import type { CustomKind, Row } from '../providers/types';
 
 /** Actions the palette can run. Data, not closures, so this stays testable.
@@ -36,8 +36,10 @@ export type ActionId =
   | 'helm-market'
   | 'pod-files'
   | 'image-repos'
-  | 'image-import'
-  | 'templates';
+  | 'image-transfer'
+  | 'templates'
+  // Security overlays
+  | 'sbom';
 
 interface Scored {
   /** Ranking score; only comparable within one query. */
@@ -315,7 +317,7 @@ function actionCandidates(ctx: PaletteContext) {
       fallback: 'Dashboard',
       hint: viewHint,
     },
-    { id: 'metrics', key: 'chrome.palette.actions.metrics', fallback: 'PromQL', hint: viewHint },
+    { id: 'metrics', key: 'chrome.palette.actions.metrics', fallback: 'Metrics', hint: viewHint },
     { id: 'grafana', key: 'chrome.palette.actions.grafana', fallback: 'Grafana', hint: viewHint },
     {
       id: 'endpoints',
@@ -354,9 +356,15 @@ function actionCandidates(ctx: PaletteContext) {
       hint: toolHint,
     },
     {
-      id: 'image-import',
-      key: 'chrome.palette.actions.imageImport',
-      fallback: 'Image Import',
+      id: 'image-transfer',
+      key: 'chrome.palette.actions.imageTransfer',
+      fallback: 'Image Transfer',
+      hint: toolHint,
+    },
+    {
+      id: 'sbom',
+      key: 'chrome.palette.actions.sbom',
+      fallback: 'SBOM',
       hint: toolHint,
     },
     {
@@ -382,36 +390,15 @@ function actionCandidates(ctx: PaletteContext) {
  * Look up a chrome.palette.* key in the active locale, falling back to English
  * and finally to a hardcoded default. We avoid `translate()` here because
  * function-typed leaves (e.g. `cordon(node)`) don't get a safe default-copy
- * fallback when called with a string arg, and writing the helper locally keeps
- * the precedence rules obvious.
+ * fallback when called with a string arg; the shared dictionary walk
+ * (`resolveDictPath`) is reused so the walk itself stays in one place.
  */
 function paletteStr(locale: Locale, key: string, fallback: string, ...args: unknown[]): string {
   for (const loc of [locale, 'en'] as Locale[]) {
-    const out = lookupPaletteStr(loc, key, args);
+    const out = resolveDictPath(loc, key, args);
     if (out !== undefined) return out;
   }
   return fallback;
-}
-
-function lookupPaletteStr(locale: Locale, key: string, args: unknown[]): string | undefined {
-  let cur: unknown = dict(locale);
-  for (const seg of key.split('.')) {
-    if (cur && typeof cur === 'object' && seg in (cur as Record<string, unknown>)) {
-      cur = (cur as Record<string, unknown>)[seg];
-    } else {
-      return undefined;
-    }
-  }
-  if (typeof cur === 'function') {
-    try {
-      const out = cur(...args);
-      return typeof out === 'string' ? out : undefined;
-    } catch {
-      return undefined;
-    }
-  }
-  if (typeof cur === 'string') return cur;
-  return undefined;
 }
 
 /** Display label for a kind id, resolving discovered CRDs. */

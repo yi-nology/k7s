@@ -10,17 +10,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { TopologyGraph } from './TopologyGraph';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
+import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    listEndpoints: vi.fn().mockResolvedValue([]),
-    listEndpointAddresses: vi.fn().mockResolvedValue([]),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      listEndpoints: vi.fn().mockResolvedValue([]),
+      listEndpointAddresses: vi.fn().mockResolvedValue([]),
+    }),
+  };
+});
 
 // Suppress the xterm canvas error in jsdom.
-HTMLCanvasElement.prototype.getContext = vi.fn().mockReturnValue(null) as any;
+HTMLCanvasElement.prototype.getContext = vi
+  .fn()
+  .mockReturnValue(null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
 // Mock d3-force to avoid actual simulation — force() returns a force-like
 // object so that chained calls like .force('link').links(links) work.
@@ -32,10 +39,19 @@ vi.mock('d3-force', () => {
     id: vi.fn().mockReturnThis(),
     links: vi.fn().mockReturnThis(),
   };
-  const sim: Record<string, any> = {
-    force: vi.fn().mockImplementation((...args: any[]) =>
-      args.length >= 2 ? sim : forceObj,
-    ),
+  interface MockSimulation {
+    force: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
+    stop: ReturnType<typeof vi.fn>;
+    nodes: ReturnType<typeof vi.fn>;
+    alpha: ReturnType<typeof vi.fn>;
+    alphaTarget: ReturnType<typeof vi.fn>;
+    alphaDecay: ReturnType<typeof vi.fn>;
+    alphaMin: ReturnType<typeof vi.fn>;
+    restart: ReturnType<typeof vi.fn>;
+  }
+  const sim: MockSimulation = {
+    force: vi.fn().mockImplementation((...args: unknown[]) => (args.length >= 2 ? sim : forceObj)),
     on: vi.fn().mockImplementation(() => sim),
     stop: vi.fn(),
     nodes: vi.fn().mockImplementation(() => sim),
@@ -64,10 +80,10 @@ function resetStore() {
       services: [],
       pods: [],
       ingresses: [],
-    } as any,
+    },
     navigateTo: vi.fn(),
     podMetrics: {},
-    settings: { language: 'en' } as any,
+    settings: createMockSettings({ language: 'en' }),
   });
 }
 
@@ -146,7 +162,7 @@ describe('TopologyGraph', () => {
         services: [createMockRow({ name: 'web-svc', namespace: 'default' })],
         pods: [createMockRow({ name: 'pod-1', namespace: 'default' })],
         ingresses: [],
-      } as any,
+      },
     });
     view = render(<TopologyGraph />);
     expect(view.container.firstChild).not.toBeNull();
@@ -158,7 +174,7 @@ describe('TopologyGraph', () => {
         services: [],
         pods: [],
         ingresses: [createMockRow({ name: 'web-ingress', namespace: 'default' })],
-      } as any,
+      },
     });
     view = render(<TopologyGraph />);
     expect(view.container.firstChild).not.toBeNull();

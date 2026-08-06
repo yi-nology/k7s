@@ -18,8 +18,11 @@ import {
 
 // Mock PlotChart to avoid Plotly dependency.
 vi.mock('./PlotChart', () => ({
-  Plot: ({ title }: any) =>
+  Plot: ({ title }: { title?: string }) =>
     createElement('div', { 'data-testid': 'plot' }, title || ''),
+}));
+// useHostPlotColors now lives in its own module; mock it there.
+vi.mock('./useHostPlotColors', () => ({
   useHostPlotColors: () => ({
     accent: '#000',
     accent2: '#111',
@@ -98,9 +101,7 @@ describe('PodMetricsTab', () => {
       useStore.setState({
         selectedRow: pod,
         podSamples: {
-          'default/nginx': [
-            { ts: Date.now(), cpuMillis: 250, memBytes: 128 * 1024 * 1024 },
-          ],
+          'default/nginx': [{ ts: Date.now(), cpuMillis: 250, memBytes: 128 * 1024 * 1024 }],
         },
       });
       view = render(<PodMetricsTab />);
@@ -117,9 +118,7 @@ describe('PodMetricsTab', () => {
       useStore.setState({
         selectedRow: pod,
         podSamples: {
-          'default/nginx': [
-            { ts: Date.now(), cpuMillis: 250, memBytes: 128 * 1024 * 1024 },
-          ],
+          'default/nginx': [{ ts: Date.now(), cpuMillis: 250, memBytes: 128 * 1024 * 1024 }],
         },
       });
       view = render(<PodMetricsTab />);
@@ -135,9 +134,7 @@ describe('PodMetricsTab', () => {
       useStore.setState({
         selectedRow: pod,
         podSamples: {
-          'default/nginx': [
-            { ts: Date.now(), cpuMillis: 100, memBytes: 256 * 1024 * 1024 },
-          ],
+          'default/nginx': [{ ts: Date.now(), cpuMillis: 100, memBytes: 256 * 1024 * 1024 }],
         },
       });
       view = render(<PodMetricsTab />);
@@ -163,9 +160,7 @@ describe('PodMetricsTab', () => {
       useStore.setState({
         selectedRow: pod,
         podSamples: {
-          'default/nginx': [
-            { ts: Date.now(), cpuMillis: 250, memBytes: 128 * 1024 * 1024 },
-          ],
+          'default/nginx': [{ ts: Date.now(), cpuMillis: 250, memBytes: 128 * 1024 * 1024 }],
         },
       });
       view = render(<PodMetricsTab />);

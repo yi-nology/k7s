@@ -6,24 +6,9 @@
  * and the host-surface colour resolution live here rather than being duplicated.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useRef } from 'react';
 import styles from './PlotChart.module.css';
-import { baseLayout, plotColors, PLOT_CONFIG } from './plot';
-import { useResolvedTheme } from '../../hooks/useTheme';
-
-/**
- * Plotly colours for the host's token surface. Re-resolves after mount (ref is
- * null on the first render) and whenever the app palette flips — needed so
- * light-mode dark panels don't hand plotly the document's light tokens.
- */
-export function useHostPlotColors(hostRef: RefObject<Element | null>) {
-  const theme = useResolvedTheme();
-  const [colors, setColors] = useState(() => plotColors());
-  useLayoutEffect(() => {
-    setColors(plotColors(hostRef.current));
-  }, [hostRef, theme]);
-  return colors;
-}
+import { baseLayout, PLOT_CONFIG } from './plot';
 
 /**
  * Plotly, loaded on first use.

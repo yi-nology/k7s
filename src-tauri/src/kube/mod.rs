@@ -20,6 +20,7 @@ pub mod helm_ops;
 pub mod image_archive;
 pub mod image_scan;
 pub mod image_sync;
+pub mod imageexport;
 pub mod imageimport;
 pub mod imagerepo;
 pub mod logs;

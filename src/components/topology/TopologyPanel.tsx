@@ -2,8 +2,10 @@
  * TopologyPanel -- wraps the d3 force-directed graph with a slim sidebar
  * (the Service list), a search box, a header, and a health summary bar.
  */
-import { useCallback, useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { useCallback, useState } from 'react';
+import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
+import { cx } from '../../lib/cx';
 import type { EndpointRow } from '../../providers/types';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
@@ -38,77 +40,71 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
 
   const rows = useStore((s) => s.rows);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
+  useAsyncEffect(async (isMounted) => {
+    try {
+      // Primary: EndpointSlice-based.
+      let all: EndpointRow[] = [];
       try {
-        // Primary: EndpointSlice-based.
-        let all: EndpointRow[] = [];
-        try {
-          all = await getProvider().listEndpoints();
-        } catch {
-          // EndpointSlice API unavailable -- fall through.
-        }
-        if (cancelled) return;
-
-        const byService = new Map<string, ServiceTopology>();
-        for (const slc of all) {
-          if (!slc.service) continue;
-          const key = `${slc.namespace}/${slc.service}`;
-          let entry = byService.get(key);
-          if (!entry) {
-            entry = {
-              service: slc.service,
-              namespace: slc.namespace,
-              slices: [],
-            };
-            byService.set(key, entry);
-          }
-          entry.slices.push(slc);
-        }
-
-        // Fallback: build from Services + Pods when no EndpointSlices.
-        if (byService.size === 0) {
-          const svcRows = rows.services ?? [];
-          const podRows = rows.pods ?? [];
-          for (const svc of svcRows) {
-            const ns = svc.namespace ?? '';
-            const selector = svc.selector ?? {};
-            const hasSelector = Object.keys(selector).length > 0;
-            const matchingPods = podRows.filter((p) => {
-              if (p.namespace !== ns) return false;
-              if (hasSelector) {
-                return Object.entries(selector).every(([k, v]) => p.labels?.[k] === v);
-              }
-              const labels = p.labels ?? {};
-              return labels['app'] === svc.name || labels['app.kubernetes.io/name'] === svc.name;
-            });
-            byService.set(`${ns}/${svc.name}`, {
-              service: svc.name,
-              namespace: ns,
-              slices: matchingPods.map((p) => ({
-                name: p.name,
-                namespace: ns,
-                service: svc.name,
-                ready: p.pod?.status === 'Running' ? 1 : 0,
-                total: 1,
-                addresses: [],
-                age: '',
-              })),
-            });
-          }
-        }
-
-        if (!cancelled) {
-          setServices([...byService.values()].sort((a, b) => a.service.localeCompare(b.service)));
-        }
-      } catch (e: unknown) {
-        if (!cancelled) setError(String(e));
+        all = await getProvider().listEndpoints();
+      } catch {
+        // EndpointSlice API unavailable -- fall through.
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+      if (!isMounted()) return;
+
+      const byService = new Map<string, ServiceTopology>();
+      for (const slc of all) {
+        if (!slc.service) continue;
+        const key = `${slc.namespace}/${slc.service}`;
+        let entry = byService.get(key);
+        if (!entry) {
+          entry = {
+            service: slc.service,
+            namespace: slc.namespace,
+            slices: [],
+          };
+          byService.set(key, entry);
+        }
+        entry.slices.push(slc);
+      }
+
+      // Fallback: build from Services + Pods when no EndpointSlices.
+      if (byService.size === 0) {
+        const svcRows = rows.services ?? [];
+        const podRows = rows.pods ?? [];
+        for (const svc of svcRows) {
+          const ns = svc.namespace ?? '';
+          const selector = svc.selector ?? {};
+          const hasSelector = Object.keys(selector).length > 0;
+          const matchingPods = podRows.filter((p) => {
+            if (p.namespace !== ns) return false;
+            if (hasSelector) {
+              return Object.entries(selector).every(([k, v]) => p.labels?.[k] === v);
+            }
+            const labels = p.labels ?? {};
+            return labels['app'] === svc.name || labels['app.kubernetes.io/name'] === svc.name;
+          });
+          byService.set(`${ns}/${svc.name}`, {
+            service: svc.name,
+            namespace: ns,
+            slices: matchingPods.map((p) => ({
+              name: p.name,
+              namespace: ns,
+              service: svc.name,
+              ready: p.pod?.status === 'Running' ? 1 : 0,
+              total: 1,
+              addresses: [],
+              age: '',
+            })),
+          });
+        }
+      }
+
+      if (isMounted()) {
+        setServices([...byService.values()].sort((a, b) => a.service.localeCompare(b.service)));
+      }
+    } catch (e: unknown) {
+      if (isMounted()) setError(formatError(e));
+    }
   }, [rows.services, rows.pods]);
 
   const handleServiceClick = (svc: ServiceTopology) => {
@@ -206,7 +202,7 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
                 return (
                   <li
                     key={`${s.namespace}/${s.service}`}
-                    className={`${styles.item} ${isFocused ? styles.itemFocused : ''}`}
+                    className={cx(styles.item, isFocused && styles.itemFocused)}
                     onClick={() => handleServiceClick(s)}
                   >
                     <div className={styles.itemName}>{s.service}</div>

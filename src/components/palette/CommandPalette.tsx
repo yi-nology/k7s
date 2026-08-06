@@ -16,6 +16,7 @@ import { useStore } from '../../store';
 import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { buildPalette, type ActionId, type PaletteItem } from '../../lib/palette';
+import { cx } from '../../lib/cx';
 
 export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
@@ -103,7 +104,13 @@ export function CommandPalette() {
   };
 
   return (
-    <div className={styles.backdrop} onClick={() => setOpen(false)}>
+    <div
+      className={styles.backdrop}
+      onClick={() => setOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('chrome.palette.ariaLabel', 'Command palette')}
+    >
       <div className={styles.palette} onClick={(e) => e.stopPropagation()}>
         <div className={styles.inputRow}>
           <span className={styles.prompt}>⌕</span>
@@ -117,6 +124,10 @@ export function CommandPalette() {
             }}
             onKeyDown={onKeyDown}
             placeholder={t('chrome.palette.placeholder')}
+            aria-label={t('chrome.palette.placeholder')}
+            aria-autocomplete="list"
+            aria-controls="palette-results"
+            aria-activedescendant={items[cursor] ? `palette-item-${cursor}` : undefined}
             spellCheck={false}
             autoComplete="off"
           />
@@ -127,12 +138,15 @@ export function CommandPalette() {
             {query ? t('chrome.palette.nothingMatches') : t('chrome.palette.typeToSearch')}
           </div>
         ) : (
-          <div className={styles.list} ref={listRef}>
+          <div className={styles.list} ref={listRef} role="listbox" id="palette-results">
             {items.map((item, i) => (
               <div
                 key={itemKey(item)}
+                id={`palette-item-${i}`}
                 data-i={i}
-                className={`${styles.item} ${i === cursor ? styles.itemActive : ''}`}
+                role="option"
+                aria-selected={i === cursor}
+                className={cx(styles.item, i === cursor && styles.itemActive)}
                 // Mouse and keyboard drive the same cursor, so hovering then
                 // pressing Enter does what the highlight says it will.
                 onMouseMove={() => setCursor(i)}

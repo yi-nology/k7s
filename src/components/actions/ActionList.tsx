@@ -191,6 +191,16 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
         });
         onClose();
         break;
+      case 'edit-ingress':
+        // Opens the Ingress editor overlay pre-filled with this row. Mirrors the
+        // files/pod-files wiring: a row-scoped overlay launched via overlayPodRef.
+        openOverlay('ingress-editor', {
+          namespace: single.namespace ?? '',
+          name: single.name,
+          container: null,
+        });
+        onClose();
+        break;
     }
   }
 
@@ -495,6 +505,7 @@ function confirmLabel(id: ActionId, locale: import('../../lib/i18n').Locale): st
     'download-yaml': 'actions.labels.downloadYaml',
     'modify-image': 'actions.labels.modifyImage',
     files: 'actions.labels.files',
+    'edit-ingress': 'actions.labels.editIngress',
   };
   return translate(locale, dict[id]).replace(/…$/, '').trim();
 }

@@ -9,24 +9,41 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { HelmRollbackForm } from './HelmRollbackForm';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
+import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    undoRollout: vi.fn().mockResolvedValue(undefined),
-    helmReleaseHistory: vi.fn().mockResolvedValue([
-      { revision: 1, status: 'superseded', chart: 'nginx-1.0.0', updated: '2024-01-01', description: 'Install complete' },
-      { revision: 2, status: 'deployed', chart: 'nginx-1.1.0', updated: '2024-01-02', description: 'Upgrade complete' },
-    ]),
-    helmRunOp: vi.fn().mockResolvedValue({ success: true }),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      undoRollout: vi.fn().mockResolvedValue(undefined),
+      helmReleaseHistory: vi.fn().mockResolvedValue([
+        {
+          revision: 1,
+          status: 'superseded',
+          chart: 'nginx-1.0.0',
+          updated: '2024-01-01',
+          description: 'Install complete',
+        },
+        {
+          revision: 2,
+          status: 'deployed',
+          chart: 'nginx-1.1.0',
+          updated: '2024-01-02',
+          description: 'Upgrade complete',
+        },
+      ]),
+      helmRunOp: vi.fn().mockResolvedValue({ success: true }),
+    }),
+  };
+});
 
 let view: RenderResult;
 
 function resetStore() {
   useStore.setState({
-    settings: { language: 'en' } as any,
+    settings: createMockSettings(),
   });
 }
 

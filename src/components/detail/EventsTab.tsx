@@ -8,10 +8,11 @@
  * the object has never had any.
  */
 
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import styles from './EventsTab.module.css';
 import { useStore } from '../../store';
 import { getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useTranslation } from '../../hooks/useI18n';
 import { useNow } from '../../hooks/useNow';
 import type { EventItem } from '../../providers/types';
@@ -26,37 +27,37 @@ export function EventsTab() {
   const { t } = useTranslation();
   const now = useNow();
 
-  useEffect(() => {
+  useAsyncEffect(async (isMounted) => {
     if (!row) return;
-    let cancelled = false;
     setEvents(null); // show loading while fetching
-    void getProvider()
-      .getEvents({ kind, namespace: row.namespace, name: row.name })
-      .then((items) => {
-        if (!cancelled) setEvents(items);
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
+    try {
+      const items = await getProvider().getEvents({
+        kind,
+        namespace: row.namespace,
+        name: row.name,
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [row?.uid, row?.namespace, row?.name, kind]);
+      if (isMounted()) setEvents(items);
+    } catch {
+      if (isMounted()) setEvents([]);
+    }
+  }, [row, kind]);
 
   // Apply the time-range filter client-side: keep events whose last-seen falls in
   // the window. An event with no parseable timestamp is kept (filtering it out
-  // would hide real data behind a serialization quirk). Computed after the
-  // loading guard so the type is non-null where it's used.
-  if (events === null) {
-    return <div className={styles.empty}>{t('events.loading')}</div>;
-  }
-  const visible =
-    eventsSince === 'all'
+  // would hide real data behind a serialization quirk).
+  const visible = useMemo(() => {
+    if (events === null) return null;
+    return eventsSince === 'all'
       ? events
       : events.filter((ev) => {
           const ms = parseEventMs(ev.lastTimestamp);
           return ms === null || eventWithinSince(ms, eventsSince, now);
         });
+  }, [events, eventsSince, now]);
+
+  if (visible === null) {
+    return <div className={styles.empty}>{t('events.loading')}</div>;
+  }
 
   return (
     <div className={styles.list}>
@@ -78,12 +79,12 @@ export function EventsTab() {
           ))}
         </select>
         <span className={styles.count}>
-          {visible.length}/{events.length}
+          {visible.length}/{events!.length}
         </span>
       </div>
       {visible.length === 0 ? (
-        <div className={styles.empty}>
-          {events.length === 0
+          <div className={styles.empty}>
+          {events!.length === 0
             ? t('events.empty', 'no recent events — events expire after ~1h')
             : t('events.empty', 'no recent events — events expire after ~1h')}
           <div className={styles.emptyHint}>{t('events.hint')}</div>

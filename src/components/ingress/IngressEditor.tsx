@@ -5,9 +5,10 @@
  * via the existing dryRunYaml → applyYaml path.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useStore } from '../../store';
+import { isValidK8sName, isValidNamespace } from '../../lib/security';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -169,13 +170,30 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
         .join('\n');
       setDryRunResult(summary || 'Dry run passed');
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }
   }, [yamlMode, yaml, generatedYaml]);
 
   const handleApply = useCallback(async () => {
+    // Validate form inputs before applying
+    if (!yamlMode) {
+      if (form.name && !isValidK8sName(form.name)) {
+        setError(
+          t(
+            'ingressEditor.invalidName',
+            'Invalid ingress name: must be lowercase alphanumeric with hyphens'
+          )
+        );
+        return;
+      }
+      if (form.namespace && !isValidNamespace(form.namespace)) {
+        setError(t('ingressEditor.invalidNamespace', 'Invalid namespace name'));
+        return;
+      }
+    }
+
     setBusy(true);
     setError(null);
     try {
@@ -183,11 +201,11 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
       await getProvider().applyYamlBundle(y);
       onClose?.();
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }
-  }, [yamlMode, yaml, generatedYaml, onClose]);
+  }, [yamlMode, yaml, generatedYaml, onClose, form.name, form.namespace, t]);
 
   // Form mutation helpers
   const update = <K extends keyof IngressForm>(key: K, val: IngressForm[K]) =>

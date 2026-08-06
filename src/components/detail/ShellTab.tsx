@@ -17,7 +17,7 @@
 import { useEffect, useState } from 'react';
 import styles from './ShellTab.module.css';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useTerminal } from './useTerminal';
 import type { ShellHandle } from '../../providers/types';
@@ -79,7 +79,7 @@ export function ShellTab() {
         h.resize(term.cols, term.rows);
       })
       .catch((e) => {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = formatError(e);
         term.write(`\r\n\x1b[31m${msg}\x1b[0m\r\n`);
         if (!cancelled) setEnded(msg);
       });
@@ -90,7 +90,7 @@ export function ShellTab() {
       handle?.stop();
       sessionRef.current = null;
     };
-  }, [pod?.uid, container, attempt]);
+  }, [pod, container, attempt, termRef, sessionRef, t]);
 
   /** Start a fresh session in the same terminal, marking the break in scrollback. */
   const reconnect = () => {

@@ -15,7 +15,8 @@ import { useStore } from '../../store';
 import { usePodStats } from '../../hooks/usePodStats';
 import { useTranslation } from '../../hooks/useI18n';
 import { humanBytes, plotColors } from './plot';
-import { Plot, useHostPlotColors } from './PlotChart';
+import { Plot } from './PlotChart';
+import { useHostPlotColors } from './useHostPlotColors';
 import { withAlpha } from '../../lib/theme';
 import type { PodSample } from '../../providers/types';
 

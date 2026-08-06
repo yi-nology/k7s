@@ -16,7 +16,8 @@
  * backend said.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { HelmChartSummary, HelmRepo } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { HelmInstallWizard } from './HelmInstallWizard';
@@ -40,27 +41,24 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
       getProvider()
         .helmListRepos()
         .then(setRepos)
-        .catch((e: unknown) => setError(String(e)));
+        .catch((e: unknown) => setError(formatError(e)));
     },
     []
   );
   useEffect(reloadRepos, [reloadRepos]);
 
   // Refresh search results when query or repo set changes.
-  useEffect(() => {
-    let cancelled = false;
+  useAsyncEffect(async (isMounted) => {
     setLoadingCharts(true);
     setError(null);
-    getProvider()
-      .helmSearchCharts(query)
-      .then((rows) => {
-        if (!cancelled) setCharts(rows);
-      })
-      .catch((e: unknown) => !cancelled && setError(String(e)))
-      .finally(() => !cancelled && setLoadingCharts(false));
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const rows = await getProvider().helmSearchCharts(query);
+      if (isMounted()) setCharts(rows);
+    } catch (e: unknown) {
+      if (isMounted()) setError(formatError(e));
+    } finally {
+      if (isMounted()) setLoadingCharts(false);
+    }
   }, [query, repos.length]);
 
   return (
@@ -108,7 +106,7 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
                 await getProvider().helmUpdateAllRepos();
                 reloadRepos();
               } catch (e) {
-                setError(String(e));
+                setError(formatError(e));
               }
             }}
           >
@@ -218,7 +216,7 @@ function HelmRepos({
                       await getProvider().helmUpdateRepo(r.name);
                       onChange();
                     } catch (e) {
-                      onError(String(e));
+                      onError(formatError(e));
                       onChange();
                     }
                   }}
@@ -235,7 +233,7 @@ function HelmRepos({
                       await getProvider().helmRemoveRepo(r.name);
                       onChange();
                     } catch (e) {
-                      onError(String(e));
+                      onError(formatError(e));
                     }
                   }}
                 >

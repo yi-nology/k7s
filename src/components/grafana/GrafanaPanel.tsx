@@ -13,7 +13,7 @@
  * needs its own auth.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type {
   DashboardPreset,
   GrafanaConfig,
@@ -59,7 +59,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
           setSearching(false);
         })
         .catch((e: unknown) => {
-          setError(String(e));
+          setError(formatError(e));
           setSearching(false);
         });
     },
@@ -84,7 +84,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
           setSelected(rows[0].name);
         }
       })
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
 
   useEffect(() => {
     reload();
@@ -110,7 +110,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
     getProvider()
       .grafanaDashboardUrl(selected, activePreset, startMs, endMs)
       .then(setIframeUrl)
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
   }, [selected, activePreset, rangeMinutes]);
 
   return (
@@ -151,7 +151,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                     await getProvider().grafanaTest(selected);
                     reload();
                   } catch (e) {
-                    setError(String(e));
+                    setError(formatError(e));
                     reload();
                   }
                 }}

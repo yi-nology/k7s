@@ -15,9 +15,9 @@
  * ReplicaSets; StatefulSet/DaemonSet keep ControllerRevisions), but the backend
  * collapses them to one `Revision` shape so this component is kind-agnostic.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import type { ContainerImage, Revision } from '../../providers/types';
 import { ModifyImageForm } from '../actions/ModifyImageForm';
@@ -33,7 +33,10 @@ export function RevisionsTab() {
   const [editing, setEditing] = useState(false);
   const [rollingBack, setRollingBack] = useState<number | null>(null);
 
-  const ref = row ? { kind, namespace: row.namespace, name: row.name } : null;
+  const ref = useMemo(
+    () => (row ? { kind, namespace: row.namespace, name: row.name } : null),
+    [kind, row]
+  );
 
   const load = useCallback(() => {
     if (!ref) return;
@@ -48,13 +51,13 @@ export function RevisionsTab() {
       .catch((e) => {
         if (!cancelled) {
           setRevisions([]);
-          setError(e instanceof Error ? e.message : String(e));
+          setError(formatError(e));
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [ref?.kind, ref?.namespace, ref?.name]);
+  }, [ref]);
 
   useEffect(() => {
     return load();
@@ -70,7 +73,7 @@ export function RevisionsTab() {
       // creates a new revision for the rollback, so the list will grow by one.
       load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setRollingBack(null);
     }

@@ -1271,6 +1271,94 @@ describe('chrome.forwards.* — ForwardsBar strip strings (pass-20)', () => {
   });
 });
 
+/** SBOM overlay panel keys — the Software Bill of Materials feature has
+ *  its own panel with three tabs (Image, Cluster, History), component
+ *  and vulnerability tables, and an info bar. Pin every key so a future
+ *  refactor can't silently drop a translation and leave zh users staring
+ *  at the English fallback. */
+describe('sbom panel keys', () => {
+  it('ships sbom.title in both locales', () => {
+    expect(translate('en', 'sbom.title')).toBe('SBOM');
+    expect(translate('zh', 'sbom.title')).toBe('SBOM 软件物料清单');
+  });
+
+  it('ships sbom.tab.{image,cluster,history,comingSoon} in both locales', () => {
+    expect(translate('en', 'sbom.tab.image')).toBe('Image');
+    expect(translate('zh', 'sbom.tab.image')).toBe('镜像');
+    expect(translate('en', 'sbom.tab.cluster')).toBe('Cluster');
+    expect(translate('zh', 'sbom.tab.cluster')).toBe('集群');
+    expect(translate('en', 'sbom.tab.history')).toBe('History');
+    expect(translate('zh', 'sbom.tab.history')).toBe('历史');
+    expect(translate('en', 'sbom.tab.comingSoon')).toBe('(coming soon)');
+    expect(translate('zh', 'sbom.tab.comingSoon')).toBe('(即将推出)');
+  });
+
+  it('ships sbom.image.{placeholder,generate} in both locales', () => {
+    expect(translate('en', 'sbom.image.placeholder')).toBe('Enter image ref (e.g. nginx:1.25)');
+    expect(translate('zh', 'sbom.image.placeholder')).toBe('输入镜像引用 (如 nginx:1.25)');
+    expect(translate('en', 'sbom.image.generate')).toBe('Generate');
+    expect(translate('zh', 'sbom.image.generate')).toBe('生成');
+  });
+
+  it('ships sbom.cluster.{scan,comingSoon,useImage} in both locales', () => {
+    expect(translate('en', 'sbom.cluster.scan')).toBe('Scan Cluster');
+    expect(translate('zh', 'sbom.cluster.scan')).toBe('扫描集群');
+    expect(translate('en', 'sbom.cluster.comingSoon')).toBe(
+      'Cluster-wide SBOM scanning is coming soon.'
+    );
+    expect(translate('zh', 'sbom.cluster.comingSoon')).toBe('集群级 SBOM 扫描即将推出。');
+    expect(translate('en', 'sbom.cluster.useImage')).toBe(
+      'Use the Image tab to scan individual images for now.'
+    );
+    expect(translate('zh', 'sbom.cluster.useImage')).toBe('请先使用镜像标签页扫描单个镜像。');
+  });
+
+  it('ships sbom.history.* keys in both locales', () => {
+    for (const key of [
+      'loading',
+      'empty',
+      'source',
+      'format',
+      'components',
+      'vulns',
+      'tool',
+      'date',
+    ]) {
+      const en = translate('en', `sbom.history.${key}`);
+      const zh = translate('zh', `sbom.history.${key}`);
+      expect(en.length, `sbom.history.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `sbom.history.${key} zh`).toBeGreaterThan(0);
+    }
+  });
+
+  it('ships sbom.components.* keys in both locales', () => {
+    for (const key of ['title', 'name', 'version', 'type', 'licenses']) {
+      const en = translate('en', `sbom.components.${key}`);
+      const zh = translate('zh', `sbom.components.${key}`);
+      expect(en.length, `sbom.components.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `sbom.components.${key} zh`).toBeGreaterThan(0);
+    }
+  });
+
+  it('ships sbom.vulns.* keys in both locales', () => {
+    for (const key of ['title', 'id', 'severity', 'component', 'fix']) {
+      const en = translate('en', `sbom.vulns.${key}`);
+      const zh = translate('zh', `sbom.vulns.${key}`);
+      expect(en.length, `sbom.vulns.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `sbom.vulns.${key} zh`).toBeGreaterThan(0);
+    }
+  });
+
+  it('ships sbom.info.* keys in both locales', () => {
+    for (const key of ['components', 'vulns', 'tool', 'duration']) {
+      const en = translate('en', `sbom.info.${key}`);
+      const zh = translate('zh', `sbom.info.${key}`);
+      expect(en.length, `sbom.info.${key} en`).toBeGreaterThan(0);
+      expect(zh.length, `sbom.info.${key} zh`).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('cacheLocale / cachedLocale', () => {
   beforeEach(() => {
     // Each test starts with a clean stub, so the round-trip assertion isn't

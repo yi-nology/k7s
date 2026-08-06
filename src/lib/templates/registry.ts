@@ -21,19 +21,46 @@ const TEMPLATES: Template[] = [
 // Re-export helper functions
 export { labelsBlock, resourcesRequestsBlock, clampInt } from './helpers';
 
-/** List all available templates. */
+/**
+ * List all available templates.
+ *
+ * @returns Array of all registered templates (workloads, networking, config, storage).
+ *
+ * @example
+ * ```ts
+ * const templates = listTemplates();
+ * templates.forEach(t => console.log(t.id, t.title));
+ * ```
+ */
 export function listTemplates(): Template[] {
   return TEMPLATES;
 }
 
-/** Find a template by id. */
+/**
+ * Find a template by id.
+ *
+ * @param id - The template id (e.g. "deployment", "service", "configmap").
+ * @returns The template, or undefined if not found.
+ */
 export function getTemplate(id: string): Template | undefined {
   return TEMPLATES.find((t) => t.id === id);
 }
 
 /**
  * Render a template by id with the given values.
- * Throws if the template is not found.
+ *
+ * Substitutes `{{key}}` placeholders in the template's YAML with the
+ * corresponding values from the dict. Throws if the template is not found.
+ *
+ * @param id - The template id.
+ * @param values - Parameter values (merged params + extras).
+ * @returns The rendered YAML string (possibly multi-document).
+ * @throws {Error} When the template id is not found.
+ *
+ * @example
+ * ```ts
+ * const yaml = renderTemplate("deployment", { name: "wiki", image: "nginx:latest", replicas: "3" });
+ * ```
  */
 export function renderTemplate(id: string, values: Record<string, unknown>): string {
   const t = getTemplate(id);
@@ -43,6 +70,12 @@ export function renderTemplate(id: string, values: Record<string, unknown>): str
 
 /**
  * Extract default values from a template's params.
+ *
+ * Builds a `key -> default` dict from the template's parameter definitions,
+ * suitable for seeding a form.
+ *
+ * @param t - The template to extract defaults from.
+ * @returns A record of parameter key to its default value string.
  */
 export function defaultValuesFor(t: Template): Record<string, string> {
   const out: Record<string, string> = {};

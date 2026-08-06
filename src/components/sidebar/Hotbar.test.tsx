@@ -26,8 +26,7 @@ function resetStore() {
   useStore.setState({
     hotbar: [],
     connection: { phase: 'idle', context: null, clusterName: null },
-    addHotbarItem: (ctx: string) =>
-      useStore.setState((s) => ({ hotbar: [...s.hotbar, ctx] })),
+    addHotbarItem: (ctx: string) => useStore.setState((s) => ({ hotbar: [...s.hotbar, ctx] })),
     removeHotbarItem: (ctx: string) =>
       useStore.setState((s) => ({ hotbar: s.hotbar.filter((h) => h !== ctx) })),
   });

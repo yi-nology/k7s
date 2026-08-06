@@ -9,13 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
 import type { Row } from '../../providers/types';
 import { ResourceTable } from './ResourceTable';
-import {
-  render,
-  cleanup,
-  createMockRow,
-  
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 
 let view: RenderResult;
 

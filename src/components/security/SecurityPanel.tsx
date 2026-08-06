@@ -9,7 +9,8 @@
  * Clicking a finding's resource reference navigates to that RBAC resource.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
+import { cx } from '../../lib/cx';
 import type { AuditFinding, AuditReport } from '../../providers/types/security';
 import { useStore } from '../../store';
 import type { KindId } from '../../providers/types';
@@ -60,7 +61,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
       const result = await getProvider().securityAudit();
       setReport(result);
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -97,9 +98,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
     [jumpTo, onClose]
   );
 
-  const lastScanTime = report?.scannedAt
-    ? new Date(report.scannedAt).toLocaleString()
-    : null;
+  const lastScanTime = report?.scannedAt ? new Date(report.scannedAt).toLocaleString() : null;
 
   return (
     <div className={styles.panel}>
@@ -111,14 +110,8 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
               {t('security.lastScan', 'Last scan')}: {lastScanTime}
             </span>
           )}
-          <button
-            className={styles.btnPrimary}
-            onClick={handleRunAudit}
-            disabled={loading}
-          >
-            {loading
-              ? t('security.running', 'Scanning…')
-              : t('security.run', 'Run Audit')}
+          <button className={styles.btnPrimary} onClick={handleRunAudit} disabled={loading}>
+            {loading ? t('security.running', 'Scanning…') : t('security.run', 'Run Audit')}
           </button>
           {onClose && (
             <button className={styles.btn} onClick={onClose}>
@@ -130,11 +123,9 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.body}>
         <aside className={styles.side}>
-          <div className={styles.sideTitle}>
-            {t('security.filters', 'Filters')}
-          </div>
+          <div className={styles.sideTitle}>{t('security.filters', 'Filters')}</div>
           <div
-            className={`${styles.severityFilter} ${severityFilter === 'All' ? styles.severityFilterActive : ''}`}
+            className={cx(styles.severityFilter, severityFilter === 'All' && styles.severityFilterActive)}
             onClick={() => setSeverityFilter('All')}
           >
             <span>{t('security.all', 'All')}</span>
@@ -145,13 +136,11 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
           {SEVERITY_ORDER.map((sev) => (
             <div
               key={sev}
-              className={`${styles.severityFilter} ${severityFilter === sev ? styles.severityFilterActive : ''}`}
+              className={cx(styles.severityFilter, severityFilter === sev && styles.severityFilterActive)}
               onClick={() => setSeverityFilter(sev)}
             >
               <span>{sev}</span>
-              <span className={`${styles.severityBadge} ${severityClass(sev)}`}>
-                {counts[sev]}
-              </span>
+              <span className={`${styles.severityBadge} ${severityClass(sev)}`}>{counts[sev]}</span>
             </div>
           ))}
         </aside>
@@ -163,7 +152,10 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
           )}
           {!loading && !report && (
             <div className={styles.empty}>
-              {t('security.emptyStart', 'Click "Run Audit" to scan RBAC resources for security issues.')}
+              {t(
+                'security.emptyStart',
+                'Click "Run Audit" to scan RBAC resources for security issues.'
+              )}
             </div>
           )}
           {!loading && report && filtered.length === 0 && (
@@ -178,7 +170,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
               return (
                 <div
                   key={uniqueKey}
-                  className={`${styles.finding} ${active ? styles.findingActive : ''}`}
+                  className={cx(styles.finding, active && styles.findingActive)}
                   onClick={() => setExpandedId(active ? null : uniqueKey)}
                 >
                   <div className={styles.findingHeader}>

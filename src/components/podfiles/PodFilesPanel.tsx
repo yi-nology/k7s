@@ -11,10 +11,12 @@
  * settled, the overlay can fold back into a tab — the panel itself is
  * stateless about its container.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { getProvider } from '../../providers';
+import { useCallback, useMemo, useState } from 'react';
+import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { PodFileEntry, ResourceRef } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { sanitizePath, safePathJoin } from '../../lib/security';
 import styles from './PodFilesPanel.module.css';
 
 export function PodFilesPanel({
@@ -38,43 +40,40 @@ export function PodFilesPanel({
   const [error, setError] = useState<string | null>(null);
 
   // Reload listing whenever the path changes.
-  useEffect(() => {
-    let cancelled = false;
+  useAsyncEffect(async (isMounted) => {
     setLoading(true);
     setError(null);
-    getProvider()
-      .podFilesList(ref, container, path)
-      .then((rows) => {
-        if (!cancelled) setEntries(rows);
-      })
-      .catch((e: unknown) => !cancelled && setError(String(e)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [ref.namespace, ref.name, container, path]);
+    try {
+      const rows = await getProvider().podFilesList(ref, container, path);
+      if (isMounted()) setEntries(rows);
+    } catch (e: unknown) {
+      if (isMounted()) setError(formatError(e));
+    } finally {
+      if (isMounted()) setLoading(false);
+    }
+  }, [ref, container, path]);
 
   // When a file is selected, load its contents.
-  useEffect(() => {
-    if (!selected || selected.kind === 'dir') return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    const fullPath = joinPath(path, selected.name);
-    getProvider()
-      .podFilesRead(ref, container, fullPath)
-      .then((text) => {
-        if (!cancelled) {
+  useAsyncEffect(
+    async (isMounted) => {
+      if (!selected || selected.kind === 'dir') return;
+      setLoading(true);
+      setError(null);
+      const fullPath = joinPath(path, selected.name);
+      try {
+        const text = await getProvider().podFilesRead(ref, container, fullPath);
+        if (isMounted()) {
           setContent(text);
           setDirty(false);
         }
-      })
-      .catch((e: unknown) => !cancelled && setError(String(e)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, ref.namespace, ref.name, container, path]);
+      } catch (e: unknown) {
+        if (isMounted()) setError(formatError(e));
+      } finally {
+        if (isMounted()) setLoading(false);
+      }
+    },
+    [selected, ref, container, path],
+  );
 
   const navigateInto = useCallback((name: string) => setPath((p) => joinPath(p, name)), []);
   const navigateUp = useCallback(() => setPath((p) => parentPath(p)), []);
@@ -86,9 +85,9 @@ export function PodFilesPanel({
       await getProvider().podFilesWrite(ref, container, joinPath(path, selected.name), content);
       setDirty(false);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
     }
-  }, [selected, ref.namespace, ref.name, container, path, content]);
+  }, [selected, ref, container, path, content]);
 
   const breadcrumbs = useMemo(() => path.split('/').filter(Boolean), [path]);
 
@@ -183,7 +182,7 @@ export function PodFilesPanel({
                         a.click();
                         URL.revokeObjectURL(url);
                       } catch (e) {
-                        setError(String(e));
+                        setError(formatError(e));
                       }
                     }}
                   >
@@ -224,12 +223,16 @@ function humanSize(n: number): string {
 }
 
 function joinPath(a: string, b: string): string {
-  if (a.endsWith('/')) return a + b;
-  return a + '/' + b;
+  const result = safePathJoin(a, b);
+  // Fallback for safety — should never happen with validated inputs
+  if (result === null) return a;
+  return result;
 }
 
 function parentPath(p: string): string {
-  const parts = p.split('/').filter(Boolean);
+  const sanitized = sanitizePath(p);
+  if (sanitized === null || sanitized === '/') return '/';
+  const parts = sanitized.split('/').filter(Boolean);
   parts.pop();
   return '/' + parts.join('/');
 }

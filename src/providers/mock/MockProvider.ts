@@ -12,6 +12,8 @@ import type {
   ImageRegistryUpsert,
   ImageRepo,
   ImageTag,
+  ExportFromNodeResult,
+  ExportFromRegistryResult,
   ImportImageResult,
   PodFileEntry,
   SkopeoAvailability,
@@ -50,10 +52,37 @@ import { MockMetricsMixin } from './mockMetrics';
 import { MockHelmMixin } from './mockHelm';
 import { MockShellMixin } from './mockShell';
 
-export class MockProvider
-  extends MockConnectionMixin
-  implements DataProvider
-{
+/**
+ * Demo observability configs — returned verbatim by every config getter/upsert
+ * so the panels have something to render in demo mode. Centralised here instead
+ * of being re-typed in each method (the same object appeared 3× per backend).
+ */
+const DEMO_METRICS_CONFIG: MetricsConfig = {
+  name: 'demo',
+  url: 'http://localhost:9090',
+  username: '',
+  description: 'Demo Prometheus',
+  lastError: null,
+  lastRefreshed: null,
+};
+const DEMO_GRAFANA_CONFIG: GrafanaConfig = {
+  name: 'demo',
+  url: 'http://localhost:3000',
+  username: '',
+  defaultDatasource: '',
+  description: 'Demo Grafana',
+  lastError: null,
+  lastRefreshed: null,
+};
+const DEMO_ALERTMANAGER_CONFIG: AlertManager = {
+  name: 'demo',
+  url: 'http://localhost:9093',
+  description: 'Demo AlertManager',
+  lastError: null,
+  lastRefreshed: null,
+};
+
+export class MockProvider extends MockConnectionMixin implements DataProvider {
   // Mix in the other capabilities
   private resources = new MockResourcesMixin();
   private metrics = new MockMetricsMixin();
@@ -250,29 +279,29 @@ export class MockProvider
 
   // ---- Metrics config (demo: stub). ----
   async getMetricsConfig(): Promise<MetricsConfig> {
-    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
+    return DEMO_METRICS_CONFIG;
   }
 
   async updateMetricsConfig(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
+    return DEMO_METRICS_CONFIG;
   }
 
   // ---- Grafana config (demo: stub). ----
   async getGrafanaConfig(): Promise<GrafanaConfig> {
-    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
+    return DEMO_GRAFANA_CONFIG;
   }
 
   async updateGrafanaConfig(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
+    return DEMO_GRAFANA_CONFIG;
   }
 
   // ---- Alerting (demo: stubs). ----
   async getAlertmanager(): Promise<AlertManager> {
-    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
+    return DEMO_ALERTMANAGER_CONFIG;
   }
 
   async updateAlertmanager(_input: AlertManagerUpsert): Promise<AlertManager> {
-    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
+    return DEMO_ALERTMANAGER_CONFIG;
   }
 
   async getAlerts(): Promise<Alert[]> {
@@ -365,6 +394,25 @@ export class MockProvider
     };
   }
 
+  async exportFromNode(_node: string, _imageRef: string, savePath: string): Promise<ExportFromNodeResult> {
+    return { runtime: 'containerd', output: 'mock export', images: [], savedPath: savePath, error: null };
+  }
+
+  async listNodeImages(_node: string): Promise<string[]> {
+    return ['nginx:1.25', 'busybox:latest', 'redis:7'];
+  }
+
+  async exportFromRegistry(
+    _registryName: string,
+    _repo: string,
+    _tag: string,
+    savePath: string,
+    _insecureSrc: boolean,
+    _onLog: (line: string) => void
+  ): Promise<ExportFromRegistryResult> {
+    return { source: 'docker://mock/image:tag', savedPath: savePath, success: true, lines: 1, summary: 'mock export done' };
+  }
+
   async listEndpointsForService(_namespace: string, _name: string): Promise<EndpointRow[]> {
     return [];
   }
@@ -378,7 +426,7 @@ export class MockProvider
   }
 
   async metricsUpsert(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    return { name: 'demo', url: 'http://localhost:9090', username: '', description: 'Demo Prometheus', lastError: null, lastRefreshed: null };
+    return DEMO_METRICS_CONFIG;
   }
 
   async metricsRemove(_name: string): Promise<void> {}
@@ -404,7 +452,7 @@ export class MockProvider
   }
 
   async grafanaUpsert(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return { name: 'demo', url: 'http://localhost:3000', username: '', defaultDatasource: '', description: 'Demo Grafana', lastError: null, lastRefreshed: null };
+    return DEMO_GRAFANA_CONFIG;
   }
 
   async grafanaRemove(_name: string): Promise<void> {}
@@ -429,7 +477,7 @@ export class MockProvider
   }
 
   async alertManagerUpsert(_input: AlertManagerUpsert): Promise<AlertManager> {
-    return { name: 'demo', url: 'http://localhost:9093', description: 'Demo AlertManager', lastError: null, lastRefreshed: null };
+    return DEMO_ALERTMANAGER_CONFIG;
   }
 
   async alertManagerRemove(_name: string): Promise<void> {}
@@ -444,7 +492,10 @@ export class MockProvider
     return [];
   }
 
-  async alertManagerCreateSilence(_instance: string, _request: CreateSilenceRequest): Promise<string> {
+  async alertManagerCreateSilence(
+    _instance: string,
+    _request: CreateSilenceRequest
+  ): Promise<string> {
     return 'mock-silence-id';
   }
 
@@ -459,7 +510,14 @@ export class MockProvider
   }
 
   async lokiUpsert(_input: LokiUpsert): Promise<LokiConfig> {
-    return { name: 'demo', url: 'http://localhost:3100', username: '', description: 'Demo Loki', lastError: null, lastRefreshed: null };
+    return {
+      name: 'demo',
+      url: 'http://localhost:3100',
+      username: '',
+      description: 'Demo Loki',
+      lastError: null,
+      lastRefreshed: null,
+    };
   }
 
   async lokiRemove(_name: string): Promise<void> {}
@@ -470,7 +528,10 @@ export class MockProvider
     return [];
   }
 
-  async grafanaSearchDashboards(_name: string, _query: string): Promise<GrafanaDashboardSearchResult[]> {
+  async grafanaSearchDashboards(
+    _name: string,
+    _query: string
+  ): Promise<GrafanaDashboardSearchResult[]> {
     return [];
   }
 
@@ -537,12 +598,29 @@ export class MockProvider
       specVersion: '1.5',
       metadata: { tool: 'mock', toolVersion: '0.1.0', scanDurationMs: 100 },
       components: [
-        { name: 'openssl', version: '3.1.4', componentType: 'library', licenses: ['Apache-2.0'], hashes: [] },
-        { name: 'nginx', version: '1.25.3', componentType: 'application', licenses: ['BSD-2-Clause'], hashes: [] },
+        {
+          name: 'openssl',
+          version: '3.1.4',
+          componentType: 'library',
+          licenses: ['Apache-2.0'],
+          hashes: [],
+        },
+        {
+          name: 'nginx',
+          version: '1.25.3',
+          componentType: 'application',
+          licenses: ['BSD-2-Clause'],
+          hashes: [],
+        },
       ],
       dependencies: [],
       vulnerabilities: [
-        { id: 'CVE-2024-MOCK', severity: 'high', affectedComponents: ['openssl'], fixedVersion: '3.1.5' },
+        {
+          id: 'CVE-2024-MOCK',
+          severity: 'high',
+          affectedComponents: ['openssl'],
+          fixedVersion: '3.1.5',
+        },
       ],
       createdAt: new Date().toISOString(),
     };

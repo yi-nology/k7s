@@ -9,12 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
 import type { CustomKind } from '../../providers/types';
 import { NavList } from './NavList';
-import {
-  render,
-  cleanup,
-  createMockRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 
 let view: RenderResult;
 
@@ -119,8 +114,21 @@ describe('NavList', () => {
       expect(view.queryByText('Dashboard')).not.toBeNull();
     });
 
-    it('renders Templates overlay entry', () => {
+    it('renders Templates overlay entry under the Tooling group', () => {
+      // Templates now lives inside the collapsible Tooling group (was flat
+      // before). The group starts collapsed, so the item appears only after
+      // the group is expanded — either by clicking its header, or because one
+      // of its items is the active overlay.
       view = render(<NavList />);
+      // Collapsed: the group header is present, the item is not.
+      expect(view.queryByText('Tooling')).not.toBeNull();
+      expect(view.queryByText('Templates')).toBeNull();
+
+      // Expand the Tooling group.
+      const toolingHeader = view.queryByText('Tooling')!;
+      const groupButton = toolingHeader.closest('button');
+      expect(groupButton).not.toBeNull();
+      view.click(groupButton as HTMLElement);
       expect(view.queryByText('Templates')).not.toBeNull();
     });
 

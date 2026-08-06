@@ -3,19 +3,8 @@
  */
 
 import type { StateCreator } from 'zustand';
-import type {
-  ClusterStatus,
-  ContextInfo,
-  CustomKind,
-  KindId,
-  Row,
-} from '../providers/types';
-import type {
-  AppState,
-  ConnectionState,
-  OverlayKey,
-  RowMap,
-} from './types';
+import type { ClusterStatus, ContextInfo, CustomKind, KindId, Row } from '../providers/types';
+import type { AppState, ConnectionState, OverlayKey, RowMap } from './types';
 import { KIND_ORDER } from '../lib/kinds';
 import { EMPTY_SELECTION } from '../lib/selection';
 

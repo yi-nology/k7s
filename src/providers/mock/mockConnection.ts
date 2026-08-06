@@ -2,14 +2,7 @@
  * Mock connection and context management.
  */
 
-import type {
-  ClusterInfo,
-  ClusterStatus,
-  ContextInfo,
-  ImportResult,
-  Prefs,
-  Unsub,
-} from '../types';
+import type { ClusterInfo, ClusterStatus, ContextInfo, ImportResult, Prefs, Unsub } from '../types';
 import { MOCK_CLUSTERS } from './data';
 
 /** Fixed status matching the prototype's status bar. */

@@ -73,13 +73,7 @@ describe('Plot', () => {
     });
 
     it('accepts layoutExtra prop', () => {
-      view = render(
-        <Plot
-          title="Test"
-          data={[]}
-          layoutExtra={{ yaxis: { range: [0, 100] } }}
-        />
-      );
+      view = render(<Plot title="Test" data={[]} layoutExtra={{ yaxis: { range: [0, 100] } }} />);
       expect(view.container.firstChild).not.toBeNull();
     });
   });
@@ -117,8 +111,8 @@ describe('Plot', () => {
   });
 
   describe('useHostPlotColors', () => {
-    it('is exported for use by metrics tabs', async () => {
-      const mod = await import('./PlotChart');
+    it('is exported from its own module for use by metrics tabs', async () => {
+      const mod = await import('./useHostPlotColors');
       expect(mod.useHostPlotColors).toBeDefined();
       expect(typeof mod.useHostPlotColors).toBe('function');
     });

@@ -10,13 +10,17 @@ import { TemplatePicker } from './TemplatePicker';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    applyYamlBundle: vi.fn().mockResolvedValue([]),
-    dryRunYamlBundle: vi.fn().mockResolvedValue([]),
-  }),
-  IS_TAURI: true,
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      applyYamlBundle: vi.fn().mockResolvedValue([]),
+      dryRunYamlBundle: vi.fn().mockResolvedValue([]),
+    }),
+    IS_TAURI: true,
+  };
+});
 
 // Mock CodeEditor to avoid Monaco dependency.
 vi.mock('../detail/CodeEditor', () => ({

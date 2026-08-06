@@ -9,29 +9,36 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { useStore } from '../../store';
 import { YamlTab } from './YamlTab';
-import {
-  render,
-  cleanup,
-  createMockPodRow,
-  type RenderResult,
-} from '../../test/componentUtils';
+import { render, cleanup, createMockPodRow, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider.
 const mockGetYaml = vi.fn();
 const mockDryRunYaml = vi.fn();
 const mockApplyYaml = vi.fn();
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    getYaml: mockGetYaml,
-    dryRunYaml: mockDryRunYaml,
-    applyYaml: mockApplyYaml,
-  }),
-  IS_TAURI: false,
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      getYaml: mockGetYaml,
+      dryRunYaml: mockDryRunYaml,
+      applyYaml: mockApplyYaml,
+    }),
+    IS_TAURI: false,
+  };
+});
 
 // Mock CodeEditor to avoid CodeMirror/lit dependencies.
 vi.mock('./CodeEditor', () => ({
-  CodeEditor: ({ value, editable, onChange }: any) =>
+  CodeEditor: ({
+    value,
+    editable,
+    onChange,
+  }: {
+    value?: string;
+    editable?: boolean;
+    onChange?: (text: string) => void;
+  }) =>
     createElement('div', {
       'data-testid': 'code-editor',
       'data-editable': String(editable),

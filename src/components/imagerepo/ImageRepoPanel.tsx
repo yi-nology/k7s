@@ -11,7 +11,7 @@
  * intent obvious even though the value isn't reflected after save.
  */
 import { useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type {
   ImageManifest,
   ImageRegistry,
@@ -52,7 +52,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
         return next;
       })
       .catch((e: unknown) => {
-        setError(String(e));
+        setError(formatError(e));
         return [];
       });
 
@@ -77,7 +77,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
     getProvider()
       .imageRegistryRepos(selected)
       .then(setRepos)
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
     setTags([]);
   }, [selected]);
 
@@ -90,7 +90,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
     getProvider()
       .imageRegistryTags(selected, repo)
       .then(setTags)
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
   };
 
   const loadManifest = (tag: string) => {
@@ -101,7 +101,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
     getProvider()
       .imageRegistryManifest(selected, selectedRepo, tag)
       .then(setManifest)
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
   };
 
   return (
@@ -143,7 +143,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                     await getProvider().imageRegistryTest(selected);
                     reload();
                   } catch (e) {
-                    setError(String(e));
+                    setError(formatError(e));
                     reload();
                   }
                 }}

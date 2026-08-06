@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
-import { DEFAULT_SETTINGS } from '../../lib/settings';
+import { DEFAULT_SETTINGS, type Settings } from '../../lib/settings';
 import { SettingsPanel } from './SettingsPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
@@ -23,7 +23,8 @@ function resetStore() {
     settingsOpen: false,
     settings: { ...DEFAULT_SETTINGS },
     setSettingsOpen: (open: boolean) => useStore.setState({ settingsOpen: open }),
-    setSettings: (s: any) => useStore.setState({ settings: s }),
+    setSettings: (patch: Partial<Settings>) =>
+      useStore.setState((state) => ({ settings: { ...state.settings, ...patch } })),
     connection: { phase: 'idle', context: null, clusterName: null },
   });
 }

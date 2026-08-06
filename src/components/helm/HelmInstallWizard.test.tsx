@@ -9,20 +9,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { HelmInstallWizard } from './HelmInstallWizard';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
+import { createMockSettings } from '../../test/types';
 
 // Mock the provider.
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    helmChartVersions: vi.fn().mockResolvedValue([
-      { version: '1.0.0', appVersion: '1.25', created: '2024-01-01', urls: [] },
-      { version: '1.1.0', appVersion: '1.26', created: '2024-02-01', urls: [] },
-    ]),
-    helmRenderDefaultValues: vi.fn().mockResolvedValue('replicaCount: 1\nimage:\n  repository: nginx\n  tag: "1.25"\n'),
-    helmRunOp: vi.fn().mockResolvedValue({ success: true, summary: 'Install complete' }),
-    onHelmOpLog: vi.fn().mockReturnValue(() => {}),
-    onHelmOpDone: vi.fn().mockReturnValue(() => {}),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      helmChartVersions: vi.fn().mockResolvedValue([
+        { version: '1.0.0', appVersion: '1.25', created: '2024-01-01', urls: [] },
+        { version: '1.1.0', appVersion: '1.26', created: '2024-02-01', urls: [] },
+      ]),
+      helmRenderDefaultValues: vi
+        .fn()
+        .mockResolvedValue('replicaCount: 1\nimage:\n  repository: nginx\n  tag: "1.25"\n'),
+      helmRunOp: vi.fn().mockResolvedValue({ success: true, summary: 'Install complete' }),
+      onHelmOpLog: vi.fn().mockReturnValue(() => {}),
+      onHelmOpDone: vi.fn().mockReturnValue(() => {}),
+    }),
+  };
+});
 
 let view: RenderResult;
 
@@ -39,7 +46,7 @@ const mockChart = {
 
 function resetStore() {
   useStore.setState({
-    settings: { language: 'en' } as any,
+    settings: createMockSettings({ language: 'en' }),
   });
 }
 

@@ -1,0 +1,103 @@
+/*
+ * ErrorToast styles — a non-blocking notification that slides in from the
+ * top-right corner. Uses design tokens from tokens.css for all colours,
+ * spacing, and typography.
+ */
+
+.container {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--z-modal);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+  max-width: 420px;
+  width: 100%;
+}
+
+.toast {
+  align-items: flex-start;
+  background: var(--bg-elevated);
+  border: 1px solid var(--status-err);
+  border-left: 3px solid var(--status-err);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-body);
+  display: flex;
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  gap: var(--space-2);
+  padding: var(--space-3);
+  pointer-events: auto;
+  animation: slideIn 0.25s ease-out;
+}
+
+.toastExiting {
+  animation: slideOut 0.2s ease-in forwards;
+}
+
+.icon {
+  color: var(--status-err);
+  flex-shrink: 0;
+  height: 16px;
+  width: 16px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.message {
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.close {
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  flex-shrink: 0;
+  height: 16px;
+  justify-content: center;
+  padding: 0;
+  width: 16px;
+}
+
+.close:hover {
+  color: var(--text-primary);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+}

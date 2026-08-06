@@ -14,7 +14,12 @@ import { WatchFooter } from './WatchFooter';
 export function Sidebar() {
   // data-surface="panel": in light mode the sidebar is dark chrome (tokens.css).
   return (
-    <div className={styles.sidebar} data-surface="panel">
+    <nav
+      className={styles.sidebar}
+      data-surface="panel"
+      role="navigation"
+      aria-label="Main navigation"
+    >
       <div className={styles.brand}>
         <div className={styles.brandMark} aria-hidden="true">
           k7
@@ -28,6 +33,6 @@ export function Sidebar() {
       <NavList />
       <Hotbar />
       <WatchFooter />
-    </div>
+    </nav>
   );
 }

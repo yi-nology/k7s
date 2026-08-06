@@ -73,7 +73,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
   // matches nothing, so the panel was always empty; the watcher already has
   // the cluster-wide, newest-first, cap-500 list, so reusing it is both
   // correct and real-time.
-  const events = rows.events ?? [];
+  const events = useMemo(() => rows.events ?? [], [rows.events]);
 
   // Pagination over the events list. The watcher caps at 500 and the panel
   // showed only the first 12; paging lets you reach the rest without leaving

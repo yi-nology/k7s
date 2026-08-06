@@ -51,8 +51,8 @@ export interface K7sPlugin {
 export interface PluginAPI {
   /** The Zustand store (read-only access via getState). */
   getStore(): {
-    getState: () => any;
-    subscribe: (listener: (state: any) => void) => () => void;
+    getState: () => unknown;
+    subscribe: (listener: (state: unknown) => void) => () => void;
   };
 
   /** Navigate to a resource kind, optionally selecting a row. */
@@ -62,9 +62,9 @@ export interface PluginAPI {
   notify(message: string, level?: 'info' | 'warn' | 'error'): void;
 
   /** Read the current rows for a kind from the store. */
-  getResources(kind: KindId): any[];
+  getResources(kind: KindId): unknown[];
   /** Read a single resource row by name (and optional namespace). */
-  getResource(kind: KindId, name: string, namespace?: string): any | undefined;
+  getResource(kind: KindId, name: string, namespace?: string): unknown;
 
   // ---- runtime UI registration ----
   registerSidebarItem(item: SidebarItemDef): void;
@@ -90,13 +90,13 @@ export interface DetailTabDef {
   /** Restrict to specific resource kinds; omit for all. */
   kinds?: KindId[];
   /** React component rendered inside the detail panel. */
-  component: React.ComponentType<{ row: any }>;
+  component: React.ComponentType<{ row: unknown }>;
 }
 
 export interface ResourceColumnDef {
   kind: KindId;
   header: string;
-  render: (row: any) => string;
+  render: (row: unknown) => string;
 }
 
 export interface ActionDef {
@@ -105,7 +105,7 @@ export interface ActionDef {
   /** Restrict to specific resource kinds; omit for all. */
   kinds?: KindId[];
   icon?: string;
-  onClick: (row: any) => void;
+  onClick: (row: unknown) => void;
 }
 
 export interface DashboardCardDef {

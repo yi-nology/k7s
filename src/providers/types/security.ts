@@ -4,12 +4,12 @@
 
 /** One finding from the RBAC security audit. */
 export interface AuditFinding {
-  id: string;                    // rule ID like "wildcard-verbs"
-  severity: string;              // Critical/High/Medium/Low
-  resourceKind: string;          // Role/ClusterRole/RoleBinding/ClusterRoleBinding
+  id: string; // rule ID like "wildcard-verbs"
+  severity: string; // Critical/High/Medium/Low
+  resourceKind: string; // Role/ClusterRole/RoleBinding/ClusterRoleBinding
   resourceName: string;
   namespace: string | null;
-  message: string;               // human-readable description
+  message: string; // human-readable description
 }
 
 /** Severity counts rolled up from the findings list. */
@@ -25,5 +25,5 @@ export interface AuditSummary {
 export interface AuditReport {
   findings: AuditFinding[];
   summary: AuditSummary;
-  scannedAt: string;  // ISO 8601
+  scannedAt: string; // ISO 8601
 }

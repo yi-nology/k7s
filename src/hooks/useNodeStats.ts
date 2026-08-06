@@ -11,7 +11,7 @@
  */
 
 import { useEffect } from 'react';
-import { getProvider } from '../providers';
+import { formatError, getProvider } from '../providers';
 import { useStore } from '../store';
 
 export function useNodeStats(node: string | undefined): void {
@@ -42,7 +42,7 @@ export function useNodeStats(node: string | undefined): void {
       // failures (no exporter, forward refused) through onNodeStatsError instead,
       // since they happen after this call has returned.
       if (!cancelled) {
-        useStore.getState().setNodeStatsError(node, e instanceof Error ? e.message : String(e));
+        useStore.getState().setNodeStatsError(node, formatError(e));
       }
     });
 

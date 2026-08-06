@@ -72,10 +72,36 @@ function matchIngressToServices(
   return edges;
 }
 
-/** Build the cluster graph from current rows and endpoint data. */
+/**
+ * Build the cluster graph from current rows and endpoint data.
+ *
+ * Two strategies:
+ *   - **EndpointSlice-based** (preferred): uses the Kubernetes EndpointSlice API
+ *     to discover Service -> Endpoint -> Pod links with ready/not-ready counts.
+ *   - **Selector-based** (fallback): when the EndpointSlice API is unavailable,
+ *     falls back to matching Service selectors against Pod labels.
+ *
+ * Ingress nodes are added when they match a Service by name or hostname prefix.
+ *
+ * @param rows - Current resource rows from the store (services, pods, ingresses).
+ * @returns A {@link ClusterGraph} with nodes and links for d3-force rendering.
+ *
+ * @example
+ * ```ts
+ * const graph = await buildGraph(store.getState().rows);
+ * // graph.nodes.length → number of service/pod/endpoint/ingress nodes
+ * // graph.links.length → number of edges
+ * ```
+ */
 export async function buildGraph(rows: {
   services?: { name: string; namespace?: string; selector?: Record<string, string> }[];
-  pods?: { name: string; namespace?: string; labels?: Record<string, string>; pod?: { status?: string; statusTone?: string; restarts?: number }; cells: { text: string }[] }[];
+  pods?: {
+    name: string;
+    namespace?: string;
+    labels?: Record<string, string>;
+    pod?: { status?: string; statusTone?: string; restarts?: number };
+    cells: { text: string }[];
+  }[];
   ingresses?: { name: string; namespace?: string; cells: { text: string }[] }[];
 }): Promise<ClusterGraph> {
   let slices: EndpointRow[] = [];

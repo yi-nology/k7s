@@ -15,3 +15,11 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Tauri's webview attaches a non-standard `path` (the absolute filesystem path)
+// to File objects dropped from the OS or picked via the native dialog. The DOM
+// lib doesn't know about it, so `as any` was the escape hatch — declare it here
+// so callers stay typed. (Web browsers don't populate this; it's Tauri-only.)
+interface File {
+  readonly path?: string;
+}

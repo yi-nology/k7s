@@ -12,7 +12,7 @@
  * "Service is broken" → "here's why" one click instead of three.
  */
 import { useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { EndpointAddress, EndpointRow } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import styles from './EndpointsPanel.module.css';
@@ -30,7 +30,7 @@ export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
     getProvider()
       .listEndpoints()
       .then((r) => setRows(r))
-      .catch((e: unknown) => setError(String(e)))
+      .catch((e: unknown) => setError(formatError(e)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -42,7 +42,7 @@ export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
     getProvider()
       .listEndpointAddresses(selected.namespace, selected.name)
       .then(setAddresses)
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
   }, [selected]);
 
   return (

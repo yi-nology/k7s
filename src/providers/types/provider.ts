@@ -67,6 +67,8 @@ import type {
 } from './observability';
 import type {
   ArchiveInfo,
+  ExportFromNodeResult,
+  ExportFromRegistryResult,
   ImageManifest,
   ImageRegistry,
   ImageRegistryUpsert,
@@ -380,6 +382,24 @@ export interface DataProvider {
 
   /** Inspect a local `docker save` tarball: name, tags, digest, arch, os, size. */
   imageInspectArchive(tarPath: string): Promise<ArchiveInfo>;
+
+  // ---- Image Export ----
+
+  /** Export a container image from a K8s node to a local .tar file. */
+  exportFromNode(node: string, imageRef: string, savePath: string): Promise<ExportFromNodeResult>;
+
+  /** List container images present on a K8s node. */
+  listNodeImages(node: string): Promise<string[]>;
+
+  /** Export an image from a configured registry to a local .tar file. */
+  exportFromRegistry(
+    registryName: string,
+    repo: string,
+    tag: string,
+    savePath: string,
+    insecureSrc: boolean,
+    onLog: (line: string) => void
+  ): Promise<ExportFromRegistryResult>;
 
   // ---- Endpoints (Phase 1 Tier-2 of KubePi parity) ----
   /** List all EndpointSlices cluster-wide. */

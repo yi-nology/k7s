@@ -16,6 +16,7 @@
  */
 
 import styles from './ForwardsBar.module.css';
+import { cx } from '../../lib/cx';
 import { useStore } from '../../store';
 import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
@@ -39,7 +40,7 @@ export function ForwardsBar() {
       {forwards.map((f) => (
         <span
           key={f.id}
-          className={`${styles.item} ${f.error ? styles.itemError : ''}`}
+          className={cx(styles.item, f.error && styles.itemError)}
           title={tooltip(f, t)}
         >
           <button

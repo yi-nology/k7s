@@ -43,7 +43,12 @@ export const LOCALE_LABELS: Record<Locale, string> = {
  */
 export const LOCALE_STORAGE_KEY = 'k7s.locale';
 
-/** Narrow arbitrary persisted junk to a Locale, defaulting to English. */
+/**
+ * Narrow arbitrary persisted junk to a Locale, defaulting to English.
+ *
+ * @param value - Any value (typically from persisted prefs or a form field).
+ * @returns A valid {@link Locale}, or "en" for unrecognised input.
+ */
 export function asLocale(value: unknown): Locale {
   return LOCALES.includes(value as Locale) ? (value as Locale) : 'en';
 }
@@ -103,9 +108,9 @@ export function dict(locale: Locale): Dictionary {
  * type-checked against this signature, which is the point.
  */
 export function translate(locale: Locale, key: string, ...args: unknown[]): string {
-  const fromLocale = resolve(locale, key, args);
+  const fromLocale = resolveDictPath(locale, key, args);
   if (fromLocale !== undefined) return fromLocale;
-  const fromEnglish = resolve('en', key, args);
+  const fromEnglish = resolveDictPath('en', key, args);
   if (fromEnglish !== undefined) return fromEnglish;
   // Fallback: a leading string in `args` is treated as the default copy for an
   // untranslated key. A function with the right arity would have consumed it,
@@ -114,8 +119,17 @@ export function translate(locale: Locale, key: string, ...args: unknown[]): stri
   return key;
 }
 
-/** Walk a dotted path, invoking a function leaf when found. */
-function resolve(locale: Locale, path: string, args: unknown[]): string | undefined {
+/**
+ * Walk a dotted path through the locale's dictionary, invoking a function leaf
+ * when found. Returns `undefined` when the path is absent, the leaf is
+ * non-string/non-function, or a function leaf throws (wrong arity is a
+ * dictionary bug, not a runtime problem to surface).
+ *
+ * Exported so the command palette's `paletteStr` can reuse the exact same walk
+ * without duplicating it — its only divergence from `translate` is the
+ * fallback precedence, which lives in its own wrapper.
+ */
+export function resolveDictPath(locale: Locale, path: string, args: unknown[]): string | undefined {
   let cur: unknown = dict(locale);
   for (const seg of path.split('.')) {
     if (cur && typeof cur === 'object' && seg in (cur as Record<string, unknown>)) {
@@ -129,8 +143,6 @@ function resolve(locale: Locale, path: string, args: unknown[]): string | undefi
       const out = cur(...args);
       return typeof out === 'string' ? out : undefined;
     } catch {
-      // A function with the wrong arity is a dictionary bug, not a runtime
-      // problem to surface to the user. Return undefined so the fallback fires.
       return undefined;
     }
   }
@@ -204,25 +216,49 @@ const TAB_LABELS_ZH: Record<DetailTabId, string> = {
   timeline: '时间线',
 };
 
-/** Translated group header (or English on en/unknown). */
+/**
+ * Translated group header (or English on en/unknown).
+ *
+ * @param group - The navigation group (e.g. "workloads", "network").
+ * @param locale - The active locale.
+ * @returns Localised group label for the sidebar section header.
+ */
 export function groupLabel(group: NavGroup, locale: Locale): string {
   if (locale === 'zh') return GROUP_LABELS_ZH[group];
   return EN_GROUP_LABELS[group];
 }
 
-/** Translated kind label for built-in kinds. Custom kinds should use kindMeta(). */
+/**
+ * Translated kind label for built-in kinds. Custom kinds should use {@link kindLabelFor}.
+ *
+ * @param kind - The built-in resource kind.
+ * @param locale - The active locale.
+ * @returns Localised kind label (e.g. "Pod" in Chinese, "Pods" in English).
+ */
 export function kindLabel(kind: ResourceKind, locale: Locale): string {
   if (locale === 'zh') return KIND_LABELS_ZH[kind];
   return EN_KIND_META[kind].label;
 }
 
-/** Translated detail-tab label, falling back to the English registry. */
+/**
+ * Translated detail-tab label, falling back to the English registry.
+ *
+ * @param tab - The detail tab id (e.g. "logs", "yaml", "events").
+ * @param locale - The active locale.
+ * @returns Localised tab label.
+ */
 export function tabLabel(tab: DetailTabId, locale: Locale): string {
   if (locale === 'zh') return TAB_LABELS_ZH[tab];
   return EN_DETAIL_TABS.find((t) => t.id === tab)?.label ?? tab;
 }
 
-/** Localised kind meta (label only — columns stay English by design). */
+/**
+ * Localised kind meta (label only — columns stay English by design).
+ *
+ * @param kind - The built-in resource kind.
+ * @param locale - The active locale.
+ * @returns A {@link KindMeta} with the label translated for the locale.
+ */
 export function localizedKindMeta(kind: ResourceKind, locale: Locale): KindMeta {
   const base = EN_KIND_META[kind];
   if (locale === 'zh') {

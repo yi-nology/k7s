@@ -5,7 +5,7 @@
  * and renders them in a filterable table.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { AuditEvent, AuditQuery, LokiConfig } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 
@@ -40,7 +40,7 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
         setInstances(rows);
         if (rows.length > 0 && !selected) setSelected(rows[0].name);
       })
-      .catch((e: unknown) => setError(String(e)));
+      .catch((e: unknown) => setError(formatError(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -63,7 +63,7 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
         setLoading(false);
       })
       .catch((e: unknown) => {
-        setError(String(e));
+        setError(formatError(e));
         setLoading(false);
       });
   }, [selected, namespace, resource, user, sinceSeconds]);
@@ -90,7 +90,7 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
       setAddUser('');
       setAddPass('');
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     }
   };
 
@@ -101,7 +101,7 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
       setInstances(rows);
       if (selected === name) setSelected(rows[0]?.name ?? null);
     } catch (e: unknown) {
-      setError(String(e));
+      setError(formatError(e));
     }
   };
 

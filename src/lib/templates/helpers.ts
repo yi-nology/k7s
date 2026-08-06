@@ -1,10 +1,22 @@
 /**
  * Helper functions for template rendering.
+ *
+ * These are pure, stateless functions that produce YAML fragments from
+ * user-supplied values. They are tested in `templates.test.ts`.
  */
 
 /**
  * Render a `labels:` YAML block from a Record<string, string>.
- * Returns "" when the record is empty or not a plain object.
+ *
+ * @param labels - The labels object (or anything — returns "" for non-objects).
+ * @param indent - Number of spaces to prepend to each line.
+ * @returns YAML fragment, or "" when there are no labels.
+ *
+ * @example
+ * ```ts
+ * labelsBlock({ app: "wiki", tier: "web" }, 6);
+ * // "      app: wiki\n      tier: web"
+ * ```
  */
 export function labelsBlock(labels: unknown, indent: number): string {
   if (!labels || typeof labels !== 'object') return '';
@@ -17,15 +29,21 @@ export function labelsBlock(labels: unknown, indent: number): string {
 }
 
 /**
- * Format `{cpu, memory}` as a YAML `resources.requests:` block at the
- * requested indent. Either field may be empty; the block is omitted
- * entirely when both are. Indents:
- *   indent+0 → `resources:`
- *   indent+2 → `requests:`
- *   indent+4 → `cpu:` / `memory:`
+ * Format `{cpu, memory}` as a YAML `resources.requests:` block at the requested indent.
  *
- * The +4 / +2 spacing matches the standard k8s manifest style so the
- * result diffs cleanly against `kubectl get -o yaml` output.
+ * Either field may be empty; the block is omitted entirely when both are.
+ * The +4 / +2 spacing matches the standard k8s manifest style so the result
+ * diffs cleanly against `kubectl get -o yaml` output.
+ *
+ * @param res - Object with optional `cpu` and `memory` string fields.
+ * @param indent - Base indentation in spaces.
+ * @returns YAML fragment, or "" when both fields are empty.
+ *
+ * @example
+ * ```ts
+ * resourcesRequestsBlock({ cpu: "100m", memory: "128Mi" }, 8);
+ * // "        resources:\n          requests:\n            cpu: 100m\n            memory: 128Mi"
+ * ```
  */
 export function resourcesRequestsBlock(res: unknown, indent: number): string {
   if (!res || typeof res !== 'object' || Array.isArray(res)) return '';
@@ -49,7 +67,20 @@ export function resourcesRequestsBlock(res: unknown, indent: number): string {
 }
 
 /**
- * Clamp an integer value into a range.
+ * Clamp an integer value into a range, with a fallback for unparseable input.
+ *
+ * @param raw - The value to clamp (string, number, or anything else).
+ * @param min - Lower bound (inclusive).
+ * @param max - Upper bound (inclusive).
+ * @param fallback - Value to use when `raw` is NaN or not a number.
+ * @returns The clamped integer.
+ *
+ * @example
+ * ```ts
+ * clampInt("42", 1, 100, 10); // 42
+ * clampInt("abc", 1, 100, 10); // 10
+ * clampInt(200, 1, 100, 10);   // 100
+ * ```
  */
 export function clampInt(raw: unknown, min: number, max: number, fallback: number): number {
   const n = typeof raw === 'string' ? parseInt(raw, 10) : typeof raw === 'number' ? raw : NaN;

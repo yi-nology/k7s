@@ -4,10 +4,11 @@
  * API-error reporting. Cancel discards the draft.
  */
 
-import { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styles from './YamlTab.module.css';
 import { useStore } from '../../store';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useTranslation } from '../../hooks/useI18n';
 import { CodeEditor } from './CodeEditor';
 import { diffLines, diffStat, hasChanges, hunks } from '../../lib/diff';
@@ -19,9 +20,10 @@ import type { ResourceRef, YamlDiff } from '../../providers/types';
  * before anything is written.
  *
  * Only changed regions are shown. A manifest is mostly unchanged, and rendering
- * the whole file would bury the one line that matters.
+ * the whole file would bury the one line that matters. Memoized: the diff
+ * object is stable between renders.
  */
-function DiffView({ diff }: { diff: YamlDiff }) {
+const DiffView = React.memo(function DiffView({ diff }: { diff: YamlDiff }) {
   const { t } = useTranslation();
   const lines = diffLines(diff.current, diff.proposed);
   const groups = hunks(lines);
@@ -64,7 +66,7 @@ function DiffView({ diff }: { diff: YamlDiff }) {
       ))}
     </div>
   );
-}
+});
 
 export function YamlTab() {
   const row = useStore((s) => s.selectedRow);
@@ -89,24 +91,17 @@ export function YamlTab() {
   const ref: ResourceRef | null = row ? { kind, namespace: row.namespace, name: row.name } : null;
 
   // Fetch YAML on selection change (and on first open of this tab).
-  useEffect(() => {
+  useAsyncEffect(async (isMounted) => {
     if (!ref) return;
-    let cancelled = false;
-    void getProvider()
-      .getYaml(ref)
-      .then((text) => {
-        if (cancelled) return;
-        setYamlText(text);
-        setNonce((n) => n + 1);
-        setError(null);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    try {
+      const text = await getProvider().getYaml(ref);
+      if (!isMounted()) return;
+      setYamlText(text);
+      setNonce((n) => n + 1);
+      setError(null);
+    } catch (e) {
+      if (isMounted()) setError(formatError(e));
+    }
   }, [row?.uid, row?.namespace, row?.name]);
 
   if (!row || !ref) return null;
@@ -129,7 +124,7 @@ export function YamlTab() {
       setReview(await getProvider().dryRunYaml(ref, yamlDraft));
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setApplying(false);
     }
@@ -148,7 +143,7 @@ export function YamlTab() {
       setError(null);
     } catch (e) {
       // Keep the draft and surface the API error inline (Story 5.4).
-      setError(e instanceof Error ? e.message : String(e));
+      setError(formatError(e));
     } finally {
       setApplying(false);
     }

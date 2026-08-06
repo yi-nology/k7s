@@ -24,6 +24,10 @@
  */
 
 import { translate, type Locale } from './i18n';
+import { isRolloutKind } from './kinds';
+// Re-export so existing importers (ActionList, HelmRollbackForm) keep working;
+// the single source of truth lives in kinds.tsx next to the other kind predicates.
+export { isRolloutKind } from './kinds';
 import type { KindId, Row } from '../providers/types';
 
 export type ActionId =
@@ -38,7 +42,8 @@ export type ActionId =
   | 'delete'
   | 'download-yaml'
   | 'modify-image'
-  | 'files';
+  | 'files'
+  | 'edit-ingress';
 
 export interface ActionDef {
   id: ActionId;
@@ -79,6 +84,7 @@ const LABEL_KEYS: Record<ActionId, string> = {
   'download-yaml': 'actions.labels.downloadYaml',
   'modify-image': 'actions.labels.modifyImage',
   files: 'actions.labels.files',
+  'edit-ingress': 'actions.labels.editIngress',
 };
 
 /** The mode/danger/bulk metadata, in menu order. Order is display order: safe things first. */
@@ -110,11 +116,16 @@ const META: Record<ActionId, Omit<ActionDef, 'id' | 'label'>> = {
   // Pod Files: opens the file browser overlay for a single pod. Not bulk —
   // browsing files from multiple pods simultaneously has no meaning.
   files: { mode: 'immediate', bulk: false },
+  // Edit Ingress: opens the ingress editor overlay pre-filled with the clicked
+  // row's name/namespace. Not bulk — editing several ingresses at once has no
+  // meaning, and the form is single-object.
+  'edit-ingress': { mode: 'immediate', bulk: false },
 };
 
 /** Every action id, in menu order. The metadata + label key together define the action. */
 const ORDER: ActionId[] = [
   'files',
+  'edit-ingress',
   'view-pods',
   'forward',
   'scale',
@@ -172,6 +183,10 @@ function applies(id: ActionId, kind: KindId, row: Row): boolean {
     case 'files':
       // Pod file browser — only meaningful for pods with a running filesystem.
       return kind === 'pods';
+    case 'edit-ingress':
+      // Opens the Ingress editor overlay pre-filled with this row's name/ns.
+      // Only meaningful for ingresses.
+      return kind === 'ingresses';
     case 'modify-image':
       // Only meaningful for workloads that own a `spec.template.spec` with
       // `containers:` — a Service, ConfigMap, or PVC has nothing to swap.
@@ -186,11 +201,6 @@ function applies(id: ActionId, kind: KindId, row: Row): boolean {
         kind === 'replicasets'
       );
   }
-}
-
-/** Kinds whose restart is a `kubectl rollout restart` template patch. */
-export function isRolloutKind(kind: KindId): boolean {
-  return kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets';
 }
 
 /** Anything that can be restarted at all — a pod, or a rollout-capable workload. */

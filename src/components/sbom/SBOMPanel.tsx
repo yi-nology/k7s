@@ -34,30 +34,71 @@ export function SBOMPanel({ onClose }: { onClose?: () => void }) {
       <header className={styles.header}>
         <h2>{t('sbom.title', 'SBOM')}</h2>
         <div className={styles.tabs}>
-          <button className={tab === 'image' ? styles.activeTab : ''} onClick={() => setTab('image')}>
+          <button
+            className={tab === 'image' ? styles.activeTab : ''}
+            onClick={() => setTab('image')}
+          >
             {t('sbom.tab.image', 'Image')}
           </button>
-          <button className={tab === 'cluster' ? styles.activeTab : ''} onClick={() => setTab('cluster')}>
+          <button
+            className={tab === 'cluster' ? styles.activeTab : ''}
+            onClick={() => setTab('cluster')}
+          >
             {t('sbom.tab.cluster', 'Cluster')}
-            <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.6 }}>{t('sbom.tab.comingSoon', '(coming soon)')}</span>
+            <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.6 }}>
+              {t('sbom.tab.comingSoon', '(coming soon)')}
+            </span>
           </button>
-          <button className={tab === 'history' ? styles.activeTab : ''} onClick={() => setTab('history')}>
+          <button
+            className={tab === 'history' ? styles.activeTab : ''}
+            onClick={() => setTab('history')}
+          >
             {t('sbom.tab.history', 'History')}
           </button>
         </div>
         <div className={styles.actions}>
-          <button onClick={handleExport} title="Export"><Download size={16} /></button>
-          {onClose && <button onClick={onClose}><X size={16} /></button>}
+          <button onClick={handleExport} title="Export">
+            <Download size={16} />
+          </button>
+          {onClose && (
+            <button onClick={onClose}>
+              <X size={16} />
+            </button>
+          )}
         </div>
       </header>
-      {error && <div style={{ padding: '6px 12px', background: 'var(--status-err-soft, #fee)', color: 'var(--status-err, #c00)', fontSize: 13 }}>{error}</div>}
-      {success && <div style={{ padding: '6px 12px', background: 'var(--status-ok-soft, #efe)', color: 'var(--status-ok, #0a0)', fontSize: 13 }}>{success}</div>}
+      {error && (
+        <div
+          style={{
+            padding: '6px 12px',
+            background: 'var(--status-err-soft, #fee)',
+            color: 'var(--status-err, #c00)',
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      )}
+      {success && (
+        <div
+          style={{
+            padding: '6px 12px',
+            background: 'var(--status-ok-soft, #efe)',
+            color: 'var(--status-ok, #0a0)',
+            fontSize: 13,
+          }}
+        >
+          {success}
+        </div>
+      )}
       <div className={styles.body}>
         {tab === 'image' && <ImageSBOMTab onResult={setSbom} />}
         {tab === 'cluster' && (
           <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-secondary)' }}>
             <p>{t('sbom.cluster.comingSoon', 'Cluster-wide SBOM scanning is coming soon.')}</p>
-            <p style={{ fontSize: 13, marginTop: 8 }}>{t('sbom.cluster.useImage', 'Use the Image tab to scan individual images for now.')}</p>
+            <p style={{ fontSize: 13, marginTop: 8 }}>
+              {t('sbom.cluster.useImage', 'Use the Image tab to scan individual images for now.')}
+            </p>
           </div>
         )}
         {tab === 'history' && <HistoryTab onSelect={setSbom} />}

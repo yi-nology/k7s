@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { cx } from '../../lib/cx';
 import { pluginManager } from '../../lib/plugins/manager';
 import type { K7sPlugin } from '../../lib/plugins/types';
 import { useTranslation } from '../../hooks/useI18n';
@@ -75,7 +76,7 @@ function PluginRow({
   t: (key: string, fallback: string) => string;
 }) {
   return (
-    <div className={`${styles.row} ${enabled ? styles.rowActive : ''}`}>
+    <div className={cx(styles.row, enabled && styles.rowActive)}>
       <div className={styles.rowInfo}>
         <div className={styles.rowName}>
           {plugin.name}
@@ -98,7 +99,7 @@ function PluginRow({
           onChange={onToggle}
           className={styles.toggleInput}
         />
-        <span className={`${styles.toggleSlider} ${enabled ? styles.toggleOn : ''}`} />
+        <span className={cx(styles.toggleSlider, enabled && styles.toggleOn)} />
       </label>
     </div>
   );

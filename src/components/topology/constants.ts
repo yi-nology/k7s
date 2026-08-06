@@ -40,23 +40,31 @@ export const MINIMAP_SIZE = 180;
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Clamp a number into `[lo, hi]`. */
 export function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
+/** Extract the id from a d3 link endpoint (string or node object). */
 export function resolveNodeId(v: string | GraphNode): string {
   return typeof v === 'string' ? v : v.id;
 }
 
-export function resolveNode(v: string | GraphNode, map: Map<string, GraphNode>): GraphNode | undefined {
+/** Look up a node by its d3 link endpoint reference. */
+export function resolveNode(
+  v: string | GraphNode,
+  map: Map<string, GraphNode>
+): GraphNode | undefined {
   const id = typeof v === 'string' ? v : v.id;
   return map.get(id);
 }
 
+/** Safe x-coordinate accessor (d3 may leave `x` undefined before first tick). */
 export function getX(n: GraphNode): number {
   return n.x ?? 0;
 }
 
+/** Safe y-coordinate accessor. */
 export function getY(n: GraphNode): number {
   return n.y ?? 0;
 }

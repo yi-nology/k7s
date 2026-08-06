@@ -1,3 +1,9 @@
+/* eslint-disable react-refresh/only-export-components -- This is a pure data
+ * registry, not a component module: it exports KIND_META (with Lucide icons as
+ * *data values* in the `icon:` field), types, and helper functions — no React
+ * components at all. The JSX exists only as icon data. Splitting the icons out
+ * would reintroduce the .ts/.tsx duplication this file was consolidated from,
+ * so the warning is acknowledged and suppressed at the file level. */
 /**
  * Static metadata for each resource kind: nav group, display label, glyph
  * icon, and the exact column set (order + labels) for each kind's table.
@@ -154,12 +160,11 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
     icon: <KeyRound size={14} />,
     columns: ['NAME', 'NAMESPACE', 'TYPE', 'DATA', 'AGE'],
   },
-  // The identity a pod runs as. Filed under Config rather than a group of its
-  // own: it's a namespaced thing you configure a workload with, and it sits
-  // naturally beside the Secrets it used to mint. (If RBAC lands later, an
-  // Access group holding both would be the better home.)
+  // The identity a pod runs as — an RBAC subject. Lives under Access beside
+  // the Roles/RoleBindings that bind it. (Namespaced, so it still honours the
+  // namespace filter, unlike the cluster-scoped RBAC kinds alongside it.)
   serviceaccounts: {
-    group: 'config',
+    group: 'access',
     label: 'ServiceAccounts',
     icon: <User size={14} />,
     columns: ['NAME', 'NAMESPACE', 'SECRETS', 'AGE'],
@@ -211,8 +216,11 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
     icon: <Shield size={14} />,
     columns: ['NAME', 'NAMESPACE', 'POD_SELECTOR', 'AGE'],
   },
+  // HPA is an autoscaling control-plane resource, not a workload itself — it
+  // scales a Deployment/StatefulSet from the side. Filed under Config with the
+  // other things you *tune a workload with* (ResourceQuota, LimitRange, PDB).
   horizontalpodautoscalers: {
-    group: 'workloads',
+    group: 'config',
     label: 'HPAs',
     icon: <TrendingUp size={14} />,
     columns: ['NAME', 'NAMESPACE', 'TARGET', 'MIN', 'MAX', 'REPLICAS', 'AGE'],
@@ -426,7 +434,7 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
       case 'revisions':
         // Revision history + rollback — only workloads that carry a pod
         // template with retained history (Deployment/StatefulSet/DaemonSet).
-        return kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets';
+        return isRolloutKind(kind);
       case 'metrics':
         return isPod || kind === 'nodes';
       case 'pods':
@@ -455,6 +463,16 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
  */
 export function isCustomKind(id: KindId): boolean {
   return id.includes('/');
+}
+
+/**
+ * The three Kubernetes workload kinds that carry a `kubectl rollout` history
+ * (restart, undo, revision list). Centralised here so every "is this a
+ * rollout-shaped workload?" check — tabs, actions, table columns, mock data —
+ * agrees on the same set.
+ */
+export function isRolloutKind(kind: KindId): boolean {
+  return kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets';
 }
 
 /**

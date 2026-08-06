@@ -7,6 +7,7 @@
  * expandable check list.
  */
 
+import { pluralize } from './format';
 import type { Row, NodeMetricsMap } from '../providers/types';
 
 export interface HealthCheck {
@@ -109,7 +110,7 @@ export function calculateHealth(
     checks.push({
       name: 'Warning Events',
       status: warnings.length === 0 ? 'pass' : warnings.length > 10 ? 'fail' : 'warn',
-      message: `${warnings.length} warning${warnings.length !== 1 ? 's' : ''} in recent events`,
+      message: `${warnings.length} ${pluralize('warning', warnings.length)} in recent events`,
     });
   }
 
@@ -126,7 +127,7 @@ export function calculateHealth(
       message:
         pendingOrFailed.length === 0
           ? 'All PVCs bound'
-          : `${pendingOrFailed.length} PVC${pendingOrFailed.length !== 1 ? 's' : ''} not bound`,
+          : `${pendingOrFailed.length} ${pluralize('PVC', pendingOrFailed.length)} not bound`,
     });
   }
 
@@ -143,7 +144,7 @@ export function calculateHealth(
       message:
         diskPressure.length === 0
           ? 'No disk pressure'
-          : `${diskPressure.length} node${diskPressure.length !== 1 ? 's' : ''} under disk pressure`,
+          : `${diskPressure.length} ${pluralize('node', diskPressure.length)} under disk pressure`,
     });
   }
 
@@ -162,7 +163,7 @@ export function calculateHealth(
       message:
         incomplete.length === 0
           ? 'All DaemonSets fully covered'
-          : `${incomplete.length} DaemonSet${incomplete.length !== 1 ? 's' : ''} with missing pods`,
+          : `${incomplete.length} ${pluralize('DaemonSet', incomplete.length)} with missing pods`,
     });
   }
 
@@ -181,7 +182,7 @@ export function calculateHealth(
       message:
         failedCronjobs.length === 0
           ? 'All CronJobs healthy'
-          : `${failedCronjobs.length} CronJob${failedCronjobs.length !== 1 ? 's' : ''} with failures`,
+          : `${failedCronjobs.length} ${pluralize('CronJob', failedCronjobs.length)} with failures`,
     });
   }
 
@@ -216,18 +217,21 @@ export function calculateHealth(
   return { score, grade, checks };
 }
 
-/** Map a grade to a CSS color variable. */
+/** Health grade → CSS colour. B and D use ad-hoc hex (no token slot fits). */
+const GRADE_COLOR: Record<HealthScore['grade'], string> = {
+  A: 'var(--status-ok)',
+  B: '#5cc8ff',
+  C: 'var(--status-warn)',
+  D: '#fb923c',
+  F: 'var(--status-err)',
+};
+
+/**
+ * Map a health grade to a CSS color variable.
+ *
+ * @param grade - The letter grade (A-F).
+ * @returns A CSS `var(...)` string for the corresponding status color.
+ */
 export function gradeColor(grade: HealthScore['grade']): string {
-  switch (grade) {
-    case 'A':
-      return 'var(--status-ok)';
-    case 'B':
-      return '#5cc8ff';
-    case 'C':
-      return 'var(--status-warn)';
-    case 'D':
-      return '#fb923c';
-    case 'F':
-      return 'var(--status-err)';
-  }
+  return GRADE_COLOR[grade];
 }

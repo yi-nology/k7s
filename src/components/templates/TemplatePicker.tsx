@@ -46,7 +46,7 @@
  *    text and were visually noisy.
  */
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { ApplyResult, DocDryRun } from '../../providers/types';
 import {
   defaultValuesFor,
@@ -81,29 +81,9 @@ function initialValuesFor(t: Template): TemplateValues {
   } as TemplateValues;
 }
 
-/**
- * Parse the chip-editor's `key=value` input. Returns `null` for an
- * unparseable line (empty / key-only-after-trim), so the caller can
- * decide whether to commit silently or surface a hint. Splitting the
- * first `=` (not the last) matches `kubectl label` and the way every
- * shell tool handles KEY=VAL — a value containing `=` is left intact.
- */
-export function parseLabelDraft(draft: string): { key: string; value: string } | null {
-  const line = draft.trim();
-  if (!line) return null;
-  const eq = line.indexOf('=');
-  let key: string;
-  let value: string;
-  if (eq === -1) {
-    key = line;
-    value = '';
-  } else {
-    key = line.slice(0, eq).trim();
-    value = line.slice(eq + 1).trim();
-  }
-  if (!key) return null;
-  return { key, value };
-}
+// parseLabelDraft moved to ./parseLabelDraft.ts (kept this file component-only for
+// react-refresh). Imported here for internal use by the LabelsEditor below.
+import { parseLabelDraft } from './parseLabelDraft';
 
 export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
@@ -205,7 +185,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
       const r = await getProvider().applyYamlBundle(yamlPreview);
       setResult(r);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }
@@ -224,7 +204,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
       setReview(r);
       setReviewedDraft(yamlDraft);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
       setReview(null);
     } finally {
       setBusy(false);
@@ -243,7 +223,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
       setResult(r);
       setReview(null);
     } catch (e) {
-      setError(String(e));
+      setError(formatError(e));
     } finally {
       setBusy(false);
     }

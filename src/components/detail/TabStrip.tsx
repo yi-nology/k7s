@@ -9,6 +9,7 @@
  */
 
 import { useStore } from '../../store';
+import { cx } from '../../lib/cx';
 import { kindMeta, type KindId } from '../../lib/kinds';
 import styles from './TabStrip.module.css';
 
@@ -34,7 +35,7 @@ export function TabStrip() {
             type="button"
             role="tab"
             aria-selected={isActive}
-            className={`${styles.tab} ${isActive ? styles.tabActive : ''}`}
+            className={cx(styles.tab, isActive && styles.tabActive)}
             onClick={() => setActive(tab.uid)}
             onAuxClick={(e) => {
               // Middle-click closes the tab.

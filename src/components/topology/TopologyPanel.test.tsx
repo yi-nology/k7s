@@ -9,22 +9,49 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { TopologyPanel } from './TopologyPanel';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
+import { createMockSettings } from '../../test/types';
 
 // Mock the provider — use a stable mock so we can override per-test.
 const mockListEndpoints = vi.fn().mockResolvedValue([
-  { name: 'ep-1', namespace: 'default', service: 'web-svc', ready: 2, total: 2, addresses: [], age: '1d' },
-  { name: 'ep-2', namespace: 'default', service: 'api-svc', ready: 1, total: 1, addresses: [], age: '2d' },
+  {
+    name: 'ep-1',
+    namespace: 'default',
+    service: 'web-svc',
+    ready: 2,
+    total: 2,
+    addresses: [],
+    age: '1d',
+  },
+  {
+    name: 'ep-2',
+    namespace: 'default',
+    service: 'api-svc',
+    ready: 1,
+    total: 1,
+    addresses: [],
+    age: '2d',
+  },
 ]);
-vi.mock('../../providers', () => ({
-  getProvider: () => ({
-    listEndpoints: mockListEndpoints,
-    listEndpointAddresses: vi.fn().mockResolvedValue([]),
-  }),
-}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      listEndpoints: mockListEndpoints,
+      listEndpointAddresses: vi.fn().mockResolvedValue([]),
+    }),
+  };
+});
 
 // Mock TopologyGraph to avoid d3-force complexity.
 vi.mock('./TopologyGraph', () => ({
-  TopologyGraph: ({ focusedService, searchQuery }: any) => (
+  TopologyGraph: ({
+    focusedService,
+    searchQuery,
+  }: {
+    focusedService?: string;
+    searchQuery?: string;
+  }) => (
     <div data-testid="topology-graph">
       <span>MockGraph</span>
       {focusedService && <span>focused: {focusedService}</span>}
@@ -44,8 +71,8 @@ function resetStore() {
         createMockRow({ name: 'api-svc', namespace: 'default' }),
       ],
       pods: [],
-    } as any,
-    settings: { language: 'en' } as any,
+    },
+    settings: createMockSettings({ language: 'en' }),
   });
 }
 
@@ -126,7 +153,7 @@ describe('TopologyPanel', () => {
 
   it('shows empty state when no endpoints and no services', async () => {
     mockListEndpoints.mockResolvedValueOnce([]);
-    useStore.setState({ rows: { services: [], pods: [] } as any });
+    useStore.setState({ rows: { services: [], pods: [] } });
     view = render(<TopologyPanel />);
     await new Promise((r) => setTimeout(r, 200));
     expect(view.queryByText('No services with endpoints')).not.toBeNull();

@@ -9,6 +9,7 @@
 
 import type { K7sPlugin } from './types';
 import { gpuMonitorPlugin } from './builtin/gpu-monitor';
+import { NetPolTab } from './builtin/NetPolTab';
 
 // ---------------------------------------------------------------------------
 // Network Policy Viewer stub
@@ -35,17 +36,6 @@ export const netpolViewerPlugin: K7sPlugin = {
     });
   },
 };
-
-function NetPolTab({ row }: { row: any }) {
-  // Placeholder: a real version would fetch policies from the store or provider.
-  return {
-    type: 'div',
-    props: {
-      style: { padding: '16px', color: 'var(--text-muted)', fontSize: '13px' },
-      children: `Network policies for ${row?.namespace ?? 'cluster'}/${row?.name ?? '?'}: (stub — install the backend plugin to list policies).`,
-    },
-  } as any;
-}
 
 // ---------------------------------------------------------------------------
 // Collection
