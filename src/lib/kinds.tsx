@@ -154,12 +154,11 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
     icon: <KeyRound size={14} />,
     columns: ['NAME', 'NAMESPACE', 'TYPE', 'DATA', 'AGE'],
   },
-  // The identity a pod runs as. Filed under Config rather than a group of its
-  // own: it's a namespaced thing you configure a workload with, and it sits
-  // naturally beside the Secrets it used to mint. (If RBAC lands later, an
-  // Access group holding both would be the better home.)
+  // The identity a pod runs as — an RBAC subject. Lives under Access beside
+  // the Roles/RoleBindings that bind it. (Namespaced, so it still honours the
+  // namespace filter, unlike the cluster-scoped RBAC kinds alongside it.)
   serviceaccounts: {
-    group: 'config',
+    group: 'access',
     label: 'ServiceAccounts',
     icon: <User size={14} />,
     columns: ['NAME', 'NAMESPACE', 'SECRETS', 'AGE'],
@@ -211,8 +210,11 @@ export const KIND_META: Record<ResourceKind, KindMeta> = {
     icon: <Shield size={14} />,
     columns: ['NAME', 'NAMESPACE', 'POD_SELECTOR', 'AGE'],
   },
+  // HPA is an autoscaling control-plane resource, not a workload itself — it
+  // scales a Deployment/StatefulSet from the side. Filed under Config with the
+  // other things you *tune a workload with* (ResourceQuota, LimitRange, PDB).
   horizontalpodautoscalers: {
-    group: 'workloads',
+    group: 'config',
     label: 'HPAs',
     icon: <TrendingUp size={14} />,
     columns: ['NAME', 'NAMESPACE', 'TARGET', 'MIN', 'MAX', 'REPLICAS', 'AGE'],
