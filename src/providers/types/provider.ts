@@ -76,7 +76,6 @@ import type {
   ImageSyncResult,
   ImageTag,
   ImportImageResult,
-  ImportProgressEvent,
   PodFileEntry,
   SkopeoAvailability,
 } from './image';

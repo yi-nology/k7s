@@ -549,19 +549,6 @@ export const en: Dictionary = {
     loadedImages: 'Loaded images',
     noImages: '(no image refs parsed from output)',
     rawOutput: 'Raw output',
-    importPanel: {
-      whatTitle: 'What this does',
-      description:
-        'Load local .tar image archives into a cluster node\'s container runtime. Supports batch import.',
-      node: 'Target node',
-      pickNode: 'Select a node…',
-      chooseFiles: 'Choose .tar files…',
-      dragHint: 'Or drag .tar files here',
-      batchSelected: '{count} files selected',
-      dropHere: 'Drop .tar files here',
-      importing: 'Importing…',
-      import: 'Import',
-    },
     export: {
       nodeTitle: 'What this does',
       nodeDesc:

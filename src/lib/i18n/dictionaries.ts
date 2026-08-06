@@ -594,19 +594,6 @@ export interface Dictionary {
       loadedImages: string;
       rawOutput: string;
     };
-    /** Import sub-panel — batch import, drag-drop enhancements. */
-    importPanel: {
-      whatTitle: string;
-      description: string;
-      node: string;
-      pickNode: string;
-      chooseFiles: string;
-      dragHint: string;
-      batchSelected: string;
-      dropHere: string;
-      importing: string;
-      import: string;
-    };
     /** Export sub-panel — export from node or from registry to local .tar. */
     export: {
       nodeTitle: string;

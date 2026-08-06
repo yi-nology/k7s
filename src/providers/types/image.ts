@@ -151,19 +151,7 @@ export interface ExportFromRegistryResult {
   summary: string;
 }
 
-/** Progress event for image import operations. */
-export interface ImportProgressEvent {
-  /** File currently being imported. */
-  fileName: string;
-  /** Bytes transferred so far. */
-  loaded: number;
-  /** Total bytes (file size). 0 if unknown (e.g. export from node). */
-  total: number;
-  /** Current phase: "preparing" | "transferring" | "loading" | "done" | "error". */
-  phase: string;
-  /** Error message (only when phase === "error"). */
-  error?: string;
-}
+// TODO: ImportProgressEvent for streaming progress (future enhancement)
 
 // ---- Container image vulnerability scanning ----
 

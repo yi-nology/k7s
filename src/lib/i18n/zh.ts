@@ -547,18 +547,6 @@ export const zh: Dictionary = {
     loadedImages: '已加载镜像',
     noImages: '(未从输出中解析到镜像引用)',
     rawOutput: '原始输出',
-    importPanel: {
-      whatTitle: '功能说明',
-      description: '将本地 .tar 镜像归档加载到集群节点的容器运行时，支持批量导入。',
-      node: '目标节点',
-      pickNode: '选择节点…',
-      chooseFiles: '选择 .tar 文件…',
-      dragHint: '或将 .tar 文件拖拽到此处',
-      batchSelected: '已选择 {count} 个文件',
-      dropHere: '将 .tar 文件拖放到此处',
-      importing: '正在导入…',
-      import: '导入',
-    },
     export: {
       nodeTitle: '功能说明',
       nodeDesc: '从集群节点的容器运行时导出镜像到本地 .tar 文件，是导入到节点的逆操作。',

@@ -824,8 +824,8 @@ function FromRegistrySection({ onClose }: { onClose?: () => void }) {
     let cancelled = false;
     (async () => {
       try {
-        const t = await provider.imageRegistryTags(selectedRegistry, selectedRepo);
-        if (!cancelled) setTags(t.map((x) => x.name));
+        const tagList = await provider.imageRegistryTags(selectedRegistry, selectedRepo);
+        if (!cancelled) setTags(tagList.map((x) => x.name));
       } catch { /* non-fatal */ }
     })();
     return () => { cancelled = true; };

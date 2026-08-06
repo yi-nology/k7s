@@ -350,8 +350,9 @@ mod tests {
 
     #[test]
     fn parse_containerd_images_list() {
-        let output = "REF\tTYPE\tDIGEST\tSIZE\tPLATFORMS\tLABELS\tSTATUS\ndocker.io/library/nginx:1.25\tapplication/vnd.oci.image.manifest.v1+json\tsha256:abc\t12MB\triscv64\t\ttruetrue";
+        // `ctr images list -q` outputs bare refs, one per line.
+        let output = "docker.io/library/nginx:1.25\ndocker.io/library/busybox:latest\n";
         let images = parse_listed_images(output, "containerd");
-        assert!(images.iter().any(|i| i.contains("nginx:1.25")));
+        assert_eq!(images, vec!["docker.io/library/nginx:1.25", "docker.io/library/busybox:latest"]);
     }
 }

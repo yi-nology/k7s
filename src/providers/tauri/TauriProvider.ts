@@ -722,8 +722,8 @@ export class TauriProvider implements DataProvider {
     insecureSrc: boolean,
     onLog: (line: string) => void
   ): Promise<ExportFromRegistryResult> {
-    const unlisten = await listen<{ stream: string; line: string }>('image-sync-log', (event) => {
-      onLog(event.payload.line);
+    const off = subscribe<{ stream: string; line: string }>('image-sync-log', (p) => {
+      onLog(p.line);
     });
     try {
       return await invoke<ExportFromRegistryResult>('export_from_registry', {
@@ -734,7 +734,7 @@ export class TauriProvider implements DataProvider {
         insecureSrc,
       });
     } finally {
-      unlisten();
+      off();
     }
   }
 
