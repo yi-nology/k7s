@@ -231,9 +231,12 @@ export function escapeHtml(text: string): string {
  */
 export function isSafeLogLine(line: string): boolean {
   if (!line || typeof line !== 'string') return false;
-  // Reject ANSI escape sequences
+  // Reject ANSI escape sequences. Matching control chars is the whole point
+  // here — this is a log-injection guard, not arbitrary input parsing.
+  // eslint-disable-next-line no-control-regex
   if (/\x1b\[/.test(line)) return false;
   // Reject other control characters except newline and tab
+  // eslint-disable-next-line no-control-regex
   if (/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(line)) return false;
   return true;
 }
@@ -244,7 +247,9 @@ export function isSafeLogLine(line: string): boolean {
 export function sanitizeLogLine(line: string): string {
   if (!line) return '';
   return line
+    // eslint-disable-next-line no-control-regex
     .replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '') // strip ANSI escapes
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, ''); // strip control chars
 }
 
