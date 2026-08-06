@@ -12,6 +12,8 @@ import type {
   ImageRegistryUpsert,
   ImageRepo,
   ImageTag,
+  ExportFromNodeResult,
+  ExportFromRegistryResult,
   ImportImageResult,
   PodFileEntry,
   SkopeoAvailability,
@@ -402,6 +404,25 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
       created: new Date().toISOString(),
       sizeBytes: 142000000,
     };
+  }
+
+  async exportFromNode(_node: string, _imageRef: string, savePath: string): Promise<ExportFromNodeResult> {
+    return { runtime: 'containerd', output: 'mock export', images: [], savedPath: savePath, error: null };
+  }
+
+  async listNodeImages(_node: string): Promise<string[]> {
+    return ['nginx:1.25', 'busybox:latest', 'redis:7'];
+  }
+
+  async exportFromRegistry(
+    _registryName: string,
+    _repo: string,
+    _tag: string,
+    savePath: string,
+    _insecureSrc: boolean,
+    _onLog: (line: string) => void
+  ): Promise<ExportFromRegistryResult> {
+    return { source: 'docker://mock/image:tag', savedPath: savePath, success: true, lines: 1, summary: 'mock export done' };
   }
 
   async listEndpointsForService(_namespace: string, _name: string): Promise<EndpointRow[]> {

@@ -30,6 +30,8 @@ import type {
   Alert,
   AlertManager,
   DocDryRun,
+  ExportFromNodeResult,
+  ExportFromRegistryResult,
   ImportImageResult,
   SkopeoAvailability,
   ImageSyncResult,
@@ -716,6 +718,31 @@ export class HttpProvider implements DataProvider {
 
   async imageInspectArchive(_tarPath: string): Promise<ArchiveInfo> {
     throw new Error('Image inspect is only available in the desktop app');
+  }
+
+  async exportFromNode(node: string, imageRef: string, savePath: string): Promise<ExportFromNodeResult> {
+    return httpInvoke<ExportFromNodeResult>('export_from_node', { node, imageRef, savePath });
+  }
+
+  async listNodeImages(node: string): Promise<string[]> {
+    return httpInvoke<string[]>('list_node_images', { node });
+  }
+
+  async exportFromRegistry(
+    registryName: string,
+    repo: string,
+    tag: string,
+    savePath: string,
+    insecureSrc: boolean,
+    _onLog: (line: string) => void
+  ): Promise<ExportFromRegistryResult> {
+    return httpInvoke<ExportFromRegistryResult>('export_from_registry', {
+      registryName,
+      repo,
+      tag,
+      savePath,
+      insecureSrc,
+    });
   }
 
   async imageCopy(

@@ -17,6 +17,8 @@ import type {
   ApplyResult,
   ClusterInfo,
   DocDryRun,
+  ExportFromNodeResult,
+  ExportFromRegistryResult,
   ImportImageResult,
   SkopeoAvailability,
   ImageSyncResult,
@@ -702,6 +704,38 @@ export class TauriProvider implements DataProvider {
 
   imageInspectArchive(tarPath: string): Promise<ArchiveInfo> {
     return invoke<ArchiveInfo>('image_inspect_archive', { tarPath });
+  }
+
+  async exportFromNode(node: string, imageRef: string, savePath: string): Promise<ExportFromNodeResult> {
+    return invoke<ExportFromNodeResult>('export_from_node', { node, imageRef, savePath });
+  }
+
+  async listNodeImages(node: string): Promise<string[]> {
+    return invoke<string[]>('list_node_images', { node });
+  }
+
+  async exportFromRegistry(
+    registryName: string,
+    repo: string,
+    tag: string,
+    savePath: string,
+    insecureSrc: boolean,
+    onLog: (line: string) => void
+  ): Promise<ExportFromRegistryResult> {
+    const unlisten = await listen<{ stream: string; line: string }>('image-sync-log', (event) => {
+      onLog(event.payload.line);
+    });
+    try {
+      return await invoke<ExportFromRegistryResult>('export_from_registry', {
+        registryName,
+        repo,
+        tag,
+        savePath,
+        insecureSrc,
+      });
+    } finally {
+      unlisten();
+    }
   }
 
   async imageCopy(
