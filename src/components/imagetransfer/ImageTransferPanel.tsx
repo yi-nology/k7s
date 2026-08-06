@@ -90,8 +90,10 @@ function ImportSection({ onClose }: { onClose?: () => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// To Node — load a local .tar into a node's container runtime.
+// To Node — load local .tar files into a node's container runtime (batch).
 // ---------------------------------------------------------------------------
+
+type FileStatus = 'pending' | 'loading' | 'done' | 'error';
 
 function ToNodeSection({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
@@ -99,152 +101,139 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
   const nodes = useMemo(() => nodeRows.map(nodeOption).filter((n) => n.name), [nodeRows]);
 
   const [node, setNode] = useState('');
-  const [path, setPath] = useState('');
+  const [files, setFiles] = useState<{ path: string; status: FileStatus; result?: ImportImageResult }[]>([]);
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<ImportImageResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
 
-  const canImport = !busy && node !== '' && path !== '';
+  const canImport = !busy && node !== '' && files.length > 0 && files.some((f) => f.status === 'pending');
 
-  const pickFile = async () => {
-    setError(null);
+  const pickFiles = async () => {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
-        title: t('imageTransfer.chooseFile', 'Select image archive'),
-        multiple: false,
+        title: t('imageTransfer.chooseFile', 'Select image archives'),
+        multiple: true,
         filters: [{ name: 'Image archive', extensions: ['tar'] }],
       });
-      if (typeof selected === 'string') {
-        setPath(selected);
-        setResult(null);
+      if (selected) {
+        const paths = Array.isArray(selected) ? selected : [selected];
+        setFiles((prev) => {
+          const existing = new Set(prev.map((f) => f.path));
+          const newFiles = paths.filter((p) => !existing.has(p)).map((p) => ({ path: p, status: 'pending' as FileStatus }));
+          return [...prev, ...newFiles];
+        });
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+    } catch {
+      // user cancelled
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+    const droppedFiles = Array.from(e.dataTransfer.files)
+      .filter((f) => f.name.endsWith('.tar'))
+      .map((f) => (f as any).path as string)
+      .filter(Boolean);
+    if (droppedFiles.length > 0) {
+      setFiles((prev) => {
+        const existing = new Set(prev.map((f) => f.path));
+        const newFiles = droppedFiles.filter((p) => !existing.has(p)).map((p) => ({ path: p, status: 'pending' as FileStatus }));
+        return [...prev, ...newFiles];
+      });
     }
   };
 
   const runImport = async () => {
     if (!canImport) return;
     setBusy(true);
-    setError(null);
-    setResult(null);
-    try {
-      const r = await getProvider().importImageToNode(node, path);
-      setResult(r);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].status !== 'pending') continue;
+      setFiles((prev) => prev.map((f, idx) => idx === i ? { ...f, status: 'loading' } : f));
+      try {
+        const r = await getProvider().importImageToNode(node, files[i].path);
+        setFiles((prev) => prev.map((f, idx) => idx === i ? { ...f, status: r.error ? 'error' : 'done', result: r } : f));
+      } catch (e) {
+        setFiles((prev) => prev.map((f, idx) => idx === i ? { ...f, status: 'error', result: { runtime: '', output: '', images: [], error: e instanceof Error ? e.message : String(e) } } : f));
+      }
     }
+    setBusy(false);
+  };
+
+  const removeFile = (idx: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
   };
 
   return (
-    <>
-      {error && <div className={styles.error}>{error}</div>}
-      <div className={styles.body}>
-        <section className={styles.callout}>
-          <p className={styles.calloutTitle}>{t('imageTransfer.whatTitle', 'What this does')}</p>
-          <p className={styles.calloutText}>{t('imageTransfer.description', '')}</p>
-        </section>
+    <div className={styles.body} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
+      <section className={styles.callout}>
+        <p className={styles.calloutTitle}>{t('imageTransfer.import.whatTitle', 'What this does')}</p>
+        <p className={styles.calloutText}>{t('imageTransfer.import.description', '')}</p>
+      </section>
 
-        <section className={styles.form}>
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>{t('imageTransfer.node', 'Target node')}</span>
-            <select
-              className={styles.select}
-              value={node}
-              onChange={(e) => {
-                setNode(e.target.value);
-                setResult(null);
-              }}
-            >
-              <option value="" disabled>
-                {t('imageTransfer.pickNode', 'Select a node…')}
-              </option>
-              {nodes.map((n) => (
-                <option key={n.name} value={n.name}>
-                  {n.name}
-                  {n.status ? `  (${n.status})` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
+      <section className={styles.form}>
+        <label className={styles.field}>
+          <span className={styles.fieldLabel}>{t('imageTransfer.import.node', 'Target node')}</span>
+          <select className={styles.select} value={node} onChange={(e) => setNode(e.target.value)}>
+            <option value="" disabled>{t('imageTransfer.import.pickNode', 'Select a node\u2026')}</option>
+            {nodes.map((n) => <option key={n.name} value={n.name}>{n.name}{n.status ? ` (${n.status})` : ''}</option>)}
+          </select>
+        </label>
 
-          <label className={styles.field}>
-            <span className={styles.fieldLabel}>{t('imageTransfer.archive', 'Image archive')}</span>
-            <div className={styles.fileRow}>
-              <button
-                type="button"
-                className={styles.fileBtn}
-                onClick={() => void pickFile()}
-                disabled={busy}
-              >
-                {t('imageTransfer.chooseFile', 'Choose .tar file…')}
-              </button>
-              <span className={styles.fileName} title={path}>
-                {path ? path.split('/').pop() : ''}
-              </span>
+        <div className={styles.field}>
+          <div className={styles.fileRow}>
+            <button type="button" className={styles.fileBtn} onClick={() => void pickFiles()} disabled={busy}>
+              {t('imageTransfer.import.chooseFiles', 'Choose .tar files\u2026')}
+            </button>
+            <span className={styles.fieldHint}>{t('imageTransfer.import.dragHint', 'Or drag .tar files here')}</span>
+          </div>
+        </div>
+
+        {files.length > 0 && (
+          <div className={styles.fileList}>
+            <div className={styles.fileListHeader}>
+              {t('imageTransfer.import.batchSelected', '{count} files selected').replace('{count}', String(files.length))}
             </div>
-          </label>
-        </section>
-
-        {result && (
-          <section className={styles.result}>
-            {result.error ? (
-              <div className={styles.resultErr}>{result.error}</div>
-            ) : (
-              <>
-                <div className={styles.resultRuntime}>
-                  <span className={styles.resultLabel}>{t('imageTransfer.runtime', 'Runtime')}</span>
-                  <span className={styles.resultValue}>{result.runtime}</span>
-                </div>
-                <div className={styles.resultImages}>
-                  <span className={styles.resultLabel}>
-                    {t('imageTransfer.loadedImages', 'Loaded images')}
-                  </span>
-                  {result.images.length > 0 ? (
-                    <ul className={styles.imageList}>
-                      {result.images.map((img, i) => (
-                        <li key={i} className={styles.imageItem}>
-                          {img}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <span className={styles.resultValue}>
-                      {t('imageTransfer.noImages', '(no image refs parsed from output)')}
-                    </span>
-                  )}
-                </div>
-                {result.output && (
-                  <details className={styles.outputDetails}>
-                    <summary className={styles.outputSummary}>
-                      {t('imageTransfer.rawOutput', 'Raw output')}
-                    </summary>
-                    <pre className={styles.outputPre}>{result.output}</pre>
-                  </details>
+            {files.map((f, i) => (
+              <div key={f.path} className={styles.fileItem} data-status={f.status}>
+                <span className={styles.fileName} title={f.path}>{f.path.split('/').pop()}</span>
+                <span className={styles.fileBadge}>
+                  {f.status === 'pending' && '\u23F3'}
+                  {f.status === 'loading' && '\u23F3'}
+                  {f.status === 'done' && '\u2705'}
+                  {f.status === 'error' && '\u274C'}
+                </span>
+                {f.status === 'pending' && (
+                  <button type="button" className={styles.removeBtn} onClick={() => removeFile(i)}>×</button>
                 )}
-              </>
-            )}
-          </section>
+              </div>
+            ))}
+          </div>
         )}
-      </div>
+
+        {dragging && <div className={styles.dropZone}>{t('imageTransfer.import.dropHere', 'Drop .tar files here')}</div>}
+      </section>
 
       <footer className={styles.footer}>
-        <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>
-          {t('imageTransfer.close', 'Close')}
-        </button>
-        <button
-          type="button"
-          className={styles.importBtn}
-          disabled={!canImport}
-          onClick={() => void runImport()}
-        >
-          {busy ? t('imageTransfer.importing', 'Importing…') : t('imageTransfer.import', 'Import')}
+        <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>{t('imageTransfer.close', 'Close')}</button>
+        <button type="button" className={styles.importBtn} disabled={!canImport} onClick={() => void runImport()}>
+          {busy ? t('imageTransfer.import.importing', 'Importing\u2026') : t('imageTransfer.import.import', 'Import')}
         </button>
       </footer>
-    </>
+    </div>
   );
 }
 
