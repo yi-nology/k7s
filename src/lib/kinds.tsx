@@ -1,3 +1,9 @@
+/* eslint-disable react-refresh/only-export-components -- This is a pure data
+ * registry, not a component module: it exports KIND_META (with Lucide icons as
+ * *data values* in the `icon:` field), types, and helper functions — no React
+ * components at all. The JSX exists only as icon data. Splitting the icons out
+ * would reintroduce the .ts/.tsx duplication this file was consolidated from,
+ * so the warning is acknowledged and suppressed at the file level. */
 /**
  * Static metadata for each resource kind: nav group, display label, glyph
  * icon, and the exact column set (order + labels) for each kind's table.

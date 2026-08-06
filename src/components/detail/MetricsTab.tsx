@@ -21,7 +21,8 @@ import { useNodeMetricsSeries } from '../../hooks/useNodeMetricsSeries';
 import { useTranslation } from '../../hooks/useI18n';
 import { IS_TAURI } from '../../providers';
 import { humanBytes, humanBps, plotColors } from './plot';
-import { Plot, useHostPlotColors } from './PlotChart';
+import { Plot } from './PlotChart';
+import { useHostPlotColors } from './useHostPlotColors';
 import { withAlpha } from '../../lib/theme';
 import type { NodeSample } from '../../providers/types';
 

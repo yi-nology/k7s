@@ -11,7 +11,7 @@
  *  - empty / whitespace-only / `=value` → null
  */
 import { describe, expect, it } from 'vitest';
-import { parseLabelDraft } from './TemplatePicker';
+import { parseLabelDraft } from './parseLabelDraft';
 
 describe('parseLabelDraft', () => {
   it('parses a simple key=value pair', () => {

@@ -20,6 +20,9 @@ import {
 vi.mock('./PlotChart', () => ({
   Plot: ({ title }: { title?: string }) =>
     createElement('div', { 'data-testid': 'plot' }, title || ''),
+}));
+// useHostPlotColors now lives in its own module; mock it there.
+vi.mock('./useHostPlotColors', () => ({
   useHostPlotColors: () => ({
     accent: '#000',
     accent2: '#111',
