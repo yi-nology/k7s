@@ -283,7 +283,7 @@ export const NETWORKING_TEMPLATES: Template[] = [
           `  ingress:`,
           `  - from:`,
           `    - namespaceSelector:`,
-          `        matchLabels:`,
+        `        matchLabels:`,
           `          kubernetes.io/metadata.name: ${ingressNs}`
         );
       }
@@ -292,7 +292,7 @@ export const NETWORKING_TEMPLATES: Template[] = [
           `  egress:`,
           `  - to:`,
           `    - namespaceSelector:`,
-          `        matchLabels:`,
+        `        matchLabels:`,
           `          kubernetes.io/metadata.name: ${egressNs}`
         );
       }

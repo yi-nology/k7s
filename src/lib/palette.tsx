@@ -37,7 +37,9 @@ export type ActionId =
   | 'pod-files'
   | 'image-repos'
   | 'image-transfer'
-  | 'templates';
+  | 'templates'
+  // Security overlays
+  | 'sbom';
 
 interface Scored {
   /** Ranking score; only comparable within one query. */
@@ -357,6 +359,12 @@ function actionCandidates(ctx: PaletteContext) {
       id: 'image-transfer',
       key: 'chrome.palette.actions.imageTransfer',
       fallback: 'Image Transfer',
+      hint: toolHint,
+    },
+    {
+      id: 'sbom',
+      key: 'chrome.palette.actions.sbom',
+      fallback: 'SBOM',
       hint: toolHint,
     },
     {

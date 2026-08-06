@@ -83,7 +83,7 @@ export function EventsTab() {
         </span>
       </div>
       {visible.length === 0 ? (
-        <div className={styles.empty}>
+          <div className={styles.empty}>
           {events!.length === 0
             ? t('events.empty', 'no recent events — events expire after ~1h')
             : t('events.empty', 'no recent events — events expire after ~1h')}

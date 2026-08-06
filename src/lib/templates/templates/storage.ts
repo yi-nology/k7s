@@ -68,10 +68,17 @@ export const STORAGE_TEMPLATES: Template[] = [
     kind: 'namespaces',
     title: 'Namespace',
     description: 'Create a new namespace.',
-    params: [{ key: 'name', label: 'Name', default: 'my-namespace', kind: 'text' }],
+    params: [
+      { key: 'name', label: 'Name', default: 'my-namespace', kind: 'text' },
+    ],
     render: (v) => {
       const name = v.name || 'my-namespace';
-      return [`apiVersion: v1`, `kind: Namespace`, `metadata:`, `  name: ${name}`].join('\n');
+      return [
+        `apiVersion: v1`,
+        `kind: Namespace`,
+        `metadata:`,
+        `  name: ${name}`,
+      ].join('\n');
     },
   },
 ];
