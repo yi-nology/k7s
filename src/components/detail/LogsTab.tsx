@@ -11,6 +11,7 @@ import { useStore } from '../../store';
 import { getProvider } from '../../providers';
 import { useLogStream } from '../../hooks/useLogStream';
 import { useTranslation } from '../../hooks/useI18n';
+import { cx } from '../../lib/cx';
 import { hasPrevious, sinceSeconds, SINCE_OPTIONS } from '../../lib/logview';
 import type { LogLine } from '../../providers/types';
 
@@ -143,7 +144,7 @@ export function LogsTab() {
           {/* Timestamp toggle. */}
           <button
             type="button"
-            className={`${styles.toggle} ${showTimestamps ? styles.toggleActive : ''}`}
+            className={cx(styles.toggle, showTimestamps && styles.toggleActive)}
             onClick={toggleTimestamps}
           >
             {t('logs.ts')}
@@ -169,7 +170,7 @@ export function LogsTab() {
           {showPrevious && (
             <button
               type="button"
-              className={`${styles.toggle} ${previous ? styles.toggleActive : ''}`}
+              className={cx(styles.toggle, previous && styles.toggleActive)}
               onClick={() => setLogPrevious(!previous)}
               title={t('logs.previousTitle')}
             >

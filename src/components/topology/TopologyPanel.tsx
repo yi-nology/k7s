@@ -4,6 +4,7 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { getProvider } from '../../providers';
+import { cx } from '../../lib/cx';
 import type { EndpointRow } from '../../providers/types';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
@@ -206,7 +207,7 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
                 return (
                   <li
                     key={`${s.namespace}/${s.service}`}
-                    className={`${styles.item} ${isFocused ? styles.itemFocused : ''}`}
+                    className={cx(styles.item, isFocused && styles.itemFocused)}
                     onClick={() => handleServiceClick(s)}
                   >
                     <div className={styles.itemName}>{s.service}</div>

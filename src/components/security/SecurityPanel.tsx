@@ -10,6 +10,7 @@
  */
 import { useCallback, useMemo, useState } from 'react';
 import { getProvider } from '../../providers';
+import { cx } from '../../lib/cx';
 import type { AuditFinding, AuditReport } from '../../providers/types/security';
 import { useStore } from '../../store';
 import type { KindId } from '../../providers/types';
@@ -124,7 +125,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
         <aside className={styles.side}>
           <div className={styles.sideTitle}>{t('security.filters', 'Filters')}</div>
           <div
-            className={`${styles.severityFilter} ${severityFilter === 'All' ? styles.severityFilterActive : ''}`}
+            className={cx(styles.severityFilter, severityFilter === 'All' && styles.severityFilterActive)}
             onClick={() => setSeverityFilter('All')}
           >
             <span>{t('security.all', 'All')}</span>
@@ -135,7 +136,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
           {SEVERITY_ORDER.map((sev) => (
             <div
               key={sev}
-              className={`${styles.severityFilter} ${severityFilter === sev ? styles.severityFilterActive : ''}`}
+              className={cx(styles.severityFilter, severityFilter === sev && styles.severityFilterActive)}
               onClick={() => setSeverityFilter(sev)}
             >
               <span>{sev}</span>
@@ -169,7 +170,7 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
               return (
                 <div
                   key={uniqueKey}
-                  className={`${styles.finding} ${active ? styles.findingActive : ''}`}
+                  className={cx(styles.finding, active && styles.findingActive)}
                   onClick={() => setExpandedId(active ? null : uniqueKey)}
                 >
                   <div className={styles.findingHeader}>

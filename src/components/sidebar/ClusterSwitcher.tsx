@@ -10,6 +10,7 @@ import { useStore } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTranslation } from '../../hooks/useI18n';
 import { connectTo } from '../../lib/connect';
+import { cx } from '../../lib/cx';
 import { importKubeconfigViaInput } from '../../providers';
 import type { ImportResult } from '../../providers/types';
 
@@ -101,7 +102,7 @@ export function ClusterSwitcher() {
               <button
                 key={ctx.name}
                 type="button"
-                className={`${styles.menuRow} ${isCurrent ? styles.menuRowActive : ''}`}
+                className={cx(styles.menuRow, isCurrent && styles.menuRowActive)}
                 onClick={() => {
                   closeMenus();
                   // No-op if re-selecting the already-connected context.

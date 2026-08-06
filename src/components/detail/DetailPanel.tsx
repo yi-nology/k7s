@@ -15,6 +15,7 @@ import { useStore } from '../../store';
 import { useNow } from '../../hooks/useNow';
 import { useTranslation } from '../../hooks/useI18n';
 import { formatAge } from '../../lib/format';
+import { cx } from '../../lib/cx';
 import { toneColor } from '../../lib/tone';
 import { DETAIL_TABS, kindMeta, KINDS_WITH_PROPERTIES, tabsFor } from '../../lib/kinds';
 import { tabLabel, kindLabelFor } from '../../lib/i18n';
@@ -180,7 +181,7 @@ export function DetailPanel() {
               type="button"
               role="tab"
               aria-selected={activeTab === tt.id}
-              className={`${styles.tab} ${activeTab === tt.id ? styles.tabActive : ''}`}
+              className={cx(styles.tab, activeTab === tt.id && styles.tabActive)}
               onClick={() => setActiveTab(tt.id)}
             >
               {tabLabel(tt.id, locale)}

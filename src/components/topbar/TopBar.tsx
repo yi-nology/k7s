@@ -15,6 +15,7 @@ import { useStore, type OverlayKey } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTranslation } from '../../hooks/useI18n';
 import { isClusterScoped, kindMeta, type KindId } from '../../lib/kinds';
+import { cx } from '../../lib/cx';
 import { groupLabel, kindLabelFor, LOCALES, LOCALE_LABELS, type Locale } from '../../lib/i18n';
 
 /** Human-readable labels for each overlay key, used in the breadcrumb when an
@@ -169,7 +170,7 @@ export function TopBar() {
                 <button
                   key={ns}
                   type="button"
-                  className={`${styles.nsRow} ${selected ? styles.nsRowSelected : ''}`}
+                  className={cx(styles.nsRow, selected && styles.nsRowSelected)}
                   onClick={() => setNamespace(ns)}
                 >
                   <span className={styles.nsCheck}>{selected ? '✓' : ''}</span>
@@ -218,7 +219,7 @@ function LanguageSwitcher({
               <button
                 key={l}
                 type="button"
-                className={`${styles.langRow} ${selected ? styles.langRowSelected : ''}`}
+                className={cx(styles.langRow, selected && styles.langRowSelected)}
                 onClick={() => onPick(l)}
               >
                 <span className={styles.langCheck}>{selected ? '✓' : ''}</span>

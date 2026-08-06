@@ -16,6 +16,7 @@ import { useStore } from '../../store';
 import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { buildPalette, type ActionId, type PaletteItem } from '../../lib/palette';
+import { cx } from '../../lib/cx';
 
 export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
@@ -145,7 +146,7 @@ export function CommandPalette() {
                 data-i={i}
                 role="option"
                 aria-selected={i === cursor}
-                className={`${styles.item} ${i === cursor ? styles.itemActive : ''}`}
+                className={cx(styles.item, i === cursor && styles.itemActive)}
                 // Mouse and keyboard drive the same cursor, so hovering then
                 // pressing Enter does what the highlight says it will.
                 onMouseMove={() => setCursor(i)}

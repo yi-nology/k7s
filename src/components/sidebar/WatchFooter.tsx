@@ -11,6 +11,7 @@
  */
 
 import styles from './Sidebar.module.css';
+import { cx } from '../../lib/cx';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
 
@@ -37,7 +38,7 @@ export function WatchFooter() {
   return (
     <div className={styles.footer}>
       <span
-        className={`${styles.footerDot} ${pulse ? styles.footerDotPulsing : ''}`}
+        className={cx(styles.footerDot, pulse && styles.footerDotPulsing)}
         style={{ background: dotColor }}
       />
       <span className={styles.footerText}>{t('chrome.sidebar.watch', watchCount)}</span>

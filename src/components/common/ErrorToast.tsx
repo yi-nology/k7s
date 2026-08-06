@@ -9,6 +9,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
+import { cx } from '../../lib/cx';
 import styles from './ErrorToast.module.css';
 
 /** A single toast notification. */
@@ -102,7 +103,7 @@ const ToastItem = React.memo(function ToastItem({ toast, onClose, onExited }: To
 
   return (
     <div
-      className={`${styles.toast} ${toast.exiting ? styles.toastExiting : ''}`}
+      className={cx(styles.toast, toast.exiting && styles.toastExiting)}
       role="alert"
       aria-live="assertive"
       onAnimationEnd={() => {

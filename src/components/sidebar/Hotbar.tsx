@@ -11,6 +11,7 @@ import styles from './Hotbar.module.css';
 import { useStore } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { connectTo } from '../../lib/connect';
+import { cx } from '../../lib/cx';
 
 const MAX_SLOTS = 8;
 
@@ -64,7 +65,7 @@ export function Hotbar() {
         return (
           <div key={ctx} style={{ position: 'relative' }}>
             <div
-              className={`${styles.slot} ${isActive ? styles.slotActive : ''}`}
+              className={cx(styles.slot, isActive && styles.slotActive)}
               title={ctx}
               onClick={() => handleSlotClick(ctx)}
               onContextMenu={(e) => handleContextMenu(e, ctx)}

@@ -54,6 +54,7 @@ import {
   type NavGroup,
   type ResourceKind,
 } from '../../lib/kinds';
+import { cx } from '../../lib/cx';
 import { groupLabel, kindLabelFor } from '../../lib/i18n';
 import { useTranslation } from '../../hooks/useI18n';
 import type { CustomKind } from '../../providers/types';
@@ -109,7 +110,7 @@ export function NavList() {
               return (
                 <div
                   key={kind}
-                  className={`${styles.navItem} ${active ? styles.navItemActive : ''}`}
+                  className={cx(styles.navItem, active && styles.navItemActive)}
                   onClick={() => setNav(kind)}
                   role="link"
                   aria-current={active ? 'page' : undefined}
@@ -228,7 +229,7 @@ const OverlayItem = React.memo(function OverlayItem({
   const active = overlay === item.key;
   return (
     <div
-      className={`${styles.navItem} ${nested ? styles.navItemNested : ''} ${active ? styles.navItemActive : ''}`}
+      className={cx(styles.navItem, nested && styles.navItemNested, active && styles.navItemActive)}
       onClick={() => (active ? closeOverlay() : openOverlay(item.key))}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
