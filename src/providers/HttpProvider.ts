@@ -103,6 +103,9 @@ function desktopOnly(feature: string): Promise<never> {
   return Promise.reject(new Error(`${feature} is only available in the desktop app`));
 }
 
+/** Shared no-op unsubscribe for the `on*` events the web shell doesn't push. */
+const noopUnsub: Unsub = () => {};
+
 /**
  * Fallback for callers that haven't refactored yet: spin up a transient
  * hidden input and click it. Works in Chrome/Edge; Safari is flaky here
@@ -585,21 +588,21 @@ export class HttpProvider implements DataProvider {
   onDrainProgress(_cb: (progress: DrainProgress) => void): Unsub {
     // No drain support in the web shell; return a no-op so the UI doesn't
     // have to special-case it.
-    return () => {};
+    return noopUnsub;
   }
 
   onNodeStats(_cb: (node: string, sample: NodeSample) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
   onNodeStatsError(_cb: (err: NodeStatsError) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
   onPodStats(_cb: (key: string, sample: PodSample) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
 
   onForwards(_cb: (forwards: ForwardInfo[]) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
 
   // ---- Helm marketplace: web shell doesn't proxy these yet. ----
@@ -648,10 +651,10 @@ export class HttpProvider implements DataProvider {
     return [];
   }
   onHelmOpLog(_cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
   onHelmOpDone(_cb: (result: HelmOpResult) => void): Unsub {
-    return () => {};
+    return noopUnsub;
   }
 
   // ---- Pod files: not proxied yet. ----

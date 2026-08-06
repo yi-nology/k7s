@@ -126,3 +126,14 @@ export function formatMem(bytes: number): string {
   // Round to whole MiB (kubectl shows integer Mi at this scale).
   return `${Math.round(bytes / Mi)}Mi`;
 }
+
+/**
+ * Pluralise a free-form noun by count: `pluralize('node', 1)` → "node",
+ * `pluralize('node', 3)` → "nodes". Handles sibilants (-s/-x/-z/-ch/-sh → -es).
+ * For KindId-derived plurals use `plural(kind, n)` from actions.ts, which knows
+ * the singular form of each built-in kind.
+ */
+export function pluralize(noun: string, n: number): string {
+  if (n === 1) return noun;
+  return /(s|x|z|ch|sh)$/.test(noun) ? `${noun}es` : `${noun}s`;
+}
