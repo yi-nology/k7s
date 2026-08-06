@@ -68,7 +68,7 @@ describe('ImageTransferPanel', () => {
 
   it('renders the title', () => {
     view = render(<ImageTransferPanel />);
-    expect(view.queryByText('Import Image')).not.toBeNull();
+    expect(view.queryByText('Image Transfer')).not.toBeNull();
   });
 
   it('renders close button when onClose is provided', () => {
