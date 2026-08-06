@@ -121,6 +121,50 @@ export interface ImageLayer {
   mediaType: string;
 }
 
+/** Result of exporting an image from a node to a local .tar file.
+ * Mirrors the Rust `ExportResult` in `src-tauri/src/kube/imageexport.rs`. */
+export interface ExportFromNodeResult {
+  /** Detected runtime: "containerd" | "docker". */
+  runtime: string;
+  /** Raw output from the export command. */
+  output: string;
+  /** Exported image refs. */
+  images: string[];
+  /** Local file path the tar was saved to. */
+  savedPath: string;
+  /** null on success; failure reason on error. */
+  error: string | null;
+}
+
+/** Result of exporting an image from a registry to a local .tar file.
+ * Mirrors the Rust `ExportRegistryResult` in `src-tauri/src/kube/image_sync.rs`. */
+export interface ExportFromRegistryResult {
+  /** Source image reference (e.g. "docker://harbor.local/nginx:1.25"). */
+  source: string;
+  /** Local file path the tar was saved to. */
+  savedPath: string;
+  /** Whether skopeo exited 0. */
+  success: boolean;
+  /** Number of output lines. */
+  lines: number;
+  /** Human-readable summary. */
+  summary: string;
+}
+
+/** Progress event for image import operations. */
+export interface ImportProgressEvent {
+  /** File currently being imported. */
+  fileName: string;
+  /** Bytes transferred so far. */
+  loaded: number;
+  /** Total bytes (file size). 0 if unknown (e.g. export from node). */
+  total: number;
+  /** Current phase: "preparing" | "transferring" | "loading" | "done" | "error". */
+  phase: string;
+  /** Error message (only when phase === "error"). */
+  error?: string;
+}
+
 // ---- Container image vulnerability scanning ----
 
 /** A single vulnerability found in a container image (e.g. by Trivy / Grype). */
