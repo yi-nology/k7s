@@ -14,7 +14,7 @@ import styles from './TopBar.module.css';
 import { useStore, type OverlayKey } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTranslation } from '../../hooks/useI18n';
-import { kindMeta, type KindId } from '../../lib/kinds';
+import { isClusterScoped, kindMeta, type KindId } from '../../lib/kinds';
 import { groupLabel, kindLabelFor, LOCALES, LOCALE_LABELS, type Locale } from '../../lib/i18n';
 
 /** Human-readable labels for each overlay key, used in the breadcrumb when an
@@ -78,6 +78,15 @@ export function TopBar() {
   // KIND_META label and finally to the raw nav id if neither resolves.
   const kindText = kindLabelFor(nav, customKinds, locale) ?? meta?.label ?? nav;
 
+  // The namespace filter only affects namespaced resource tables. When a tool
+  // panel (overlay) is open the table is hidden, and cluster-scoped kinds
+  // ignore the filter outright (see ResourceTable). In both cases the dropdown
+  // is a no-op that would mislead — disable it with a tooltip explaining why.
+  const nsDisabled = overlay !== null || isClusterScoped(nav as KindId, customKinds);
+  const nsDisabledTitle = overlay
+    ? t('chrome.topbar.nsDisabledOverlay')
+    : t('chrome.topbar.nsDisabledScope');
+
   // "all" plus the live namespace names (sorted for stable display).
   const namespaces = useMemo(() => {
     const names = nsRows.map((r) => r.name).sort();
@@ -137,7 +146,16 @@ export function TopBar() {
       <LanguageSwitcher ref={langRef} current={locale} onPick={handleLangPick} />
 
       <div className={styles.nsWrap} ref={nsRef}>
-        <button type="button" className={styles.nsButton} onClick={() => toggleMenu('ns')}>
+        <button
+          type="button"
+          className={styles.nsButton}
+          onClick={() => {
+            if (nsDisabled) return;
+            toggleMenu('ns');
+          }}
+          disabled={nsDisabled}
+          title={nsDisabled ? nsDisabledTitle : undefined}
+        >
           <span className={styles.nsPrefix}>{t('chrome.topbar.nsPrefix')}</span>
           <span className={styles.nsValue}>{namespace}</span>
           <span className={styles.nsChevron}>▼</span>

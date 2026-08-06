@@ -95,6 +95,23 @@ describe('TopBar', () => {
       view = render(<TopBar />);
       expect(view.queryByText('all')).not.toBeNull();
     });
+
+    it('disables the ns button while a tool panel (overlay) is open', () => {
+      useStore.setState({ overlay: 'dashboard' });
+      view = render(<TopBar />);
+      const nsButton = view.container.querySelector('[class*="nsButton"]') as HTMLButtonElement;
+      expect(nsButton).not.toBeNull();
+      expect(nsButton.disabled).toBe(true);
+    });
+
+    it('disables the ns button for a cluster-scoped kind', () => {
+      // Nodes are cluster-scoped — the namespace filter is a no-op for them.
+      useStore.setState({ nav: 'nodes' });
+      view = render(<TopBar />);
+      const nsButton = view.container.querySelector('[class*="nsButton"]') as HTMLButtonElement;
+      expect(nsButton).not.toBeNull();
+      expect(nsButton.disabled).toBe(true);
+    });
   });
 
   describe('language switcher', () => {

@@ -33,6 +33,7 @@ export const en: Dictionary = {
       importKubeconfig: 'Import kubeconfig…',
       noContexts: 'no contexts',
       forbidden: 'RBAC: no permission',
+      toolsSection: 'Tools',
       tools: {
         helmMarket: 'Helm Market',
         podFiles: 'Pod Files',
@@ -51,6 +52,9 @@ export const en: Dictionary = {
         ingressRoutes: 'Ingress Routes',
         observability: 'Observability',
         images: 'Images',
+        security: 'Security',
+        tooling: 'Tooling',
+        system: 'System',
         close: 'Click to close',
         sbom: 'SBOM',
         plugins: 'Plugins',
@@ -59,6 +63,8 @@ export const en: Dictionary = {
     topbar: {
       nsPrefix: 'ns:',
       searchPlaceholder: 'Search anything…',
+      nsDisabledOverlay: 'Namespace filter is hidden while a tool panel is open',
+      nsDisabledScope: 'Namespace filter does not apply to cluster-scoped resources',
     },
     statusbar: {
       api: 'api',
@@ -222,6 +228,7 @@ export const en: Dictionary = {
       scale: 'Scale…',
       restart: 'Restart…',
       files: 'Open files…',
+      editIngress: 'Edit ingress…',
       cordon: 'Cordon',
       uncordon: 'Uncordon',
       drain: 'Drain…',

@@ -33,6 +33,7 @@ export const zh: Dictionary = {
       importKubeconfig: '导入 kubeconfig…',
       noContexts: '无 context',
       forbidden: 'RBAC: 无权限',
+      toolsSection: '工具',
       tools: {
         helmMarket: 'Helm 市场',
         podFiles: 'Pod 文件',
@@ -51,6 +52,9 @@ export const zh: Dictionary = {
         ingressRoutes: 'Ingress 路由',
         observability: '可观测性',
         images: '镜像',
+        security: '安全',
+        tooling: '工具',
+        system: '系统',
         close: '点击关闭',
         sbom: 'SBOM 软件物料清单',
         plugins: '插件',
@@ -59,6 +63,8 @@ export const zh: Dictionary = {
     topbar: {
       nsPrefix: '命名空间:',
       searchPlaceholder: '搜索任何内容…',
+      nsDisabledOverlay: '工具面板打开时命名空间筛选不可用',
+      nsDisabledScope: '命名空间筛选不适用于集群级资源',
     },
     statusbar: {
       // zh statusbar labels — `cpu` / `mem` / `api` / `kubectl 上下文:` are
@@ -227,6 +233,7 @@ export const zh: Dictionary = {
       scale: '伸缩…',
       restart: '重启…',
       files: '打开文件…',
+      editIngress: '编辑 Ingress…',
       cordon: '禁止调度',
       uncordon: '允许调度',
       drain: '驱逐…',

@@ -44,6 +44,9 @@ export interface Dictionary {
       noContexts: string;
       /** Tooltip on the lock icon shown when a kind's watch returns 403. */
       forbidden: string;
+      /** Section header above the tool/overlay entries (Dashboard, Observability,
+       *  Security, Images, Tooling, System). Separates resources from tools. */
+      toolsSection: string;
       /** Overlay entries in the sidebar — collapsible groups (Observability,
        *  Images) and flat items (Pod Files, Templates). Some overlays live
        *  inside their resource group instead (Helm Market → Helm, etc.). */
@@ -65,6 +68,10 @@ export interface Dictionary {
         ingressRoutes: string;
         observability: string;
         images: string;
+        /** Collapsible group headers for the Tools section. */
+        security: string;
+        tooling: string;
+        system: string;
         close: string;
         sbom: string;
         plugins: string;
@@ -73,6 +80,10 @@ export interface Dictionary {
     topbar: {
       nsPrefix: string;
       searchPlaceholder: string;
+      /** Tooltip when the ns filter is disabled because a tool panel is open. */
+      nsDisabledOverlay: string;
+      /** Tooltip when the ns filter is disabled on a cluster-scoped kind. */
+      nsDisabledScope: string;
     };
     /** Status bar (Design §5) — every fact is "label value" pair; the value is
      *  rendered in a stronger colour by the StatusBar component. Keys here are
@@ -235,6 +246,8 @@ export interface Dictionary {
       scale: string;
       restart: string;
       files: string;
+      /** "Edit ingress…" — opens the Ingress editor overlay pre-filled with the row. */
+      editIngress: string;
       cordon: string;
       uncordon: string;
       drain: string;
