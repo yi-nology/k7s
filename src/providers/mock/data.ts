@@ -9,7 +9,7 @@
  */
 
 import type { Cell, CustomKind, Row, PodMeta, PodResources, Tone } from '../types';
-import { KIND_META, type ResourceKind } from '../../lib/kinds';
+import { isRolloutKind, KIND_META, type ResourceKind } from '../../lib/kinds';
 import { parseCpuMillis, parseMemBytes } from '../../lib/format';
 
 /** Raw pod record, matching the prototype's pod objects. */
@@ -910,7 +910,7 @@ export function buildKindRows(kind: ResourceKind): Row[] {
       }
     });
 
-    const isWorkload = kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets';
+    const isWorkload = isRolloutKind(kind);
     return {
       uid: `${kind}:${r.ns}/${r.name}`,
       name: r.name,

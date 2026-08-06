@@ -24,6 +24,10 @@
  */
 
 import { translate, type Locale } from './i18n';
+import { isRolloutKind } from './kinds';
+// Re-export so existing importers (ActionList, HelmRollbackForm) keep working;
+// the single source of truth lives in kinds.tsx next to the other kind predicates.
+export { isRolloutKind } from './kinds';
 import type { KindId, Row } from '../providers/types';
 
 export type ActionId =
@@ -197,11 +201,6 @@ function applies(id: ActionId, kind: KindId, row: Row): boolean {
         kind === 'replicasets'
       );
   }
-}
-
-/** Kinds whose restart is a `kubectl rollout restart` template patch. */
-export function isRolloutKind(kind: KindId): boolean {
-  return kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets';
 }
 
 /** Anything that can be restarted at all — a pod, or a rollout-capable workload. */

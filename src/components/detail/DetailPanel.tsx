@@ -17,7 +17,7 @@ import { useTranslation } from '../../hooks/useI18n';
 import { formatAge } from '../../lib/format';
 import { cx } from '../../lib/cx';
 import { toneColor } from '../../lib/tone';
-import { DETAIL_TABS, kindMeta, KINDS_WITH_PROPERTIES, tabsFor } from '../../lib/kinds';
+import { DETAIL_TABS, isRolloutKind, kindMeta, KINDS_WITH_PROPERTIES, tabsFor } from '../../lib/kinds';
 import { tabLabel, kindLabelFor } from '../../lib/i18n';
 import { drainErrors, drainSummary, drainTone, pdbBlocked } from '../../lib/drain';
 import { LogsTab } from './LogsTab';
@@ -194,10 +194,7 @@ export function DetailPanel() {
       {/* Mirrors the tab list above: Properties is no longer pod-only (B18). */}
       {activeTab === 'properties' && KINDS_WITH_PROPERTIES.has(nav) && <PropertiesTab />}
       {/* Revision history + rollback — Deployment/StatefulSet/DaemonSet only. */}
-      {activeTab === 'revisions' &&
-        (nav === 'deployments' || nav === 'statefulsets' || nav === 'daemonsets') && (
-          <RevisionsTab />
-        )}
+      {activeTab === 'revisions' && isRolloutKind(nav) && <RevisionsTab />}
       {/* Mounting is what starts the scraper, so this must mirror the tab list. A
           node's Metrics come from its node-exporter; a pod's from metrics.k8s.io. */}
       {activeTab === 'metrics' && nav === 'nodes' && <MetricsTab />}

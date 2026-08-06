@@ -434,7 +434,7 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
       case 'revisions':
         // Revision history + rollback — only workloads that carry a pod
         // template with retained history (Deployment/StatefulSet/DaemonSet).
-        return kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets';
+        return isRolloutKind(kind);
       case 'metrics':
         return isPod || kind === 'nodes';
       case 'pods':
@@ -463,6 +463,16 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
  */
 export function isCustomKind(id: KindId): boolean {
   return id.includes('/');
+}
+
+/**
+ * The three Kubernetes workload kinds that carry a `kubectl rollout` history
+ * (restart, undo, revision list). Centralised here so every "is this a
+ * rollout-shaped workload?" check — tabs, actions, table columns, mock data —
+ * agrees on the same set.
+ */
+export function isRolloutKind(kind: KindId): boolean {
+  return kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets';
 }
 
 /**

@@ -18,7 +18,7 @@ import { useTableKeys } from '../../hooks/useTableKeys';
 import { useTranslation } from '../../hooks/useI18n';
 import { toneColor } from '../../lib/tone';
 import { formatAge, formatCpu, formatMem } from '../../lib/format';
-import { isClusterScoped, kindMeta, navIdForKind, type KindId } from '../../lib/kinds';
+import { isClusterScoped, isRolloutKind, kindMeta, navIdForKind, type KindId } from '../../lib/kinds';
 import { sortRows } from '../../lib/sort';
 import { parseFilter, matchesFilter } from '../../lib/filter';
 import { eventWithinSince, SINCE_OPTIONS, type SinceOption } from '../../lib/events';
@@ -652,7 +652,7 @@ function overlayMetrics(
   }
   // Workloads: aggregate pod metrics by matching selector.
   // Columns: NAME,NAMESPACE,...,CPU(last-2),MEM(last-1),AGE(last).
-  if (kind === 'deployments' || kind === 'statefulsets' || kind === 'daemonsets') {
+  if (isRolloutKind(kind)) {
     // Build a selector → aggregated metrics map. A pod matches a workload when
     // all the workload's selector labels appear in the pod's labels.
     const aggMap = new Map<string, { cpu: number; mem: number }>();
