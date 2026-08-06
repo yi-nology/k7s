@@ -1,12 +1,12 @@
 /**
- * Tests for ImageImportPanel — image import for air-gapped clusters.
+ * Tests for ImageTransferPanel — image transfer for air-gapped clusters.
  *
  * Covers: rendering, tab toggle, close button, desktop-only notice.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
-import { ImageImportPanel } from './ImageImportPanel';
+import { ImageTransferPanel } from './ImageTransferPanel';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 
 // Mock the provider with IS_TAURI = false.
@@ -54,33 +54,33 @@ afterEach(() => {
   cleanup();
 });
 
-describe('ImageImportPanel', () => {
+describe('ImageTransferPanel', () => {
   it('renders the panel', () => {
-    view = render(<ImageImportPanel />);
+    view = render(<ImageTransferPanel />);
     expect(view.container.firstChild).not.toBeNull();
   });
 
   it('renders panel content based on environment', () => {
-    view = render(<ImageImportPanel />);
+    view = render(<ImageTransferPanel />);
     // In test environment, IS_TAURI mock determines what renders
     expect(view.container.firstChild).not.toBeNull();
   });
 
   it('renders the title', () => {
-    view = render(<ImageImportPanel />);
+    view = render(<ImageTransferPanel />);
     expect(view.queryByText('Import Image')).not.toBeNull();
   });
 
   it('renders close button when onClose is provided', () => {
     const onClose = vi.fn();
-    view = render(<ImageImportPanel onClose={onClose} />);
+    view = render(<ImageTransferPanel onClose={onClose} />);
     const closeBtn = view.container.querySelector('[aria-label="Close"]');
     expect(closeBtn).not.toBeNull();
   });
 
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn();
-    view = render(<ImageImportPanel onClose={onClose} />);
+    view = render(<ImageTransferPanel onClose={onClose} />);
     const closeBtn = view.container.querySelector('[aria-label="Close"]');
     if (closeBtn) view.click(closeBtn as HTMLElement);
     expect(onClose).toHaveBeenCalled();

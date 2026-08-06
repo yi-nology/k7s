@@ -35,6 +35,7 @@ import {
   ClipboardList,
   Container,
   Upload,
+  ArrowLeftRight,
   FolderOpen,
   PlusSquare,
   GitCompareArrows,
@@ -355,9 +356,9 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
         icon: <Container size={14} />,
       },
       {
-        key: 'image-import',
-        label: t('chrome.sidebar.tools.imageImport', 'Image Import'),
-        icon: <Upload size={14} />,
+        key: 'image-transfer',
+        label: t('chrome.sidebar.tools.imageTransfer', 'Image Transfer'),
+        icon: <ArrowLeftRight size={14} />,
       },
     ],
     [t]

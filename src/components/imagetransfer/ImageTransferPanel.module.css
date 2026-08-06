@@ -1,4 +1,4 @@
-/* ImageImportPanel — overlay for loading a local .tar into a node's runtime.
+/* ImageTransferPanel — overlay for loading a local .tar into a node's runtime.
  * Uses the global token set (src/styles/tokens.css); the spacing/size tokens
  * some sibling panels reference aren't defined, so this file uses literals. */
 

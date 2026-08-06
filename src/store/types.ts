@@ -51,7 +51,7 @@ export type OverlayKey =
   | 'helm-market'
   | 'pod-files'
   | 'image-repos'
-  | 'image-import'
+  | 'image-transfer'
   | 'templates'
   | 'dashboard'
   | 'metrics'

@@ -1,5 +1,5 @@
 /**
- * ImageImportPanel — get images into an air-gapped (intranet, no public
+ * ImageTransferPanel — get images into an air-gapped (intranet, no public
  * internet) cluster. Two complementary paths, picked by a top tab bar:
  *
  *   • **To Node** — load a local `.tar` directly into a node's container runtime
@@ -27,11 +27,11 @@ import type {
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { rowsFor, useStore } from '../../store';
-import styles from './ImageImportPanel.module.css';
+import styles from './ImageTransferPanel.module.css';
 
 type Tab = 'to-node' | 'to-registry';
 
-export function ImageImportPanel({ onClose }: { onClose?: () => void }) {
+export function ImageTransferPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('to-node');
 
@@ -39,9 +39,9 @@ export function ImageImportPanel({ onClose }: { onClose?: () => void }) {
   if (!IS_TAURI) {
     return (
       <div className={styles.panel}>
-        <Header onClose={onClose} title={t('imageImport.title', 'Import Image')} t={t} />
+        <Header onClose={onClose} title={t('imageTransfer.title', 'Import Image')} t={t} />
         <div className={styles.notice}>
-          {t('imageImport.desktopOnly', 'Image import is only available in the desktop app.')}
+          {t('imageTransfer.desktopOnly', 'Image import is only available in the desktop app.')}
         </div>
       </div>
     );
@@ -49,7 +49,7 @@ export function ImageImportPanel({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className={styles.panel}>
-      <Header onClose={onClose} title={t('imageImport.title', 'Import Image')} t={t} />
+      <Header onClose={onClose} title={t('imageTransfer.title', 'Import Image')} t={t} />
 
       <div className={styles.tabBar} role="tablist">
         <button
@@ -60,7 +60,7 @@ export function ImageImportPanel({ onClose }: { onClose?: () => void }) {
           data-active={tab === 'to-node'}
           onClick={() => setTab('to-node')}
         >
-          {t('imageImport.tabToNode', 'To Node')}
+          {t('imageTransfer.tabToNode', 'To Node')}
         </button>
         <button
           type="button"
@@ -70,7 +70,7 @@ export function ImageImportPanel({ onClose }: { onClose?: () => void }) {
           data-active={tab === 'to-registry'}
           onClick={() => setTab('to-registry')}
         >
-          {t('imageImport.tabToRegistry', 'To Registry')}
+          {t('imageTransfer.tabToRegistry', 'To Registry')}
         </button>
       </div>
 
@@ -105,7 +105,7 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
-        title: t('imageImport.chooseFile', 'Select image archive'),
+        title: t('imageTransfer.chooseFile', 'Select image archive'),
         multiple: false,
         filters: [{ name: 'Image archive', extensions: ['tar'] }],
       });
@@ -138,13 +138,13 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.body}>
         <section className={styles.callout}>
-          <p className={styles.calloutTitle}>{t('imageImport.whatTitle', 'What this does')}</p>
-          <p className={styles.calloutText}>{t('imageImport.description', '')}</p>
+          <p className={styles.calloutTitle}>{t('imageTransfer.whatTitle', 'What this does')}</p>
+          <p className={styles.calloutText}>{t('imageTransfer.description', '')}</p>
         </section>
 
         <section className={styles.form}>
           <label className={styles.field}>
-            <span className={styles.fieldLabel}>{t('imageImport.node', 'Target node')}</span>
+            <span className={styles.fieldLabel}>{t('imageTransfer.node', 'Target node')}</span>
             <select
               className={styles.select}
               value={node}
@@ -154,7 +154,7 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
               }}
             >
               <option value="" disabled>
-                {t('imageImport.pickNode', 'Select a node…')}
+                {t('imageTransfer.pickNode', 'Select a node…')}
               </option>
               {nodes.map((n) => (
                 <option key={n.name} value={n.name}>
@@ -166,7 +166,7 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
           </label>
 
           <label className={styles.field}>
-            <span className={styles.fieldLabel}>{t('imageImport.archive', 'Image archive')}</span>
+            <span className={styles.fieldLabel}>{t('imageTransfer.archive', 'Image archive')}</span>
             <div className={styles.fileRow}>
               <button
                 type="button"
@@ -174,7 +174,7 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
                 onClick={() => void pickFile()}
                 disabled={busy}
               >
-                {t('imageImport.chooseFile', 'Choose .tar file…')}
+                {t('imageTransfer.chooseFile', 'Choose .tar file…')}
               </button>
               <span className={styles.fileName} title={path}>
                 {path ? path.split('/').pop() : ''}
@@ -190,12 +190,12 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
             ) : (
               <>
                 <div className={styles.resultRuntime}>
-                  <span className={styles.resultLabel}>{t('imageImport.runtime', 'Runtime')}</span>
+                  <span className={styles.resultLabel}>{t('imageTransfer.runtime', 'Runtime')}</span>
                   <span className={styles.resultValue}>{result.runtime}</span>
                 </div>
                 <div className={styles.resultImages}>
                   <span className={styles.resultLabel}>
-                    {t('imageImport.loadedImages', 'Loaded images')}
+                    {t('imageTransfer.loadedImages', 'Loaded images')}
                   </span>
                   {result.images.length > 0 ? (
                     <ul className={styles.imageList}>
@@ -207,14 +207,14 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
                     </ul>
                   ) : (
                     <span className={styles.resultValue}>
-                      {t('imageImport.noImages', '(no image refs parsed from output)')}
+                      {t('imageTransfer.noImages', '(no image refs parsed from output)')}
                     </span>
                   )}
                 </div>
                 {result.output && (
                   <details className={styles.outputDetails}>
                     <summary className={styles.outputSummary}>
-                      {t('imageImport.rawOutput', 'Raw output')}
+                      {t('imageTransfer.rawOutput', 'Raw output')}
                     </summary>
                     <pre className={styles.outputPre}>{result.output}</pre>
                   </details>
@@ -227,7 +227,7 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
 
       <footer className={styles.footer}>
         <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>
-          {t('imageImport.close', 'Close')}
+          {t('imageTransfer.close', 'Close')}
         </button>
         <button
           type="button"
@@ -235,7 +235,7 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
           disabled={!canImport}
           onClick={() => void runImport()}
         >
-          {busy ? t('imageImport.importing', 'Importing…') : t('imageImport.import', 'Import')}
+          {busy ? t('imageTransfer.importing', 'Importing…') : t('imageTransfer.import', 'Import')}
         </button>
       </footer>
     </>
@@ -300,7 +300,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
     try {
       const { open } = await import('@tauri-apps/plugin-dialog');
       const selected = await open({
-        title: t('imageImport.chooseFile', 'Select image archive'),
+        title: t('imageTransfer.chooseFile', 'Select image archive'),
         multiple: false,
         filters: [{ name: 'Image archive', extensions: ['tar'] }],
       });
@@ -375,14 +375,14 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
         <div className={styles.body}>
           <div className={styles.callout}>
             <p className={styles.calloutText}>
-              {t('imageImport.registry.skopeoMissing', 'skopeo is not installed.')}
+              {t('imageTransfer.registry.skopeoMissing', 'skopeo is not installed.')}
             </p>
             {skopeo?.version && <p className={styles.calloutText}>{skopeo.version}</p>}
           </div>
         </div>
         <footer className={styles.footer}>
           <button type="button" className={styles.cancelBtn} onClick={onClose}>
-            {t('imageImport.close', 'Close')}
+            {t('imageTransfer.close', 'Close')}
           </button>
         </footer>
       </>
@@ -395,9 +395,9 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
       <div className={styles.body}>
         <section className={styles.callout}>
           <p className={styles.calloutTitle}>
-            {t('imageImport.registry.whatTitle', 'What this does')}
+            {t('imageTransfer.registry.whatTitle', 'What this does')}
           </p>
-          <p className={styles.calloutText}>{t('imageImport.registry.description', '')}</p>
+          <p className={styles.calloutText}>{t('imageTransfer.registry.description', '')}</p>
         </section>
 
         {registries.length === 0 ? (
@@ -410,7 +410,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
         ) : (
           <section className={styles.form}>
             <label className={styles.field}>
-              <span className={styles.fieldLabel}>{t('imageImport.archive', 'Image archive')}</span>
+              <span className={styles.fieldLabel}>{t('imageTransfer.archive', 'Image archive')}</span>
               <div className={styles.fileRow}>
                 <button
                   type="button"
@@ -418,7 +418,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
                   onClick={() => void pickFile()}
                   disabled={busy}
                 >
-                  {t('imageImport.chooseFile', 'Choose .tar file…')}
+                  {t('imageTransfer.chooseFile', 'Choose .tar file…')}
                 </button>
                 <span className={styles.fileName} title={path}>
                   {path ? path.split('/').pop() : ''}
@@ -430,8 +430,8 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
                   disabled={!path || inspecting || busy}
                 >
                   {inspecting
-                    ? t('imageImport.registry.inspecting', 'Inspecting…')
-                    : t('imageImport.registry.inspect', 'Inspect tar')}
+                    ? t('imageTransfer.registry.inspecting', 'Inspecting…')
+                    : t('imageTransfer.registry.inspect', 'Inspect tar')}
                 </button>
               </div>
             </label>
@@ -465,7 +465,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
 
             <label className={styles.field}>
               <span className={styles.fieldLabel}>
-                {t('imageImport.registry.registry', 'Destination registry')}
+                {t('imageTransfer.registry.registry', 'Destination registry')}
               </span>
               <select
                 className={styles.select}
@@ -473,7 +473,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
                 onChange={(e) => setDestRegistry(e.target.value)}
               >
                 <option value="" disabled>
-                  {t('imageImport.registry.pickRegistry', 'Select a registry…')}
+                  {t('imageTransfer.registry.pickRegistry', 'Select a registry…')}
                 </option>
                 {registries.map((r) => (
                   <option key={r.name} value={r.name}>
@@ -486,7 +486,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
             <div className={styles.twoCol}>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>
-                  {t('imageImport.registry.repo', 'Destination repo')}
+                  {t('imageTransfer.registry.repo', 'Destination repo')}
                 </span>
                 <input
                   type="text"
@@ -498,7 +498,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
               </label>
               <label className={styles.field}>
                 <span className={styles.fieldLabel}>
-                  {t('imageImport.registry.tag', 'Destination tag')}
+                  {t('imageTransfer.registry.tag', 'Destination tag')}
                 </span>
                 <input
                   type="text"
@@ -512,7 +512,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
 
             <label className={styles.field}>
               <span className={styles.fieldLabel}>
-                {t('imageImport.registry.source', 'Source')}
+                {t('imageTransfer.registry.source', 'Source')}
               </span>
               <input
                 type="text"
@@ -525,7 +525,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
 
             <label className={styles.field}>
               <span className={styles.fieldLabel}>
-                {t('imageImport.registry.srcCreds', 'Source credentials')}
+                {t('imageTransfer.registry.srcCreds', 'Source credentials')}
               </span>
               <input
                 type="text"
@@ -535,7 +535,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
                 onChange={(e) => setSrcCreds(e.target.value)}
               />
               <small className={styles.fieldHelp}>
-                {t('imageImport.registry.srcCredsHelp', 'user:pass for a private source registry.')}
+                {t('imageTransfer.registry.srcCredsHelp', 'user:pass for a private source registry.')}
               </small>
             </label>
 
@@ -546,7 +546,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
                   checked={insecureSrc}
                   onChange={(e) => setInsecureSrc(e.target.checked)}
                 />
-                {t('imageImport.registry.insecureSrc', 'Skip source TLS verify')}
+                {t('imageTransfer.registry.insecureSrc', 'Skip source TLS verify')}
               </label>
               <label className={styles.check}>
                 <input
@@ -554,14 +554,14 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
                   checked={insecureDest}
                   onChange={(e) => setInsecureDest(e.target.checked)}
                 />
-                {t('imageImport.registry.insecureDest', 'Skip destination TLS verify')}
+                {t('imageTransfer.registry.insecureDest', 'Skip destination TLS verify')}
               </label>
             </div>
 
             {(logLines.length > 0 || result) && (
               <section className={styles.logSection}>
                 <div className={styles.resultLabel}>
-                  {t('imageImport.registry.log', 'Progress log')}
+                  {t('imageTransfer.registry.log', 'Progress log')}
                 </div>
                 <pre className={styles.logPre}>
                   {logLines.join('\n')}
@@ -575,7 +575,7 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
 
       <footer className={styles.footer}>
         <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>
-          {t('imageImport.close', 'Close')}
+          {t('imageTransfer.close', 'Close')}
         </button>
         <button
           type="button"
@@ -584,8 +584,8 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
           onClick={() => void runCopy()}
         >
           {busy
-            ? t('imageImport.registry.copying', 'Copying…')
-            : t('imageImport.registry.copy', 'Copy to registry')}
+            ? t('imageTransfer.registry.copying', 'Copying…')
+            : t('imageTransfer.registry.copy', 'Copy to registry')}
         </button>
       </footer>
     </>
@@ -613,7 +613,7 @@ function Header({
           type="button"
           className={styles.closeBtn}
           onClick={onClose}
-          aria-label={t('imageImport.close', 'Close')}
+          aria-label={t('imageTransfer.close', 'Close')}
         >
           ×
         </button>

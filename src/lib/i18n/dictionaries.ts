@@ -51,7 +51,7 @@ export interface Dictionary {
         helmMarket: string;
         podFiles: string;
         imageRepos: string;
-        imageImport: string;
+        imageTransfer: string;
         templates: string;
         diff: string;
         dashboard: string;
@@ -124,7 +124,7 @@ export interface Dictionary {
         helmMarket: string;
         podFiles: string;
         imageRepos: string;
-        imageImport: string;
+        imageTransfer: string;
         templates: string;
         diff: string;
         sbom: string;
@@ -548,9 +548,9 @@ export interface Dictionary {
       low: string;
     };
   };
-  /** Image-import overlay (air-gapped clusters): load a local .tar into a
+  /** Image-transfer overlay (air-gapped clusters): load a local .tar into a
    * node's container runtime via a temporary privileged pod. */
-  imageImport: {
+  imageTransfer: {
     title: string;
     close: string;
     whatTitle: string;

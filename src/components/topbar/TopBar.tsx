@@ -24,7 +24,7 @@ const OVERLAY_LABELS: Partial<Record<OverlayKey, string>> = {
   'helm-market': 'Helm Market',
   'pod-files': 'Pod Files',
   'image-repos': 'Image Repos',
-  'image-import': 'Image Import',
+  'image-transfer': 'Image Transfer',
   templates: 'Templates',
   dashboard: 'Dashboard',
   metrics: 'Metrics Explorer',

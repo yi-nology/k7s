@@ -28,7 +28,7 @@ import { useStore } from './store';
 import { HelmMarket } from './components/helm/HelmMarket';
 import { PodFilesPanel } from './components/podfiles/PodFilesPanel';
 import { ImageRepoPanel } from './components/imagerepo/ImageRepoPanel';
-import { ImageImportPanel } from './components/imageimport/ImageImportPanel';
+import { ImageTransferPanel } from './components/imagetransfer/ImageTransferPanel';
 import { TemplatePicker } from './components/templates/TemplatePicker';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { MetricsExplorer } from './components/metrics/MetricsExplorer';
@@ -123,10 +123,10 @@ export default function App() {
                 </div>
               </div>
             )}
-            {overlay === 'image-import' && (
+            {overlay === 'image-transfer' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
-                  <ImageImportPanel onClose={closeOverlay} />
+                  <ImageTransferPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}

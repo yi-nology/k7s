@@ -37,7 +37,7 @@ export const en: Dictionary = {
         helmMarket: 'Helm Market',
         podFiles: 'Pod Files',
         imageRepos: 'Image Registries',
-        imageImport: 'Image Import',
+        imageTransfer: 'Image Transfer',
         templates: 'Templates',
         diff: 'Diff',
         dashboard: 'Dashboard',
@@ -107,7 +107,7 @@ export const en: Dictionary = {
         helmMarket: 'Helm Market',
         podFiles: 'Pod Files',
         imageRepos: 'Image Registries',
-        imageImport: 'Image Import',
+        imageTransfer: 'Image Transfer',
         templates: 'Templates',
         diff: 'Diff',
         sbom: 'SBOM',
@@ -510,7 +510,7 @@ export const en: Dictionary = {
       low: 'Low',
     },
   },
-  imageImport: {
+  imageTransfer: {
     title: 'Import Image',
     close: 'Close',
     whatTitle: 'What this does',

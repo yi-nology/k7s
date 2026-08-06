@@ -36,7 +36,7 @@ export type ActionId =
   | 'helm-market'
   | 'pod-files'
   | 'image-repos'
-  | 'image-import'
+  | 'image-transfer'
   | 'templates';
 
 interface Scored {
@@ -354,9 +354,9 @@ function actionCandidates(ctx: PaletteContext) {
       hint: toolHint,
     },
     {
-      id: 'image-import',
-      key: 'chrome.palette.actions.imageImport',
-      fallback: 'Image Import',
+      id: 'image-transfer',
+      key: 'chrome.palette.actions.imageTransfer',
+      fallback: 'Image Transfer',
       hint: toolHint,
     },
     {

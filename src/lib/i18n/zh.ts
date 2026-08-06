@@ -37,7 +37,7 @@ export const zh: Dictionary = {
         helmMarket: 'Helm 市场',
         podFiles: 'Pod 文件',
         imageRepos: '镜像仓库',
-        imageImport: '镜像导入',
+        imageTransfer: '镜像传输',
         templates: '模板',
         diff: '对比',
         dashboard: '总览',
@@ -112,7 +112,7 @@ export const zh: Dictionary = {
         helmMarket: 'Helm 市场',
         podFiles: 'Pod 文件',
         imageRepos: '镜像仓库',
-        imageImport: '镜像导入',
+        imageTransfer: '镜像传输',
         templates: '模板',
         diff: '对比',
         sbom: 'SBOM 软件物料清单',
@@ -509,7 +509,7 @@ export const zh: Dictionary = {
       low: '低',
     },
   },
-  imageImport: {
+  imageTransfer: {
     title: '导入镜像',
     close: '关闭',
     whatTitle: '操作说明',
