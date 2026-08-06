@@ -11,8 +11,9 @@
  * settled, the overlay can fold back into a tab — the panel itself is
  * stateless about its container.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { PodFileEntry, ResourceRef } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { sanitizePath, safePathJoin } from '../../lib/security';
@@ -39,43 +40,40 @@ export function PodFilesPanel({
   const [error, setError] = useState<string | null>(null);
 
   // Reload listing whenever the path changes.
-  useEffect(() => {
-    let cancelled = false;
+  useAsyncEffect(async (isMounted) => {
     setLoading(true);
     setError(null);
-    getProvider()
-      .podFilesList(ref, container, path)
-      .then((rows) => {
-        if (!cancelled) setEntries(rows);
-      })
-      .catch((e: unknown) => !cancelled && setError(formatError(e)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const rows = await getProvider().podFilesList(ref, container, path);
+      if (isMounted()) setEntries(rows);
+    } catch (e: unknown) {
+      if (isMounted()) setError(formatError(e));
+    } finally {
+      if (isMounted()) setLoading(false);
+    }
   }, [ref, container, path]);
 
   // When a file is selected, load its contents.
-  useEffect(() => {
-    if (!selected || selected.kind === 'dir') return;
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    const fullPath = joinPath(path, selected.name);
-    getProvider()
-      .podFilesRead(ref, container, fullPath)
-      .then((text) => {
-        if (!cancelled) {
+  useAsyncEffect(
+    async (isMounted) => {
+      if (!selected || selected.kind === 'dir') return;
+      setLoading(true);
+      setError(null);
+      const fullPath = joinPath(path, selected.name);
+      try {
+        const text = await getProvider().podFilesRead(ref, container, fullPath);
+        if (isMounted()) {
           setContent(text);
           setDirty(false);
         }
-      })
-      .catch((e: unknown) => !cancelled && setError(formatError(e)))
-      .finally(() => !cancelled && setLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [selected, ref, container, path]);
+      } catch (e: unknown) {
+        if (isMounted()) setError(formatError(e));
+      } finally {
+        if (isMounted()) setLoading(false);
+      }
+    },
+    [selected, ref, container, path],
+  );
 
   const navigateInto = useCallback((name: string) => setPath((p) => joinPath(p, name)), []);
   const navigateUp = useCallback(() => setPath((p) => parentPath(p)), []);

@@ -17,6 +17,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { HelmChartSummary, HelmRepo } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { HelmInstallWizard } from './HelmInstallWizard';
@@ -47,20 +48,17 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
   useEffect(reloadRepos, [reloadRepos]);
 
   // Refresh search results when query or repo set changes.
-  useEffect(() => {
-    let cancelled = false;
+  useAsyncEffect(async (isMounted) => {
     setLoadingCharts(true);
     setError(null);
-    getProvider()
-      .helmSearchCharts(query)
-      .then((rows) => {
-        if (!cancelled) setCharts(rows);
-      })
-      .catch((e: unknown) => !cancelled && setError(formatError(e)))
-      .finally(() => !cancelled && setLoadingCharts(false));
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const rows = await getProvider().helmSearchCharts(query);
+      if (isMounted()) setCharts(rows);
+    } catch (e: unknown) {
+      if (isMounted()) setError(formatError(e));
+    } finally {
+      if (isMounted()) setLoadingCharts(false);
+    }
   }, [query, repos.length]);
 
   return (

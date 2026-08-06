@@ -20,8 +20,9 @@
  * fetch; if the user cancels or the fetch fails, we never call
  * `applyYaml`, so the cluster is left alone.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useTranslation } from '../../hooks/useI18n';
 import { extractContainerImages, rewriteContainerImage } from '../../lib/imageUpgrade';
 import { isValidImageRef } from '../../lib/security';
@@ -53,38 +54,32 @@ export function ModifyImageForm({ ref: resourceRef, onError, onClose }: ModifyIm
   const [originalImages, setOriginalImages] = useState<Record<string, string>>({});
   const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  useAsyncEffect(async (isMounted) => {
     setFetchError(null);
     const effectRef: ResourceRef = {
       kind: resourceRef.kind,
       namespace: resourceRef.namespace,
       name: resourceRef.name,
     };
-    void getProvider()
-      .getYaml(effectRef)
-      .then((yaml) => {
-        if (cancelled) return;
-        const containers = extractContainerImages(yaml);
-        if (containers.length === 0) {
-          // The workload has no `containers:` — odd, but possible
-          // (e.g. an empty pod template under construction). Surface
-          // it as an error rather than a dead form.
-          setFetchError(t('actions.modifyImage.noContainers', 'no containers found in YAML'));
-          return;
-        }
-        const init: Record<string, string> = {};
-        for (const c of containers) init[c.name] = c.image;
-        setImages(init);
-        setOriginalImages(init);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setFetchError(formatError(e));
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const yaml = await getProvider().getYaml(effectRef);
+      if (!isMounted()) return;
+      const containers = extractContainerImages(yaml);
+      if (containers.length === 0) {
+        // The workload has no `containers:` — odd, but possible
+        // (e.g. an empty pod template under construction). Surface
+        // it as an error rather than a dead form.
+        setFetchError(t('actions.modifyImage.noContainers', 'no containers found in YAML'));
+        return;
+      }
+      const init: Record<string, string> = {};
+      for (const c of containers) init[c.name] = c.image;
+      setImages(init);
+      setOriginalImages(init);
+    } catch (e) {
+      if (!isMounted()) return;
+      setFetchError(formatError(e));
+    }
   }, [resourceRef.kind, resourceRef.namespace, resourceRef.name, t]);
 
   const apply = async (e: React.FormEvent) => {

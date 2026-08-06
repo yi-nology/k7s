@@ -14,6 +14,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './PropertiesTab.module.css';
 import { useStore } from '../../store';
 import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useNow } from '../../hooks/useNow';
 import { useTranslation } from '../../hooks/useI18n';
 import { formatAge } from '../../lib/format';
@@ -58,22 +59,20 @@ export function PropertiesTab() {
     }
   }, [row?.uid]);
 
-  useEffect(() => {
+  useAsyncEffect(async (isMounted) => {
     if (!row) return;
-    let cancelled = false;
     setProps(null);
     setError(null);
-    void getProvider()
-      .getProperties({ kind, namespace: row.namespace, name: row.name })
-      .then((p) => {
-        if (!cancelled) setProps(p);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(formatError(e));
+    try {
+      const p = await getProvider().getProperties({
+        kind,
+        namespace: row.namespace,
+        name: row.name,
       });
-    return () => {
-      cancelled = true;
-    };
+      if (isMounted()) setProps(p);
+    } catch (e) {
+      if (isMounted()) setError(formatError(e));
+    }
   }, [row, kind]);
 
   // Fetch decoded secret data on first toggle.

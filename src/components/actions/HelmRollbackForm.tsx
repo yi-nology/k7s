@@ -7,9 +7,10 @@
  *     confirm dialog, then calls `undoRollout` (previous revision).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import styles from './ActionList.module.css';
 import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useTranslation } from '../../hooks/useI18n';
 import type { KindId, ResourceRef, Row, HelmRevisionEntry } from '../../providers/types';
 import { isRolloutKind } from '../../lib/actions';
@@ -144,28 +145,22 @@ function HelmRevisionPicker({
   const namespace = row.namespace ?? '';
 
   // Fetch revision history on mount.
-  useEffect(() => {
-    let cancelled = false;
+  useAsyncEffect(async (isMounted) => {
     setLoading(true);
     setError(null);
-    getProvider()
-      .helmReleaseHistory(release, namespace)
-      .then((revs) => {
-        if (cancelled) return;
-        setRevisions(revs);
-        // Default to the second-to-last revision (the one before current).
-        if (revs.length >= 2) setSelected(revs[revs.length - 2].revision);
-        else if (revs.length === 1) setSelected(revs[0].revision);
-        setLoading(false);
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        setError(formatError(e));
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const revs = await getProvider().helmReleaseHistory(release, namespace);
+      if (!isMounted()) return;
+      setRevisions(revs);
+      // Default to the second-to-last revision (the one before current).
+      if (revs.length >= 2) setSelected(revs[revs.length - 2].revision);
+      else if (revs.length === 1) setSelected(revs[0].revision);
+      setLoading(false);
+    } catch (e) {
+      if (!isMounted()) return;
+      setError(formatError(e));
+      setLoading(false);
+    }
   }, [release, namespace]);
 
   const handleRollback = useCallback(async () => {

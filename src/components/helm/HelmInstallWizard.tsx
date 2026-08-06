@@ -13,6 +13,7 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { HelmChartSummary, HelmChartVersionEntry, HelmOpResult } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { isValidHelmReleaseName, isValidNamespace, isSafeHelmValues } from '../../lib/security';
@@ -43,32 +44,26 @@ export function HelmInstallWizard({
   const logsRef = useRef<HTMLDivElement>(null);
 
   // Load versions for this chart on mount.
-  useEffect(() => {
-    let cancelled = false;
-    getProvider()
-      .helmChartVersions(chart.repo, chart.name)
-      .then((vs) => {
-        if (cancelled) return;
-        setVersions(vs);
-        if (vs.length > 0 && !vs.find((v) => v.version === selectedVersion)) {
-          setSelectedVersion(vs[0].version);
-        }
-      })
-      .catch(() => {
-        // Fall back to whatever the summary advertised.
-        setVersions([
-          {
-            version: chart.version,
-            appVersion: chart.appVersion,
-            created: '',
-            urls: [],
-          },
-        ]);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  useAsyncEffect(async (isMounted) => {
+    try {
+      const vs = await getProvider().helmChartVersions(chart.repo, chart.name);
+      if (!isMounted()) return;
+      setVersions(vs);
+      if (vs.length > 0 && !vs.find((v) => v.version === selectedVersion)) {
+        setSelectedVersion(vs[0].version);
+      }
+    } catch {
+      if (!isMounted()) return;
+      // Fall back to whatever the summary advertised.
+      setVersions([
+        {
+          version: chart.version,
+          appVersion: chart.appVersion,
+          created: '',
+          urls: [],
+        },
+      ]);
+    }
   }, [chart.repo, chart.name]);
 
   // When the user advances to "values", prefill with the chart's defaults.

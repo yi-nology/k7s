@@ -8,10 +8,11 @@
  * the object has never had any.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import styles from './EventsTab.module.css';
 import { useStore } from '../../store';
 import { getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useTranslation } from '../../hooks/useI18n';
 import { useNow } from '../../hooks/useNow';
 import type { EventItem } from '../../providers/types';
@@ -26,21 +27,19 @@ export function EventsTab() {
   const { t } = useTranslation();
   const now = useNow();
 
-  useEffect(() => {
+  useAsyncEffect(async (isMounted) => {
     if (!row) return;
-    let cancelled = false;
     setEvents(null); // show loading while fetching
-    void getProvider()
-      .getEvents({ kind, namespace: row.namespace, name: row.name })
-      .then((items) => {
-        if (!cancelled) setEvents(items);
-      })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
+    try {
+      const items = await getProvider().getEvents({
+        kind,
+        namespace: row.namespace,
+        name: row.name,
       });
-    return () => {
-      cancelled = true;
-    };
+      if (isMounted()) setEvents(items);
+    } catch {
+      if (isMounted()) setEvents([]);
+    }
   }, [row, kind]);
 
   // Apply the time-range filter client-side: keep events whose last-seen falls in

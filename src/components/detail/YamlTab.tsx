@@ -4,10 +4,11 @@
  * API-error reporting. Cancel discards the draft.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styles from './YamlTab.module.css';
 import { useStore } from '../../store';
 import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useTranslation } from '../../hooks/useI18n';
 import { CodeEditor } from './CodeEditor';
 import { diffLines, diffStat, hasChanges, hunks } from '../../lib/diff';
@@ -90,24 +91,17 @@ export function YamlTab() {
   const ref: ResourceRef | null = row ? { kind, namespace: row.namespace, name: row.name } : null;
 
   // Fetch YAML on selection change (and on first open of this tab).
-  useEffect(() => {
+  useAsyncEffect(async (isMounted) => {
     if (!ref) return;
-    let cancelled = false;
-    void getProvider()
-      .getYaml(ref)
-      .then((text) => {
-        if (cancelled) return;
-        setYamlText(text);
-        setNonce((n) => n + 1);
-        setError(null);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(formatError(e));
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    try {
+      const text = await getProvider().getYaml(ref);
+      if (!isMounted()) return;
+      setYamlText(text);
+      setNonce((n) => n + 1);
+      setError(null);
+    } catch (e) {
+      if (isMounted()) setError(formatError(e));
+    }
   }, [row?.uid, row?.namespace, row?.name]);
 
   if (!row || !ref) return null;
