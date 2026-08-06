@@ -24,7 +24,7 @@
 
 use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
-use crate::kube::imagerepo;
+use crate::kube::{imageexport, imagerepo};
 use serde::Serialize;
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -128,6 +128,137 @@ pub fn registry_host(url: &str) -> String {
     trimmed.trim_end_matches('/').to_string()
 }
 
+/// A credential pair to write into a skopeo auth file. `creds` is the raw
+/// `user:pass` string (as the MCP `image_copy` tool receives it); `(user, pass)`
+/// is the split form used by the stored registry config.
+pub(crate) enum AuthCreds<'a> {
+    /// `user:pass` as a single string; split on the first `:`.
+    Raw(&'a str),
+    /// Separate username/password fields.
+    Split { user: &'a str, pass: &'a str },
+}
+
+impl AuthCreds<'_> {
+    /// Returns `(user, pass)` or `None` if the credentials are empty / have no
+    /// username (anonymous access — no auth file entry needed).
+    fn user_pass(&self) -> Option<(&str, &str)> {
+        match self {
+            AuthCreds::Raw(s) => {
+                if s.is_empty() {
+                    return None;
+                }
+                let (user, pass) = s.split_once(':')?;
+                if user.is_empty() {
+                    return None;
+                }
+                Some((user, pass))
+            }
+            AuthCreds::Split { user, pass } => {
+                if user.is_empty() {
+                    return None;
+                }
+                Some((user, pass))
+            }
+        }
+    }
+}
+
+/// Write a Docker-format auth file for skopeo and return its path. The file is
+/// created with `0600` permissions and holds the credentials for a single
+/// registry host, base64-encoded exactly as Docker/skopeo's `--authfile`
+/// expects (`{"auths":{"<host>":{"auth":"<base64 user:pass>"}}}`).
+///
+/// This is the secure alternative to `--src-creds`/`--dest-creds`: those place
+/// `user:pass` on the process argv, where any local user can read it via `ps`
+/// or `/proc/<pid>/cmdline`. An auth file keeps the secret on disk only for
+/// the duration of the copy and is deleted by the caller afterwards.
+///
+/// Returns `Ok(None)` when the credentials are empty/anonymous (no auth file
+/// is needed), so the caller can pass `None` straight through to `build_argv`.
+pub(crate) fn write_skopeo_authfile(host: &str, creds: AuthCreds) -> AppResult<Option<std::path::PathBuf>> {
+    use base64::Engine;
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let Some((user, pass)) = creds.user_pass() else {
+        return Ok(None);
+    };
+
+    let auth = base64::engine::general_purpose::STANDARD.encode(format!("{user}:{pass}"));
+    let body = format!(r#"{{"auths":{{"{host}":{{"auth":"{auth}"}}}}}}"#);
+
+    // A unique temp file per call so concurrent copies don't clobber each
+    // other's auth file. Uniqueness = pid + nanosecond timestamp; the auth
+    // files for src and dest within one copy get distinct suffixes from the
+    // caller-provided `tag`.
+    let path = unique_authfile_path("k7s-skopeo-auth")?;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+        .map_err(|e| AppError::Other(format!("create skopeo authfile: {e}")))?;
+    file.write_all(body.as_bytes())
+        .map_err(|e| AppError::Other(format!("write skopeo authfile: {e}")))?;
+
+    Ok(Some(path))
+}
+
+/// Delete a temp auth file written by [`write_skopeo_authfile`]. Best-effort:
+/// a failure to remove a 0600 file in the temp dir is logged but not fatal
+/// (the credentials inside are short-lived and the OS reaps `/tmp` on reboot).
+pub(crate) fn cleanup_authfile(path: Option<&std::path::PathBuf>) -> std::io::Result<()> {
+    if let Some(p) = path {
+        match std::fs::remove_file(p) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(e) => {
+                tracing::warn!("failed to remove skopeo authfile {}: {e}", p.display());
+                Err(e)
+            }
+        }
+    } else {
+        Ok(())
+    }
+}
+
+/// Build a unique temp file path without creating it. Mirrors the project's
+/// existing temp-file convention (grafana.rs, audit.rs, client.rs): pid +
+/// nanosecond timestamp gives uniqueness without a tempfile crate dependency.
+fn unique_authfile_path(prefix: &str) -> AppResult<std::path::PathBuf> {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let path = std::env::temp_dir().join(format!("{prefix}-{}-{nanos}.json", std::process::id()));
+    Ok(path)
+}
+
+/// Extract the registry host from a skopeo `docker://` transport reference, so
+/// the auth file can be keyed to the right host. For non-`docker://` sources
+/// (archives, oci layouts, dirs) there is no registry host to authenticate
+/// against, so this returns `None`.
+///
+/// `docker://nginx:1.25`           → `nginx` (Docker Hub shorthand)
+/// `docker://registry-a/foo:v1`    → `registry-a`
+/// `docker://host:5000/lib/x:tag`  → `host:5000`
+/// `docker-archive:/tmp/x.tar`     → `None`
+pub(crate) fn docker_transport_host(reference: &str) -> Option<&str> {
+    let rest = reference.strip_prefix("docker://")?;
+    // The host is everything up to the first `/`. A bare `nginx:1.25` has no
+    // slash, so the whole thing (minus the `:tag`) is the host/path — but for
+    // auth purposes the first `/`-delimited segment that contains a `.` or `:`
+    // is the host. To keep this robust we just take the first segment; skopeo
+    // matches auth by the registry the image resolves to.
+    let host_end = rest.find('/').unwrap_or(rest.len());
+    let host = &rest[..host_end];
+    if host.is_empty() {
+        None
+    } else {
+        Some(host)
+    }
+}
+
 /// Build the destination docker-transport reference for a copy.
 ///
 /// Joins the registry host, the repo path, and the tag into the canonical
@@ -195,13 +326,27 @@ pub async fn copy_image(
     let host = registry_host(&reg.url);
     let dest_ref = dest_reference(&host, dest_repo, dest_tag);
 
+    // Write credentials to temp auth files instead of placing them on the argv
+    // (`--src-creds`/`--dest-creds` leak `user:pass` to `ps`/`/proc`). Each is
+    // 0600 and deleted after the copy. Returns None for anonymous access.
+    let src_authfile = match (docker_transport_host(source), src_creds) {
+        (Some(src_host), Some(creds)) => write_skopeo_authfile(src_host, AuthCreds::Raw(creds))?,
+        _ => None,
+    };
+    let dest_authfile = write_skopeo_authfile(
+        &host,
+        AuthCreds::Split {
+            user: reg.username.as_str(),
+            pass: reg.password.as_str(),
+        },
+    )?;
+
     let argv = build_argv(
         &skopeo,
         source,
         &dest_ref,
-        src_creds,
-        reg.username.as_str(),
-        reg.password.as_str(),
+        src_authfile.as_deref(),
+        dest_authfile.as_deref(),
         insecure_src,
         insecure_dest,
     );
@@ -285,6 +430,10 @@ pub async fn copy_image(
         lines,
         summary,
     };
+    // Wipe the temp auth files now that skopeo has finished — they held
+    // plaintext-equivalent credentials (base64 is reversible).
+    let _ = cleanup_authfile(src_authfile.as_ref());
+    let _ = cleanup_authfile(dest_authfile.as_ref());
     sink.emit(IMAGE_SYNC_DONE_EVENT, &result);
     if success {
         Ok(result)
@@ -310,12 +459,16 @@ pub struct ExportRegistryResult {
 }
 
 /// Construct the `skopeo copy` argv for exporting to a docker-archive.
+///
+/// Credentials are never placed on the argv: instead the caller writes a
+/// Docker-format auth file (see [`write_skopeo_authfile`]) and passes its
+/// path here as `src_authfile`. skopeo reads `--src-authfile`, keeping the
+/// secret out of the process table (`ps`/`/proc/<pid>/cmdline`).
 pub fn build_export_argv(
     skopeo: &str,
     source: &str,
     dest: &str,
-    src_user: &str,
-    src_pass: &str,
+    src_authfile: Option<&std::path::Path>,
     insecure_src: bool,
 ) -> Vec<String> {
     let _ = skopeo;
@@ -328,9 +481,9 @@ pub fn build_export_argv(
         "--override-arch".into(),
         "amd64".into(),
     ];
-    if !src_user.is_empty() {
-        argv.push("--src-creds".into());
-        argv.push(format!("{src_user}:{src_pass}"));
+    if let Some(path) = src_authfile {
+        argv.push("--src-authfile".into());
+        argv.push(path.to_string_lossy().into_owned());
     }
     if insecure_src {
         argv.push("--src-tls-verify=false".into());
@@ -349,6 +502,10 @@ pub async fn export_from_registry(
     insecure_src: bool,
     sink: EventSink,
 ) -> AppResult<ExportRegistryResult> {
+    // Validate the save path before we touch skopeo: the destination is
+    // `docker-archive:{save_path}`, i.e. skopeo writes the tar here, so a
+    // hostile or malformed path could clobber arbitrary local files.
+    imageexport::validate_save_path(save_path)?;
     let skopeo = which_skopeo().ok_or_else(|| {
         AppError::Other(
             "skopeo CLI not found in PATH — install skopeo \
@@ -371,12 +528,22 @@ pub async fn export_from_registry(
     let source_ref = format!("docker://{host}/{}:{}", repo.trim_start_matches('/'), tag);
     let dest_ref = format!("docker-archive:{save_path}");
 
+    // Write the source registry credentials to a temp auth file (0600) instead
+    // of passing them as `--src-creds` on the argv, which leaks `user:pass` to
+    // `ps`/`/proc`.
+    let src_authfile = write_skopeo_authfile(
+        &host,
+        AuthCreds::Split {
+            user: reg.username.as_str(),
+            pass: reg.password.as_str(),
+        },
+    )?;
+
     let argv = build_export_argv(
         &skopeo,
         &source_ref,
         &dest_ref,
-        reg.username.as_str(),
-        reg.password.as_str(),
+        src_authfile.as_deref(),
         insecure_src,
     );
 
@@ -452,6 +619,8 @@ pub async fn export_from_registry(
         lines,
         summary,
     };
+    // Wipe the temp auth file now that skopeo has finished.
+    let _ = cleanup_authfile(src_authfile.as_ref());
     sink.emit(IMAGE_SYNC_DONE_EVENT, &result);
     if success {
         Ok(result)
@@ -462,14 +631,19 @@ pub async fn export_from_registry(
 
 /// Construct the `skopeo copy` argv. Kept separate from `copy_image` so a unit
 /// test can assert the flag ordering without spinning up skopeo.
+///
+/// Credentials are never placed on the argv. Instead the caller writes a
+/// Docker-format auth file (see [`write_skopeo_authfile`]) and passes its
+/// path via `src_authfile` / `dest_authfile`; skopeo reads `--src-authfile`
+/// / `--dest-authfile`. This keeps `user:pass` out of the process table
+/// (`ps` / `/proc/<pid>/cmdline`), where any local user could read it.
 #[allow(clippy::too_many_arguments)]
 fn build_argv(
     skopeo: &str,
     source: &str,
     dest: &str,
-    src_creds: Option<&str>,
-    dest_user: &str,
-    dest_pass: &str,
+    src_authfile: Option<&std::path::Path>,
+    dest_authfile: Option<&std::path::Path>,
     insecure_src: bool,
     insecure_dest: bool,
 ) -> Vec<String> {
@@ -489,18 +663,16 @@ fn build_argv(
         "amd64".into(),
     ];
 
-    if let Some(creds) = src_creds {
-        argv.push("--src-creds".into());
-        argv.push(creds.into());
+    if let Some(path) = src_authfile {
+        argv.push("--src-authfile".into());
+        argv.push(path.to_string_lossy().into_owned());
     }
     if insecure_src {
         argv.push("--src-tls-verify=false".into());
     }
-    if !dest_user.is_empty() {
-        // Only attach dest creds when there's a username; an empty user:pass
-        // would make skopeo prompt and hang the tool call.
-        argv.push("--dest-creds".into());
-        argv.push(format!("{dest_user}:{dest_pass}"));
+    if let Some(path) = dest_authfile {
+        argv.push("--dest-authfile".into());
+        argv.push(path.to_string_lossy().into_owned());
     }
     if insecure_dest {
         argv.push("--dest-tls-verify=false".into());
@@ -564,53 +736,43 @@ mod tests {
     }
 
     #[test]
-    fn build_argv_attaches_dest_creds_only_when_user_present() {
-        let with_creds = build_argv(
-            "skopeo",
-            "docker://nginx:1",
-            "docker://h/app:1",
-            None,
-            "admin",
-            "s3cret",
-            false,
-            false,
-        );
-        assert!(with_creds.contains(&"--dest-creds".into()));
-        assert!(with_creds.contains(&"admin:s3cret".into()));
-        // No src creds when src_creds is None.
-        assert!(!with_creds.contains(&"--src-creds".into()));
-    }
-
-    #[test]
-    fn build_argv_skips_dest_creds_when_user_empty() {
-        // An empty username means anonymous access — don't send "user:pass".
-        let no_creds = build_argv(
-            "skopeo",
-            "docker://nginx:1",
-            "docker://h/app:1",
-            None,
-            "",
-            "",
-            false,
-            false,
-        );
-        assert!(!no_creds.contains(&"--dest-creds".into()));
-    }
-
-    #[test]
-    fn build_argv_adds_src_creds_when_provided() {
+    fn build_argv_uses_authfile_not_creds() {
+        // Credentials now go through a temp auth file, never on the argv.
+        let authfile = std::path::Path::new("/tmp/k7s-test-src-auth.json");
+        let dest_authfile = std::path::Path::new("/tmp/k7s-test-dest-auth.json");
         let argv = build_argv(
             "skopeo",
-            "docker://reg-a/foo:v1",
-            "docker://h/foo:v1",
-            Some("user:pass"),
-            "",
-            "",
+            "docker://nginx:1",
+            "docker://h/app:1",
+            Some(authfile),
+            Some(dest_authfile),
             false,
             false,
         );
-        assert!(argv.contains(&"--src-creds".into()));
-        assert!(argv.contains(&"user:pass".into()));
+        assert!(argv.contains(&"--src-authfile".into()));
+        assert!(argv.contains(&"/tmp/k7s-test-src-auth.json".into()));
+        assert!(argv.contains(&"--dest-authfile".into()));
+        assert!(argv.contains(&"/tmp/k7s-test-dest-auth.json".into()));
+        // No raw credentials or *-creds flags must ever appear.
+        assert!(!argv.iter().any(|a| a.starts_with("--src-creds")));
+        assert!(!argv.iter().any(|a| a.starts_with("--dest-creds")));
+    }
+
+    #[test]
+    fn build_argv_omits_authfile_flags_when_none() {
+        let argv = build_argv(
+            "skopeo",
+            "docker://nginx:1",
+            "docker://h/app:1",
+            None,
+            None,
+            false,
+            false,
+        );
+        assert!(!argv.iter().any(|a| a.starts_with("--src-authfile")));
+        assert!(!argv.iter().any(|a| a.starts_with("--dest-authfile")));
+        assert!(!argv.iter().any(|a| a.starts_with("--src-creds")));
+        assert!(!argv.iter().any(|a| a.starts_with("--dest-creds")));
     }
 
     #[test]
@@ -620,8 +782,7 @@ mod tests {
             "docker://nginx:1",
             "docker://h/app:1",
             None,
-            "",
-            "",
+            None,
             true,
             true,
         );
@@ -638,8 +799,7 @@ mod tests {
             "docker://nginx:1",
             "docker://h/app:1",
             None,
-            "",
-            "",
+            None,
             false,
             false,
         );
@@ -657,8 +817,7 @@ mod tests {
             "docker://nginx:1",
             "docker://h/app:1",
             None,
-            "",
-            "",
+            None,
             false,
             false,
         );
@@ -668,31 +827,33 @@ mod tests {
 
     #[test]
     fn export_argv_docker_archive_dest() {
+        let authfile = std::path::Path::new("/tmp/k7s-test-export-auth.json");
         let argv = build_export_argv(
             "skopeo",
             "docker://harbor.local/library/nginx:1.25",
             "docker-archive:/tmp/nginx.tar",
-            "admin",
-            "s3cret",
+            Some(authfile),
             false,
         );
         assert_eq!(argv[argv.len() - 2], "docker://harbor.local/library/nginx:1.25");
         assert_eq!(argv[argv.len() - 1], "docker-archive:/tmp/nginx.tar");
-        assert!(argv.contains(&"--src-creds".into()));
-        assert!(argv.contains(&"admin:s3cret".into()));
+        assert!(argv.contains(&"--src-authfile".into()));
+        assert!(argv.contains(&"/tmp/k7s-test-export-auth.json".into()));
+        // No raw credentials on the argv.
+        assert!(!argv.iter().any(|a| a.starts_with("--src-creds")));
     }
 
     #[test]
-    fn export_argv_no_creds_when_user_empty() {
+    fn export_argv_no_authfile_when_none() {
         let argv = build_export_argv(
             "skopeo",
             "docker://reg.local/nginx:1",
             "docker-archive:/tmp/x.tar",
-            "",
-            "",
+            None,
             false,
         );
-        assert!(!argv.contains(&"--src-creds".into()));
+        assert!(!argv.iter().any(|a| a.starts_with("--src-authfile")));
+        assert!(!argv.iter().any(|a| a.starts_with("--src-creds")));
     }
 
     #[test]
@@ -701,8 +862,7 @@ mod tests {
             "skopeo",
             "docker://reg.local/nginx:1",
             "docker-archive:/tmp/x.tar",
-            "",
-            "",
+            None,
             true,
         );
         assert!(argv.contains(&"--src-tls-verify=false".into()));
@@ -716,13 +876,98 @@ mod tests {
             "skopeo",
             "docker://nginx:1",
             "docker-archive:/tmp/nginx.tar",
-            "",
-            "",
+            None,
             false,
         );
         assert!(argv.contains(&"--override-os".into()));
         assert!(argv.contains(&"linux".into()));
         assert!(argv.contains(&"--override-arch".into()));
         assert!(argv.contains(&"amd64".into()));
+    }
+
+    #[test]
+    fn docker_transport_host_extracts_registry() {
+        assert_eq!(docker_transport_host("docker://nginx:1.25"), Some("nginx:1.25"));
+        assert_eq!(
+            docker_transport_host("docker://registry-a/foo:v1"),
+            Some("registry-a")
+        );
+        assert_eq!(
+            docker_transport_host("docker://host:5000/lib/x:tag"),
+            Some("host:5000")
+        );
+        // Non-docker transports have no registry host to authenticate against.
+        assert_eq!(docker_transport_host("docker-archive:/tmp/x.tar"), None);
+        assert_eq!(docker_transport_host("oci:/layout:tag"), None);
+        assert_eq!(docker_transport_host("dir:/path"), None);
+    }
+
+    #[test]
+    fn authcreds_raw_splits_on_first_colon() {
+        assert_eq!(
+            AuthCreds::Raw("admin:s3cret").user_pass(),
+            Some(("admin", "s3cret"))
+        );
+        // Password may itself contain colons.
+        assert_eq!(
+            AuthCreds::Raw("user:pass:with:colons").user_pass(),
+            Some(("user", "pass:with:colons"))
+        );
+        // Empty / no-username creds are anonymous.
+        assert_eq!(AuthCreds::Raw("").user_pass(), None);
+        assert_eq!(AuthCreds::Raw(":onlypass").user_pass(), None);
+        assert_eq!(AuthCreds::Raw("noseparator").user_pass(), None);
+    }
+
+    #[test]
+    fn authcreds_split_handles_empty_user() {
+        assert_eq!(
+            AuthCreds::Split { user: "u", pass: "p" }.user_pass(),
+            Some(("u", "p"))
+        );
+        assert_eq!(
+            AuthCreds::Split { user: "", pass: "p" }.user_pass(),
+            None
+        );
+    }
+
+    #[test]
+    fn write_skopeo_authfile_returns_none_for_anonymous() {
+        // Empty/anonymous creds don't need an auth file at all.
+        assert!(write_skopeo_authfile("reg.local", AuthCreds::Raw("")).unwrap().is_none());
+        assert!(
+            write_skopeo_authfile(
+                "reg.local",
+                AuthCreds::Split { user: "", pass: "" }
+            )
+            .unwrap()
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn write_skopeo_authfile_writes_valid_docker_format() {
+        use base64::Engine;
+        let path = write_skopeo_authfile(
+            "harbor.local",
+            AuthCreds::Split { user: "admin", pass: "s3cret" },
+        )
+        .unwrap()
+        .expect("auth file should be created for real creds");
+
+        let body = std::fs::read_to_string(&path).unwrap();
+        let _ = cleanup_authfile(Some(&path));
+
+        // The auth value must be base64("admin:s3cret"), and the structure must
+        // be a valid Docker auth file skopeo can consume via --authfile.
+        let expected_auth =
+            base64::engine::general_purpose::STANDARD.encode("admin:s3cret");
+        assert!(body.contains(r#""harbor.local""#), "body missing host: {body}");
+        assert!(body.contains(&expected_auth), "body missing base64 auth: {body}");
+        let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(
+            parsed["auths"]["harbor.local"]["auth"].as_str(),
+            Some(expected_auth.as_str())
+        );
     }
 }
