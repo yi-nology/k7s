@@ -173,7 +173,7 @@ describe('SBOMPanel', () => {
   describe('export', () => {
     it('does nothing when export is clicked with no SBOM data', () => {
       view = render(<SBOMPanel />);
-      const exportBtn = view.container.querySelector('button[title="Export"]')!;
+      const exportBtn = view.container.querySelector('button[title="Export"]')! as HTMLElement;
       view.click(exportBtn);
       // No error or success message should appear
       expect(view.queryByText(/Exported/)).toBeNull();
@@ -190,7 +190,7 @@ describe('SBOMPanel', () => {
       view.click(triggerBtn!);
 
       // Now click export
-      const exportBtn = view.container.querySelector('button[title="Export"]')!;
+      const exportBtn = view.container.querySelector('button[title="Export"]')! as HTMLElement;
       view.click(exportBtn);
 
       // Wait for async
@@ -207,7 +207,7 @@ describe('SBOMPanel', () => {
       view.click(triggerBtn!);
 
       // Click export
-      const exportBtn = view.container.querySelector('button[title="Export"]')!;
+      const exportBtn = view.container.querySelector('button[title="Export"]')! as HTMLElement;
       view.click(exportBtn);
 
       await new Promise((r) => setTimeout(r, 50));

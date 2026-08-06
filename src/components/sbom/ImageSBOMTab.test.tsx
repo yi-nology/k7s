@@ -137,7 +137,7 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockResolvedValue(result);
 
       view = render(<ImageSBOMTab onResult={vi.fn()} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'nginx:1.25');
 
       const button = view.queryByText('Generate')!;
@@ -153,7 +153,7 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockResolvedValue(result);
 
       view = render(<ImageSBOMTab onResult={vi.fn()} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'redis:7');
       view.keyDown(input, 'Enter');
 
@@ -176,9 +176,9 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockResolvedValue(result);
 
       view = render(<ImageSBOMTab onResult={onResult} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'nginx:1.25');
-      view.click(view.queryByText('Generate')!);
+      view.click(view.queryByText('Generate')! as HTMLElement);
 
       await vi.waitFor(() => {
         expect(onResult).toHaveBeenCalledWith(result);
@@ -209,9 +209,9 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockResolvedValue(result);
 
       view = render(<ImageSBOMTab onResult={vi.fn()} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'nginx:1.25');
-      view.click(view.queryByText('Generate')!);
+      view.click(view.queryByText('Generate')! as HTMLElement);
 
       await vi.waitFor(() => {
         expect(view.queryByText(/Components.*2/)).not.toBeNull();
@@ -223,9 +223,9 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockResolvedValue(result);
 
       view = render(<ImageSBOMTab onResult={vi.fn()} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'nginx:1.25');
-      view.click(view.queryByText('Generate')!);
+      view.click(view.queryByText('Generate')! as HTMLElement);
 
       await vi.waitFor(() => {
         expect(view.queryByTestId('component-table')).not.toBeNull();
@@ -243,9 +243,9 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockResolvedValue(result);
 
       view = render(<ImageSBOMTab onResult={vi.fn()} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'nginx:1.25');
-      view.click(view.queryByText('Generate')!);
+      view.click(view.queryByText('Generate')! as HTMLElement);
 
       await vi.waitFor(() => {
         expect(view.queryByText(/Vulnerabilities.*1/)).not.toBeNull();
@@ -261,9 +261,9 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockResolvedValue(result);
 
       view = render(<ImageSBOMTab onResult={vi.fn()} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'nginx:1.25');
-      view.click(view.queryByText('Generate')!);
+      view.click(view.queryByText('Generate')! as HTMLElement);
 
       await vi.waitFor(() => {
         expect(view.queryByTestId('vuln-table')).not.toBeNull();
@@ -275,9 +275,9 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockResolvedValue(result);
 
       view = render(<ImageSBOMTab onResult={vi.fn()} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'nginx:1.25');
-      view.click(view.queryByText('Generate')!);
+      view.click(view.queryByText('Generate')! as HTMLElement);
 
       await vi.waitFor(() => {
         expect(view.queryByTestId('component-table')).not.toBeNull();
@@ -305,9 +305,9 @@ describe('ImageSBOMTab', () => {
       mockSbomGenerateImage.mockRejectedValue(new Error('image not found'));
 
       view = render(<ImageSBOMTab onResult={vi.fn()} />);
-      const input = view.container.querySelector('input[type="text"]')!;
+      const input = view.container.querySelector('input[type="text"]')! as HTMLElement;
       view.change(input, 'bad-image:latest');
-      view.click(view.queryByText('Generate')!);
+      view.click(view.queryByText('Generate')! as HTMLElement);
 
       await vi.waitFor(() => {
         expect(view.queryByText(/image not found/)).not.toBeNull();

@@ -34,7 +34,6 @@ import {
   LineChart,
   ClipboardList,
   Container,
-  Upload,
   ArrowLeftRight,
   FolderOpen,
   PlusSquare,

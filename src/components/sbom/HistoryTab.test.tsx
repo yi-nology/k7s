@@ -231,7 +231,7 @@ describe('HistoryTab', () => {
         expect(view.container.querySelector('tbody tr')).not.toBeNull();
       });
 
-      const row = view.container.querySelector('tbody tr')!;
+      const row = view.container.querySelector('tbody tr')! as HTMLElement;
       view.click(row);
 
       await vi.waitFor(() => {
@@ -260,7 +260,7 @@ describe('HistoryTab', () => {
         expect(view.container.querySelector('tbody tr')).not.toBeNull();
       });
 
-      view.click(view.container.querySelector('tbody tr')!);
+      view.click(view.container.querySelector('tbody tr')! as HTMLElement);
 
       await vi.waitFor(() => {
         expect(view.queryByText(/Failed to load SBOM/)).not.toBeNull();

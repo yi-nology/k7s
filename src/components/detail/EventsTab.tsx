@@ -80,12 +80,12 @@ export function EventsTab() {
           ))}
         </select>
         <span className={styles.count}>
-          {visible.length}/{events.length}
+          {visible.length}/{events!.length}
         </span>
       </div>
       {visible.length === 0 ? (
         <div className={styles.empty}>
-          {events.length === 0
+          {events!.length === 0
             ? t('events.empty', 'no recent events — events expire after ~1h')
             : t('events.empty', 'no recent events — events expire after ~1h')}
           <div className={styles.emptyHint}>{t('events.hint')}</div>
