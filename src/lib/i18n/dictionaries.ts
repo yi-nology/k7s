@@ -570,12 +570,30 @@ export interface Dictionary {
     pickNode: string;
     archive: string;
     chooseFile: string;
-    import: string;
     importing: string;
     runtime: string;
     loadedImages: string;
     noImages: string;
     rawOutput: string;
+    /** Import sub-panel — the component navigates through this as an object
+     *  (e.g. `imageTransfer.import.whatTitle`). The former string leaf was
+     *  moved into `label`. */
+    import: {
+      label: string;
+      whatTitle: string;
+      description: string;
+      node: string;
+      pickNode: string;
+      chooseFiles: string;
+      dragHint: string;
+      batchSelected: string;
+      dropHere: string;
+      importing: string;
+      import: string;
+      runtime: string;
+      loadedImages: string;
+      rawOutput: string;
+    };
     /** Import sub-panel — batch import, drag-drop enhancements. */
     importPanel: {
       whatTitle: string;
@@ -617,6 +635,8 @@ export interface Dictionary {
       log: string;
       exportingRegistry: string;
       exportRegistry: string;
+      /** Dialog title for the save-file picker in both FromNode and FromRegistry. */
+      chooseSavePath: string;
     };
     /** To-Registry (skopeo) sub-flow. */
     registry: {
