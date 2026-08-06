@@ -52,6 +52,14 @@ describe('actionsFor — single row', () => {
     expect(ids('deployments', [row('d', { selector: {} })])).not.toContain('view-pods');
   });
 
+  /** Ingress Editor moved from a sidebar nav item to a row action — it now
+   *  appears only on the Ingresses table (mirrors the files/pods gate). */
+  it('offers edit-ingress only on ingresses', () => {
+    expect(ids('ingresses', [row('ing')])).toContain('edit-ingress');
+    expect(ids('pods', [row('p')])).not.toContain('edit-ingress');
+    expect(ids('services', [row('svc')])).not.toContain('edit-ingress');
+  });
+
   it('offers no actions for a kind with none', () => {
     // Namespaces can't be deleted from here (the cluster manages their
     // lifecycle), and they have no pods, no selector, no replicas to scale —

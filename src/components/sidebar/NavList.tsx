@@ -26,7 +26,6 @@ import {
   Zap,
   CircleDot,
   ArrowRightFromLine,
-  Pencil,
   Package,
   LayoutDashboard,
   BarChart3,
@@ -173,17 +172,6 @@ export function NavList() {
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
-                <OverlayItem
-                  item={{
-                    key: 'ingress-editor',
-                    label: t('chrome.sidebar.tools.ingressEditor', 'Ingress Editor'),
-                    icon: <Pencil size={14} />,
-                  }}
-                  overlay={overlay}
-                  openOverlay={openOverlay}
-                  closeOverlay={closeOverlay}
-                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
-                />
               </>
             )}
             {/* Helm extras: Helm Market (action wizard that belongs with
@@ -204,8 +192,11 @@ export function NavList() {
           </div>
         )
       )}
-      {/* Divider between resource groups and the overlay section below. */}
+      {/* Tools section — overlays (panels) rather than resources. A real section
+          header makes the resources↔tools split legible; before, overlay items
+          used the same chrome as resource items and were indistinguishable. */}
       <div className={styles.sectionDivider} />
+      <div className={styles.sectionHeader}>{t('chrome.sidebar.toolsSection')}</div>
       <OverlaySection t={t} />
     </div>
   );
@@ -309,12 +300,17 @@ function CollapsibleOverlayGroup({
 
 /** Remaining sidebar overlay entries not absorbed by resource groups.
  *
- *  Items absorbed by resource groups (Endpoints/Topology → Network, Helm Market → Helm)
- *  are rendered inline in the main loop above. What remains here:
- *  - Dashboard (flat — first entry, primary home)
+ *  Items absorbed by resource groups (Endpoints/Topology/IngressRoutes → Network,
+ *  Helm Market → Helm) are rendered inline in the main loop above. What remains
+ *  lives under the Tools section header, grouped so each panel sits with its kin:
  *  - Observability (collapsible): Metrics, Alerting, Grafana
- *  - Images (collapsible): Image Registries, Image Import
- *  - Pod Files, Templates (flat) */
+ *  - Security      (collapsible): Audit, SBOM
+ *  - Images        (collapsible): Image Registries, Image Transfer
+ *  - Tooling       (collapsible): Templates, Diff, Pod Files
+ *  - System        (collapsible): Plugins
+ *
+ *  Dashboard is pinned at the very top of the sidebar (above the resource groups)
+ *  as the primary home view, so it isn't repeated here. */
 function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
   const overlay = useStore((s) => s.overlay);
   const openOverlay = useStore((s) => s.openOverlay);
@@ -338,10 +334,21 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
         label: t('chrome.sidebar.tools.grafana', 'Grafana'),
         icon: <LineChart size={14} />,
       },
+    ],
+    [t]
+  );
+
+  const securityItems: OverlayItemDef[] = useMemo(
+    () => [
       {
         key: 'audit',
         label: t('chrome.sidebar.tools.audit', 'Audit'),
         icon: <ClipboardList size={14} />,
+      },
+      {
+        key: 'sbom',
+        label: t('chrome.sidebar.tools.sbom', 'SBOM'),
+        icon: <FileText size={14} />,
       },
     ],
     [t]
@@ -363,12 +370,53 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
     [t]
   );
 
+  const toolingItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'templates',
+        label: t('chrome.sidebar.tools.templates', 'Templates'),
+        icon: <PlusSquare size={14} />,
+      },
+      {
+        key: 'diff',
+        label: t('chrome.sidebar.tools.diff', 'Diff'),
+        icon: <GitCompareArrows size={14} />,
+      },
+      {
+        key: 'pod-files',
+        label: t('chrome.sidebar.tools.podFiles', 'Pod Files'),
+        icon: <FolderOpen size={14} />,
+      },
+    ],
+    [t]
+  );
+
+  const systemItems: OverlayItemDef[] = useMemo(
+    () => [
+      {
+        key: 'plugins',
+        label: t('chrome.sidebar.tools.plugins', 'Plugins'),
+        icon: <Plug size={14} />,
+      },
+    ],
+    [t]
+  );
+
   return (
     <div>
-      {/* Observability — Metrics, Alerting, Grafana grouped together. */}
       <CollapsibleOverlayGroup
         header={t('chrome.sidebar.tools.observability', 'Observability')}
         items={observabilityItems}
+        overlay={overlay}
+        openOverlay={openOverlay}
+        closeOverlay={closeOverlay}
+        titleClose={titleClose}
+      />
+      {/* Security — Audit (K8s audit log) + SBOM (software bill of materials):
+          both are compliance/finding surfaces, not observability metrics. */}
+      <CollapsibleOverlayGroup
+        header={t('chrome.sidebar.tools.security', 'Security')}
+        items={securityItems}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
@@ -382,56 +430,17 @@ function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
         closeOverlay={closeOverlay}
         titleClose={titleClose}
       />
-      <OverlayItem
-        item={{
-          key: 'pod-files',
-          label: t('chrome.sidebar.tools.podFiles', 'Pod Files'),
-          icon: <FolderOpen size={14} />,
-        }}
+      <CollapsibleOverlayGroup
+        header={t('chrome.sidebar.tools.tooling', 'Tooling')}
+        items={toolingItems}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
         titleClose={titleClose}
       />
-      <OverlayItem
-        item={{
-          key: 'templates',
-          label: t('chrome.sidebar.tools.templates', 'Templates'),
-          icon: <PlusSquare size={14} />,
-        }}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <OverlayItem
-        item={{
-          key: 'diff',
-          label: t('chrome.sidebar.tools.diff', 'Diff'),
-          icon: <GitCompareArrows size={14} />,
-        }}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <OverlayItem
-        item={{
-          key: 'plugins',
-          label: t('chrome.sidebar.tools.plugins', 'Plugins'),
-          icon: <Plug size={14} />,
-        }}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <OverlayItem
-        item={{
-          key: 'sbom',
-          label: t('chrome.sidebar.tools.sbom', 'SBOM'),
-          icon: <FileText size={14} />,
-        }}
+      <CollapsibleOverlayGroup
+        header={t('chrome.sidebar.tools.system', 'System')}
+        items={systemItems}
         overlay={overlay}
         openOverlay={openOverlay}
         closeOverlay={closeOverlay}
