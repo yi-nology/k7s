@@ -67,13 +67,13 @@ pub fn export_command(runtime: &str, image_ref: &str) -> AppResult<Vec<String>> 
 }
 
 /// Build the argv to list images on a node.
-fn list_command(runtime: &str) -> Vec<String> {
+fn list_command(runtime: &str) -> AppResult<Vec<String>> {
     let inner = match runtime {
         "containerd" => "ctr --address /run/containerd/containerd.sock images list -q",
         "docker" => "docker images --format json",
-        _ => "",
+        other => return Err(AppError::Other(format!("unsupported runtime '{other}'"))),
     };
-    vec![
+    Ok(vec![
         "nsenter".into(),
         "--target".into(),
         "1".into(),
@@ -86,7 +86,7 @@ fn list_command(runtime: &str) -> Vec<String> {
         "/bin/sh".into(),
         "-c".into(),
         inner.into(),
-    ]
+    ])
 }
 
 /// Parse image refs from `docker images --format json` or `ctr images list -q` output.
@@ -130,7 +130,7 @@ pub async fn list_node_images(client: kube::Client, node: &str) -> AppResult<Vec
         .map(|i| i.container_runtime_version.clone())
         .unwrap_or_default();
     let runtime = imageimport::detect_runtime(&version)?;
-    let argv = list_command(&runtime);
+    let argv = list_command(&runtime)?;
 
     let image = std::env::var("K7S_NODE_SHELL_IMAGE")
         .ok()
@@ -333,6 +333,11 @@ mod tests {
     #[test]
     fn export_command_unknown_runtime_errors() {
         assert!(export_command("cri-o", "nginx:1.25").is_err());
+    }
+
+    #[test]
+    fn list_command_unknown_runtime_errors() {
+        assert!(list_command("cri-o").is_err());
     }
 
     #[test]
