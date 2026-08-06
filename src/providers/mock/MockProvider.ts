@@ -52,6 +52,36 @@ import { MockMetricsMixin } from './mockMetrics';
 import { MockHelmMixin } from './mockHelm';
 import { MockShellMixin } from './mockShell';
 
+/**
+ * Demo observability configs — returned verbatim by every config getter/upsert
+ * so the panels have something to render in demo mode. Centralised here instead
+ * of being re-typed in each method (the same object appeared 3× per backend).
+ */
+const DEMO_METRICS_CONFIG: MetricsConfig = {
+  name: 'demo',
+  url: 'http://localhost:9090',
+  username: '',
+  description: 'Demo Prometheus',
+  lastError: null,
+  lastRefreshed: null,
+};
+const DEMO_GRAFANA_CONFIG: GrafanaConfig = {
+  name: 'demo',
+  url: 'http://localhost:3000',
+  username: '',
+  defaultDatasource: '',
+  description: 'Demo Grafana',
+  lastError: null,
+  lastRefreshed: null,
+};
+const DEMO_ALERTMANAGER_CONFIG: AlertManager = {
+  name: 'demo',
+  url: 'http://localhost:9093',
+  description: 'Demo AlertManager',
+  lastError: null,
+  lastRefreshed: null,
+};
+
 export class MockProvider extends MockConnectionMixin implements DataProvider {
   // Mix in the other capabilities
   private resources = new MockResourcesMixin();
@@ -249,71 +279,29 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
 
   // ---- Metrics config (demo: stub). ----
   async getMetricsConfig(): Promise<MetricsConfig> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:9090',
-      username: '',
-      description: 'Demo Prometheus',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_METRICS_CONFIG;
   }
 
   async updateMetricsConfig(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:9090',
-      username: '',
-      description: 'Demo Prometheus',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_METRICS_CONFIG;
   }
 
   // ---- Grafana config (demo: stub). ----
   async getGrafanaConfig(): Promise<GrafanaConfig> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:3000',
-      username: '',
-      defaultDatasource: '',
-      description: 'Demo Grafana',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_GRAFANA_CONFIG;
   }
 
   async updateGrafanaConfig(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:3000',
-      username: '',
-      defaultDatasource: '',
-      description: 'Demo Grafana',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_GRAFANA_CONFIG;
   }
 
   // ---- Alerting (demo: stubs). ----
   async getAlertmanager(): Promise<AlertManager> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:9093',
-      description: 'Demo AlertManager',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_ALERTMANAGER_CONFIG;
   }
 
   async updateAlertmanager(_input: AlertManagerUpsert): Promise<AlertManager> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:9093',
-      description: 'Demo AlertManager',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_ALERTMANAGER_CONFIG;
   }
 
   async getAlerts(): Promise<Alert[]> {
@@ -438,14 +426,7 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
   }
 
   async metricsUpsert(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:9090',
-      username: '',
-      description: 'Demo Prometheus',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_METRICS_CONFIG;
   }
 
   async metricsRemove(_name: string): Promise<void> {}
@@ -471,15 +452,7 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
   }
 
   async grafanaUpsert(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:3000',
-      username: '',
-      defaultDatasource: '',
-      description: 'Demo Grafana',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_GRAFANA_CONFIG;
   }
 
   async grafanaRemove(_name: string): Promise<void> {}
@@ -504,13 +477,7 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
   }
 
   async alertManagerUpsert(_input: AlertManagerUpsert): Promise<AlertManager> {
-    return {
-      name: 'demo',
-      url: 'http://localhost:9093',
-      description: 'Demo AlertManager',
-      lastError: null,
-      lastRefreshed: null,
-    };
+    return DEMO_ALERTMANAGER_CONFIG;
   }
 
   async alertManagerRemove(_name: string): Promise<void> {}

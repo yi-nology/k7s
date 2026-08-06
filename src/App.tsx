@@ -43,6 +43,34 @@ import { ResourceDiff } from './components/diff/ResourceDiff';
 import { PluginPanel } from './components/plugins/PluginPanel';
 import { SBOMPanel } from './components/sbom/SBOMPanel';
 import { usePlugins } from './hooks/usePlugins';
+import type { ComponentType } from 'react';
+import type { OverlayKey } from './store';
+
+/**
+ * Overlays whose panel takes only `{ onClose }` — the overwhelming majority.
+ * Each is the same `<backdrop><overlay><Panel onClose/></overlay></backdrop>`
+ * shell, so we dispatch through this table instead of repeating the shell 15×.
+ * `pod-files` is special (it reads overlayPodRef and renders an empty state),
+ * so it's handled separately below.
+ */
+const overlayPanels: Partial<Record<OverlayKey, ComponentType<{ onClose: () => void }>>> = {
+  'helm-market': HelmMarket,
+  'image-repos': ImageRepoPanel,
+  'image-transfer': ImageTransferPanel,
+  templates: TemplatePicker,
+  dashboard: Dashboard,
+  metrics: MetricsExplorer,
+  grafana: GrafanaPanel,
+  endpoints: EndpointsPanel,
+  topology: TopologyPanel,
+  'ingress-routes': IngressRouteTopology,
+  alerting: AlertsPanel,
+  audit: AuditPanel,
+  'ingress-editor': IngressEditor,
+  diff: ResourceDiff,
+  plugins: PluginPanel,
+  sbom: SBOMPanel,
+};
 
 export default function App() {
   // Wire provider → store and connect on mount.
@@ -87,13 +115,18 @@ export default function App() {
               <ResourceTable />
               <DetailPanel />
             </div>
-            {overlay === 'helm-market' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <HelmMarket onClose={closeOverlay} />
+            {(() => {
+              if (overlay === null || overlay === 'pod-files') return null;
+              const Panel = overlayPanels[overlay];
+              if (!Panel) return null;
+              return (
+                <div className={styles.overlayBackdrop}>
+                  <div className={styles.overlay}>
+                    <Panel onClose={closeOverlay} />
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {overlay === 'pod-files' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
@@ -113,111 +146,6 @@ export default function App() {
                       {t('podFiles.noPod', "Open Pod Files from a Pod's row context menu.")}
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-            {overlay === 'image-repos' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <ImageRepoPanel onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'image-transfer' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <ImageTransferPanel onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'templates' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <TemplatePicker onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'dashboard' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <Dashboard onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'metrics' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <MetricsExplorer onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'grafana' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <GrafanaPanel onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'endpoints' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <EndpointsPanel onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'topology' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <TopologyPanel onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'ingress-routes' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <IngressRouteTopology onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'alerting' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <AlertsPanel onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'audit' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <AuditPanel onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'ingress-editor' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <IngressEditor onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'diff' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <ResourceDiff onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'plugins' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <PluginPanel onClose={closeOverlay} />
-                </div>
-              </div>
-            )}
-            {overlay === 'sbom' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
-                  <SBOMPanel onClose={closeOverlay} />
                 </div>
               </div>
             )}

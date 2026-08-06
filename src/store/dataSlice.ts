@@ -22,6 +22,16 @@ function omit<T>(obj: Record<string, T>, key: string): Record<string, T> {
   return next;
 }
 
+/**
+ * Append `item` to `arr` and trim to the last `cap` entries — the ring-buffer
+ * shape shared by the node/pod sample reducers. Treats a missing map slot as
+ * an empty array.
+ */
+function appendCapped<T>(arr: T[] | undefined, item: T, cap: number): T[] {
+  const next = (arr ?? []).concat(item);
+  return next.length > cap ? next.slice(-cap) : next;
+}
+
 export interface DataSlice {
   // State
   podMetrics: PodMetricsMap;
@@ -72,26 +82,20 @@ export const createDataSlice: StateCreator<AppState, [], [], DataSlice> = (set) 
       };
     }),
   addNodeSample: (node, sample) =>
-    set((s) => {
-      const next = (s.nodeSamples[node] ?? []).concat(sample);
-      return {
-        nodeSamples: {
-          ...s.nodeSamples,
-          [node]: next.length > NODE_SAMPLE_CAP ? next.slice(-NODE_SAMPLE_CAP) : next,
-        },
-        nodeStatsErrors: omit(s.nodeStatsErrors, node),
-      };
-    }),
+    set((s) => ({
+      nodeSamples: {
+        ...s.nodeSamples,
+        [node]: appendCapped(s.nodeSamples[node], sample, NODE_SAMPLE_CAP),
+      },
+      nodeStatsErrors: omit(s.nodeStatsErrors, node),
+    })),
   setNodeStatsError: (node, message) =>
     set((s) => ({ nodeStatsErrors: { ...s.nodeStatsErrors, [node]: message } })),
   addPodSample: (key, sample) =>
-    set((s) => {
-      const next = (s.podSamples[key] ?? []).concat(sample);
-      return {
-        podSamples: {
-          ...s.podSamples,
-          [key]: next.length > POD_SAMPLE_CAP ? next.slice(-POD_SAMPLE_CAP) : next,
-        },
-      };
-    }),
+    set((s) => ({
+      podSamples: {
+        ...s.podSamples,
+        [key]: appendCapped(s.podSamples[key], sample, POD_SAMPLE_CAP),
+      },
+    })),
 });

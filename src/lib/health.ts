@@ -216,6 +216,15 @@ export function calculateHealth(
   return { score, grade, checks };
 }
 
+/** Health grade → CSS colour. B and D use ad-hoc hex (no token slot fits). */
+const GRADE_COLOR: Record<HealthScore['grade'], string> = {
+  A: 'var(--status-ok)',
+  B: '#5cc8ff',
+  C: 'var(--status-warn)',
+  D: '#fb923c',
+  F: 'var(--status-err)',
+};
+
 /**
  * Map a health grade to a CSS color variable.
  *
@@ -223,16 +232,5 @@ export function calculateHealth(
  * @returns A CSS `var(...)` string for the corresponding status color.
  */
 export function gradeColor(grade: HealthScore['grade']): string {
-  switch (grade) {
-    case 'A':
-      return 'var(--status-ok)';
-    case 'B':
-      return '#5cc8ff';
-    case 'C':
-      return 'var(--status-warn)';
-    case 'D':
-      return '#fb923c';
-    case 'F':
-      return 'var(--status-err)';
-  }
+  return GRADE_COLOR[grade];
 }
