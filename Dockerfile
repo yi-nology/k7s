@@ -127,5 +127,10 @@ EXPOSE 8080
 # Server mode: serve both the API and the static React app on one port.
 # --no-tray disables the system tray icon (no display in container).
 # --no-open disables auto-opening the browser.
+#
+# SECURITY: k7s-web has NO built-in authentication. Binding 0.0.0.0 inside the
+# container is fine because the host port mapping (docker-compose.yml) defaults
+# to 127.0.0.1, so the control plane is loopback-only unless you opt in. If you
+# expose it on the network, put it behind an authenticating reverse proxy.
 ENTRYPOINT ["/app/k7s-web"]
 CMD ["--addr", "0.0.0.0:8080", "--static", "/app/dist", "--no-tray", "--no-open"]

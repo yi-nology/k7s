@@ -331,6 +331,20 @@ pub async fn serve(
         "dev-api"
     };
     tracing::info!("k7s-web ({mode}) listening on http://{addr} (MCP: /mcp)");
+
+    // k7s-web has no built-in authentication and exposes the full Kubernetes
+    // control surface (apply/delete/drain/exec, plaintext Secret reads). When
+    // bound to anything other than loopback, shout about it so nobody
+    // accidentally puts an open cluster backdoor on the network.
+    if !addr.ip().is_loopback() {
+        tracing::warn!(
+            "⚠️  k7s-web is bound to {addr} (non-loopback) with NO authentication. \
+             Any client that can reach this port has full cluster control — read every \
+             Secret, exec into any pod, delete resources, get a root shell on any node. \
+             Put it behind an authenticating reverse proxy, or bind to 127.0.0.1."
+        );
+    }
+
     let app = router(state, static_dir, use_embedded);
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await
