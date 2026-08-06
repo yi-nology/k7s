@@ -154,6 +154,10 @@ pub fn run() {
             commands::image_sync_status,
             commands::image_copy,
             commands::image_inspect_archive,
+            // Image export (node → tar, registry → tar)
+            commands::export_from_node,
+            commands::list_node_images,
+            commands::export_from_registry,
             // Endpoints (Phase 1 Tier-2 of KubePi parity)
             commands::list_endpoints,
             commands::list_endpoints_for_service,
