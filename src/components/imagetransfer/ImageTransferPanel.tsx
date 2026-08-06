@@ -19,6 +19,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { getProvider, IS_TAURI } from '../../providers';
 import type {
   ArchiveInfo,
+  ExportFromNodeResult,
+  ExportFromRegistryResult,
   ImageRegistry,
   ImageSyncResult,
   ImportImageResult,
@@ -29,19 +31,19 @@ import { useTranslation } from '../../hooks/useI18n';
 import { rowsFor, useStore } from '../../store';
 import styles from './ImageTransferPanel.module.css';
 
-type Tab = 'to-node' | 'to-registry';
+type TopTab = 'import' | 'export';
 
 export function ImageTransferPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>('to-node');
+  const [topTab, setTopTab] = useState<TopTab>('import');
 
   // Web shell: no local-disk access. Show a notice instead of the form.
   if (!IS_TAURI) {
     return (
       <div className={styles.panel}>
-        <Header onClose={onClose} title={t('imageTransfer.title', 'Import Image')} t={t} />
+        <Header onClose={onClose} title={t('imageTransfer.title', 'Image Transfer')} t={t} />
         <div className={styles.notice}>
-          {t('imageTransfer.desktopOnly', 'Image import is only available in the desktop app.')}
+          {t('imageTransfer.desktopOnly', 'Image transfer is only available in the desktop app.')}
         </div>
       </div>
     );
@@ -49,37 +51,41 @@ export function ImageTransferPanel({ onClose }: { onClose?: () => void }) {
 
   return (
     <div className={styles.panel}>
-      <Header onClose={onClose} title={t('imageTransfer.title', 'Import Image')} t={t} />
+      <Header onClose={onClose} title={t('imageTransfer.title', 'Image Transfer')} t={t} />
 
       <div className={styles.tabBar} role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'to-node'}
-          className={styles.tabBtn}
-          data-active={tab === 'to-node'}
-          onClick={() => setTab('to-node')}
-        >
-          {t('imageTransfer.tabToNode', 'To Node')}
+        <button type="button" role="tab" aria-selected={topTab === 'import'} className={styles.tabBtn} data-active={topTab === 'import'} onClick={() => setTopTab('import')}>
+          {t('imageTransfer.tabImport', 'Import')}
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'to-registry'}
-          className={styles.tabBtn}
-          data-active={tab === 'to-registry'}
-          onClick={() => setTab('to-registry')}
-        >
-          {t('imageTransfer.tabToRegistry', 'To Registry')}
+        <button type="button" role="tab" aria-selected={topTab === 'export'} className={styles.tabBtn} data-active={topTab === 'export'} onClick={() => setTopTab('export')}>
+          {t('imageTransfer.tabExport', 'Export')}
         </button>
       </div>
 
-      {tab === 'to-node' ? (
-        <ToNodeSection onClose={onClose} />
-      ) : (
-        <ToRegistrySection onClose={onClose} />
-      )}
+      {topTab === 'import' ? <ImportSection onClose={onClose} /> : <ExportSection onClose={onClose} />}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ImportSection — wraps ToNode + ToRegistry under the Import top tab.
+// ---------------------------------------------------------------------------
+
+function ImportSection({ onClose }: { onClose?: () => void }) {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<'to-node' | 'to-registry'>('to-node');
+  return (
+    <>
+      <div className={styles.tabBar} role="tablist">
+        <button type="button" role="tab" aria-selected={tab === 'to-node'} className={styles.tabBtn} data-active={tab === 'to-node'} onClick={() => setTab('to-node')}>
+          {t('imageTransfer.tabToNode', 'To Node')}
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'to-registry'} className={styles.tabBtn} data-active={tab === 'to-registry'} onClick={() => setTab('to-registry')}>
+          {t('imageTransfer.tabToRegistry', 'To Registry')}
+        </button>
+      </div>
+      {tab === 'to-node' ? <ToNodeSection onClose={onClose} /> : <ToRegistrySection onClose={onClose} />}
+    </>
   );
 }
 
@@ -586,6 +592,329 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
           {busy
             ? t('imageTransfer.registry.copying', 'Copying…')
             : t('imageTransfer.registry.copy', 'Copy to registry')}
+        </button>
+      </footer>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ExportSection — wraps FromNode + FromRegistry under the Export top tab.
+// ---------------------------------------------------------------------------
+
+function ExportSection({ onClose }: { onClose?: () => void }) {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<'from-node' | 'from-registry'>('from-node');
+  return (
+    <>
+      <div className={styles.tabBar} role="tablist">
+        <button type="button" role="tab" aria-selected={tab === 'from-node'} className={styles.tabBtn} data-active={tab === 'from-node'} onClick={() => setTab('from-node')}>
+          {t('imageTransfer.tabFromNode', 'From Node')}
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'from-registry'} className={styles.tabBtn} data-active={tab === 'from-registry'} onClick={() => setTab('from-registry')}>
+          {t('imageTransfer.tabFromRegistry', 'From Registry')}
+        </button>
+      </div>
+      {tab === 'from-node' ? <FromNodeSection onClose={onClose} /> : <FromRegistrySection onClose={onClose} />}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// From Node — export a container image from a node's runtime to a local .tar.
+// ---------------------------------------------------------------------------
+
+function FromNodeSection({ onClose }: { onClose?: () => void }) {
+  const { t } = useTranslation();
+  const nodeRows = useStore((s) => rowsFor(s.rows, 'nodes'));
+  const nodes = useMemo(() => nodeRows.map(nodeOption).filter((n) => n.name), [nodeRows]);
+
+  const [node, setNode] = useState('');
+  const [imageRef, setImageRef] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [listing, setListing] = useState(false);
+  const [nodeImages, setNodeImages] = useState<string[]>([]);
+  const [result, setResult] = useState<ExportFromNodeResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const canExport = !busy && node !== '' && imageRef.trim() !== '';
+
+  const pickSavePath = async () => {
+    if (!canExport) return;
+    setError(null);
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const selected = await save({
+        title: t('imageTransfer.export.chooseSavePath', 'Save image archive'),
+        defaultPath: `${imageRef.replace(/[/:]/g, '_')}.tar`,
+        filters: [{ name: 'Image archive', extensions: ['tar'] }],
+      });
+      if (selected) {
+        setBusy(true);
+        setResult(null);
+        try {
+          const r = await getProvider().exportFromNode(node, imageRef.trim(), selected);
+          setResult(r);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : String(e));
+        } finally {
+          setBusy(false);
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  const listImages = async () => {
+    if (!node) return;
+    setListing(true);
+    setError(null);
+    try {
+      const imgs = await getProvider().listNodeImages(node);
+      setNodeImages(imgs);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setListing(false);
+    }
+  };
+
+  return (
+    <>
+      {error && <div className={styles.error}>{error}</div>}
+      <div className={styles.body}>
+        <section className={styles.callout}>
+          <p className={styles.calloutTitle}>{t('imageTransfer.export.nodeTitle', 'What this does')}</p>
+          <p className={styles.calloutText}>{t('imageTransfer.export.nodeDesc', 'Export a container image from a cluster node\'s runtime to a local .tar file.')}</p>
+        </section>
+
+        <section className={styles.form}>
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>{t('imageTransfer.export.sourceNode', 'Source node')}</span>
+            <select className={styles.select} value={node} onChange={(e) => { setNode(e.target.value); setNodeImages([]); }}>
+              <option value="" disabled>{t('imageTransfer.export.pickNode', 'Select a node\u2026')}</option>
+              {nodes.map((n) => <option key={n.name} value={n.name}>{n.name}{n.status ? ` (${n.status})` : ''}</option>)}
+            </select>
+          </label>
+
+          <div className={styles.field}>
+            <button type="button" className={styles.secondaryBtn} onClick={() => void listImages()} disabled={!node || listing}>
+              {listing ? t('imageTransfer.export.listingImages', 'Listing\u2026') : t('imageTransfer.export.listImages', 'List images on node')}
+            </button>
+            {nodeImages.length > 0 && (
+              <div className={styles.imageChipList}>
+                {nodeImages.map((img) => (
+                  <button key={img} type="button" className={styles.imageChip} onClick={() => setImageRef(img)} data-selected={imageRef === img}>
+                    {img}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <label className={styles.field}>
+            <span className={styles.fieldLabel}>{t('imageTransfer.export.imageRef', 'Image reference')}</span>
+            <input type="text" className={styles.input} value={imageRef} placeholder={t('imageTransfer.export.imageRefPlaceholder', 'nginx:1.25')} onChange={(e) => setImageRef(e.target.value)} />
+          </label>
+        </section>
+
+        {result && (
+          <section className={styles.result}>
+            {result.error ? (
+              <div className={styles.resultErr}>{result.error}</div>
+            ) : (
+              <>
+                <div className={styles.resultRuntime}>
+                  <span className={styles.resultLabel}>{t('imageTransfer.export.runtime', 'Runtime')}</span>
+                  <span className={styles.resultValue}>{result.runtime}</span>
+                </div>
+                <div className={styles.resultRuntime}>
+                  <span className={styles.resultLabel}>{t('imageTransfer.export.savedTo', 'Saved to')}</span>
+                  <span className={styles.resultValue}>{result.savedPath}</span>
+                </div>
+                {result.output && (
+                  <details className={styles.outputDetails}>
+                    <summary className={styles.outputSummary}>{t('imageTransfer.export.rawOutput', 'Raw output')}</summary>
+                    <pre className={styles.outputPre}>{result.output}</pre>
+                  </details>
+                )}
+              </>
+            )}
+          </section>
+        )}
+      </div>
+
+      <footer className={styles.footer}>
+        <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>{t('imageTransfer.close', 'Close')}</button>
+        <button type="button" className={styles.importBtn} disabled={!canExport} onClick={() => void pickSavePath()}>
+          {busy ? t('imageTransfer.export.exporting', 'Exporting\u2026') : t('imageTransfer.export.export', 'Export')}
+        </button>
+      </footer>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// From Registry — export an image from a registry to a local .tar via skopeo.
+// ---------------------------------------------------------------------------
+
+function FromRegistrySection({ onClose }: { onClose?: () => void }) {
+  const { t } = useTranslation();
+  const provider = getProvider();
+
+  const [skopeo, setSkopeo] = useState<SkopeoAvailability | null>(null);
+  const [registries, setRegistries] = useState<ImageRegistry[]>([]);
+  const [selectedRegistry, setSelectedRegistry] = useState('');
+  const [repos, setRepos] = useState<string[]>([]);
+  const [selectedRepo, setSelectedRepo] = useState('');
+  const [tags, setTags] = useState<string[]>([]);
+  const [selectedTag, setSelectedTag] = useState('');
+  const [insecureSrc, setInsecureSrc] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ExportFromRegistryResult | null>(null);
+  const [logLines, setLogLines] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [avail, regs] = await Promise.all([provider.imageSyncStatus(), provider.imageRegistryList()]);
+        if (!cancelled) { setSkopeo(avail); setRegistries(regs); }
+      } catch { /* non-fatal */ }
+    })();
+    return () => { cancelled = true; };
+  }, [provider]);
+
+  useEffect(() => {
+    if (!selectedRegistry) { setRepos([]); setSelectedRepo(''); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await provider.imageRegistryRepos(selectedRegistry);
+        if (!cancelled) setRepos(r.map((x) => x.name));
+      } catch { /* non-fatal */ }
+    })();
+    return () => { cancelled = true; };
+  }, [provider, selectedRegistry]);
+
+  useEffect(() => {
+    if (!selectedRegistry || !selectedRepo) { setTags([]); setSelectedTag(''); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const t = await provider.imageRegistryTags(selectedRegistry, selectedRepo);
+        if (!cancelled) setTags(t.map((x) => x.name));
+      } catch { /* non-fatal */ }
+    })();
+    return () => { cancelled = true; };
+  }, [provider, selectedRegistry, selectedRepo]);
+
+  const skopeoMissing = skopeo !== null && !skopeo.available;
+  const canExport = !busy && !skopeoMissing && selectedRegistry !== '' && selectedRepo !== '' && selectedTag !== '';
+
+  const pickSavePath = async () => {
+    if (!canExport) return;
+    setError(null);
+    try {
+      const { save } = await import('@tauri-apps/plugin-dialog');
+      const defaultName = `${selectedRepo.replace(/\//g, '_')}_${selectedTag}.tar`;
+      const selected = await save({
+        title: t('imageTransfer.export.chooseSavePath', 'Save image archive'),
+        defaultPath: defaultName,
+        filters: [{ name: 'Image archive', extensions: ['tar'] }],
+      });
+      if (selected) {
+        setBusy(true);
+        setResult(null);
+        setLogLines([]);
+        try {
+          const r = await provider.exportFromRegistry(selectedRegistry, selectedRepo, selectedTag, selected, insecureSrc, (line) => setLogLines((prev) => [...prev, line]));
+          setResult(r);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : String(e));
+        } finally {
+          setBusy(false);
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  if (skopeoMissing) {
+    return (
+      <>
+        <div className={styles.body}>
+          <div className={styles.callout}>
+            <p className={styles.calloutText}>{t('imageTransfer.registry.skopeoMissing', 'skopeo is not installed.')}</p>
+            {skopeo?.version && <p className={styles.calloutText}>{skopeo.version}</p>}
+          </div>
+        </div>
+        <footer className={styles.footer}>
+          <button type="button" className={styles.cancelBtn} onClick={onClose}>{t('imageTransfer.close', 'Close')}</button>
+        </footer>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {error && <div className={styles.error}>{error}</div>}
+      <div className={styles.body}>
+        <section className={styles.callout}>
+          <p className={styles.calloutTitle}>{t('imageTransfer.export.registryTitle', 'What this does')}</p>
+          <p className={styles.calloutText}>{t('imageTransfer.export.registryDesc', 'Export an image from a configured private registry to a local .tar file using skopeo.')}</p>
+        </section>
+
+        {registries.length === 0 ? (
+          <div className={styles.noticeInline}>{t('imageTransfer.export.noRegistries', 'No registries configured \u2014 add one in Image Registries first.')}</div>
+        ) : (
+          <section className={styles.form}>
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>{t('imageTransfer.export.registry', 'Source registry')}</span>
+              <select className={styles.select} value={selectedRegistry} onChange={(e) => setSelectedRegistry(e.target.value)}>
+                <option value="" disabled>{t('imageTransfer.export.pickRegistry', 'Select a registry\u2026')}</option>
+                {registries.map((r) => <option key={r.name} value={r.name}>{r.name} ({r.url})</option>)}
+              </select>
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>{t('imageTransfer.export.repo', 'Repository')}</span>
+              <select className={styles.select} value={selectedRepo} onChange={(e) => setSelectedRepo(e.target.value)} disabled={repos.length === 0}>
+                <option value="" disabled>{t('imageTransfer.export.pickRepo', 'Select a repository\u2026')}</option>
+                {repos.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </label>
+
+            <label className={styles.field}>
+              <span className={styles.fieldLabel}>{t('imageTransfer.export.tag', 'Tag')}</span>
+              <select className={styles.select} value={selectedTag} onChange={(e) => setSelectedTag(e.target.value)} disabled={tags.length === 0}>
+                <option value="" disabled>{t('imageTransfer.export.pickTag', 'Select a tag\u2026')}</option>
+                {tags.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+
+            <label className={styles.check}>
+              <input type="checkbox" checked={insecureSrc} onChange={(e) => setInsecureSrc(e.target.checked)} />
+              {t('imageTransfer.export.insecureSrc', 'Skip TLS verify')}
+            </label>
+
+            {(logLines.length > 0 || result) && (
+              <section className={styles.logSection}>
+                <div className={styles.resultLabel}>{t('imageTransfer.export.log', 'Progress log')}</div>
+                <pre className={styles.logPre}>{logLines.join('\n')}{result ? `\n${result.summary}` : ''}</pre>
+              </section>
+            )}
+          </section>
+        )}
+      </div>
+
+      <footer className={styles.footer}>
+        <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={busy}>{t('imageTransfer.close', 'Close')}</button>
+        <button type="button" className={styles.importBtn} disabled={!canExport} onClick={() => void pickSavePath()}>
+          {busy ? t('imageTransfer.export.exportingRegistry', 'Exporting\u2026') : t('imageTransfer.export.exportRegistry', 'Export to file')}
         </button>
       </footer>
     </>
