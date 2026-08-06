@@ -146,8 +146,8 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
     setDragging(false);
     const droppedFiles = Array.from(e.dataTransfer.files)
       .filter((f) => f.name.endsWith('.tar'))
-      .map((f) => (f as any).path as string)
-      .filter(Boolean);
+      .map((f) => f.path)
+      .filter((p): p is string => Boolean(p));
     if (droppedFiles.length > 0) {
       setFiles((prev) => {
         const existing = new Set(prev.map((f) => f.path));
