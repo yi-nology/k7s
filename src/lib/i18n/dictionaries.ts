@@ -553,6 +553,17 @@ export interface Dictionary {
   imageTransfer: {
     title: string;
     close: string;
+    desktopOnly: string;
+    /** Top-level Import/Export tab labels. */
+    tabImport: string;
+    tabExport: string;
+    /** Sub-tab labels for the Import flow. */
+    tabToNode: string;
+    tabToRegistry: string;
+    /** Sub-tab labels for the Export flow. */
+    tabFromNode: string;
+    tabFromRegistry: string;
+    /** Original single-import flow keys (kept for backwards compat). */
     whatTitle: string;
     description: string;
     node: string;
@@ -565,10 +576,49 @@ export interface Dictionary {
     loadedImages: string;
     noImages: string;
     rawOutput: string;
-    desktopOnly: string;
-    /** Two-mode tab labels + the To-Registry (skopeo) sub-flow. */
-    tabToNode: string;
-    tabToRegistry: string;
+    /** Import sub-panel — batch import, drag-drop enhancements. */
+    importPanel: {
+      whatTitle: string;
+      description: string;
+      node: string;
+      pickNode: string;
+      chooseFiles: string;
+      dragHint: string;
+      batchSelected: string;
+      dropHere: string;
+      importing: string;
+      import: string;
+    };
+    /** Export sub-panel — export from node or from registry to local .tar. */
+    export: {
+      nodeTitle: string;
+      nodeDesc: string;
+      sourceNode: string;
+      pickNode: string;
+      imageRef: string;
+      imageRefPlaceholder: string;
+      listImages: string;
+      listingImages: string;
+      runtime: string;
+      savedTo: string;
+      rawOutput: string;
+      exporting: string;
+      export: string;
+      registryTitle: string;
+      registryDesc: string;
+      registry: string;
+      pickRegistry: string;
+      repo: string;
+      pickRepo: string;
+      tag: string;
+      pickTag: string;
+      insecureSrc: string;
+      noRegistries: string;
+      log: string;
+      exportingRegistry: string;
+      exportRegistry: string;
+    };
+    /** To-Registry (skopeo) sub-flow. */
     registry: {
       whatTitle: string;
       description: string;
