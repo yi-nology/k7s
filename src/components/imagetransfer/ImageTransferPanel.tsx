@@ -15,7 +15,7 @@
  * Desktop (Tauri) only — the web shell has no local-disk access. On web the
  * panel shows a notice instead of the form.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { getProvider, IS_TAURI } from '../../providers';
 import type {
   ArchiveInfo,
@@ -208,18 +208,49 @@ function ToNodeSection({ onClose }: { onClose?: () => void }) {
               {t('imageTransfer.import.batchSelected', '{count} files selected').replace('{count}', String(files.length))}
             </div>
             {files.map((f, i) => (
-              <div key={f.path} className={styles.fileItem} data-status={f.status}>
-                <span className={styles.fileName} title={f.path}>{f.path.split('/').pop()}</span>
-                <span className={styles.fileBadge}>
-                  {f.status === 'pending' && '\u23F3'}
-                  {f.status === 'loading' && '\u23F3'}
-                  {f.status === 'done' && '\u2705'}
-                  {f.status === 'error' && '\u274C'}
-                </span>
-                {f.status === 'pending' && (
-                  <button type="button" className={styles.removeBtn} onClick={() => removeFile(i)}>×</button>
+              <Fragment key={f.path}>
+                <div className={styles.fileItem} data-status={f.status}>
+                  <span className={styles.fileName} title={f.path}>{f.path.split('/').pop()}</span>
+                  <span className={styles.fileBadge}>
+                    {f.status === 'pending' && '\u23F3'}
+                    {f.status === 'loading' && '\u23F3'}
+                    {f.status === 'done' && '\u2705'}
+                    {f.status === 'error' && '\u274C'}
+                  </span>
+                  {f.status === 'pending' && (
+                    <button type="button" className={styles.removeBtn} onClick={() => removeFile(i)}>×</button>
+                  )}
+                </div>
+                {f.status === 'done' && f.result && !f.result.error && (
+                  <div className={styles.result}>
+                    <div className={styles.resultRuntime}>
+                      <span className={styles.resultLabel}>{t('imageTransfer.import.runtime', 'Runtime')}</span>
+                      <span className={styles.resultValue}>{f.result.runtime}</span>
+                    </div>
+                    {f.result.images.length > 0 && (
+                      <div className={styles.resultImages}>
+                        <span className={styles.resultLabel}>{t('imageTransfer.import.loadedImages', 'Loaded images')}</span>
+                        <ul className={styles.imageList}>
+                          {f.result.images.map((img) => (
+                            <li key={img} className={styles.imageItem}>{img}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {f.result.output && (
+                      <details className={styles.outputDetails}>
+                        <summary className={styles.outputSummary}>{t('imageTransfer.import.rawOutput', 'Raw output')}</summary>
+                        <pre className={styles.outputPre}>{f.result.output}</pre>
+                      </details>
+                    )}
+                  </div>
                 )}
-              </div>
+                {f.status === 'error' && f.result?.error && (
+                  <div className={styles.result}>
+                    <div className={styles.resultErr}>{f.result.error}</div>
+                  </div>
+                )}
+              </Fragment>
             ))}
           </div>
         )}
