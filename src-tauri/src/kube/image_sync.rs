@@ -707,4 +707,22 @@ mod tests {
         );
         assert!(argv.contains(&"--src-tls-verify=false".into()));
     }
+
+    #[test]
+    fn build_export_argv_forces_linux_amd64() {
+        // Regression guard: the override flags must always be present so a
+        // macOS host doesn't silently export a darwin/arm64 image.
+        let argv = build_export_argv(
+            "skopeo",
+            "docker://nginx:1",
+            "docker-archive:/tmp/nginx.tar",
+            "",
+            "",
+            false,
+        );
+        assert!(argv.contains(&"--override-os".into()));
+        assert!(argv.contains(&"linux".into()));
+        assert!(argv.contains(&"--override-arch".into()));
+        assert!(argv.contains(&"amd64".into()));
+    }
 }
