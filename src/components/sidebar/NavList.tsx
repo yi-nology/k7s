@@ -45,7 +45,8 @@ import {
   FileText,
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
-import { useStore, type OverlayKey } from '../../store';
+import { useStore, type OverlayKey, selectKindCounts } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import {
   GROUP_ORDER,
   KIND_META,
@@ -61,7 +62,10 @@ import type { CustomKind } from '../../providers/types';
 
 export function NavList() {
   const nav = useStore((s) => s.nav);
-  const rows = useStore((s) => s.rows);
+  // The sidebar only shows per-kind counts, so subscribe to a derived counts
+  // map (shallow-compared) instead of the whole rows map — otherwise every
+  // pod-metric tick cluster-wide re-renders the entire sidebar.
+  const counts = useStore(useShallow((s) => selectKindCounts(s.rows)));
   const setNav = useStore((s) => s.setNav);
   const customKinds = useStore((s) => s.customKinds);
   const watchStatus = useStore((s) => s.watchStatus);
@@ -133,7 +137,7 @@ export function NavList() {
                       <Lock size={12} />
                     </span>
                   ) : (
-                    <span className={styles.navCount}>{rows[kind].length}</span>
+                    <span className={styles.navCount}>{counts[kind] ?? 0}</span>
                   )}
                 </div>
               );

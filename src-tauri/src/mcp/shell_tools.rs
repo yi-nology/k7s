@@ -215,45 +215,10 @@
         .await
         .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
 
-        // Wait for Running, with a 90s ceiling -- long enough for a slow
-        // image pull, short enough that an unreachable node doesn't hang
-        // the tool call.
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(90);
-        let mut last = "the pod was never observed".to_string();
-        let mut ready = false;
-        while std::time::Instant::now() < deadline {
-            if let Ok(pod) = api.get(&pod_name).await {
-                let phase = pod
-                    .status
-                    .as_ref()
-                    .and_then(|s| s.phase.clone())
-                    .unwrap_or_default();
-                if phase == "Running" {
-                    ready = true;
-                    break;
-                }
-                let waiting = pod
-                    .status
-                    .as_ref()
-                    .and_then(|s| s.container_statuses.as_ref())
-                    .and_then(|cs| cs.first())
-                    .and_then(|c| c.state.as_ref())
-                    .and_then(|s| s.waiting.as_ref())
-                    .map(|w| {
-                        (
-                            w.reason.clone().unwrap_or_default(),
-                            w.message.clone().unwrap_or_default(),
-                        )
-                    });
-                last = nodeshell::pending_reason(
-                    &phase,
-                    waiting.as_ref().map(|(r, m)| (r.as_str(), m.as_str())),
-                );
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(600)).await;
-        }
-        if !ready {
-            // Best-effort cleanup before we surface the error.
+        // Wait for Running (up to 90s) using the shared helper, which also
+        // handles the 404-cache-lag window right after create. On timeout we do
+        // the best-effort pod cleanup (the helper deliberately does not delete).
+        if let Err(e) = nodeshell::await_debug_pod(&api, &pod_name).await {
             let _ = api
                 .delete(
                     &pod_name,
@@ -263,9 +228,7 @@
                     },
                 )
                 .await;
-            return Err(tool_error(AppError::Other(format!(
-                "timed out starting the debug pod: {last}"
-            ))));
+            return Err(tool_error(e));
         }
 
         let id = format!("nsh-{pod_name}");

@@ -12,7 +12,11 @@ services:
       dockerfile: Dockerfile
     container_name: k7s-web
     ports:
-      - "${K7S_PORT:-8080}:8080"
+      # Bind to the host's loopback by default so the unauthenticated control
+      # plane is NOT exposed to the network. To share k7s-web across the LAN,
+      # set K7S_PORT_BIND=0.0.0.0 (and put it behind an authenticating reverse
+      # proxy — k7s-web has no built-in auth, see README "Security").
+      - "${K7S_PORT_BIND:-127.0.0.1}:${K7S_PORT:-8080}:8080"
     volumes:
       # Mount kubeconfig for Kubernetes access
       - ${KUBECONFIG:-~/.kube/config}:/home/k7s/.kube/config:ro

@@ -68,32 +68,89 @@ docker run -d --name k7s -p 8080:8080 \
 
 ## 🤔 Why k7s (vs Lens / KubePi / Headlamp)
 
-Both k7s and [KubePi](https://github.com/1Panel-dev/KubePi) are K8s dashboards that have grown toward each other — both ship a Helm marketplace, an image-registry panel, a pod file browser, and a YAML-template resource creator. They are **not** the same product, and the choice is about *who's holding the mouse*:
+k7s, [Lens](https://k8slens.dev/), [KubePi](https://github.com/1Panel-dev/KubePi) and [Headlamp](https://headlamp.dev/) are all Kubernetes dashboards, but they were built for different audiences. The choice is less about *checkbox parity* and more about **who's holding the mouse** and **whether an AI is in the loop**. Below is an honest, feature-level comparison so you can decide.
 
-| | **k7s** | **KubePi** | **Lens** | **Headlamp** |
+> Legend: ✅ built-in · ◐ partial / via extension · — not available
+
+### Capability matrix
+
+| Capability | **k7s** | **Lens** | **KubePi** | **Headlamp** |
+|---|:---:|:---:|:---:|:---:|
+| **🤖 AI / MCP server** | | | | |
+| MCP server (stdio + HTTP) | ✅ **79 tools** | — | — | — |
+| AI cluster diagnostics (`diagnose_cluster`, `suggest_fix`) | ✅ | — | — | — |
+| Cluster health score (0–100, letter grade) | ✅ | — | — | — |
+| **🧭 Browsing & ops** | | | | |
+| Multi-cluster switching | ✅ | ✅ | ✅ | ✅ |
+| Virtualised tables (large clusters) | ✅ | ✅ | ◐ | ◐ |
+| CRD discovery (Lens-style grouping) | ✅ | ✅ | ◐ | ✅ |
+| Bulk actions (delete / scale / restart) | ✅ | ◐ | ◐ | ◐ |
+| Node drain (PDB-aware, progress banner) | ✅ | ✅ | ◐ | — |
+| Command palette (⌘K) | ✅ | ✅ | — | — |
+| Pod shell (kubectl exec, xterm.js) | ✅ | ✅ | ✅ | ✅ |
+| Node shell (privileged debug pod) | ✅ | ✅ | — | — |
+| Port-forward manager (pod + service) | ✅ | ✅ | ◐ | ◐ |
+| **📜 Logs, YAML & files** | | | | |
+| Streaming logs (follow, since-window, search) | ✅ | ✅ | ✅ | ✅ |
+| YAML editor + server-side dry-run diff | ✅ | ◐ | ◐ | ◐ |
+| Pod file browser (read/write/upload/download) | ✅ | ◐ | ✅ | — |
+| Resource diff (side-by-side) | ✅ | — | — | — |
+| Ingress visual editor | ✅ | — | — | — |
+| **📦 Helm** | | | | |
+| Helm release view | ✅ | ✅ | ✅ | ✅ |
+| Chart marketplace (repo CRUD + search) | ✅ | ◐ | ✅ | ◐ |
+| Install / upgrade / rollback w/ live logs | ✅ | ✅ | ✅ | ◐ |
+| **🖼 Observability** | | | | |
+| Prometheus PromQL explorer | ✅ | ✅ | ◐ | — |
+| AlertManager alerts / silences / rules | ✅ | ◐ | — | — |
+| Grafana dashboard embed + search | ✅ | ◐ | — | — |
+| Loki / K8s audit-log search | ✅ | — | — | — |
+| Node-exporter live metrics | ✅ | ◐ | — | — |
+| Service topology graph (d3) | ✅ | ◐ | — | — |
+| **🔐 Security & supply chain** | | | | |
+| RBAC security audit | ✅ | — | ◐ | — |
+| SBOM generation (CycloneDX / SPDX) | ✅ | — | — | — |
+| Image vulnerability scan | ✅ | — | ◐ | — |
+| Private OCI registry browser | ✅ | ◐ | ✅ | — |
+| **Air-gapped** image transfer (skopeo / node import) | ✅ | — | — | — |
+| **🧩 Extensibility** | | | | |
+| Plugin API (sidebar / tabs / cards / actions) | ✅ | ✅ | — | ✅ |
+| Built-in plugin examples (GPU monitor, …) | ✅ | ◐ | — | ◐ |
+| **🌐 UX & i18n** | | | | |
+| Dark / light / system theme | ✅ | ✅ | ◐ | ◐ |
+| Multi-language (EN / 中文) | ✅ | ◐ | ✅ | ◐ |
+| Mock/demo mode (no cluster needed) | ✅ | ◐ | — | — |
+| **👥 Team / multi-tenant** | | | | |
+| SSO (OIDC / SAML / LDAP) | — (kubeconfig) | ◐ | ✅ | ✅ |
+| Built-in RBAC + audit log | — | — | ✅ | ◐ |
+
+### Architecture at a glance
+
+| | **k7s** | **Lens** | **KubePi** | **Headlamp** |
 |---|---|---|---|---|
-| **Shape** | ~9 MB native binary (Tauri 2) | Web app (Go + Vue) on Docker | Electron app (~300 MB) | Web app (Go + React) |
-| **Deploy** | installer / Docker / source | `docker run` on a server | desktop installer | `docker run` / plugin |
-| **Primary user** | single SRE / platform engineer | team sharing one dashboard | single dev / SRE | team / platform |
-| **Local data** | reads `~/.kube/config` directly | points a cluster at a kubeconfig | reads `~/.kube/config` | OIDC or kubeconfig |
-| **AI integration** | **built-in** MCP server, **79 tools** | none | none | none |
-| **Auth** | your local kubeconfig (RBAC, exec plugins) | OIDC / SAML / LDAP / MFA / RBAC | kubeconfig / OIDC | OIDC |
-| **Demo mode** | `pnpm dev` — full UI with mock data | needs a cluster | limited | needs a cluster |
-| **Bundle** | ~9 MB | hundreds of MB | ~300 MB | ~50 MB |
-| **Telemetry / audit** | none | login + op log to DB | crash reports | none |
+| **Shape** | ~9 MB native binary (Tauri 2) | Electron app (~300 MB) | web app (Go + Vue) | web app (Go + React) |
+| **Deploy** | installer / Docker / source | desktop installer | `docker run` | `docker run` / in-cluster plugin |
+| **Primary user** | single SRE / platform engineer | single dev / SRE | team sharing one dashboard | team / platform |
+| **Local data** | reads `~/.kube/config` directly | reads `~/.kube/config` | points a cluster at a kubeconfig | OIDC or kubeconfig |
+| **Auth model** | your kubeconfig (RBAC, exec plugins) | kubeconfig / OIDC | OIDC / SAML / LDAP / MFA / RBAC | OIDC |
+| **Bundle size** | ~9 MB | ~300 MB | hundreds of MB | ~50 MB |
+| **Telemetry** | none | crash reports | login + op log to DB | none |
+| **Platforms** | macOS, Linux, **any browser (incl. Windows 7)**, Docker | macOS, Linux, Windows | any browser | any browser |
 
-**Pick k7s** if you want a fast, native, single-binary K8s monitor with **first-class AI control** and don't need a multi-tenant web dashboard.
+### Who should pick what
 
-**Pick KubePi / Headlamp** if you need SSO + RBAC + audit for a shared team installation behind a web login.
+- **Pick k7s** if you want a **fast, native, single-binary** K8s monitor with **first-class AI control** (79 MCP tools, cluster diagnostics), **deep observability** (Prometheus + Grafana + AlertManager + Loki in one app), and **supply-chain tooling** (SBOM, air-gapped image transfer) — and you don't need SSO/RBAC for a shared team web login.
+- **Pick Lens** if you want the **most mature desktop K8s IDE** with the **largest extension marketplace** and you're happy on a heavyweight Electron app.
+- **Pick KubePi** if you need **SSO + RBAC + audit log** for a **shared team installation** behind a web login, with Helm marketplace and image-registry management built in.
+- **Pick Headlamp** if you want a **clean, plugin-friendly web dashboard** with strong **OIDC** support that can also run as an in-cluster plugin.
 
-### What k7s shares with KubePi (feature parity)
+### Where k7s and KubePi overlap
 
-- **Helm Marketplace** — repo CRUD, chart search across cached `index.yaml`, install / upgrade / uninstall / rollback with live log streaming, release history.
-- **Pod Files** — browse / read / write / download / upload files inside a running container, via `tar` over `kubectl exec`.
-- **Image Registries** — manage private OCI registries (Harbor, GHCR, ECR, Docker Hub), browse repos → tags → manifest (OCI Distribution v2 with bearer-auth), and run vulnerability scans.
-- **YAML Templates** — pick a template (Deployment, Ingress, ConfigMap, …), fill the form, preview rendered YAML, apply as a multi-document bundle.
+Both have grown toward each other and now share four operator-facing panels — **Helm Marketplace** (repo CRUD + chart search + install/upgrade/rollback with live logs), **Pod Files** (browse/read/write/upload/download via `tar` over exec), **Image Registries** (OCI Distribution v2, Harbor/GHCR/ECR/Docker Hub), and **YAML Templates** (form → preview → apply).
 
-But k7s goes further: **air-gapped image transfer**, **SBOM generation**, **Prometheus/Grafana/Alertmanager/Loki observability**, **service topology graphs**, **resource diff**, **plugin system**, and the **MCP server** — none of which KubePi ships.
+Where **k7s pulls ahead**: the **MCP server** (unique), **air-gapped image transfer**, **SBOM generation**, **Prometheus/Grafana/Alertmanager/Loki observability**, **service topology graphs**, **resource diff**, **Ingress editor**, **node shell**, and the **plugin system** — none of which KubePi ships.
+
+Where **KubePi pulls ahead**: **multi-tenant SSO** (OIDC/SAML/LDAP/MFA), **built-in RBAC down to the namespace**, and an **operation audit log** — k7s is a single-user tool by design.
 
 ---
 

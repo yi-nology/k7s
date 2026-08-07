@@ -8,6 +8,7 @@ import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { cx } from '../../lib/cx';
 import type { EndpointRow } from '../../providers/types';
 import { useStore } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from '../../hooks/useI18n';
 import { TopologyGraph } from './TopologyGraph';
 import styles from './TopologyPanel.module.css';
@@ -38,7 +39,14 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
     unknown: 0,
   });
 
-  const rows = useStore((s) => s.rows);
+  // Only services + pods are read here — subscribe to those two kinds,
+  // shallow-compared, instead of the whole rows map.
+  const { services: svcRows, pods: podRows } = useStore(
+    useShallow((s) => ({
+      services: s.rows.services ?? [],
+      pods: s.rows.pods ?? [],
+    }))
+  );
 
   useAsyncEffect(async (isMounted) => {
     try {
@@ -69,8 +77,6 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
 
       // Fallback: build from Services + Pods when no EndpointSlices.
       if (byService.size === 0) {
-        const svcRows = rows.services ?? [];
-        const podRows = rows.pods ?? [];
         for (const svc of svcRows) {
           const ns = svc.namespace ?? '';
           const selector = svc.selector ?? {};
@@ -105,7 +111,7 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
     } catch (e: unknown) {
       if (isMounted()) setError(formatError(e));
     }
-  }, [rows.services, rows.pods]);
+  }, [svcRows, podRows]);
 
   const handleServiceClick = (svc: ServiceTopology) => {
     const id = `svc:${svc.namespace}/${svc.service}`;

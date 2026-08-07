@@ -9,9 +9,9 @@
  * and node drain progress (B20).
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './DetailPanel.module.css';
-import { useStore } from '../../store';
+import { useStore, rowsFor } from '../../store';
 import { useNow } from '../../hooks/useNow';
 import { useTranslation } from '../../hooks/useI18n';
 import { formatAge } from '../../lib/format';
@@ -38,7 +38,9 @@ import type { DrainProgress } from '../../providers/types';
 export function DetailPanel() {
   const row = useStore((s) => s.selectedRow);
   const nav = useStore((s) => s.nav);
-  const rows = useStore((s) => s.rows);
+  // Subscribe to only the current nav kind's rows, not the whole rows map, so
+  // a pod-metric tick on another kind doesn't re-render the detail panel.
+  const kindRows = useStore((s) => rowsFor(s.rows, s.nav));
   const activeTab = useStore((s) => s.activeTab);
   const setActiveTab = useStore((s) => s.setActiveTab);
   const closeDetail = useStore((s) => s.closeDetail);
@@ -57,7 +59,6 @@ export function DetailPanel() {
   // (deleted by an external actor, not by us), close the panel. Skips the check
   // while the kind's rows are still empty (watch hasn't delivered yet).
   // When multi-tabs are active, the setRows handler cleans up stale tabs instead.
-  const kindRows = useMemo(() => rows[nav] ?? [], [rows, nav]);
   const hasMultiTabs = detailTabs.length > 0;
   useEffect(() => {
     if (!row || hasMultiTabs) return;

@@ -40,40 +40,144 @@ pub struct ExportResult {
 
 static EXPORT_SEQ: AtomicU64 = AtomicU64::new(0);
 
-/// Build the `nsenter … /bin/sh -c "<export-cmd>"` argv that writes the tar to
-/// stdout. The caller reads stdout and writes it to a local file.
+/// Validate an image reference before it reaches a container runtime. A
+/// legitimate image ref (`repo/name:tag`, `repo@sha256:…`, with optional
+/// `host:port/` prefix and `/` separators) only contains alphanumerics,
+/// `.`, `-`, `_`, `:`, `/`, `@`, and hex digits for digests. Any shell
+/// metacharacter here means someone is trying to break out of the arg list
+/// — reject it outright rather than relying on quoting.
+///
+/// This is defense in depth on top of passing `image_ref` as a discrete argv
+/// element (no shell), so even a ref that somehow contained a metacharacter
+/// could not execute a separate command — but we reject it anyway to fail
+/// fast and avoid surprising the runtime with malformed input.
+fn validate_image_ref(image_ref: &str) -> AppResult<()> {
+    if image_ref.is_empty() {
+        return Err(AppError::Other("image reference is empty".into()));
+    }
+    if image_ref
+        .chars()
+        .any(|c| !c.is_ascii_alphanumeric() && !matches!(c, '.' | '-' | '_' | ':' | '/' | '@'))
+    {
+        return Err(AppError::Other(format!(
+            "image reference '{image_ref}' contains forbidden characters (allowed: A-Z a-z 0-9 . - _ : / @)"
+        )));
+    }
+    Ok(())
+}
+
+/// Validate a caller-supplied local file path that the runtime will write to
+/// (image export `.tar` save locations). Guards against path traversal and
+/// writes to system-critical directories. The desktop UI picks `save_path`
+/// via a native save dialog, but the Tauri command (and any future web/MCP
+/// bridge) takes the string from the caller, so this is the trust boundary.
+pub(crate) fn validate_save_path(save_path: &str) -> AppResult<()> {
+    use std::path::{Component, Path};
+
+    if save_path.is_empty() {
+        return Err(AppError::Other("save path is empty".into()));
+    }
+    let path = Path::new(save_path);
+
+    // Must be absolute — a relative path is ambiguous about where it lands
+    // and is a classic traversal vector.
+    if !path.is_absolute() {
+        return Err(AppError::Other(format!(
+            "save path '{save_path}' must be absolute"
+        )));
+    }
+
+    // Reject any component that escapes normalisation (`..` / root / prefix).
+    for comp in path.components() {
+        if !matches!(
+            comp,
+            Component::Normal(_) | Component::RootDir | Component::Prefix(_)
+        ) {
+            return Err(AppError::Other(format!(
+                "save path '{save_path}' contains a forbidden component (parent-dir or cur-dir reference)"
+            )));
+        }
+    }
+
+    // Refuse to clobber system-critical locations. A user exporting an image
+    // tar has no reason to write under /etc, /usr, /bin, … — and doing so
+    // would be destructive. Match by the first real path segment.
+    const FORBIDDEN_ROOT_DIRS: &[&str] = &[
+        "etc", "usr", "bin", "sbin", "boot", "lib", "lib64", "proc", "sys", "dev",
+    ];
+    let first_seg = path
+        .components()
+        .find_map(|c| match c {
+            Component::Normal(s) => s.to_str(),
+            _ => None,
+        })
+        .unwrap_or("");
+    if FORBIDDEN_ROOT_DIRS.contains(&first_seg) {
+        return Err(AppError::Other(format!(
+            "save path '{save_path}' is inside a system directory ('/{first_seg}') and is refused"
+        )));
+    }
+
+    Ok(())
+}
+
+/// Build the `nsenter … <runtime> …` argv that writes the tar to stdout. The
+/// caller reads stdout and writes it to a local file.
+///
+/// `image_ref` is passed as a **discrete argv element**, never interpolated
+/// into a shell string — the K8s exec API takes a vector of args, so no
+/// `/bin/sh -c` wrapper is needed. `validate_image_ref` rejects anything that
+/// is not a plausible image ref before it gets here.
 pub fn export_command(runtime: &str, image_ref: &str) -> AppResult<Vec<String>> {
-    let inner = match runtime {
-        "containerd" => format!(
-            "ctr --address /run/containerd/containerd.sock images export --output - {image_ref}"
-        ),
-        "docker" => format!("docker save {image_ref}"),
+    validate_image_ref(image_ref)?;
+    let mut argv = nsenter_prefix();
+    match runtime {
+        "containerd" => {
+            argv.extend([
+                "ctr".into(),
+                "--address".into(),
+                "/run/containerd/containerd.sock".into(),
+                "images".into(),
+                "export".into(),
+                "--output".into(),
+                "-".into(),
+                image_ref.into(),
+            ]);
+        }
+        "docker" => {
+            argv.extend(["docker".into(), "save".into(), image_ref.into()]);
+        }
         other => return Err(AppError::Other(format!("unsupported runtime '{other}'"))),
-    };
-    Ok(vec![
-        "nsenter".into(),
-        "--target".into(),
-        "1".into(),
-        "--mount".into(),
-        "--uts".into(),
-        "--ipc".into(),
-        "--net".into(),
-        "--pid".into(),
-        "--".into(),
-        "/bin/sh".into(),
-        "-c".into(),
-        inner,
-    ])
+    }
+    Ok(argv)
 }
 
 /// Build the argv to list images on a node.
 fn list_command(runtime: &str) -> AppResult<Vec<String>> {
-    let inner = match runtime {
-        "containerd" => "ctr --address /run/containerd/containerd.sock images list -q",
-        "docker" => "docker images --format json",
+    let mut argv = nsenter_prefix();
+    match runtime {
+        "containerd" => {
+            argv.extend([
+                "ctr".into(),
+                "--address".into(),
+                "/run/containerd/containerd.sock".into(),
+                "images".into(),
+                "list".into(),
+                "-q".into(),
+            ]);
+        }
+        "docker" => {
+            argv.extend(["docker".into(), "images".into(), "--format".into(), "json".into()]);
+        }
         other => return Err(AppError::Other(format!("unsupported runtime '{other}'"))),
-    };
-    Ok(vec![
+    }
+    Ok(argv)
+}
+
+/// The fixed `nsenter … --` prefix shared by every command we run inside the
+/// debug pod to reach the host's container runtime via PID 1's namespaces.
+fn nsenter_prefix() -> Vec<String> {
+    vec![
         "nsenter".into(),
         "--target".into(),
         "1".into(),
@@ -83,10 +187,7 @@ fn list_command(runtime: &str) -> AppResult<Vec<String>> {
         "--net".into(),
         "--pid".into(),
         "--".into(),
-        "/bin/sh".into(),
-        "-c".into(),
-        inner.into(),
-    ])
+    ]
 }
 
 /// Parse image refs from `docker images --format json` or `ctr images list -q` output.
@@ -189,6 +290,7 @@ pub async fn export_from_node(
     image_ref: &str,
     save_path: &str,
 ) -> AppResult<ExportResult> {
+    validate_save_path(save_path)?;
     let node_api: Api<Node> = Api::all(client.clone());
     let node_obj = node_api.get(node).await?;
     let version = node_obj
@@ -318,7 +420,11 @@ mod tests {
         assert!(cmd.contains("ctr --address /run/containerd/containerd.sock"));
         assert!(cmd.contains("images export"));
         assert!(cmd.contains("nginx:1.25"));
-        assert!(argv[0] == "nsenter");
+        assert_eq!(argv[0], "nsenter");
+        // image_ref must be a discrete argv element (no /bin/sh -c wrapper),
+        // so it cannot break out into a separate command.
+        assert!(!argv.iter().any(|a| a == "/bin/sh" || a == "-c"));
+        assert_eq!(argv.last().unwrap(), "nginx:1.25");
     }
 
     #[test]
@@ -327,12 +433,68 @@ mod tests {
         let cmd = argv.join(" ");
         assert!(cmd.contains("docker save"));
         assert!(cmd.contains("nginx:1.25"));
-        assert!(argv[0] == "nsenter");
+        assert_eq!(argv[0], "nsenter");
+        assert!(!argv.iter().any(|a| a == "/bin/sh" || a == "-c"));
+        assert_eq!(argv.last().unwrap(), "nginx:1.25");
     }
 
     #[test]
     fn export_command_unknown_runtime_errors() {
         assert!(export_command("cri-o", "nginx:1.25").is_err());
+    }
+
+    #[test]
+    fn export_command_rejects_shell_metacharacters() {
+        // A ref containing shell metacharacters must be rejected before it
+        // ever reaches the runtime — defense in depth against command
+        // injection, even though image_ref is now a discrete argv element.
+        for evil in ["nginx; id", "nginx && cat /etc/shadow", "nginx`id`", "nginx$(id)", "nginx|sh"] {
+            assert!(
+                export_command("containerd", evil).is_err(),
+                "expected '{evil}' to be rejected"
+            );
+            assert!(
+                export_command("docker", evil).is_err(),
+                "expected '{evil}' to be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn export_command_allows_digest_refs() {
+        // @sha256:… digest refs are legitimate and must pass validation.
+        let argv = export_command(
+            "containerd",
+            "registry.example.com/library/nginx@sha256:abcdef1234567890",
+        )
+        .unwrap();
+        assert_eq!(
+            argv.last().unwrap(),
+            "registry.example.com/library/nginx@sha256:abcdef1234567890"
+        );
+    }
+
+    #[test]
+    fn validate_save_path_accepts_normal_absolute() {
+        assert!(validate_save_path("/home/user/exports/nginx.tar").is_ok());
+        assert!(validate_save_path("/tmp/img.tar").is_ok());
+        assert!(validate_save_path("/Users/me/Downloads/img.tar").is_ok());
+    }
+
+    #[test]
+    fn validate_save_path_rejects_traversal_and_relative() {
+        assert!(validate_save_path("").is_err());
+        assert!(validate_save_path("relative/img.tar").is_err());
+        assert!(validate_save_path("/home/../etc/passwd").is_err());
+        assert!(validate_save_path("/home/./x/../y/img.tar").is_err());
+    }
+
+    #[test]
+    fn validate_save_path_rejects_system_dirs() {
+        assert!(validate_save_path("/etc/x/img.tar").is_err());
+        assert!(validate_save_path("/usr/local/img.tar").is_err());
+        assert!(validate_save_path("/bin/img.tar").is_err());
+        assert!(validate_save_path("/boot/img.tar").is_err());
     }
 
     #[test]

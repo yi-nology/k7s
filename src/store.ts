@@ -59,6 +59,7 @@ export {
   EMPTY_SELECTION,
   EMPTY_ROWS,
   rowsFor,
+  selectKindCounts,
   NODE_SAMPLE_CAP,
   POD_SAMPLE_CAP,
   LOG_BUFFER_CAP_DEFAULT as LOG_BUFFER_CAP,

@@ -203,7 +203,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                   setAdding(false);
                   reload();
                 } catch (err) {
-                  setError(String(err));
+                  setError(formatError(err));
                 }
               }}
             >

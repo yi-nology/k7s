@@ -7,6 +7,7 @@
 
 import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { useStore } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from '../../hooks/useI18n';
 import type { TopologyGraphProps } from './types';
 import {
@@ -29,7 +30,16 @@ import styles from './TopologyGraph.module.css';
 
 export function TopologyGraph({ focusedService, searchQuery, onHealthChange }: TopologyGraphProps) {
   const { t } = useTranslation();
-  const rows = useStore((s) => s.rows);
+  // The graph only reads services + pods + ingresses (see graphBuilder.ts),
+  // so subscribe to those three kinds (shallow-compared) instead of the whole
+  // rows map. Re-assembled into the { kind → Row[] } shape useSimulation expects.
+  const rows = useStore(
+    useShallow((s) => ({
+      services: s.rows.services ?? [],
+      pods: s.rows.pods ?? [],
+      ingresses: s.rows.ingresses ?? [],
+    }))
+  );
   const podMetrics = useStore((s) => s.podMetrics);
   const containerRef = useRef<HTMLDivElement>(null);
 

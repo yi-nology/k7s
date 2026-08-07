@@ -48,7 +48,10 @@ export interface ConnectionSlice {
   resetData: () => void;
 }
 
-export const createConnectionSlice: StateCreator<AppState, [], [], ConnectionSlice> = (set) => ({
+export const createConnectionSlice: StateCreator<AppState, [], [], ConnectionSlice> = (
+  set,
+  get
+) => ({
   // Initial state
   connection: { phase: 'idle', context: null, clusterName: null },
   clusterStatus: null,
@@ -79,32 +82,12 @@ export const createConnectionSlice: StateCreator<AppState, [], [], ConnectionSli
   removeHotbarItem: (context) => set((s) => ({ hotbar: s.hotbar.filter((c) => c !== context) })),
   setClusterStatus: (status) => set({ clusterStatus: status }),
   setWatchCount: (n) => set({ watchCount: n }),
-  setRows: (kind, rows) =>
-    set((s) => {
-      const nextRows = { ...s.rows, [kind]: rows };
-      // Clean up multi-tabs whose resource was deleted externally.
-      let nextTabs = s.detailTabs;
-      if (s.detailTabs.length > 0 && rows.length > 0) {
-        const filtered = s.detailTabs.filter(
-          (t) => t.kind !== kind || rows.some((r) => r.uid === t.row.uid)
-        );
-        if (filtered.length !== s.detailTabs.length) nextTabs = filtered;
-      }
-      return {
-        rows: nextRows,
-        ...(nextTabs !== s.detailTabs
-          ? {
-              detailTabs: nextTabs,
-              activeDetailTabUid:
-                nextTabs.length === 0
-                  ? null
-                  : nextTabs.some((t) => t.uid === s.activeDetailTabUid)
-                    ? s.activeDetailTabUid
-                    : nextTabs[0].uid,
-            }
-          : {}),
-      };
-    }),
+  setRows: (kind, rows) => {
+    set({ rows: { ...(get().rows), [kind]: rows } });
+    // Prune any multi-tabs whose resource disappeared from the live watcher
+    // data — delegated to the detail slice so it owns its own tab lifecycle.
+    get().pruneDetailTabs(kind, rows);
+  },
   setCustomKinds: (kinds) => set({ customKinds: kinds }),
   setWatchStatus: (kind, status) =>
     set((s) => ({ watchStatus: { ...s.watchStatus, [kind]: status } })),

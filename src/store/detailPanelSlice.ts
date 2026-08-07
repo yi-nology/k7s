@@ -84,6 +84,14 @@ export interface DetailPanelSlice {
   setActiveTab: (tab: DetailTab) => void;
   openDetailTab: (kind: KindId, row: Row) => void;
   closeDetailTab: (uid: string) => void;
+  /**
+   * Drop multi-tabs whose resource was deleted from the live watcher data.
+   * Called by the connection slice when a kind's rows are refreshed, so the
+   * detail slice owns its own tab lifecycle (instead of the connection slice
+   * reaching across to mutate `detailTabs`/`activeDetailTabUid` directly).
+   * No-op when there are no tabs or the refreshed kind has no rows.
+   */
+  pruneDetailTabs: (kind: KindId, rows: Row[]) => void;
   setActiveDetailTab: (uid: string) => void;
   cycleDetailTab: (direction: 1 | -1) => void;
   openSelectedInTab: () => void;
@@ -187,6 +195,25 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
       if (next.length === 0) return { detailTabs: [], activeDetailTabUid: null };
       const newActive = next[Math.min(idx, next.length - 1)];
       return { detailTabs: next, activeDetailTabUid: newActive.uid };
+    }),
+  pruneDetailTabs: (kind, rows) =>
+    set((s) => {
+      // Nothing to prune if there are no tabs, or the refreshed kind has no
+      // rows to compare against (an empty snapshot would wipe everything).
+      if (s.detailTabs.length === 0 || rows.length === 0) return {};
+      const filtered = s.detailTabs.filter(
+        (t) => t.kind !== kind || rows.some((r) => r.uid === t.row.uid)
+      );
+      if (filtered.length === s.detailTabs.length) return {};
+      return {
+        detailTabs: filtered,
+        activeDetailTabUid:
+          filtered.length === 0
+            ? null
+            : filtered.some((t) => t.uid === s.activeDetailTabUid)
+              ? s.activeDetailTabUid
+              : filtered[0].uid,
+      };
     }),
   setActiveDetailTab: (uid) =>
     set((s) => {
