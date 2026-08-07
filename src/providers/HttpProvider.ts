@@ -25,26 +25,22 @@
  */
 
 import { httpInvoke, httpSubscribe } from './transport';
+import { BaseRpcProvider } from './BaseRpcProvider';
 import type {
   ApplyResult,
   Alert,
   AlertManager,
   DocDryRun,
-  ExportFromNodeResult,
   ExportFromRegistryResult,
   ImportImageResult,
   SkopeoAvailability,
   ImageSyncResult,
   ArchiveInfo,
   AlertManagerUpsert,
-  ClusterInfo,
   ClusterStatus,
-  ContextInfo,
   DataProvider,
   DashboardPreset,
   DrainProgress,
-  EndpointAddress,
-  EndpointRow,
   EventItem,
   ForwardInfo,
   GrafanaConfig,
@@ -76,7 +72,6 @@ import type {
   PodFileEntry,
   PodMetricsMap,
   PodSample,
-  Prefs,
   PromQueryResult,
   Properties,
   CustomKind,
@@ -84,7 +79,6 @@ import type {
   Row,
   SavedLog,
   ShellHandle,
-  SecretEntry,
   Silence,
   Unsub,
   Revision,
@@ -183,16 +177,17 @@ export function importKubeconfigViaInput(input: HTMLInputElement): Promise<Impor
   });
 }
 
-export class HttpProvider implements DataProvider {
-  // ---- one-shot commands ----
-
-  listContexts(): Promise<ContextInfo[]> {
-    return httpInvoke<ContextInfo[]>('list_contexts');
+export class HttpProvider extends BaseRpcProvider implements DataProvider {
+  // Bridge the base class's one-shot RPC contract to the HTTP transport. Every
+  // faithful `this.rpc('cmd', args)` method in BaseRpcProvider now works over
+  // HTTP for free; only the methods that *diverge* (HTTP returns [] / rejects
+  // with notImplemented / desktopOnly) or are transport-specific (streaming,
+  // file dialogs, SSE subscriptions) are written out below.
+  protected rpc<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+    return httpInvoke<T>(cmd, args);
   }
 
-  connect(context: string): Promise<ClusterInfo> {
-    return httpInvoke<ClusterInfo>('connect', { context });
-  }
+  // ---- one-shot commands (transport-specific: file dialog) ----
 
   importKubeconfig(_input?: HTMLInputElement): Promise<ImportResult | null> {
     // The Tauri shell pops a native file dialog; the browser shell uses
@@ -274,9 +269,7 @@ export class HttpProvider implements DataProvider {
     });
   }
 
-  getSecretData(namespace: string, name: string): Promise<SecretEntry[]> {
-    return httpInvoke<SecretEntry[]>('get_secret_data', { namespace, name });
-  }
+  // getSecretData is inherited from BaseRpcProvider (faithful bridge).
 
   // ---- mutations ----
 
@@ -323,12 +316,7 @@ export class HttpProvider implements DataProvider {
       toRevision: toRevision ?? null,
     });
   }
-  setCordon(node: string, unschedulable: boolean): Promise<void> {
-    return httpInvoke<void>('set_cordon', { name: node, unschedulable });
-  }
-  drainNode(node: string): Promise<void> {
-    return httpInvoke<void>('drain_node', { name: node });
-  }
+  // setCordon / drainNode are inherited from BaseRpcProvider (faithful bridges).
   setWindowTheme(_theme: 'dark' | 'light'): Promise<void> {
     // No-op in the browser — CSS variables handle dark/light via the
     // [data-theme] attribute on <html>; nothing to push to a native window.
@@ -529,14 +517,7 @@ export class HttpProvider implements DataProvider {
     return Promise.resolve();
   }
 
-  // ---- preferences ----
-
-  loadPrefs(): Promise<Prefs | null> {
-    return httpInvoke<Prefs | null>('load_prefs');
-  }
-  savePrefs(prefs: Prefs): Promise<void> {
-    return httpInvoke<void>('save_prefs', { prefs });
-  }
+  // loadPrefs / savePrefs are inherited from BaseRpcProvider (faithful bridges).
 
   // ---- event subscriptions (live SSE) ----
   //
@@ -730,13 +711,7 @@ export class HttpProvider implements DataProvider {
     return desktopOnly('Image inspect');
   }
 
-  async exportFromNode(node: string, imageRef: string, savePath: string): Promise<ExportFromNodeResult> {
-    return httpInvoke<ExportFromNodeResult>('export_from_node', { node, imageRef, savePath });
-  }
-
-  async listNodeImages(node: string): Promise<string[]> {
-    return httpInvoke<string[]>('list_node_images', { node });
-  }
+  // exportFromNode / listNodeImages are inherited from BaseRpcProvider (faithful bridges).
 
   async exportFromRegistry(
     registryName: string,
@@ -769,18 +744,11 @@ export class HttpProvider implements DataProvider {
   }
 
   // ---- Endpoints / metrics / grafana / alerting (Phase 1 Tier-2) ----
-  // Not proxied through the web shell yet; the k7s-web server doesn't
-  // implement these routes. Throw for everything, return [] for reads
+  // listEndpoints / listEndpointsForService / listEndpointAddresses are
+  // inherited from BaseRpcProvider (faithful bridges). The rest of this
+  // section is not proxied through the web shell yet; the k7s-web server
+  // doesn't implement these routes. Throw for mutations, return [] for reads
   // so the UI renders "no data" rather than an error.
-  async listEndpoints(): Promise<EndpointRow[]> {
-    return httpInvoke<EndpointRow[]>('list_endpoints');
-  }
-  async listEndpointsForService(ns: string, name: string): Promise<EndpointRow[]> {
-    return httpInvoke<EndpointRow[]>('list_endpoints_for_service', { namespace: ns, name });
-  }
-  async listEndpointAddresses(ns: string, name: string): Promise<EndpointAddress[]> {
-    return httpInvoke<EndpointAddress[]>('list_endpoint_addresses', { namespace: ns, name });
-  }
   async triggerCronjob(_ns: string, _name: string): Promise<string> {
     return notImplemented('trigger_cronjob');
   }
@@ -906,34 +874,8 @@ export class HttpProvider implements DataProvider {
     return notImplemented('image_registry_manifest');
   }
 
-  // ---- SBOM (Software Bill of Materials) ----
-  async sbomGenerateImage(
-    imageRef: string,
-    format: import('./types/sbom').SbomFormat
-  ): Promise<import('./types/sbom').SbomResult> {
-    return httpInvoke('sbom_generate_image', { image_ref: imageRef, format });
-  }
-
-  async sbomGenerateCluster(
-    format: import('./types/sbom').SbomFormat
-  ): Promise<import('./types/sbom').SbomResult> {
-    return httpInvoke('sbom_generate_cluster', { format });
-  }
-
-  async sbomListHistory(): Promise<import('./types/sbom').SbomSummary[]> {
-    return httpInvoke('sbom_list_history');
-  }
-
-  async sbomGet(id: string): Promise<import('./types/sbom').SbomResult> {
-    return httpInvoke('sbom_get', { id });
-  }
-
-  async sbomExport(id: string, outputPath: string): Promise<string> {
-    return httpInvoke('sbom_export', { id, output_path: outputPath });
-  }
-
-  // ---- RBAC Security Audit ----
-  async securityAudit(): Promise<import('./types/security').AuditReport> {
-    return httpInvoke('security_audit_run');
-  }
+  // ---- SBOM + RBAC Security Audit ----
+  // sbomGenerateImage / sbomGenerateCluster / sbomListHistory / sbomGet /
+  // sbomExport / securityAudit are all inherited from BaseRpcProvider
+  // (faithful bridges over httpInvoke).
 }
