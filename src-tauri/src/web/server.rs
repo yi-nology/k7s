@@ -34,7 +34,7 @@ use rmcp::transport::streamable_http_server::{
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
@@ -285,14 +285,7 @@ pub fn api_router(state: WebState) -> Router {
 /// `index.html` as the catch-all so the front-end's client-side router can
 /// take over.
 pub fn router(state: WebState, static_dir: Option<PathBuf>, use_embedded: bool) -> Router {
-    let cors = CorsLayer::new()
-        // Dev: Vite proxies through 1420 → 7180, so the browser sees one
-        // origin. Prod: same origin (the server serves both). `Any` is
-        // safe because the server only listens on localhost or a private
-        // network; tighten in a hostile environment.
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let cors = cors_layer(addr);
 
     let api = api_router(state);
     let mut app = api.layer(TraceLayer::new_for_http()).layer(cors);
@@ -315,6 +308,45 @@ pub fn router(state: WebState, static_dir: Option<PathBuf>, use_embedded: bool) 
 }
 
 /// Bind to `addr` and serve until the process is asked to stop. The
+/// Build the CORS layer. The server has no authentication, so an open
+/// `allow_origin(Any)` lets any web page issue cluster-control requests
+/// against a victim's k7s-web. Instead we allow only:
+/// - the server's own origin (prod: same-origin SPA),
+/// - the Vite dev origin (`http://localhost:1420`), and
+/// - any comma-separated origins in `K7S_ALLOWED_ORIGINS`.
+///
+/// Methods/headers are narrowed to what the API actually uses. If you need a
+/// browser client on another origin, set `K7S_ALLOWED_ORIGINS=https://app.example.com`.
+fn cors_layer(addr: SocketAddr) -> CorsLayer {
+    use axum::http::{HeaderName, HeaderValue, Method};
+    use tower_http::cors::AllowOrigin;
+
+    let mut origins: Vec<HeaderValue> = vec![
+        // Same-origin prod (the SPA is served from this same addr).
+        HeaderValue::from_str(&format!("http://{addr}")).expect("valid origin"),
+        // Vite dev server (proxies /api/* here).
+        HeaderValue::from_static("http://localhost:1420"),
+    ];
+    // Extra origins via env (comma-separated), e.g. for a separate dashboard host.
+    if let Ok(extra) = std::env::var("K7S_ALLOWED_ORIGINS") {
+        for raw in extra.split(',') {
+            let trimmed = raw.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            match HeaderValue::from_str(trimmed) {
+                Ok(v) => origins.push(v),
+                Err(e) => tracing::warn!("ignoring invalid K7S_ALLOWED_ORIGINS entry '{trimmed}': {e}"),
+            }
+        }
+    }
+
+    CorsLayer::new()
+        .allow_origin(AllowOrigin::list(origins))
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers([HeaderName::from_static("content-type"), HeaderName::from_static("accept")])
+}
+
 /// `axum::serve` future resolves only on graceful shutdown; for now we let
 /// it run until SIGINT.
 pub async fn serve(
