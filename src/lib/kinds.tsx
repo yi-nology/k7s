@@ -53,17 +53,18 @@ export type { CustomKind, KindId, ResourceKind } from '../providers/types';
 
 /** Nav groups, in sidebar order. "custom" holds discovered CRD kinds (B15). */
 export type NavGroup =
-  'workloads' | 'network' | 'config' | 'access' | 'storage' | 'cluster' | 'helm' | 'custom';
+  'workloads' | 'network' | 'storage' | 'config' | 'access' | 'images' | 'helm' | 'cluster' | 'custom';
 
 /** Human-readable group headers (mono uppercase in the sidebar). */
 export const GROUP_LABELS: Record<NavGroup, string> = {
   workloads: 'Workloads',
   network: 'Network',
+  storage: 'Storage',
   config: 'Config',
   access: 'Access',
-  storage: 'Storage',
-  cluster: 'Cluster',
+  images: 'Images',
   helm: 'Helm',
+  cluster: 'Cluster',
   custom: 'Custom',
 };
 
@@ -338,6 +339,7 @@ export const GROUP_ORDER: NavGroup[] = [
   'storage',
   'config',
   'access',
+  'images',
   'helm',
   'cluster',
   'custom',

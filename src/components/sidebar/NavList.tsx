@@ -142,6 +142,23 @@ export function NavList() {
                 </div>
               );
             })}
+            {/* Workloads extras: Pod Files (belongs with Pod resources). */}
+            {group === 'workloads' && (
+              <>
+                <div className={styles.sectionDivider} />
+                <OverlayItem
+                  item={{
+                    key: 'pod-files',
+                    label: t('chrome.sidebar.tools.podFiles', 'Pod Files'),
+                    icon: <FolderOpen size={14} />,
+                  }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+              </>
+            )}
             {/* Network extras: Endpoints + Service Topology (overlay views
                 that belong with the networking resources). */}
             {group === 'network' && (
@@ -182,6 +199,78 @@ export function NavList() {
                 />
               </>
             )}
+            {/* Config extras: Templates (belongs with ConfigMap/Secret resources). */}
+            {group === 'config' && (
+              <>
+                <div className={styles.sectionDivider} />
+                <OverlayItem
+                  item={{
+                    key: 'templates',
+                    label: t('chrome.sidebar.tools.templates', 'Templates'),
+                    icon: <PlusSquare size={14} />,
+                  }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+              </>
+            )}
+            {/* Access extras: Audit (belongs with RBAC/ServiceAccount resources). */}
+            {group === 'access' && (
+              <>
+                <div className={styles.sectionDivider} />
+                <OverlayItem
+                  item={{
+                    key: 'audit',
+                    label: t('chrome.sidebar.tools.audit', 'Audit'),
+                    icon: <ClipboardList size={14} />,
+                  }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+              </>
+            )}
+            {/* Images group: Image Registries, Image Transfer, SBOM */}
+            {group === 'images' && (
+              <>
+                <OverlayItem
+                  item={{
+                    key: 'image-repos',
+                    label: t('chrome.sidebar.tools.imageRepos', 'Image Registries'),
+                    icon: <Container size={14} />,
+                  }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+                <OverlayItem
+                  item={{
+                    key: 'image-transfer',
+                    label: t('chrome.sidebar.tools.imageTransfer', 'Image Transfer'),
+                    icon: <ArrowLeftRight size={14} />,
+                  }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+                <OverlayItem
+                  item={{
+                    key: 'sbom',
+                    label: t('chrome.sidebar.tools.sbom', 'SBOM'),
+                    icon: <FileText size={14} />,
+                  }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+              </>
+            )}
             {/* Helm extras: Helm Market (action wizard that belongs with
                 the Helm releases resource). */}
             {group === 'helm' && (
@@ -197,15 +286,61 @@ export function NavList() {
                 titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
               />
             )}
+            {/* Cluster extras: Observability, Diff, Plugins */}
+            {group === 'cluster' && (
+              <>
+                <div className={styles.sectionDivider} />
+                <CollapsibleOverlayGroup
+                  header={t('chrome.sidebar.tools.observability', 'Observability')}
+                  items={[
+                    {
+                      key: 'metrics',
+                      label: t('chrome.sidebar.tools.metrics', 'Metrics'),
+                      icon: <BarChart3 size={14} />,
+                    },
+                    {
+                      key: 'alerting',
+                      label: t('chrome.sidebar.tools.alerting', 'Alerting'),
+                      icon: <Bell size={14} />,
+                    },
+                    {
+                      key: 'grafana',
+                      label: t('chrome.sidebar.tools.grafana', 'Grafana'),
+                      icon: <LineChart size={14} />,
+                    },
+                  ]}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+                <OverlayItem
+                  item={{
+                    key: 'diff',
+                    label: t('chrome.sidebar.tools.diff', 'Diff'),
+                    icon: <GitCompareArrows size={14} />,
+                  }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+                <OverlayItem
+                  item={{
+                    key: 'plugins',
+                    label: t('chrome.sidebar.tools.plugins', 'Plugins'),
+                    icon: <Plug size={14} />,
+                  }}
+                  overlay={overlay}
+                  openOverlay={openOverlay}
+                  closeOverlay={closeOverlay}
+                  titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
+                />
+              </>
+            )}
           </div>
         )
       )}
-      {/* Tools section — overlays (panels) rather than resources. A real section
-          header makes the resources↔tools split legible; before, overlay items
-          used the same chrome as resource items and were indistinguishable. */}
-      <div className={styles.sectionDivider} />
-      <div className={styles.sectionHeader}>{t('chrome.sidebar.toolsSection')}</div>
-      <OverlaySection t={t} />
     </div>
   );
 }
@@ -302,158 +437,6 @@ function CollapsibleOverlayGroup({
             nested
           />
         ))}
-    </div>
-  );
-}
-
-/** Remaining sidebar overlay entries not absorbed by resource groups.
- *
- *  Items absorbed by resource groups (Endpoints/Topology/IngressRoutes → Network,
- *  Helm Market → Helm) are rendered inline in the main loop above. What remains
- *  lives under the Tools section header, grouped so each panel sits with its kin:
- *  - Observability (collapsible): Metrics, Alerting, Grafana
- *  - Security      (collapsible): Audit, SBOM
- *  - Images        (collapsible): Image Registries, Image Transfer
- *  - Tooling       (collapsible): Templates, Diff, Pod Files
- *  - System        (collapsible): Plugins
- *
- *  Dashboard is pinned at the very top of the sidebar (above the resource groups)
- *  as the primary home view, so it isn't repeated here. */
-function OverlaySection({ t }: { t: (k: string, fallback: string) => string }) {
-  const overlay = useStore((s) => s.overlay);
-  const openOverlay = useStore((s) => s.openOverlay);
-  const closeOverlay = useStore((s) => s.closeOverlay);
-  const titleClose = t('chrome.sidebar.tools.close', 'Click to close');
-
-  const observabilityItems: OverlayItemDef[] = useMemo(
-    () => [
-      {
-        key: 'metrics',
-        label: t('chrome.sidebar.tools.metrics', 'Metrics'),
-        icon: <BarChart3 size={14} />,
-      },
-      {
-        key: 'alerting',
-        label: t('chrome.sidebar.tools.alerting', 'Alerting'),
-        icon: <Bell size={14} />,
-      },
-      {
-        key: 'grafana',
-        label: t('chrome.sidebar.tools.grafana', 'Grafana'),
-        icon: <LineChart size={14} />,
-      },
-    ],
-    [t]
-  );
-
-  const securityItems: OverlayItemDef[] = useMemo(
-    () => [
-      {
-        key: 'audit',
-        label: t('chrome.sidebar.tools.audit', 'Audit'),
-        icon: <ClipboardList size={14} />,
-      },
-      {
-        key: 'sbom',
-        label: t('chrome.sidebar.tools.sbom', 'SBOM'),
-        icon: <FileText size={14} />,
-      },
-    ],
-    [t]
-  );
-
-  const imageItems: OverlayItemDef[] = useMemo(
-    () => [
-      {
-        key: 'image-repos',
-        label: t('chrome.sidebar.tools.imageRepos', 'Image Registries'),
-        icon: <Container size={14} />,
-      },
-      {
-        key: 'image-transfer',
-        label: t('chrome.sidebar.tools.imageTransfer', 'Image Transfer'),
-        icon: <ArrowLeftRight size={14} />,
-      },
-    ],
-    [t]
-  );
-
-  const toolingItems: OverlayItemDef[] = useMemo(
-    () => [
-      {
-        key: 'templates',
-        label: t('chrome.sidebar.tools.templates', 'Templates'),
-        icon: <PlusSquare size={14} />,
-      },
-      {
-        key: 'diff',
-        label: t('chrome.sidebar.tools.diff', 'Diff'),
-        icon: <GitCompareArrows size={14} />,
-      },
-      {
-        key: 'pod-files',
-        label: t('chrome.sidebar.tools.podFiles', 'Pod Files'),
-        icon: <FolderOpen size={14} />,
-      },
-    ],
-    [t]
-  );
-
-  const systemItems: OverlayItemDef[] = useMemo(
-    () => [
-      {
-        key: 'plugins',
-        label: t('chrome.sidebar.tools.plugins', 'Plugins'),
-        icon: <Plug size={14} />,
-      },
-    ],
-    [t]
-  );
-
-  return (
-    <div>
-      <CollapsibleOverlayGroup
-        header={t('chrome.sidebar.tools.observability', 'Observability')}
-        items={observabilityItems}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      {/* Security — Audit (K8s audit log) + SBOM (software bill of materials):
-          both are compliance/finding surfaces, not observability metrics. */}
-      <CollapsibleOverlayGroup
-        header={t('chrome.sidebar.tools.security', 'Security')}
-        items={securityItems}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <CollapsibleOverlayGroup
-        header={t('chrome.sidebar.tools.images', 'Images')}
-        items={imageItems}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <CollapsibleOverlayGroup
-        header={t('chrome.sidebar.tools.tooling', 'Tooling')}
-        items={toolingItems}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
-      <CollapsibleOverlayGroup
-        header={t('chrome.sidebar.tools.system', 'System')}
-        items={systemItems}
-        overlay={overlay}
-        openOverlay={openOverlay}
-        closeOverlay={closeOverlay}
-        titleClose={titleClose}
-      />
     </div>
   );
 }

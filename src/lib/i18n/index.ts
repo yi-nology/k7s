@@ -161,11 +161,12 @@ export function resolveDictPath(locale: Locale, path: string, args: unknown[]): 
 const GROUP_LABELS_ZH: Record<NavGroup, string> = {
   workloads: '工作负载',
   network: '网络',
+  storage: '存储',
   config: '配置',
   access: '访问控制',
-  storage: '存储',
-  cluster: '集群',
+  images: '镜像',
   helm: 'Helm',
+  cluster: '集群',
   custom: '自定义',
 };
 
