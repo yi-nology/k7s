@@ -181,7 +181,6 @@ pub(crate) fn write_skopeo_authfile(
 ) -> AppResult<Option<std::path::PathBuf>> {
     use base64::Engine;
     use std::io::Write;
-    use std::os::unix::fs::OpenOptionsExt;
 
     let Some((user, pass)) = creds.user_pass() else {
         return Ok(None);
@@ -195,10 +194,16 @@ pub(crate) fn write_skopeo_authfile(
     // files for src and dest within one copy get distinct suffixes from the
     // caller-provided `tag`.
     let path = unique_authfile_path("k7s-skopeo-auth")?;
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .mode(0o600)
+    let mut opts = std::fs::OpenOptions::new();
+    opts.write(true).create_new(true);
+    // On Unix, restrict the file to owner-only (0600) since it holds creds.
+    // On Windows, ACLs handle file permissions; no extra call needed.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    let mut file = opts
         .open(&path)
         .map_err(|e| AppError::Other(format!("create skopeo authfile: {e}")))?;
     file.write_all(body.as_bytes())
