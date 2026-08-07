@@ -178,7 +178,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          projectName: k7s
           tagName: ${{ github.ref_name }}
           releaseName: 'k7s ${{ github.ref_name }}'
           releaseDraft: false
