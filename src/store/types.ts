@@ -112,6 +112,20 @@ export function rowsFor(rows: RowMap, kind: KindId): Row[] {
 }
 
 /**
+ * Derive a `{ kind → count }` map from the full rows map. For components that
+ * only need per-kind counts (nav badges, dashboard tiles) this lets the
+ * selector return a stable shallow-equal object instead of re-rendering on
+ * every row mutation across all kinds. Pair with `useShallow`.
+ */
+export function selectKindCounts(rows: RowMap): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const [kind, list] of Object.entries(rows)) {
+    counts[kind] = list.length;
+  }
+  return counts;
+}
+
+/**
  * Full application state interface.
  * This combines all the state from different slices.
  */
@@ -215,6 +229,8 @@ export interface AppState {
   setActiveTab: (tab: DetailTab) => void;
   openDetailTab: (kind: KindId, row: Row) => void;
   closeDetailTab: (uid: string) => void;
+  /** Prune multi-tabs whose resource was deleted from live watcher data. */
+  pruneDetailTabs: (kind: KindId, rows: Row[]) => void;
   setActiveDetailTab: (uid: string) => void;
   cycleDetailTab: (direction: 1 | -1) => void;
   openSelectedInTab: () => void;

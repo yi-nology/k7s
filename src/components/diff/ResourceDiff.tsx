@@ -8,7 +8,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useStore } from '../../store';
+import { useStore, rowsFor, selectKindCounts } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from '../../hooks/useI18n';
 import { formatError, getProvider } from '../../providers';
 import { diffLines, diffStat, type DiffLine } from '../../lib/diff';
@@ -28,7 +29,12 @@ function toRef(kind: KindId, namespace: string, name: string): ResourceRef {
 export function ResourceDiff({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const provider = getProvider();
-  const rows = useStore((s) => s.rows);
+  // The diff panel needs: (a) which kinds have rows at all (for the kind
+  // pickers), and (b) the actual rows of the two currently-selected kinds.
+  // Subscribe to a counts map (shallow) + the two dynamic kinds individually,
+  // so an unrelated kind's mutation doesn't re-render the diff panel. The
+  // kind pickers are local state, captured in the selector closures.
+  const counts = useStore(useShallow((s) => selectKindCounts(s.rows)));
 
   // --- Left side state (resource selector) ---
   const [leftKind, setLeftKind] = useState<KindId>('deployments');
@@ -48,48 +54,54 @@ export function ResourceDiff({ onClose }: { onClose: () => void }) {
 
   const [error, setError] = useState<string | null>(null);
 
+  // Subscribe to just the two selected kinds' rows (not the whole rows map).
+  // The selector closures capture leftKind/rightKind; Zustand re-runs them on
+  // every store update and on re-render (when the kind pickers change).
+  const leftKindRows = useStore((s) => rowsFor(s.rows, leftKind));
+  const rightKindRows = useStore((s) => rowsFor(s.rows, rightKind));
+
   // Available kinds that have rows.
   const availableKinds = useMemo(
     () =>
-      Object.entries(rows)
-        .filter(([, r]) => r.length > 0)
+      Object.entries(counts)
+        .filter(([, c]) => c > 0)
         .map(([k]) => k as KindId)
         .sort(),
-    [rows]
+    [counts]
   );
 
   // Namespaces for the selected left kind.
   const leftNsList = useMemo(() => {
     const ns = new Set<string>();
-    for (const r of rows[leftKind] ?? []) {
+    for (const r of leftKindRows) {
       if (r.namespace) ns.add(r.namespace);
     }
     return [...ns].sort();
-  }, [rows, leftKind]);
+  }, [leftKindRows]);
 
   // Names for the selected left kind+ns.
   const leftNameList = useMemo(() => {
-    return (rows[leftKind] ?? [])
+    return leftKindRows
       .filter((r) => !leftNs || r.namespace === leftNs)
       .map((r) => r.name)
       .sort();
-  }, [rows, leftKind, leftNs]);
+  }, [leftKindRows, leftNs]);
 
   // Same for right side.
   const rightNsList = useMemo(() => {
     const ns = new Set<string>();
-    for (const r of rows[rightKind] ?? []) {
+    for (const r of rightKindRows) {
       if (r.namespace) ns.add(r.namespace);
     }
     return [...ns].sort();
-  }, [rows, rightKind]);
+  }, [rightKindRows]);
 
   const rightNameList = useMemo(() => {
-    return (rows[rightKind] ?? [])
+    return rightKindRows
       .filter((r) => !rightNs || r.namespace === rightNs)
       .map((r) => r.name)
       .sort();
-  }, [rows, rightKind, rightNs]);
+  }, [rightKindRows, rightNs]);
 
   // Fetch YAML for the left side.
   const fetchLeft = useCallback(async () => {

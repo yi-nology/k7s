@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import styles from './CommandPalette.module.css';
 import { useStore } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { buildPalette, type ActionId, type PaletteItem } from '../../lib/palette';
@@ -22,7 +23,10 @@ export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
   const setOpen = useStore((s) => s.setPaletteOpen);
   const jumpTo = useStore((s) => s.jumpTo);
-  const rows = useStore((s) => s.rows);
+  // The palette genuinely searches objects across all kinds, so it needs the
+  // full rows map. useShallow compares each kind array by reference so we only
+  // re-render when a kind's rows actually change, not on unrelated store fields.
+  const rows = useStore(useShallow((s) => s.rows));
   const customKinds = useStore((s) => s.customKinds);
   const nav = useStore((s) => s.nav);
   const selectedRow = useStore((s) => s.selectedRow);

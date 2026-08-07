@@ -13,7 +13,7 @@
 
 import { useMemo } from 'react';
 import styles from './CronJobTimeline.module.css';
-import { useStore } from '../../store';
+import { useStore, rowsFor } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
 import { useNow } from '../../hooks/useNow';
 import { formatAge } from '../../lib/format';
@@ -96,7 +96,8 @@ function isJobOwnedByCronJob(job: Row, cronJobName: string): boolean {
 
 export function CronJobTimeline() {
   const row = useStore((s) => s.selectedRow);
-  const rows = useStore((s) => s.rows);
+  // Only jobs are read here — subscribe to that one kind, not all rows.
+  const jobsRows = useStore((s) => rowsFor(s.rows, 'jobs'));
   const navigateTo = useStore((s) => s.navigateTo);
   const { t } = useTranslation();
   const now = useNow();
@@ -111,7 +112,7 @@ export function CronJobTimeline() {
     if (!row) return [];
     const cronJobName = row.name;
     const cronJobNs = row.namespace;
-    const allJobs = rows.jobs ?? [];
+    const allJobs = jobsRows;
 
     return allJobs
       .filter((j) => {
@@ -129,7 +130,7 @@ export function CronJobTimeline() {
         return tb - ta;
       })
       .slice(0, MAX_TIMELINE_JOBS);
-  }, [row, rows.jobs]);
+  }, [row, jobsRows]);
 
   if (!row) {
     return <div className={styles.empty}>{t('timeline.noSelection', 'No CronJob selected.')}</div>;

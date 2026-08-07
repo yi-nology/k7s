@@ -17,6 +17,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useStore } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from '../../hooks/useI18n';
 import { kindLabelFor } from '../../lib/i18n';
 import { calculateHealth, gradeColor } from '../../lib/health';
@@ -62,7 +63,11 @@ const RESOURCE_KINDS: Array<{
 export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
   const { t, locale } = useTranslation();
   const connection = useStore((s) => s.connection);
-  const rows = useStore((s) => s.rows);
+  // The dashboard aggregates many kinds (health inputs, count tiles, resource
+  // quotas), so it genuinely needs the full rows map. useShallow compares each
+  // kind array by reference so we only re-render when a kind's rows actually
+  // change, not on unrelated store fields.
+  const rows = useStore(useShallow((s) => s.rows));
   const nodeMetrics = useStore((s) => s.nodeMetrics);
   const setNav = useStore((s) => s.setNav);
   const closeOverlay = useStore((s) => s.closeOverlay);

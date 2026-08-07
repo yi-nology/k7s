@@ -11,6 +11,7 @@
  */
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useStore } from '../../store';
+import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from '../../hooks/useI18n';
 import type { Row } from '../../providers/types';
 import styles from './IngressRouteTopology.module.css';
@@ -151,20 +152,27 @@ const PAD_Y = 30;
 
 export function IngressRouteTopology({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const rows = useStore((s) => s.rows);
+  // Only ingresses + services are read here — subscribe to those two kinds,
+  // shallow-compared, instead of the whole rows map.
+  const { ingresses: ingressRows, services: serviceRows } = useStore(
+    useShallow((s) => ({
+      ingresses: s.rows.ingresses ?? [],
+      services: s.rows.services ?? [],
+    }))
+  );
   const [hover, setHover] = useState<string | null>(null);
   const svgRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 500 });
 
   // Parse rows into typed structures.
   const ingresses = useMemo(
-    () => (rows['ingresses'] ?? []).filter((r) => r.namespace !== undefined).map(parseIngress),
-    [rows]
+    () => ingressRows.filter((r) => r.namespace !== undefined).map(parseIngress),
+    [ingressRows]
   );
 
   const services = useMemo(
-    () => (rows['services'] ?? []).filter((r) => r.namespace !== undefined).map(parseService),
-    [rows]
+    () => serviceRows.filter((r) => r.namespace !== undefined).map(parseService),
+    [serviceRows]
   );
 
   // Match ingresses to services.
