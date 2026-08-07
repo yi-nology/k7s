@@ -149,10 +149,12 @@ export function extractContainerImages(yaml: string): ContainerImage[] {
       // Field-level: `name:` and `image:` at the container field indent.
       if (leading === memberIndent + 2) {
         if (trimmed.startsWith('name:') && currentName === null) {
-          // `name:` after another first field (e.g. `- image:` came first).
+          // `name:` after another first field (e.g. `- image:` came first,
+          // or `image:` at field level came before `name:`).
           currentName = trimmed.slice('name:'.length).trim();
-          // If we had a pending image from `- image:` at the member indent,
-          // emit it now that we know the name.
+          // If we had a pending image from `- image:` at the member indent
+          // or from `image:` at the field level, emit it now that we know
+          // the name.
           if (pendingImage && section) {
             out.push({ name: currentName, kind: section, image: pendingImage });
             pendingImage = null;
@@ -162,6 +164,10 @@ export function extractContainerImages(yaml: string): ContainerImage[] {
           out.push({ name: currentName, kind: section, image });
           // Don't reset currentName — `image:` is a per-container field,
           // and the next field at the same indent belongs to the same one.
+        } else if (trimmed.startsWith('image:') && currentName === null) {
+          // `image:` before `name:` at field level (kubectl alphabetical
+          // output). Save it — we'll emit when `name:` appears.
+          pendingImage = trimmed.slice('image:'.length).trim();
         }
       }
     }
@@ -271,20 +277,44 @@ export function rewriteContainerImage(
         if (trimmed.startsWith('name:') && currentName === null) {
           currentName = trimmed.slice('name:'.length).trim();
           if (pendingImage) {
-            // We had `- image:` before this `name:`. If this is the target
-            // container, rewrite the pending image line; otherwise emit unchanged.
+            // We had `- image:` or field-level `image:` before this `name:`.
+            // If this is the target container, rewrite the pending image
+            // line; otherwise emit unchanged.
             if (currentName === containerName) {
-              const prefix = pendingImage.slice(
-                0,
-                pendingImage.indexOf('image:') + 'image:'.length
-              );
-              out.push(`${prefix} ${newImage}`);
+              // pendingImage might be a full raw line (from `- image:`) or
+              // just the image value (from field-level `image:`).
+              if (pendingImage.includes('image:')) {
+                // Full raw line from `- image:` at member indent
+                const prefix = pendingImage.slice(
+                  0,
+                  pendingImage.indexOf('image:') + 'image:'.length
+                );
+                out.push(`${prefix} ${newImage}`);
+              } else {
+                // Just the value from field-level `image:` — reconstruct
+                // the line with proper indentation.
+                const indent = ' '.repeat(memberIndent + 2);
+                out.push(`${indent}image: ${newImage}`);
+              }
               currentName = null; // done with this container
             } else {
-              out.push(pendingImage);
+              // Not the target — emit the pending line unchanged.
+              // If it was just a value, reconstruct the full line.
+              if (!pendingImage.includes('image:')) {
+                const indent = ' '.repeat(memberIndent + 2);
+                out.push(`${indent}image: ${pendingImage}`);
+              } else {
+                out.push(pendingImage);
+              }
             }
             pendingImage = null;
           }
+        } else if (trimmed.startsWith('image:') && currentName === null) {
+          // `image:` before `name:` at field level (kubectl alphabetical
+          // output). Save the raw line — we'll rewrite or emit when `name:`
+          // appears.
+          pendingImage = raw;
+          continue; // don't push to out yet
         } else if (currentName === containerName && trimmed.startsWith('image:')) {
           // Preserve the leading whitespace and the `image:` token; only
           // the value (and any inline trailing comment) is replaced.

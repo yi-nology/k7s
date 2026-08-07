@@ -233,6 +233,35 @@ spec:
         - containerPort: 80
 `;
 
+// Regression: kubectl outputs container fields in alphabetical order, so
+// `env:` comes first at member indent, then `image:` and `name:` both
+// appear at field level with `image:` before `name:`.
+const YAML_KUBECTL_ALPHABETICAL = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kylin-insights-iam-server
+  namespace: kylin-insights
+spec:
+  template:
+    spec:
+      containers:
+      - env:
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: JWT_SECRET
+              name: kylin-insights-iam-server-secrets
+        envFrom:
+        - configMapRef:
+            name: kylin-insights-iam-server-config
+        image: cr.kylinos.cn/kylin-insight/iam-server:main-20260806-f348306f-gitlabci
+        imagePullPolicy: IfNotPresent
+        name: kylin-insights-iam-server
+        ports:
+        - containerPort: 8000
+          name: http
+`;
+
 describe('field order: image before name', () => {
   it('extracts container when image appears before name', () => {
     const out = extractContainerImages(YAML_IMAGE_BEFORE_NAME);
@@ -255,5 +284,28 @@ describe('field order: image before name', () => {
     expect(out).toMatch(/image: cr\.kylinos\.cn\/kylin-insight\/kylin-insights-frontend:v2\.0\.0/m);
     // The name line is preserved verbatim.
     expect(out).toMatch(/name: kylin-insights-frontend/m);
+  });
+
+  it('extracts container from kubectl alphabetical output (env before image before name)', () => {
+    const out = extractContainerImages(YAML_KUBECTL_ALPHABETICAL);
+    expect(out).toEqual([
+      {
+        name: 'kylin-insights-iam-server',
+        kind: 'standard',
+        image: 'cr.kylinos.cn/kylin-insight/iam-server:main-20260806-f348306f-gitlabci',
+      },
+    ]);
+  });
+
+  it('rewrites image from kubectl alphabetical output', () => {
+    const out = rewriteContainerImage(
+      YAML_KUBECTL_ALPHABETICAL,
+      'kylin-insights-iam-server',
+      'cr.kylinos.cn/kylin-insight/iam-server:new-tag'
+    );
+    expect(out).toMatch(/image: cr\.kylinos\.cn\/kylin-insight\/iam-server:new-tag/m);
+    expect(out).toMatch(/name: kylin-insights-iam-server/m);
+    // env array is preserved
+    expect(out).toMatch(/JWT_SECRET/m);
   });
 });
