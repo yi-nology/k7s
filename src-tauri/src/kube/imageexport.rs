@@ -167,7 +167,12 @@ fn list_command(runtime: &str) -> AppResult<Vec<String>> {
             ]);
         }
         "docker" => {
-            argv.extend(["docker".into(), "images".into(), "--format".into(), "json".into()]);
+            argv.extend([
+                "docker".into(),
+                "images".into(),
+                "--format".into(),
+                "json".into(),
+            ]);
         }
         other => return Err(AppError::Other(format!("unsupported runtime '{other}'"))),
     }
@@ -448,7 +453,13 @@ mod tests {
         // A ref containing shell metacharacters must be rejected before it
         // ever reaches the runtime — defense in depth against command
         // injection, even though image_ref is now a discrete argv element.
-        for evil in ["nginx; id", "nginx && cat /etc/shadow", "nginx`id`", "nginx$(id)", "nginx|sh"] {
+        for evil in [
+            "nginx; id",
+            "nginx && cat /etc/shadow",
+            "nginx`id`",
+            "nginx$(id)",
+            "nginx|sh",
+        ] {
             assert!(
                 export_command("containerd", evil).is_err(),
                 "expected '{evil}' to be rejected"
@@ -515,6 +526,12 @@ mod tests {
         // `ctr images list -q` outputs bare refs, one per line.
         let output = "docker.io/library/nginx:1.25\ndocker.io/library/busybox:latest\n";
         let images = parse_listed_images(output, "containerd");
-        assert_eq!(images, vec!["docker.io/library/nginx:1.25", "docker.io/library/busybox:latest"]);
+        assert_eq!(
+            images,
+            vec![
+                "docker.io/library/nginx:1.25",
+                "docker.io/library/busybox:latest"
+            ]
+        );
     }
 }

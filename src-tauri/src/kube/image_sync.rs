@@ -175,7 +175,10 @@ impl AuthCreds<'_> {
 ///
 /// Returns `Ok(None)` when the credentials are empty/anonymous (no auth file
 /// is needed), so the caller can pass `None` straight through to `build_argv`.
-pub(crate) fn write_skopeo_authfile(host: &str, creds: AuthCreds) -> AppResult<Option<std::path::PathBuf>> {
+pub(crate) fn write_skopeo_authfile(
+    host: &str,
+    creds: AuthCreds,
+) -> AppResult<Option<std::path::PathBuf>> {
     use base64::Engine;
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
@@ -835,7 +838,10 @@ mod tests {
             Some(authfile),
             false,
         );
-        assert_eq!(argv[argv.len() - 2], "docker://harbor.local/library/nginx:1.25");
+        assert_eq!(
+            argv[argv.len() - 2],
+            "docker://harbor.local/library/nginx:1.25"
+        );
         assert_eq!(argv[argv.len() - 1], "docker-archive:/tmp/nginx.tar");
         assert!(argv.contains(&"--src-authfile".into()));
         assert!(argv.contains(&"/tmp/k7s-test-export-auth.json".into()));
@@ -887,7 +893,10 @@ mod tests {
 
     #[test]
     fn docker_transport_host_extracts_registry() {
-        assert_eq!(docker_transport_host("docker://nginx:1.25"), Some("nginx:1.25"));
+        assert_eq!(
+            docker_transport_host("docker://nginx:1.25"),
+            Some("nginx:1.25")
+        );
         assert_eq!(
             docker_transport_host("docker://registry-a/foo:v1"),
             Some("registry-a")
@@ -922,11 +931,19 @@ mod tests {
     #[test]
     fn authcreds_split_handles_empty_user() {
         assert_eq!(
-            AuthCreds::Split { user: "u", pass: "p" }.user_pass(),
+            AuthCreds::Split {
+                user: "u",
+                pass: "p"
+            }
+            .user_pass(),
             Some(("u", "p"))
         );
         assert_eq!(
-            AuthCreds::Split { user: "", pass: "p" }.user_pass(),
+            AuthCreds::Split {
+                user: "",
+                pass: "p"
+            }
+            .user_pass(),
             None
         );
     }
@@ -934,14 +951,13 @@ mod tests {
     #[test]
     fn write_skopeo_authfile_returns_none_for_anonymous() {
         // Empty/anonymous creds don't need an auth file at all.
-        assert!(write_skopeo_authfile("reg.local", AuthCreds::Raw("")).unwrap().is_none());
-        assert!(
-            write_skopeo_authfile(
-                "reg.local",
-                AuthCreds::Split { user: "", pass: "" }
-            )
+        assert!(write_skopeo_authfile("reg.local", AuthCreds::Raw(""))
             .unwrap()
-            .is_none()
+            .is_none());
+        assert!(
+            write_skopeo_authfile("reg.local", AuthCreds::Split { user: "", pass: "" })
+                .unwrap()
+                .is_none()
         );
     }
 
@@ -950,7 +966,10 @@ mod tests {
         use base64::Engine;
         let path = write_skopeo_authfile(
             "harbor.local",
-            AuthCreds::Split { user: "admin", pass: "s3cret" },
+            AuthCreds::Split {
+                user: "admin",
+                pass: "s3cret",
+            },
         )
         .unwrap()
         .expect("auth file should be created for real creds");
@@ -960,10 +979,15 @@ mod tests {
 
         // The auth value must be base64("admin:s3cret"), and the structure must
         // be a valid Docker auth file skopeo can consume via --authfile.
-        let expected_auth =
-            base64::engine::general_purpose::STANDARD.encode("admin:s3cret");
-        assert!(body.contains(r#""harbor.local""#), "body missing host: {body}");
-        assert!(body.contains(&expected_auth), "body missing base64 auth: {body}");
+        let expected_auth = base64::engine::general_purpose::STANDARD.encode("admin:s3cret");
+        assert!(
+            body.contains(r#""harbor.local""#),
+            "body missing host: {body}"
+        );
+        assert!(
+            body.contains(&expected_auth),
+            "body missing base64 auth: {body}"
+        );
         let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
         assert_eq!(
             parsed["auths"]["harbor.local"]["auth"].as_str(),

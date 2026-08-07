@@ -336,7 +336,9 @@ fn cors_layer(addr: SocketAddr) -> CorsLayer {
             }
             match HeaderValue::from_str(trimmed) {
                 Ok(v) => origins.push(v),
-                Err(e) => tracing::warn!("ignoring invalid K7S_ALLOWED_ORIGINS entry '{trimmed}': {e}"),
+                Err(e) => {
+                    tracing::warn!("ignoring invalid K7S_ALLOWED_ORIGINS entry '{trimmed}': {e}")
+                }
             }
         }
     }
@@ -344,7 +346,10 @@ fn cors_layer(addr: SocketAddr) -> CorsLayer {
     CorsLayer::new()
         .allow_origin(AllowOrigin::list(origins))
         .allow_methods([Method::GET, Method::POST])
-        .allow_headers([HeaderName::from_static("content-type"), HeaderName::from_static("accept")])
+        .allow_headers([
+            HeaderName::from_static("content-type"),
+            HeaderName::from_static("accept"),
+        ])
 }
 
 /// `axum::serve` future resolves only on graceful shutdown; for now we let
