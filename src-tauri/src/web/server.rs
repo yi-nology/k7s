@@ -284,7 +284,12 @@ pub fn api_router(state: WebState) -> Router {
 /// top: any path the API doesn't match falls through to `static_dir`, with
 /// `index.html` as the catch-all so the front-end's client-side router can
 /// take over.
-pub fn router(state: WebState, static_dir: Option<PathBuf>, use_embedded: bool, addr: SocketAddr) -> Router {
+pub fn router(
+    state: WebState,
+    static_dir: Option<PathBuf>,
+    use_embedded: bool,
+    addr: SocketAddr,
+) -> Router {
     let cors = cors_layer(addr);
 
     let api = api_router(state);
