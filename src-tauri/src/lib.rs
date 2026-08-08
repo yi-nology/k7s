@@ -12,6 +12,13 @@ pub mod kube;
 
 pub mod core;
 
+// The built-in AI assistant module. Compiled into every build (no feature
+// gate) but runtime-disabled by default via AiConfig.enabled — see
+// `ai/mod.rs`. Embeds an OpenAI-compatible LLM + an independent tool set +
+// a ReAct agent loop, so the user gets an in-app chat panel that can drive
+// the connected cluster.
+pub mod ai;
+
 // The web shell (axum HTTP server, k7s-web binary). `pub` because the binary
 // entry point lives in src/bin/ and needs to import the router; everything
 // inside is `#[cfg(feature = "web")]` so a `cargo build` of just the desktop
@@ -75,6 +82,9 @@ pub fn run() {
                 .map_err(|e| format!("no config dir: {e}"))?;
             let state = CoreState::new(manager, data_dir);
             app.manage(state);
+            // The AI assistant runtime holds in-flight run bookkeeping
+            // (approvals + cancellation). It's cheap and self-contained.
+            app.manage(Arc::new(commands::ai::AiRuntime::new()));
             save_window_state_on_sigterm(app.handle().clone());
             Ok(())
         })
@@ -211,6 +221,14 @@ pub fn run() {
             commands::sbom_export,
             // RBAC Security Audit
             commands::security_audit_run,
+            // Built-in AI assistant (runtime-toggled). See commands::ai.
+            commands::ai_get_config,
+            commands::ai_save_config,
+            commands::ai_save_api_key,
+            commands::ai_test_connection,
+            commands::ai_chat,
+            commands::ai_approve_tool_call,
+            commands::ai_cancel,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");

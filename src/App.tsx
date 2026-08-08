@@ -42,7 +42,9 @@ import { IngressEditor } from './components/ingress/IngressEditor';
 import { ResourceDiff } from './components/diff/ResourceDiff';
 import { PluginPanel } from './components/plugins/PluginPanel';
 import { SBOMPanel } from './components/sbom/SBOMPanel';
+import { AiAssistantPanel } from './components/ai/AiAssistantPanel';
 import { usePlugins } from './hooks/usePlugins';
+import { useState } from 'react';
 import type { ComponentType } from 'react';
 import type { OverlayKey } from './store';
 
@@ -99,6 +101,10 @@ export default function App() {
   const closeOverlay = useStore((s) => s.closeOverlay);
   const { t } = useTranslation();
 
+  // AI assistant panel toggle (the panel is a right-side sidebar, not an
+  // overlay — it stays open while the user works the table).
+  const [aiOpen, setAiOpen] = useState(false);
+
   return (
     <ErrorBoundary>
       <div className={styles.app}>
@@ -114,6 +120,7 @@ export default function App() {
             >
               <ResourceTable />
               <DetailPanel />
+              {aiOpen && <AiAssistantPanel onClose={() => setAiOpen(false)} />}
             </div>
             {(() => {
               if (overlay === null || overlay === 'pod-files') return null;
@@ -150,6 +157,19 @@ export default function App() {
               </div>
             )}
           </div>
+          {/* Floating AI toggle — bottom-right of the content area. Hidden while
+              the panel is open (the panel has its own close button). */}
+          {!aiOpen && (
+            <button
+              type="button"
+              className={styles.aiFab}
+              onClick={() => setAiOpen(true)}
+              aria-label="Open AI assistant"
+              title="AI assistant"
+            >
+              ✦
+            </button>
+          )}
           <ForwardsBar />
           <StatusBar />
         </div>

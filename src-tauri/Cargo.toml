@@ -31,7 +31,10 @@ tauri-plugin-window-state = "2"
 # HTTP client for scraping node-exporter over a port-forward (B27). Already in
 # the tree via kube, so this adds no build time; default features off because the
 # forward is plaintext on localhost and needs no TLS stack of its own.
-reqwest = { version = "0.13", default-features = false, features = ["json"] }
+# `stream` powers the AI assistant's LLM SSE streaming (chat completions).
+# `rustls` brings in TLS for the LLM provider (https://api.deepseek.com etc.);
+# kube already uses a rustls backend so this stays consistent.
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
 
 # --- Serialization ---
 serde = { version = "1", features = ["derive"] }
@@ -60,6 +63,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # --- Time formatting for log timestamps ---
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4"] }
+# `async-trait` lets the AI module's `Tool` trait have async fns while staying
+# usable as `dyn Tool` (object-safe). Without it the `Box<dyn Tool>` registry
+# wouldn't compile (async fn in traits is not yet dyn-compatible).
+async-trait = "0.1"
 # Cross-platform directory paths (home dir, temp dir, etc.)
 dirs = "5"
 # Canonicalize paths without UNC prefix on Windows
@@ -80,7 +87,9 @@ tower-http = { version = "0.6", features = ["cors", "trace", "fs"], optional = t
 # `eventsource-stream` parses the SSE bytes the server sends into typed events
 # on the client side, but for the server we only need axum's `Sse` response type
 # from `axum::response::sse` which is part of axum proper.
-async-stream = { version = "0.3", optional = true }
+# NOTE: `async-stream` is non-optional — the AI assistant module uses the
+# `try_stream!` macro to assemble the LLM SSE parser in the desktop build too.
+async-stream = "0.3"
 # Embeds the built React app (dist/) into the k7s-web binary so it can be
 # distributed as a single .exe with no external files needed.
 rust-embed = { version = "8", optional = true }
@@ -107,7 +116,7 @@ schemars = { version = "1.0", features = ["chrono04"], optional = true }
 custom-protocol = ["tauri/custom-protocol"]
 # Browser mode: enables axum + SSE so `cargo build --features web --bin k7s-web`
 # produces a standalone HTTP server that fronts the same kube plumbing.
-web = ["dep:axum", "dep:tower", "dep:tower-http", "dep:async-stream", "tower-http/fs", "dep:rmcp", "dep:schemars", "rmcp/transport-streamable-http-server", "dep:rust-embed", "dep:open", "dep:mime_guess"]
+web = ["dep:axum", "dep:tower", "dep:tower-http", "tower-http/fs", "dep:rmcp", "dep:schemars", "rmcp/transport-streamable-http-server", "dep:rust-embed", "dep:open", "dep:mime_guess"]
 # MCP mode: enables the `k7s-mcp` stdio binary. Pulls the MCP SDK.
 # Independent of `web` — the MCP server stands on its own.
 mcp = ["dep:rmcp", "dep:schemars"]

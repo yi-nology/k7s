@@ -65,3 +65,29 @@
   justify-content: center;
   padding: var(--space-6);
 }
+
+/* Floating AI-assistant toggle button — bottom-right of the content area. */
+.aiFab {
+  position: fixed;
+  bottom: 56px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.aiFab:hover {
+  background: var(--accent-hover);
+  transform: scale(1.06);
+}

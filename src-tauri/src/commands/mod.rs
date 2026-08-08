@@ -3,6 +3,7 @@
 //! pushed back via events (see kube::events); these commands cover the one-shot
 //! request/response operations plus starting/stopping log streams.
 
+pub mod ai;
 pub mod core;
 pub mod forward;
 pub mod helm;
@@ -13,6 +14,7 @@ pub mod shell;
 pub mod storage;
 
 // Re-export all commands so `commands::func` paths in lib.rs still work.
+pub use ai::*;
 pub use core::*;
 pub use forward::*;
 pub use helm::*;

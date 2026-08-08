@@ -24,6 +24,7 @@ import { asTheme, type Theme } from '../../lib/theme';
 import { asLocale, LOCALES, type Locale } from '../../lib/i18n';
 import { useTranslation } from '../../hooks/useI18n';
 import { McpPanel } from './McpPanel';
+import { AiSettingsPanel } from '../ai/AiSettingsPanel';
 
 export function SettingsPanel() {
   const open = useStore((s) => s.settingsOpen);
@@ -194,6 +195,10 @@ export function SettingsPanel() {
               placeholder={t('settings.nodeShellImage.placeholder')}
             />
           </Row>
+
+          {/* Built-in AI assistant — embeds an LLM + tool set in the app itself.
+              Runtime-toggled off by default; configure here to enable. */}
+          <AiSettingsPanel />
 
           {/* AI integration — the MCP endpoint this same server exposes.
               Renders below the regular settings so the "you can do all this
