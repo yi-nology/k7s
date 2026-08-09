@@ -229,6 +229,14 @@ pub fn run() {
             commands::ai_chat,
             commands::ai_approve_tool_call,
             commands::ai_cancel,
+            // Skill market (Phase 2).
+            commands::ai_list_skills,
+            // Cluster memory / knowledge base (Phase 3).
+            commands::ai_memory_list,
+            commands::ai_memory_search,
+            commands::ai_memory_add,
+            commands::ai_memory_delete,
+            commands::ai_memory_clear,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");

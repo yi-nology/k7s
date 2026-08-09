@@ -71,6 +71,14 @@ uuid = { version = "1", features = ["v4"] }
 # usable as `dyn Tool` (object-safe). Without it the `Box<dyn Tool>` registry
 # wouldn't compile (async fn in traits is not yet dyn-compatible).
 async-trait = "0.1"
+# OS keychain for the AI assistant's api_key storage (macOS Keychain,
+# Linux secret-service, Windows Credential Manager). Replaces file-based
+# XOR obfuscation with real OS-level secret storage.
+keyring = "4"
+# HMAC + SHA for IM gateway signature verification (WeChat/DingTalk).
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
 # Cross-platform directory paths (home dir, temp dir, etc.)
 dirs = "5"
 # Canonicalize paths without UNC prefix on Windows

@@ -43,6 +43,14 @@ pub struct ChatRequest {
     /// Optional: the resource the user currently has focused in the UI.
     #[serde(default)]
     pub context: Option<SelectedContext>,
+    /// Optional: run with a specific skill active (injects skill prompt +
+    /// filters tools to whitelist). `None` = normal mode.
+    #[serde(default)]
+    pub skill_id: Option<String>,
+    /// Optional: kubeconfig context name (used to scope memory).
+    /// If not provided, memory is not loaded.
+    #[serde(default)]
+    pub kube_context: Option<String>,
 }
 
 /// What the loop tells the outside world as it runs. Transport-agnostic — the
@@ -163,7 +171,55 @@ impl AgentLoop {
         let info = manager.connection_info().await;
         let cluster_ver = info.as_ref().map(|i| i.version.clone());
         let context_name = info.as_ref().map(|i| i.context.clone());
-        let sys = context::build_system_prompt(cluster_ver.as_deref(), context_name.as_deref());
+        let mut sys = context::build_system_prompt(cluster_ver.as_deref(), context_name.as_deref());
+
+        // If a skill is active, append its steering prompt and filter tools.
+        let active_skill: Option<crate::ai::skills::Skill> =
+            req.skill_id.as_deref().and_then(|id| {
+                let data_dir = std::env::var("HOME").ok().map(|h| {
+                    std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
+                        "Library/Application Support/k7s"
+                    } else {
+                        ".config/k7s"
+                    })
+                });
+                crate::ai::skills::SkillRegistry::load(data_dir.as_deref())
+                    .get(id)
+                    .cloned()
+            });
+        if let Some(skill) = &active_skill {
+            sys.push_str("\n\n[Active Skill: ");
+            sys.push_str(&skill.name);
+            sys.push_str("]\n");
+            sys.push_str(&skill.system_prompt_suffix);
+        }
+
+        // Inject cluster memory (if kube_context is provided and data_dir is available).
+        let data_dir = std::env::var("HOME").ok().map(|h| {
+            std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
+                "Library/Application Support/k7s"
+            } else {
+                ".config/k7s"
+            })
+        });
+        let memory_block = if let (Some(ctx_name), Some(dir)) =
+            (req.kube_context.as_deref(), data_dir.as_deref())
+        {
+            let store = crate::ai::memory::MemoryStore::open(dir, ctx_name);
+            let block = store.to_context_block(20);
+            if block.is_empty() {
+                None
+            } else {
+                Some(block)
+            }
+        } else {
+            None
+        };
+        if let Some(ref block) = memory_block {
+            sys.push_str("\n\n");
+            sys.push_str(block);
+        }
+
         let mut messages: Vec<Message> = Vec::with_capacity(req.history.len() + 3);
         messages.push(Message::System { content: sys });
 
@@ -195,7 +251,13 @@ impl AgentLoop {
             content: req.message.clone(),
         });
 
-        let tool_defs = self.registry.function_defs(mode);
+        let mut tool_defs = self.registry.function_defs(mode);
+        // If a skill is active with a whitelist, filter tools.
+        if let Some(skill) = &active_skill {
+            if !skill.tool_whitelist.is_empty() {
+                tool_defs.retain(|d| skill.tool_whitelist.contains(&d.name));
+            }
+        }
         let llm = (self.llm_factory)();
 
         let mut turns = 0u32;

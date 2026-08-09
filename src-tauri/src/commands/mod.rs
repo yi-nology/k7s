@@ -7,10 +7,12 @@ pub mod ai;
 pub mod core;
 pub mod forward;
 pub mod helm;
+pub mod memory;
 pub mod observability;
 pub mod sbom;
 pub mod security;
 pub mod shell;
+pub mod skills;
 pub mod storage;
 
 // Re-export all commands so `commands::func` paths in lib.rs still work.
@@ -18,8 +20,10 @@ pub use ai::*;
 pub use core::*;
 pub use forward::*;
 pub use helm::*;
+pub use memory::*;
 pub use observability::*;
 pub use sbom::*;
 pub use security::*;
 pub use shell::*;
+pub use skills::*;
 pub use storage::*;
