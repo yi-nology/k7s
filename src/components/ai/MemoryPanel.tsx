@@ -7,6 +7,55 @@ import { formatError, getProvider } from '../../providers';
 import type { MemoryEntry, MemoryTier, UserPreference } from '../../lib/ai/types';
 import styles from './AiChat.module.css';
 
+/**
+ * Format memory entry content for display:
+ * - Truncate long content
+ * - Clean up raw JSON error dumps
+ * - Extract meaningful summary from tool-call-heavy entries
+ */
+function formatMemoryContent(content: string): string {
+  // If content contains tool error JSON, extract the user question and clean up
+  const userAskedMatch = content.match(/User asked: "([^"]+)"/);
+  const respondedMatch = content.match(/and responded: "([^"]+)"/);
+
+  if (userAskedMatch) {
+    const question = userAskedMatch[1];
+    let summary = `Q: ${question}`;
+
+    if (respondedMatch) {
+      // Clean up the response — remove JSON error objects
+      let response = respondedMatch[1];
+      // Remove JSON error objects like {"error":"tool error: unknown kind: Pod"}
+      response = response.replace(/\{[^}]*"error"[^}]*\}/g, '').trim();
+      // Remove any remaining orphaned braces
+      response = response.replace(/[{}]/g, '').trim();
+      // Remove multiple spaces
+      response = response.replace(/\s+/g, ' ').trim();
+      if (response) {
+        // Truncate if too long
+        if (response.length > 200) response = response.substring(0, 200) + '…';
+        summary += `\n→ ${response}`;
+      }
+    }
+
+    // Show which tools were used (brief)
+    const toolsMatch = content.match(/AI used tools \[([^\]]+)\]/);
+    if (toolsMatch) {
+      const tools = toolsMatch[1].split(', ').map(t => t.trim());
+      const uniqueTools = [...new Set(tools)];
+      summary += `\n🔧 ${uniqueTools.join(', ')}`;
+    }
+
+    return summary;
+  }
+
+  // For other content, truncate if too long
+  if (content.length > 300) {
+    return content.substring(0, 300) + '…';
+  }
+  return content;
+}
+
 interface Props {
   kubeContext: string;
 }
@@ -159,14 +208,16 @@ export function MemoryPanel({ kubeContext }: Props) {
             <span className={styles.toolExpandChevron}>{entry.createdAt.slice(0, 10)}</span>
             <button type="button" className={styles.headerTab} onClick={() => deleteEntry(entry.id)} title={t('ai.memory.delete')} style={{ marginLeft: 'auto' }}>✕</button>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-body)', padding: '4px 0' }}>{entry.content}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-body)', padding: '4px 0' }}>
+            {formatMemoryContent(entry.content)}
+          </div>
           {entry.tags.length > 0 && (
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{entry.tags.map((tag) => `#${tag}`).join(' ')}</div>
           )}
           {entry.referenceCount > 0 && (
             <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>
-              {t('ai.memory.referenced', { n: entry.referenceCount })}
-              {entry.tier === 'shortTerm' && entry.referenceCount < entry.promoteAt && ` ${t('ai.memory.autoPromotes', { n: entry.promoteAt })}`}
+              {t('ai.memory.referenced', entry.referenceCount)}
+              {entry.tier === 'shortTerm' && entry.referenceCount < entry.promoteAt && ` ${t('ai.memory.autoPromotes', entry.promoteAt)}`}
             </div>
           )}
         </div>
