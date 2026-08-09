@@ -23,12 +23,13 @@ interface Props {
   isWrite: boolean;
   state: 'running' | 'ok' | 'err' | 'pending' | 'denied';
   result?: unknown;
+  defaultExpanded?: boolean;
   onApprove?: (approved: boolean) => void;
 }
 
-export function ToolCallCard({ name, args, isWrite, state, result, onApprove }: Props) {
+export function ToolCallCard({ name, args, isWrite, state, result, defaultExpanded, onApprove }: Props) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(state === 'pending');
+  const [expanded, setExpanded] = useState(defaultExpanded ?? state === 'pending');
 
   const STATUS_LABELS: Record<string, string> = {
     running: t('ai.toolCall.running'),

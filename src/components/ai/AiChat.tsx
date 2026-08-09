@@ -1,18 +1,13 @@
 /**
- * AiChat — the redesigned AI assistant panel.
+ * AiChat — the AI assistant panel with proper turn grouping and history collapsing.
  *
- * Replaces AiAssistantPanel with a production-quality UX:
- * - Markdown rendering for assistant replies
- * - Collapsible tool call cards
- * - Context-sensitive quick actions
- * - Welcome guide for first-time users
- * - Status bar with model/connection/permission info
- * - Tab-less design: skills/memory/cron are accessible via header buttons
- *
- * Talks to the backend through the same Tauri commands as before.
+ * Key design decisions:
+ * - Messages are grouped into "turns" (user msg + reasoning + tool calls + response).
+ * - Current turn's tool calls are expanded; past turns' are collapsed.
+ * - Context badges are shown inline (not as separate rows).
+ * - History stored in backend includes tool results; displayed version strips them.
  */
-import { useEffect, useRef, useState } from 'react';
-import { useTranslation } from '../../hooks/useI18n';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { getProvider } from '../../providers';
 import type {
   AgentEvent,
@@ -33,22 +28,26 @@ import styles from './AiChat.module.css';
 
 type Tab = 'chat' | 'skills' | 'memory' | 'cron';
 
-/** One renderable transcript row. */
-type Row =
-  | { kind: 'user'; text: string }
-  | { kind: 'assistant'; text: string }
-  | { kind: 'reasoning'; text: string }
-  | { kind: 'context'; blockType: string; summary: string }
-  | {
-      kind: 'tool';
-      callId: string;
-      name: string;
-      args: unknown;
-      isWrite: boolean;
-      state: 'running' | 'ok' | 'err' | 'pending' | 'denied';
-      result?: unknown;
-    }
-  | { kind: 'error'; text: string };
+// ── Row types ──────────────────────────────────────────────────────────
+
+interface UserRow { kind: 'user'; text: string }
+interface AssistantRow { kind: 'assistant'; text: string }
+interface ReasoningRow { kind: 'reasoning'; text: string }
+interface ContextRow { kind: 'context'; blockType: string; summary: string }
+interface ToolRow {
+  kind: 'tool';
+  callId: string;
+  name: string;
+  args: unknown;
+  isWrite: boolean;
+  state: 'running' | 'ok' | 'err' | 'pending' | 'denied';
+  result?: unknown;
+}
+interface ErrorRow { kind: 'error'; text: string }
+
+type Row = UserRow | AssistantRow | ReasoningRow | ContextRow | ToolRow | ErrorRow;
+
+// ── Component ──────────────────────────────────────────────────────────
 
 interface Props {
   selectedContext?: SelectedContext;
@@ -57,6 +56,7 @@ interface Props {
 
 export function AiChat({ selectedContext, onClose }: Props) {
   const [rows, setRows] = useState<Row[]>([]);
+  const [turnBoundaries, setTurnBoundaries] = useState<number[]>([0]); // indices where turns start
   const [input, setInput] = useState('');
   const [runId, setRunId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,73 +67,90 @@ export function AiChat({ selectedContext, onClose }: Props) {
   const [config, setConfig] = useState<AiConfigView | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { t } = useTranslation();
 
   // Load config + context on mount.
   useEffect(() => {
     getProvider().aiGetConfig().then(setConfig).catch(() => {});
-    getProvider().aiGetContext().then((ctx) => { if (ctx) setKubeContext(ctx); }).catch(() => {});
+    getProvider()
+      .aiGetContext()
+      .then((ctx) => {
+        if (ctx) setKubeContext(ctx);
+      })
+      .catch(() => {});
   }, []);
 
   // Auto-scroll on new content.
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [rows]);
 
-  // Subscribe to ai_event while a run is active.
-  // Uses Tauri listen in desktop mode, SSE EventSource in web mode.
+  // SSE subscription.
   useEffect(() => {
     if (!runId) return;
     let cleanup: (() => void) | null = null;
-    const handler = (ev: AgentEvent) => {
+    const handleEvent = (ev: AgentEvent) => {
       const envelope = ev as unknown as { runId?: string; event?: AgentEvent };
-      // The event payload might be the envelope or the event directly.
       const event = envelope.event ?? (ev as AgentEvent);
       const evRunId = envelope.runId ?? runId;
       if (evRunId !== runId) return;
-      handleEvent(event);
+      processEvent(event);
     };
-
-    // Check if we're in Tauri mode.
     const isTauri = '__TAURI__' in window;
     if (isTauri) {
-      // Dynamic import to avoid bundling Tauri API in web builds.
       import('@tauri-apps/api/event').then(({ listen }) => {
         let unlistenFn: (() => void) | null = null;
         void listen<{ runId: string; event: AgentEvent }>('ai_event', (e) => {
           if (e.payload.runId !== runId) return;
-          handleEvent(e.payload.event);
-        }).then((fn) => { unlistenFn = fn; });
-        cleanup = () => { unlistenFn?.(); };
+          processEvent(e.payload.event);
+        }).then((fn) => {
+          unlistenFn = fn;
+        });
+        cleanup = () => {
+          unlistenFn?.();
+        };
       });
     } else {
-      // Web mode: subscribe to SSE events. The endpoint sends events with
-      // `event: ai_event` headers, so we must use addEventListener (not
-      // onmessage, which only receives headerless events).
       const es = new EventSource('/api/events');
       const aiHandler = (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data);
           if (data.runId === runId) {
-            handler(data.event);
+            handleEvent(data.event);
           }
-        } catch { /* ignore parse errors */ }
+        } catch {
+          /* ignore */
+        }
       };
       es.addEventListener('ai_event', aiHandler);
-      cleanup = () => { es.removeEventListener('ai_event', aiHandler); es.close(); };
+      cleanup = () => {
+        es.removeEventListener('ai_event', aiHandler);
+        es.close();
+      };
     }
-    return () => { cleanup?.(); };
+    return () => {
+      cleanup?.();
+    };
   }, [runId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function pushRow(r: Row) { setRows((prev) => [...prev, r]); }
+  const pushRow = useCallback((r: Row) => {
+    setRows((prev) => [...prev, r]);
+  }, []);
 
-  function updateToolRow(callId: string, patch: Partial<Extract<Row, { kind: 'tool' }>>) {
-    setRows((prev) =>
-      prev.map((r) => (r.kind === 'tool' && r.callId === callId ? { ...r, ...patch } : r))
-    );
-  }
+  const updateToolRow = useCallback(
+    (callId: string, patch: Partial<ToolRow>) => {
+      setRows((prev) =>
+        prev.map((r) =>
+          r.kind === 'tool' && r.callId === callId ? { ...r, ...patch } : r
+        )
+      );
+    },
+    []
+  );
 
-  function handleEvent(ev: AgentEvent) {
+  function processEvent(ev: AgentEvent) {
     switch (ev.type) {
       case 'textDelta':
         setRows((prev) => {
@@ -157,7 +174,14 @@ export function AiChat({ selectedContext, onClose }: Props) {
         pushRow({ kind: 'context', blockType: ev.blockType, summary: ev.summary });
         break;
       case 'toolCall':
-        pushRow({ kind: 'tool', callId: ev.callId, name: ev.name, args: ev.arguments, isWrite: ev.isWrite, state: ev.isWrite ? 'pending' : 'running' });
+        pushRow({
+          kind: 'tool',
+          callId: ev.callId,
+          name: ev.name,
+          args: ev.arguments,
+          isWrite: ev.isWrite,
+          state: ev.isWrite ? 'pending' : 'running',
+        });
         break;
       case 'pendingApproval':
         updateToolRow(ev.callId, { state: 'pending' });
@@ -182,9 +206,11 @@ export function AiChat({ selectedContext, onClose }: Props) {
     const msg = (text || input).trim();
     if (!msg || busy) return;
     setInput('');
+    // Record turn boundary (index of the user message we're about to push).
+    setTurnBoundaries((prev) => [...prev, rows.length]);
     pushRow({ kind: 'user', text: msg });
     setBusy(true);
-    setTab('chat'); // switch to chat tab when sending
+    setTab('chat');
     const req: ChatRequest = {
       message: msg,
       history,
@@ -203,17 +229,26 @@ export function AiChat({ selectedContext, onClose }: Props) {
 
   async function cancel() {
     if (!runId) return;
-    try { await getProvider().aiCancel(runId); } catch { /* ignore */ }
+    try {
+      await getProvider().aiCancel(runId);
+    } catch {
+      /* ignore */
+    }
   }
 
   async function approve(callId: string, approved: boolean) {
     if (!runId) return;
     updateToolRow(callId, { state: approved ? 'running' : 'denied' });
-    try { await getProvider().aiApproveToolCall(runId, callId, approved); } catch (e) { pushRow({ kind: 'error', text: String(e) }); }
+    try {
+      await getProvider().aiApproveToolCall(runId, callId, approved);
+    } catch (e) {
+      pushRow({ kind: 'error', text: String(e) });
+    }
   }
 
   function newChat() {
     setRows([]);
+    setTurnBoundaries([0]);
     setHistory([]);
     setRunId(null);
     setBusy(false);
@@ -222,7 +257,10 @@ export function AiChat({ selectedContext, onClose }: Props) {
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void send();
+    }
   }
 
   const onSkillSelect = (id: string | undefined) => {
@@ -232,47 +270,45 @@ export function AiChat({ selectedContext, onClose }: Props) {
 
   const aiEnabled = config?.enabled ?? false;
 
+  // Determine which turn is "current" (the last one).
+  const currentTurnStart = turnBoundaries.length > 0 ? turnBoundaries[turnBoundaries.length - 1] : 0;
+
   return (
     <div className={styles.panel} data-surface="panel">
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <span className={styles.headerTitle}>{t('ai.chat.title')}</span>
-          {activeSkillId && (
-            <span className={styles.skillBadge}>{activeSkillId}</span>
-          )}
+          <span className={styles.headerTitle}>✦ k7s AI</span>
+          {activeSkillId && <span className={styles.skillBadge}>{activeSkillId}</span>}
         </div>
         <div className={styles.headerRight}>
-          {([
-            ['chat', t('ai.chat.tabChat')],
-            ['skills', t('ai.chat.tabSkills')],
-            ['memory', t('ai.chat.tabMemory')],
-            ['cron', t('ai.chat.tabCron')],
-          ] as [Tab, string][]).map(([tabId, label]) => (
-            <button
-              key={tabId}
-              type="button"
-              className={tab === tabId ? styles.headerTabActive : styles.headerTab}
-              onClick={() => setTab(tabId)}
-              title={label}
-            >
-              {label}
-            </button>
-          ))}
+          {([['chat', '💬 Chat'], ['skills', '⚡ Skills'], ['memory', '🧠 Memory'], ['cron', '⏰ Cron']] as [Tab, string][]).map(
+            ([tabId, label]) => (
+              <button
+                key={tabId}
+                type="button"
+                className={tab === tabId ? styles.headerTabActive : styles.headerTab}
+                onClick={() => setTab(tabId)}
+                title={label}
+              >
+                {label}
+              </button>
+            )
+          )}
           {tab === 'chat' && rows.length > 0 && (
-            <button type="button" className={styles.headerTab} onClick={newChat} title={t('ai.chat.newConversation')}>
+            <button type="button" className={styles.headerTab} onClick={newChat} title="New conversation">
               🔄
             </button>
           )}
           {onClose && (
-            <button type="button" className={styles.headerTab} onClick={onClose} title={t('ai.chat.close')}>
+            <button type="button" className={styles.headerTab} onClick={onClose} title="Close">
               ✕
             </button>
           )}
         </div>
       </div>
 
-      {/* Content area — switchable tabs */}
+      {/* Content area */}
       {tab === 'skills' && <SkillsPanel activeId={activeSkillId} onSelect={onSkillSelect} />}
       {tab === 'memory' && <MemoryPanel kubeContext={kubeContext} />}
       {tab === 'cron' && <CronPanel />}
@@ -280,37 +316,48 @@ export function AiChat({ selectedContext, onClose }: Props) {
       {/* Chat tab */}
       {tab === 'chat' && (
         <>
-          {/* Quick actions */}
-          {!busy && <QuickActions selectedContext={selectedContext} onAction={send} disabled={busy || !aiEnabled} />}
+          {!busy && (
+            <QuickActions
+              selectedContext={selectedContext}
+              onAction={send}
+              disabled={busy || !aiEnabled}
+            />
+          )}
 
-          {/* Messages */}
           <div className={styles.body} ref={scrollRef}>
             {rows.length === 0 && (
               <AiWelcome onExampleClick={send} aiEnabled={aiEnabled} />
             )}
             {rows.map((row, i) => {
+              const isCurrentTurn = i >= currentTurnStart;
+
               if (row.kind === 'user') {
                 return (
                   <div key={i} className={styles.userMsg}>
-                    <div className={styles.userLabel}>{t('ai.chat.you')}</div>
+                    <div className={styles.userLabel}>You</div>
                     {row.text}
                   </div>
                 );
               }
-              if (row.kind === 'reasoning') {
-                return <ReasoningBlock key={i} text={row.text} />;
-              }
+
               if (row.kind === 'context') {
                 return <ContextBadge key={i} blockType={row.blockType} summary={row.summary} />;
               }
+
+              if (row.kind === 'reasoning') {
+                // Past turns: always collapsed. Current turn: collapsed by default.
+                return <ReasoningBlock key={i} text={row.text} defaultExpanded={false} />;
+              }
+
               if (row.kind === 'assistant') {
                 return (
                   <div key={i} className={styles.assistantMsg}>
-                    <div className={styles.assistantLabel}>{t('ai.chat.assistant')}</div>
+                    <div className={styles.assistantLabel}>✦ k7s AI</div>
                     <MarkdownMessage content={row.text} />
                   </div>
                 );
               }
+
               if (row.kind === 'error') {
                 return (
                   <div key={i} className={styles.errorMsg}>
@@ -319,6 +366,8 @@ export function AiChat({ selectedContext, onClose }: Props) {
                   </div>
                 );
               }
+
+              // Tool call card.
               return (
                 <ToolCallCard
                   key={i}
@@ -327,7 +376,13 @@ export function AiChat({ selectedContext, onClose }: Props) {
                   isWrite={row.isWrite}
                   state={row.state}
                   result={row.result}
-                  onApprove={row.state === 'pending' ? (ap) => approve(row.callId, ap) : undefined}
+                  // Past turns: collapsed. Current turn pending: expanded.
+                  defaultExpanded={isCurrentTurn && row.state === 'pending'}
+                  onApprove={
+                    row.state === 'pending'
+                      ? (ap) => approve(row.callId, ap)
+                      : undefined
+                  }
                 />
               );
             })}
@@ -346,7 +401,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
               ref={inputRef}
               className={styles.input}
               value={input}
-              placeholder={aiEnabled ? t('ai.chat.placeholder') : t('ai.chat.placeholderDisabled')}
+              placeholder={aiEnabled ? 'Ask anything about your cluster…' : 'Enable AI in Settings first…'}
               rows={1}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
@@ -355,7 +410,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
             <div className={styles.inputActions}>
               {busy ? (
                 <button type="button" className={styles.stopBtn} onClick={cancel}>
-                  {t('ai.chat.stop')}
+                  Stop
                 </button>
               ) : (
                 <button
@@ -372,15 +427,22 @@ export function AiChat({ selectedContext, onClose }: Props) {
         </>
       )}
 
-      {/* Status bar */}
       <AiStatusBar config={config} connected={!!kubeContext} contextName={kubeContext} />
     </div>
   );
 }
 
-/** Collapsible reasoning block — shows the LLM's thinking process. */
-function ReasoningBlock({ text }: { text: string }) {
-  const [expanded, setExpanded] = useState(false);
+// ── Sub-components ──────────────────────────────────────────────────────
+
+/** Collapsible reasoning block. */
+function ReasoningBlock({
+  text,
+  defaultExpanded = false,
+}: {
+  text: string;
+  defaultExpanded?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   return (
     <div className={styles.reasoningBlock}>
       <button
@@ -397,8 +459,14 @@ function ReasoningBlock({ text }: { text: string }) {
   );
 }
 
-/** Context injection badge — shows what context was loaded. */
-function ContextBadge({ blockType, summary }: { blockType: string; summary: string }) {
+/** Context injection badge. */
+function ContextBadge({
+  blockType,
+  summary,
+}: {
+  blockType: string;
+  summary: string;
+}) {
   const icons: Record<string, string> = {
     skill: '⚡',
     memory: '🧠',
