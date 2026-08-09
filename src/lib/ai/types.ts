@@ -56,6 +56,30 @@ export interface ChatRequest {
   message: string;
   history: ChatMessage[];
   context?: SelectedContext;
+  /** Run with a specific skill active (injects prompt + filters tools). */
+  skillId?: string;
+  /** Kubeconfig context name (used to scope memory). */
+  kubeContext?: string;
+}
+
+/** A k8s skill — matches `Skill` in `ai/skills/mod.rs`. */
+export interface Skill {
+  id: string;
+  name: string;
+  description: string;
+  systemPromptSuffix: string;
+  toolWhitelist: string[];
+  examples: { user: string; assistant: string }[];
+  category: string;
+}
+
+/** A memory entry — matches `MemoryEntry` in `ai/memory.rs`. */
+export interface MemoryEntry {
+  id: string;
+  createdAt: string;
+  content: string;
+  tags: string[];
+  source: 'user' | 'ai';
 }
 
 /** AgentEvent variants — matches `AgentEvent` in `ai/agent.rs`. */

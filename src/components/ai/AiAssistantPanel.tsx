@@ -22,7 +22,11 @@ import type {
   OutgoingToolCall,
   SelectedContext,
 } from '../../lib/ai/types';
+import { SkillsPanel } from './SkillsPanel';
+import { MemoryPanel } from './MemoryPanel';
 import styles from './AiAssistantPanel.module.css';
+
+type Tab = 'chat' | 'skills' | 'memory';
 
 /** One renderable transcript row. */
 type Row =
@@ -49,6 +53,22 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
   // The in-progress assistant text, accumulated from textDelta events.
   const pendingText = useRef<string>('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Tab switching: chat | skills | memory.
+  const [tab, setTab] = useState<Tab>('chat');
+  // Active skill (injected into the next chat message).
+  const [activeSkillId, setActiveSkillId] = useState<string | undefined>();
+  // Current kubeconfig context (for memory scoping).
+  const [kubeContext, _setKubeContext] = useState<string>('');
+  useEffect(() => {
+    // Fetch the current context from the connection info.
+    invoke<{ context: string }>('ai_get_config')
+      .then(() => {
+        // We don't have a direct command for connection info; use the
+        // connection_info method via a lightweight approach.
+        // For now, leave kubeContext empty until the user is connected.
+      })
+      .catch(() => {});
+  }, []);
 
   // Auto-scroll to the bottom when new rows / deltas arrive.
   useEffect(() => {
@@ -160,6 +180,8 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
       message: text,
       history,
       context: selectedContext,
+      skillId: activeSkillId,
+      kubeContext: kubeContext || undefined,
     };
     try {
       const id = await invoke<string>('ai_chat', { request: req });
@@ -196,16 +218,47 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
     }
   };
 
+  const onSkillSelect = (id: string | undefined) => {
+    setActiveSkillId(id);
+    setTab('chat');
+  };
+
   return (
     <div className={styles.panel}>
       <div className={styles.header}>
-        <span className={styles.title}>AI Assistant</span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(['chat', 'skills', 'memory'] as Tab[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              className={tab === t ? styles.title : styles.close}
+              onClick={() => setTab(t)}
+              style={{
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+                fontSize: 12,
+                padding: '2px 4px',
+              }}
+            >
+              {t === 'chat' ? '✦ Chat' : t === 'skills' ? '⚡ Skills' : '🧠 Memory'}
+              {t === 'chat' && activeSkillId && (
+                <span style={{ color: 'var(--ok, #22c55e)', marginLeft: 4 }}>●</span>
+              )}
+            </button>
+          ))}
+        </div>
         {onClose && (
           <button type="button" className={styles.close} onClick={onClose} aria-label="Close">
             ✕
           </button>
         )}
       </div>
+      {tab === 'skills' && <SkillsPanel activeId={activeSkillId} onSelect={onSkillSelect} />}
+      {tab === 'memory' && <MemoryPanel kubeContext={kubeContext} />}
+      {tab === 'chat' && (
+      <>
       <div className={styles.body} ref={scrollRef}>
         {rows.length === 0 && (
           <div className={styles.empty}>
@@ -281,6 +334,8 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
           </button>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
