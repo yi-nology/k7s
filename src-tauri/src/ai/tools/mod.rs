@@ -17,6 +17,7 @@
 //! Adding a tool: implement [`Tool`], then register it in [`ToolRegistry::new`].
 
 pub mod diag_tools;
+pub mod impls;
 pub mod read_tools;
 pub mod write_tools;
 
@@ -93,6 +94,9 @@ impl ToolRegistry {
             Box::new(read_tools::GetPodLogs),
             Box::new(read_tools::GetClusterHealth),
             Box::new(read_tools::TopNodes),
+            Box::new(read_tools::BatchGet),
+            Box::new(read_tools::DiffResources),
+            Box::new(read_tools::HpaStatus),
             // write
             Box::new(write_tools::ScaleWorkload),
             Box::new(write_tools::RestartWorkload),
