@@ -100,7 +100,7 @@ flate2 = "1"
 # A standalone axum server exposing the same command surface as Tauri, so the
 # React app can run in a plain browser tab against a real cluster. Only pulled
 # in when the `web` feature is on — the desktop build is unaffected.
-axum = { version = "0.7", optional = true }
+axum = { version = "0.8", optional = true }
 tower = { version = "0.5", optional = true }
 tower-http = { version = "0.6", features = ["cors", "trace", "fs"], optional = true }
 # `eventsource-stream` parses the SSE bytes the server sends into typed events
