@@ -313,6 +313,127 @@ pub async fn sbom_get(
     respond(storage.load(&id))
 }
 
+/// `POST /api/invoke/sbom_get` — Get SBOM by ID (invoke bridge).
+/// Reads `id` from the JSON body instead of the URL path.
+pub async fn sbom_get_invoke(
+    State(state): State<WebState>,
+    Json(req): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let id = req["id"].as_str().unwrap_or("").to_string();
+    let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
+    respond(storage.load(&id))
+}
+
+/// `POST /api/invoke/sbom_generate_cluster` — Generate cluster-wide SBOM.
+pub async fn sbom_generate_cluster(
+    State(state): State<WebState>,
+    Json(req): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let format_str = req["format"].as_str().unwrap_or("cyclonedx");
+    let _format = crate::kube::sbom::SbomFormat::parse(format_str)
+        .unwrap_or(crate::kube::sbom::SbomFormat::CycloneDx);
+
+    let result: AppResult<crate::kube::sbom::SbomResult> = async {
+        let _client = core_client(&state.core).await?;
+        // For now, just scan the first image found. Full cluster scan TBD.
+        Err(crate::error::AppError::Other(
+            "Cluster-wide SBOM scan not yet implemented. Use image scan instead.".to_string(),
+        ))
+    }
+    .await;
+    respond(result)
+}
+
+/// `POST /api/invoke/sbom_export` — Export an SBOM to a file.
+pub async fn sbom_export(
+    State(state): State<WebState>,
+    Json(req): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let id = req["id"].as_str().unwrap_or("").to_string();
+    let output_path = req["output_path"].as_str().unwrap_or("").to_string();
+
+    let result: AppResult<String> = (|| async {
+        let path = std::path::Path::new(&output_path);
+
+        // If the path is just a filename (no directory component), use the temp directory
+        let resolved_path =
+            if path.parent().is_none() || path.parent() == Some(std::path::Path::new("")) {
+                std::env::temp_dir().join(path)
+            } else {
+                path.to_path_buf()
+            };
+
+        // Canonicalize to prevent path traversal attacks
+        let canonical_path = dunce::canonicalize(&resolved_path).or_else(|_| {
+            if let Some(parent) = resolved_path.parent() {
+                let canonical_parent = dunce::canonicalize(parent).map_err(|e| {
+                    crate::error::AppError::Other(format!(
+                        "Cannot resolve export directory '{}': {e}",
+                        parent.display()
+                    ))
+                })?;
+                Ok::<std::path::PathBuf, crate::error::AppError>(
+                    canonical_parent.join(resolved_path.file_name().unwrap_or_default()),
+                )
+            } else {
+                Err(crate::error::AppError::Other(
+                    "Invalid export path: no parent directory".to_string(),
+                ))
+            }
+        })?;
+
+        // Allowed export directories: user's home, data_dir, or temp
+        let allowed_dirs: Vec<std::path::PathBuf> = {
+            let mut dirs = vec![state.core.data_dir.clone()];
+            if let Some(home) = dirs::home_dir() {
+                dirs.push(home);
+            }
+            dirs.push(std::env::temp_dir());
+            dirs
+        };
+
+        let is_allowed = allowed_dirs
+            .iter()
+            .any(|allowed| canonical_path.starts_with(allowed));
+
+        if !is_allowed {
+            return Err(crate::error::AppError::Other(format!(
+                "Export path '{}' is not within allowed directories. Allowed: home, data dir, or temp.",
+                output_path
+            )));
+        }
+
+        if let Some(parent) = canonical_path.parent() {
+            if !parent.exists() {
+                return Err(crate::error::AppError::Other(format!(
+                    "Export directory does not exist: {}",
+                    parent.display()
+                )));
+            }
+        }
+
+        let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
+        let sbom = storage.load(&id)?;
+        let content = serde_json::to_string_pretty(&sbom)
+            .map_err(|e| crate::error::AppError::Other(format!("serialize sbom: {e}")))?;
+        std::fs::write(&canonical_path, content)
+            .map_err(|e| crate::error::AppError::Other(format!("write file: {e}")))?;
+        Ok(canonical_path.to_string_lossy().to_string())
+    })()
+    .await;
+    respond(result)
+}
+
+/// `POST /api/invoke/security_audit_run` — Run an RBAC security audit.
+pub async fn security_audit_run(State(state): State<WebState>) -> axum::response::Response {
+    let result: AppResult<_> = async {
+        let client = core_client(&state.core).await?;
+        crate::kube::security_audit::run_audit(client).await
+    }
+    .await;
+    respond(result)
+}
+
 // ---------------------------------------------------------------------------
 // Helpers (re-implementations of the small bits commands.rs's connect/get_yaml
 // need that aren't already in `kube::`).
@@ -347,7 +468,7 @@ async fn build_client_from_kubeconfig(
 /// POST /hooks/wake — fire-and-forget: wake the agent with a message.
 /// The response returns immediately; the agent runs in the background.
 pub async fn hook_wake(
-    State(state): State<WebState>,
+    State(_state): State<WebState>,
     headers: axum::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
 ) -> axum::response::Response {
@@ -456,27 +577,26 @@ pub async fn hook_event(
 // ---------------------------------------------------------------------------
 
 /// POST /invoke/ai_get_config
-pub async fn ai_get_config_handler(
-    State(state): State<WebState>,
-) -> axum::response::Response {
-    let result = crate::ai::config::load(Some(&state.core.data_dir)).map_err(|e| crate::error::AppError::Other(e.to_string()));
+pub async fn ai_get_config_handler(State(state): State<WebState>) -> axum::response::Response {
+    let result = crate::ai::config::load(Some(&state.core.data_dir))
+        .map_err(|e| crate::error::AppError::Other(e.to_string()));
     respond(result)
 }
 
 /// POST /invoke/ai_get_context
-pub async fn ai_get_context_handler(
-    State(state): State<WebState>,
-) -> axum::response::Response {
-    let ctx = state.core.manager.connection_info().await
+pub async fn ai_get_context_handler(State(state): State<WebState>) -> axum::response::Response {
+    let ctx = state
+        .core
+        .manager
+        .connection_info()
+        .await
         .map(|i| i.context)
         .unwrap_or_default();
     respond(Ok(ctx))
 }
 
 /// POST /invoke/ai_list_skills
-pub async fn ai_list_skills_handler(
-    State(state): State<WebState>,
-) -> axum::response::Response {
+pub async fn ai_list_skills_handler(State(state): State<WebState>) -> axum::response::Response {
     let reg = crate::ai::skills::SkillRegistry::load(Some(&state.core.data_dir));
     let skills: Vec<crate::ai::skills::Skill> = reg.list().into_iter().cloned().collect();
     respond(Ok(skills))
@@ -487,9 +607,13 @@ pub async fn ai_memory_list_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let kube_context = args
+        .get("kubeContext")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
-    let entries: Vec<crate::ai::memory::MemoryEntry> = store.list(None).into_iter().cloned().collect();
+    let entries: Vec<crate::ai::memory::MemoryEntry> =
+        store.list(None).into_iter().cloned().collect();
     respond(Ok(entries))
 }
 
@@ -498,7 +622,10 @@ pub async fn ai_memory_search_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let kube_context = args
+        .get("kubeContext")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
     let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
     let results = store.search(query);
@@ -510,13 +637,24 @@ pub async fn ai_memory_add_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let kube_context = args
+        .get("kubeContext")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let content = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
-    let tags: Vec<String> = args.get("tags")
+    let tags: Vec<String> = args
+        .get("tags")
         .and_then(|v| v.as_array())
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
         .unwrap_or_default();
-    let tier_str = args.get("tier").and_then(|v| v.as_str()).unwrap_or("longTerm");
+    let tier_str = args
+        .get("tier")
+        .and_then(|v| v.as_str())
+        .unwrap_or("longTerm");
     let tier = match tier_str {
         "shortTerm" => crate::ai::memory::Tier::ShortTerm,
         "knowledgeVault" => crate::ai::memory::Tier::KnowledgeVault,
@@ -528,9 +666,7 @@ pub async fn ai_memory_add_handler(
 }
 
 /// POST /invoke/ai_cron_list
-pub async fn ai_cron_list_handler(
-    State(state): State<WebState>,
-) -> axum::response::Response {
+pub async fn ai_cron_list_handler(State(state): State<WebState>) -> axum::response::Response {
     let scheduler = crate::ai::cron::CronScheduler::new(state.core.data_dir.clone());
     let tasks = scheduler.list().await;
     respond(Ok(tasks))
@@ -543,4 +679,20 @@ pub async fn ai_evolution_strategies_handler(
     let store = crate::ai::evolution::EvolutionStore::open(&state.core.data_dir);
     let strategies: Vec<crate::ai::evolution::Strategy> = store.list_strategies().to_vec();
     respond(Ok(strategies))
+}
+
+/// POST /invoke/ai_memory_preferences
+pub async fn ai_memory_preferences_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
+    let prefs: Vec<crate::ai::memory::UserPreference> = store.preferences().to_vec();
+    respond(Ok(prefs))
+}
+
+/// POST /invoke/ai_cron_presets
+pub async fn ai_cron_presets_handler() -> axum::response::Response {
+    respond(Ok(crate::ai::cron::builtin_presets()))
 }

@@ -635,4 +635,30 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
       scannedAt: new Date().toISOString(),
     };
   }
+
+  // ---- AI Assistant (stubs for demo mode) ----
+  async aiGetConfig() {
+    return { enabled: false, provider: { baseUrl: '', model: '' }, permission: 'readConfirmWrite' as const, maxTurns: 10, hasApiKey: false };
+  }
+  async aiGetContext() { return ''; }
+  async aiSaveConfig() {}
+  async aiSaveApiKey() {}
+  async aiTestConnection() { return 'demo mode'; }
+  async aiListSkills() { return []; }
+  async aiMemoryList() { return []; }
+  async aiMemorySearch() { return []; }
+  async aiMemoryAdd() {}
+  async aiMemoryDelete() { return false; }
+  async aiMemoryClear() {}
+  async aiMemoryPreferences() { return []; }
+  async aiMemorySearchVault() { return []; }
+  async aiCronList() { return []; }
+  async aiCronPresets() { return []; }
+  async aiCronAdd() {}
+  async aiCronToggle() { return false; }
+  async aiCronDelete() { return false; }
+  async aiEvolutionStrategies() { return []; }
+  async aiChat() { return 'demo-run-id'; }
+  async aiCancel() {}
+  async aiApproveToolCall() {}
 }

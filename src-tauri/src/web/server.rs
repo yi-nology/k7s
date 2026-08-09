@@ -257,24 +257,81 @@ pub fn api_router(state: WebState) -> Router {
             "/api/invoke/list_endpoint_addresses",
             post(resource_handlers::list_endpoint_addresses),
         )
-        // SBOM endpoints.
+        // SBOM endpoints (REST-style).
         .route("/api/sbom/image", post(handlers::sbom_generate_image))
         .route("/api/sbom/history", get(handlers::sbom_list_history))
         .route("/api/sbom/:id", get(handlers::sbom_get))
+        // SBOM invoke bridges — the frontend calls POST /api/invoke/sbom_*.
+        .route(
+            "/api/invoke/sbom_generate_image",
+            post(handlers::sbom_generate_image),
+        )
+        .route(
+            "/api/invoke/sbom_list_history",
+            post(handlers::sbom_list_history),
+        )
+        .route(
+            "/api/invoke/sbom_get",
+            post(handlers::sbom_get_invoke),
+        )
+        .route(
+            "/api/invoke/sbom_generate_cluster",
+            post(handlers::sbom_generate_cluster),
+        )
+        .route(
+            "/api/invoke/sbom_export",
+            post(handlers::sbom_export),
+        )
+        .route(
+            "/api/invoke/security_audit_run",
+            post(handlers::security_audit_run),
+        )
         // AI webhook hooks — external systems (monitoring, CI/CD) can trigger
         // the AI agent via these endpoints. Authenticated via Bearer token.
         .route("/hooks/wake", post(handlers::hook_wake))
         .route("/hooks/agent", post(handlers::hook_agent))
         .route("/hooks/event", post(handlers::hook_event))
         // AI assistant endpoints.
-        .route("/api/invoke/ai_get_config", post(handlers::ai_get_config_handler))
-        .route("/api/invoke/ai_get_context", post(handlers::ai_get_context_handler))
-        .route("/api/invoke/ai_list_skills", post(handlers::ai_list_skills_handler))
-        .route("/api/invoke/ai_memory_list", post(handlers::ai_memory_list_handler))
-        .route("/api/invoke/ai_memory_search", post(handlers::ai_memory_search_handler))
-        .route("/api/invoke/ai_memory_add", post(handlers::ai_memory_add_handler))
-        .route("/api/invoke/ai_cron_list", post(handlers::ai_cron_list_handler))
-        .route("/api/invoke/ai_evolution_strategies", post(handlers::ai_evolution_strategies_handler))
+        .route(
+            "/api/invoke/ai_get_config",
+            post(handlers::ai_get_config_handler),
+        )
+        .route(
+            "/api/invoke/ai_get_context",
+            post(handlers::ai_get_context_handler),
+        )
+        .route(
+            "/api/invoke/ai_list_skills",
+            post(handlers::ai_list_skills_handler),
+        )
+        .route(
+            "/api/invoke/ai_memory_list",
+            post(handlers::ai_memory_list_handler),
+        )
+        .route(
+            "/api/invoke/ai_memory_search",
+            post(handlers::ai_memory_search_handler),
+        )
+        .route(
+            "/api/invoke/ai_memory_add",
+            post(handlers::ai_memory_add_handler),
+        )
+        .route(
+            "/api/invoke/ai_cron_list",
+            post(handlers::ai_cron_list_handler),
+        )
+        .route(
+            "/api/invoke/ai_cron_presets",
+            post(handlers::ai_cron_presets_handler),
+        )
+        .route(
+            "/api/invoke/ai_evolution_strategies",
+            post(handlers::ai_evolution_strategies_handler),
+        )
+        .route(
+            "/api/invoke/ai_memory_preferences",
+            post(handlers::ai_memory_preferences_handler),
+        )
         // Stubs for everything else.
         .route("/api/invoke/:cmd", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client

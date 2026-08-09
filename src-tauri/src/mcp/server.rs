@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use k8s_openapi::api::core::v1::Pod;
 use kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
-use kube::{Client, ResourceExt};
+use kube::ResourceExt;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
@@ -32,7 +32,6 @@ use crate::kube::{
     image_archive, image_sync, imagerepo,
     manager::{ClientManager, ForwardDto, ImportedContext, ShellSession},
     metrics_config, nodeshell, pod_files, portforward, restart, saved_queries, templates,
-    ResourceKind,
 };
 use crate::mcp::kube_api;
 use rmcp::transport::stdio;
@@ -2130,7 +2129,7 @@ impl K7sMcpServer {
             }));
         }
 
-        let isolated_pod_count = pod_list.items.len(); // simplified
+        let _isolated_pod_count = pod_list.items.len(); // simplified
         json_result(&serde_json::json!({
             "namespace": p.namespace,
             "policies": policies,

@@ -8,7 +8,7 @@
  * `ai_test_connection`.
  */
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { getProvider } from '../../providers';
 import type { AiConfigView, PermissionMode } from '../../lib/ai/types';
 import styles from './AiAssistantPanel.module.css';
 import s from '../settings/SettingsPanel.module.css';
@@ -42,19 +42,21 @@ export function AiSettingsPanel() {
 
   async function load() {
     try {
-      const view = await invoke<AiConfigView>('ai_get_config');
+      const view = await provider.aiGetConfig();
       setConfig(view);
     } catch (e) {
       setTestMsg({ ok: false, text: String(e) });
     }
   }
 
+  const provider = getProvider();
+
   async function save() {
     if (!config) return;
     try {
-      await invoke('ai_save_config', { configInput: stripView(config) });
+      await provider.aiSaveConfig(stripView(config));
       if (apiKey) {
-        await invoke('ai_save_api_key', { apiKey });
+        await provider.aiSaveApiKey(apiKey);
         setApiKey('');
       }
       setSaved(true);
@@ -70,12 +72,11 @@ export function AiSettingsPanel() {
     setTesting(true);
     setTestMsg(null);
     try {
-      // Persist first so the backend reads the current values.
-      await invoke('ai_save_config', { configInput: stripView(config) });
+      await provider.aiSaveConfig(stripView(config));
       if (apiKey) {
-        await invoke('ai_save_api_key', { apiKey });
+        await provider.aiSaveApiKey(apiKey);
       }
-      const msg = await invoke<string>('ai_test_connection');
+      const msg = await provider.aiTestConnection();
       setTestMsg({ ok: true, text: msg });
     } catch (e) {
       setTestMsg({ ok: false, text: String(e) });

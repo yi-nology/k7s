@@ -1,59 +1,41 @@
 /**
- * CronPanel — scheduled AI task management. Shows preset + user-defined tasks,
- * toggle enable/disable, view run history.
+ * CronPanel — scheduled AI task management.
  */
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { getProvider } from '../../providers';
 import type { CronTask } from '../../lib/ai/types';
-import styles from './AiAssistantPanel.module.css';
+import styles from './AiChat.module.css';
 
 export function CronPanel() {
   const [tasks, setTasks] = useState<CronTask[]>([]);
   const [presets, setPresets] = useState<CronTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPresets, setShowPresets] = useState(false);
+  const provider = getProvider();
 
   const load = async () => {
     try {
-      setTasks(await invoke<CronTask[]>('ai_cron_list'));
-      setPresets(await invoke<CronTask[]>('ai_cron_presets'));
-    } catch {
-      /* ignore */
-    } finally {
-      setLoading(false);
-    }
+      setTasks(await provider.aiCronList());
+      setPresets(await provider.aiCronPresets());
+    } catch { /* ignore */ } finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    void load();
-  }, []);
+  useEffect(() => { void load(); }, []);
 
   const toggle = async (id: string) => {
-    try {
-      await invoke('ai_cron_toggle', { id });
-      await load();
-    } catch {
-      /* ignore */
-    }
+    try { await provider.aiCronToggle(id); await load(); } catch { /* ignore */ }
   };
 
   const remove = async (id: string) => {
-    try {
-      await invoke('ai_cron_delete', { id });
-      await load();
-    } catch {
-      /* ignore */
-    }
+    try { await provider.aiCronDelete(id); await load(); } catch { /* ignore */ }
   };
 
   const addPreset = async (preset: CronTask) => {
     try {
-      await invoke('ai_cron_add', { task: { ...preset, id: preset.id + '-' + Date.now() } });
+      await provider.aiCronAdd({ ...preset, id: preset.id + '-' + Date.now() });
       setShowPresets(false);
       await load();
-    } catch {
-      /* ignore */
-    }
+    } catch { /* ignore */ }
   };
 
   if (loading) return <div className={styles.empty}>Loading…</div>;
@@ -61,83 +43,44 @@ export function CronPanel() {
   return (
     <div className={styles.body}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-        <button
-          type="button"
-          className={styles.sendBtn}
-          onClick={() => setShowPresets(!showPresets)}
-          style={{ fontSize: 12, padding: '4px 10px' }}
-        >
+        <button type="button" className={styles.sendBtn} onClick={() => setShowPresets(!showPresets)} style={{ fontSize: 12, padding: '4px 10px' }}>
           {showPresets ? 'Close' : '+ Add preset'}
         </button>
       </div>
 
       {showPresets && (
         <div style={{ marginBottom: 10 }}>
-          <div className={styles.toolHeader}>
-            <span className={styles.toolName}>Preset tasks</span>
-          </div>
+          <div className={styles.toolHeader}><span className={styles.toolName}>Preset tasks</span></div>
           {presets.map((p) => (
-            <div
-              key={p.id}
-              className={styles.toolCard}
-              style={{ marginBottom: 4, cursor: 'pointer' }}
-              onClick={() => addPreset(p)}
-            >
+            <div key={p.id} className={styles.toolCard} style={{ marginBottom: 4, cursor: 'pointer' }} onClick={() => addPreset(p)}>
               <div className={styles.toolHeader}>
                 <span className={styles.toolName}>{p.name}</span>
-                <span className={styles.toolState}>{p.cronExpr}</span>
+                <span className={styles.toolStatusPill}>{p.cronExpr}</span>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--fg-muted)' }}>{p.prompt.slice(0, 100)}…</div>
+              <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{p.prompt.slice(0, 100)}…</div>
             </div>
           ))}
         </div>
       )}
 
-      {tasks.length === 0 && (
-        <div className={styles.empty}>
-          No scheduled tasks. Click "+ Add preset" to get started with
-          automated health checks.
-        </div>
-      )}
+      {tasks.length === 0 && <div className={styles.empty}>No scheduled tasks. Click "+ Add preset" to get started.</div>}
 
       {tasks.map((task) => (
         <div key={task.id} className={styles.toolCard} style={{ marginBottom: 6 }}>
           <div className={styles.toolHeader}>
             <span className={styles.toolIcon}>{task.enabled ? '▶' : '⏸'}</span>
             <span className={styles.toolName}>{task.name}</span>
-            <span className={styles.toolState}>{task.cronExpr}</span>
-            <button
-              type="button"
-              className={styles.close}
-              onClick={() => remove(task.id)}
-              title="Delete"
-            >
-              ✕
-            </button>
+            <span className={styles.toolStatusPill}>{task.cronExpr}</span>
+            <button type="button" className={styles.headerTab} onClick={() => remove(task.id)} title="Delete" style={{ marginLeft: 'auto' }}>✕</button>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginBottom: 6 }}>
-            {task.prompt.slice(0, 120)}
-          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>{task.prompt.slice(0, 120)}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <button
-              type="button"
-              onClick={() => toggle(task.id)}
-              style={{
-                border: 'none',
-                background: task.enabled ? 'var(--ok, #22c55e)' : 'var(--bg-control)',
-                color: task.enabled ? '#fff' : 'var(--fg)',
-                padding: '3px 8px',
-                borderRadius: 4,
-                cursor: 'pointer',
-                fontSize: 11,
-              }}
-            >
+            <button type="button" onClick={() => toggle(task.id)} className={task.enabled ? styles.approveBtn : styles.denyBtn} style={{ fontSize: 11, padding: '2px 8px', flex: 'none' }}>
               {task.enabled ? 'Enabled' : 'Disabled'}
             </button>
             {task.lastRun && (
-              <span style={{ fontSize: 10, color: 'var(--fg-muted)' }}>
-                Last: {task.lastRun.slice(0, 16).replace('T', ' ')}{' '}
-                {task.lastStatus === 'success' ? '✓' : task.lastStatus === 'failed' ? '✗' : ''}
+              <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                Last: {task.lastRun.slice(0, 16).replace('T', ' ')} {task.lastStatus === 'success' ? '✓' : task.lastStatus === 'failed' ? '✗' : ''}
               </span>
             )}
           </div>

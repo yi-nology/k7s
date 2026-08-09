@@ -32,6 +32,7 @@ impl Default for PermissionMode {
 
 /// Non-secret LLM provider config. The secret `api_key` lives in [`secret`].
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LlmProviderConfig {
     /// OpenAI-compatible base URL, e.g. `https://api.deepseek.com/v1`.
     /// No trailing slash. Defaults empty — must be set before first use.
@@ -47,6 +48,7 @@ pub struct LlmProviderConfig {
 
 /// The whole persisted AI config. Serialized to `ai-config.json`.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AiConfig {
     /// Master switch. When `false`, the AI panel is hidden and `ai_chat` refuses.
     #[serde(default)]
@@ -79,6 +81,7 @@ impl Default for AiConfig {
 /// present (masked — `Some("".to_string())` indicates a key is set). This keeps
 /// the wire shape simple and avoids leaking the key bytes.
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AiConfigView {
     #[serde(flatten)]
     pub config: AiConfig,

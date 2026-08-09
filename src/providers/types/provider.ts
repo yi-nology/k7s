@@ -483,4 +483,28 @@ export interface DataProvider {
   // ---- RBAC Security Audit ----
   /** Run an RBAC security audit on the connected cluster. */
   securityAudit(): Promise<AuditReport>;
+
+  // ---- AI Assistant ----
+  aiGetConfig(): Promise<import('../../lib/ai/types').AiConfigView>;
+  aiGetContext(): Promise<string>;
+  aiSaveConfig(config: import('../../lib/ai/types').AiConfig): Promise<void>;
+  aiSaveApiKey(apiKey: string): Promise<void>;
+  aiTestConnection(): Promise<string>;
+  aiListSkills(): Promise<import('../../lib/ai/types').Skill[]>;
+  aiMemoryList(kubeContext: string, tier?: string): Promise<import('../../lib/ai/types').MemoryEntry[]>;
+  aiMemorySearch(kubeContext: string, query: string): Promise<import('../../lib/ai/types').MemoryEntry[]>;
+  aiMemoryAdd(kubeContext: string, content: string, tags: string[], tier?: string): Promise<void>;
+  aiMemoryDelete(kubeContext: string, id: string): Promise<boolean>;
+  aiMemoryClear(kubeContext: string, tier?: string): Promise<void>;
+  aiMemoryPreferences(kubeContext: string): Promise<import('../../lib/ai/types').UserPreference[]>;
+  aiMemorySearchVault(kubeContext: string, query: string): Promise<import('../../lib/ai/types').MemoryEntry[]>;
+  aiCronList(): Promise<import('../../lib/ai/types').CronTask[]>;
+  aiCronPresets(): Promise<import('../../lib/ai/types').CronTask[]>;
+  aiCronAdd(task: import('../../lib/ai/types').CronTask): Promise<void>;
+  aiCronToggle(id: string): Promise<boolean>;
+  aiCronDelete(id: string): Promise<boolean>;
+  aiEvolutionStrategies(): Promise<unknown[]>;
+  aiChat(request: unknown, sessionId?: string): Promise<string>;
+  aiCancel(runId: string): Promise<void>;
+  aiApproveToolCall(runId: string, callId: string, approved: boolean): Promise<void>;
 }

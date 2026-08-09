@@ -4,14 +4,12 @@
  * activates it for the next chat message (injects prompt + filters tools).
  */
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { getProvider } from '../../providers';
 import type { Skill } from '../../lib/ai/types';
-import styles from './AiAssistantPanel.module.css';
+import styles from './AiChat.module.css';
 
 interface Props {
-  /** Currently-active skill id (highlighted). */
   activeId?: string;
-  /** Called when the user selects a skill. Pass `undefined` to deactivate. */
   onSelect: (skillId: string | undefined) => void;
 }
 
@@ -20,7 +18,8 @@ export function SkillsPanel({ activeId, onSelect }: Props) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    invoke<Skill[]>('ai_list_skills')
+    getProvider()
+      .aiListSkills()
       .then(setSkills)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -53,21 +52,21 @@ export function SkillsPanel({ activeId, onSelect }: Props) {
             return (
               <div
                 key={skill.id}
-                className={`${styles.toolCard} ${isActive ? styles.tool_ok : ''}`}
+                className={`${styles.toolCard} ${isActive ? styles.toolOk : ''}`}
                 style={{ cursor: 'pointer', marginBottom: 6 }}
                 onClick={() => onSelect(isActive ? undefined : skill.id)}
               >
                 <div className={styles.toolHeader}>
                   <span className={styles.toolName}>{skill.name}</span>
                   {isActive && (
-                    <span className={styles.toolState} style={{ color: 'var(--ok, #22c55e)' }}>
+                    <span className={styles.toolStatusPill} style={{ color: 'var(--status-ok)' }}>
                       active
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{skill.description}</div>
-                {skill.toolWhitelist.length > 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--fg-muted)', marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{skill.description}</div>
+                {skill.toolWhitelist && skill.toolWhitelist.length > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
                     Tools: {skill.toolWhitelist.join(', ')}
                   </div>
                 )}

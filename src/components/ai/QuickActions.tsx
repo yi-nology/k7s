@@ -41,6 +41,7 @@ export function QuickActions({ selectedContext, onAction, disabled }: Props) {
             className={styles.quickActionBtn}
             onClick={() => onAction(a.message)}
             disabled={disabled}
+            title={disabled ? 'Enable AI in Settings first' : a.message}
           >
             {a.label}
           </button>

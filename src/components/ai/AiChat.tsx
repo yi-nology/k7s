@@ -12,7 +12,7 @@
  * Talks to the backend through the same Tauri commands as before.
  */
 import { useEffect, useRef, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
+import { getProvider } from '../../providers';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   AgentEvent,
@@ -68,8 +68,8 @@ export function AiChat({ selectedContext, onClose }: Props) {
 
   // Load config + context on mount.
   useEffect(() => {
-    invoke<AiConfigView>('ai_get_config').then(setConfig).catch(() => {});
-    invoke<string>('ai_get_context').then((ctx) => { if (ctx) setKubeContext(ctx); }).catch(() => {});
+    getProvider().aiGetConfig().then(setConfig).catch(() => {});
+    getProvider().aiGetContext().then((ctx) => { if (ctx) setKubeContext(ctx); }).catch(() => {});
   }, []);
 
   // Auto-scroll on new content.
@@ -148,7 +148,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
       kubeContext: kubeContext || undefined,
     };
     try {
-      const id = await invoke<string>('ai_chat', { request: req });
+      const id = await getProvider().aiChat(req);
       setRunId(id);
     } catch (e) {
       pushRow({ kind: 'error', text: String(e) });
@@ -158,13 +158,13 @@ export function AiChat({ selectedContext, onClose }: Props) {
 
   async function cancel() {
     if (!runId) return;
-    try { await invoke('ai_cancel', { runId }); } catch { /* ignore */ }
+    try { await getProvider().aiCancel(runId); } catch { /* ignore */ }
   }
 
   async function approve(callId: string, approved: boolean) {
     if (!runId) return;
     updateToolRow(callId, { state: approved ? 'running' : 'denied' });
-    try { await invoke('ai_approve_tool_call', { runId, callId, approved }); } catch (e) { pushRow({ kind: 'error', text: String(e) }); }
+    try { await getProvider().aiApproveToolCall(runId, callId, approved); } catch (e) { pushRow({ kind: 'error', text: String(e) }); }
   }
 
   function newChat() {
@@ -198,14 +198,20 @@ export function AiChat({ selectedContext, onClose }: Props) {
           )}
         </div>
         <div className={styles.headerRight}>
-          {(['chat', 'skills', 'memory', 'cron'] as Tab[]).map((t) => (
+          {([
+            ['chat', '💬 Chat'],
+            ['skills', '⚡ Skills'],
+            ['memory', '🧠 Memory'],
+            ['cron', '⏰ Cron'],
+          ] as [Tab, string][]).map(([t, label]) => (
             <button
               key={t}
               type="button"
               className={tab === t ? styles.headerTabActive : styles.headerTab}
               onClick={() => setTab(t)}
+              title={label}
             >
-              {t === 'chat' ? '💬' : t === 'skills' ? '⚡' : t === 'memory' ? '🧠' : '⏰'}
+              {label}
             </button>
           ))}
           {tab === 'chat' && rows.length > 0 && (

@@ -311,4 +311,72 @@ export abstract class BaseRpcProvider {
   securityAudit(): Promise<import('./types/security').AuditReport> {
     return this.rpc('security_audit_run');
   }
+
+  // ── AI assistant ────────────────────────────────────────────────────
+  aiGetConfig(): Promise<import('../lib/ai/types').AiConfigView> {
+    return this.rpc('ai_get_config');
+  }
+  aiGetContext(): Promise<string> {
+    return this.rpc('ai_get_context');
+  }
+  aiSaveConfig(config: import('../lib/ai/types').AiConfig): Promise<void> {
+    return this.rpc('ai_save_config', { configInput: config });
+  }
+  aiSaveApiKey(apiKey: string): Promise<void> {
+    return this.rpc('ai_save_api_key', { apiKey });
+  }
+  aiTestConnection(): Promise<string> {
+    return this.rpc('ai_test_connection');
+  }
+  aiListSkills(): Promise<import('../lib/ai/types').Skill[]> {
+    return this.rpc('ai_list_skills');
+  }
+  aiMemoryList(kubeContext: string, tier?: string): Promise<import('../lib/ai/types').MemoryEntry[]> {
+    return this.rpc('ai_memory_list', { kubeContext, tier });
+  }
+  aiMemorySearch(kubeContext: string, query: string): Promise<import('../lib/ai/types').MemoryEntry[]> {
+    return this.rpc('ai_memory_search', { kubeContext, query });
+  }
+  aiMemoryAdd(kubeContext: string, content: string, tags: string[], tier?: string): Promise<void> {
+    return this.rpc('ai_memory_add', { kubeContext, content, tags, tier });
+  }
+  aiMemoryDelete(kubeContext: string, id: string): Promise<boolean> {
+    return this.rpc('ai_memory_delete', { kubeContext, id });
+  }
+  aiMemoryClear(kubeContext: string, tier?: string): Promise<void> {
+    return this.rpc('ai_memory_clear', { kubeContext, tier });
+  }
+  aiMemoryPreferences(kubeContext: string): Promise<import('../lib/ai/types').UserPreference[]> {
+    return this.rpc('ai_memory_preferences', { kubeContext });
+  }
+  aiMemorySearchVault(kubeContext: string, query: string): Promise<import('../lib/ai/types').MemoryEntry[]> {
+    return this.rpc('ai_memory_search_vault', { kubeContext, query });
+  }
+  aiCronList(): Promise<import('../lib/ai/types').CronTask[]> {
+    return this.rpc('ai_cron_list');
+  }
+  aiCronPresets(): Promise<import('../lib/ai/types').CronTask[]> {
+    return this.rpc('ai_cron_presets');
+  }
+  aiCronAdd(task: import('../lib/ai/types').CronTask): Promise<void> {
+    return this.rpc('ai_cron_add', { task });
+  }
+  aiCronToggle(id: string): Promise<boolean> {
+    return this.rpc('ai_cron_toggle', { id });
+  }
+  aiCronDelete(id: string): Promise<boolean> {
+    return this.rpc('ai_cron_delete', { id });
+  }
+  aiEvolutionStrategies(): Promise<unknown[]> {
+    return this.rpc('ai_evolution_strategies');
+  }
+  aiChat(request: unknown, sessionId?: string): Promise<string> {
+    return this.rpc('ai_chat', { request, sessionId });
+  }
+  aiCancel(runId: string): Promise<void> {
+    return this.rpc('ai_cancel', { runId });
+  }
+  aiApproveToolCall(runId: string, callId: string, approved: boolean): Promise<void> {
+    return this.rpc('ai_approve_tool_call', { runId, callId, approved });
+  }
 }

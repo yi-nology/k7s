@@ -9,7 +9,6 @@ use tokio::sync::mpsc;
 
 use crate::error::AppError;
 use crate::kube::{
-    client as kube_client,
     manager::{ClientManager, ForwardDto},
     ResourceKind,
 };
