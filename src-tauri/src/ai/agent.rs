@@ -446,10 +446,12 @@ impl AgentLoop {
             });
 
             // Drive one LLM turn.
+            tracing::info!(turns, "starting LLM turn");
             let mut stream = llm.chat_stream(&messages, &tool_defs);
             let mut assistant_text = String::new();
             let mut tool_calls: Vec<OutgoingToolCall> = Vec::new();
             while let Some(item) = stream.next().await {
+                tracing::debug!("LLM stream event received");
                 match item? {
                     StreamEvent::TextDelta(t) => {
                         assistant_text.push_str(&t);
@@ -477,6 +479,7 @@ impl AgentLoop {
                     }
                 }
             }
+            tracing::info!(turns, text_len = assistant_text.len(), tool_calls = tool_calls.len(), "LLM turn complete");
 
             // Fire AfterLlm.
             plugins.fire(&crate::ai::plugins::PluginEvent::AfterLlm {

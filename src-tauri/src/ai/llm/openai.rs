@@ -268,65 +268,78 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
                 return;
             }
 
-            // Read the full response body as bytes, then process SSE events.
-            // We do this instead of streaming because async_stream/try_stream
-            // macros have issues with reqwest's bytes_stream() in spawned tasks.
-            // The body is typically <100KB for a single LLM response.
-            let body_bytes = match resp.bytes().await {
-                Ok(b) => b,
-                Err(e) => {
-                    let _ = tx.send(Err(AiError::Llm(e.to_string()))).await;
-                    return;
-                }
-            };
-            let mut byte_buf: Vec<u8> = body_bytes.to_vec();
+            // Stream the response body chunk by chunk so we can emit SSE
+            // events as they arrive (critical for reasoning models like MiMo
+            // that take 30-60s to generate a full response).
+            let mut byte_buf: Vec<u8> = Vec::new();
             let mut tool_acc: BTreeMap<usize, (String, String, String)> = BTreeMap::new();
             let mut finish_reason = String::from("stop");
 
-            // Process all SSE events in the buffer.
-            while let Some((pos, sep_len)) = find_event_boundary(&byte_buf) {
-                let event_bytes: Vec<u8> = byte_buf.drain(..pos + sep_len).collect();
-                let event = String::from_utf8_lossy(&event_bytes);
-                for line in event.lines() {
-                    let line = line.trim();
-                    if !line.starts_with("data:") {
-                        continue;
+            // Process SSE events from the buffer, draining completed events.
+            // Returns true if [DONE] was received.
+            macro_rules! drain_events {
+                () => {
+                    while let Some((pos, sep_len)) = find_event_boundary(&byte_buf) {
+                        let event_bytes: Vec<u8> = byte_buf.drain(..pos + sep_len).collect();
+                        let event = String::from_utf8_lossy(&event_bytes);
+                        for line in event.lines() {
+                            let line = line.trim();
+                            if !line.starts_with("data:") {
+                                continue;
+                            }
+                            let data = line["data:".len()..].trim();
+                            if data == "[DONE]" {
+                                let calls = finalize_tool_calls(&mut tool_acc);
+                                let _ = tx
+                                    .send(Ok(StreamEvent::Done { tool_calls: calls, finish_reason }))
+                                    .await;
+                                return;
+                            }
+                            let chunk: StreamChunk = match serde_json::from_str(data) {
+                                Ok(c) => c,
+                                Err(_) => continue,
+                            };
+                            for choice in chunk.choices {
+                                if let Some(reason) = choice.finish_reason {
+                                    if !reason.is_empty() { finish_reason = reason; }
+                                }
+                                if let Some(text) = choice.delta.content {
+                                    if !text.is_empty() {
+                                        let _ = tx.send(Ok(StreamEvent::TextDelta(text))).await;
+                                    }
+                                }
+                                if let Some(text) = choice.delta.reasoning_content {
+                                    if !text.is_empty() {
+                                        let _ = tx.send(Ok(StreamEvent::ReasoningDelta(text))).await;
+                                    }
+                                }
+                                for tc in choice.delta.tool_calls {
+                                    let entry = tool_acc.entry(tc.index)
+                                        .or_insert_with(|| (String::new(), String::new(), String::new()));
+                                    if let Some(id) = tc.id { entry.0 = id; }
+                                    if let Some(f) = tc.function {
+                                        if let Some(n) = f.name { entry.1 = n; }
+                                        if let Some(a) = f.arguments { entry.2.push_str(&a); }
+                                    }
+                                }
+                            }
+                        }
                     }
-                    let data = line["data:".len()..].trim();
-                    if data == "[DONE]" {
-                        let calls = finalize_tool_calls(&mut tool_acc);
-                        let _ = tx
-                            .send(Ok(StreamEvent::Done { tool_calls: calls, finish_reason }))
-                            .await;
+                };
+            }
+
+            // Read chunks as they arrive and process SSE events incrementally.
+            use futures::StreamExt;
+            let mut stream = resp.bytes_stream();
+            while let Some(chunk_result) = stream.next().await {
+                match chunk_result {
+                    Ok(chunk) => {
+                        byte_buf.extend_from_slice(&chunk);
+                        drain_events!();
+                    }
+                    Err(e) => {
+                        let _ = tx.send(Err(AiError::Llm(e.to_string()))).await;
                         return;
-                    }
-                    let chunk: StreamChunk = match serde_json::from_str(data) {
-                        Ok(c) => c,
-                        Err(_) => continue,
-                    };
-                    for choice in chunk.choices {
-                        if let Some(reason) = choice.finish_reason {
-                            if !reason.is_empty() { finish_reason = reason; }
-                        }
-                        if let Some(text) = choice.delta.content {
-                            if !text.is_empty() {
-                                let _ = tx.send(Ok(StreamEvent::TextDelta(text))).await;
-                            }
-                        }
-                        if let Some(text) = choice.delta.reasoning_content {
-                            if !text.is_empty() {
-                                let _ = tx.send(Ok(StreamEvent::ReasoningDelta(text))).await;
-                            }
-                        }
-                        for tc in choice.delta.tool_calls {
-                            let entry = tool_acc.entry(tc.index)
-                                .or_insert_with(|| (String::new(), String::new(), String::new()));
-                            if let Some(id) = tc.id { entry.0 = id; }
-                            if let Some(f) = tc.function {
-                                if let Some(n) = f.name { entry.1 = n; }
-                                if let Some(a) = f.arguments { entry.2.push_str(&a); }
-                            }
-                        }
                     }
                 }
             }

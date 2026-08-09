@@ -190,6 +190,16 @@ export function AiChat({ selectedContext, onClose }: Props) {
         updateToolRow(ev.callId, { state: ev.ok ? 'ok' : 'err', result: ev.result });
         break;
       case 'done':
+        // Push the final assistant message if the backend sent one and we
+        // don't already have an assistant row (common when the LLM returns
+        // empty content after tool calls — the backend constructs a fallback).
+        if (ev.finalMessage) {
+          setRows((prev) => {
+            const hasAssistant = prev.some((r) => r.kind === 'assistant');
+            if (hasAssistant) return prev;
+            return [...prev, { kind: 'assistant', text: ev.finalMessage! }];
+          });
+        }
         setHistory(ev.history);
         setBusy(false);
         setRunId(null);
