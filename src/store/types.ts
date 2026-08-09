@@ -154,6 +154,9 @@ export interface AppState {
   selection: SelectionState;
   systemDark: boolean;
   settingsOpen: boolean;
+  /** When settings opens, optionally scroll to a named section (e.g. 'ai').
+   *  Cleared after the panel consumes it. null = no requested section. */
+  settingsSection: string | null;
   paletteOpen: boolean;
   podMetrics: PodMetricsMap;
   nodeMetrics: NodeMetricsMap;
@@ -215,7 +218,10 @@ export interface AppState {
   setSystemDark: (dark: boolean) => void;
   setSelection: (selection: SelectionState) => void;
   clearSelection: () => void;
-  setSettingsOpen: (open: boolean) => void;
+  /** Open (or close) the settings modal. `section` optionally requests the
+   *  panel scroll to / highlight a named block (currently 'ai' or 'advanced')
+   *  — used by the "enable AI" affordances to drop the user right at the config. */
+  setSettingsOpen: (open: boolean, section?: string) => void;
   setPaletteOpen: (open: boolean) => void;
   jumpTo: (kind: KindId, row?: Row) => void;
   navigateTo: (target: NavTarget) => void;

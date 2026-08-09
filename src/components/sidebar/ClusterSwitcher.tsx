@@ -4,7 +4,7 @@
  * kubeconfig contexts. Selecting one triggers the connect flow.
  */
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import styles from './Sidebar.module.css';
 import { useStore } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
@@ -29,6 +29,10 @@ export function ClusterSwitcher() {
   const setContexts = useStore((s) => s.setContexts);
   const addImportedFile = useStore((s) => s.addImportedFile);
   const { t } = useTranslation();
+  // When the connect fails, the status line becomes clickable to expand the
+  // error detail (and a Retry button). Collapsed again once the user reconnects.
+  const [errorExpanded, setErrorExpanded] = useState(false);
+  const hasError = connection.phase === 'error' && connection.error;
 
   const ref = useRef<HTMLDivElement>(null);
   // A long-lived hidden file input. We `click()` it directly from the
@@ -93,6 +97,40 @@ export function ClusterSwitcher() {
         </div>
         <span className={styles.chevron}>▼</span>
       </button>
+
+      {/* Connection error detail — only when the last connect failed. The red
+          dot on the status line is easy to miss; this makes the reason (and a
+          one-click Retry) reachable without leaving the sidebar. */}
+      {hasError && (
+        <div className={styles.errorDetail}>
+          <button
+            type="button"
+            className={styles.errorHeader}
+            onClick={() => setErrorExpanded((v) => !v)}
+            aria-expanded={errorExpanded}
+          >
+            <span aria-hidden="true">{errorExpanded ? '▾' : '▸'}</span>
+            <span>{t('chrome.clusterSwitcher.errorDetails')}</span>
+          </button>
+          {errorExpanded && (
+            <div className={styles.errorBody}>
+              <div className={styles.errorText} title={connection.error}>
+                {connection.error}
+              </div>
+              <button
+                type="button"
+                className={styles.retryBtn}
+                onClick={() => {
+                  setErrorExpanded(false);
+                  if (connection.context) void connectTo(connection.context);
+                }}
+              >
+                ↻ {t('chrome.clusterSwitcher.retry')}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {open && (
         <div className={styles.menu}>

@@ -89,18 +89,30 @@ describe('SettingsPanel', () => {
       expect(selects.length).toBeGreaterThanOrEqual(2); // theme + language
     });
 
-    it('renders log buffer input', () => {
+    it('hides poll/shell inputs behind the Advanced section by default', () => {
       useStore.setState({ settingsOpen: true });
       view = render(<SettingsPanel />);
+      // The tuning inputs live in a collapsed Advanced block — none should be
+      // visible until the user expands it.
+      expect(view.container.querySelectorAll('input[type="number"]').length).toBe(0);
+    });
+
+    it('reveals poll/shell inputs when Advanced is expanded', () => {
+      useStore.setState({ settingsOpen: true });
+      view = render(<SettingsPanel />);
+      const advancedToggle = view.queryByText(/Advanced|advanced|高级/i);
+      expect(advancedToggle).not.toBeNull();
+      view.click(advancedToggle!);
       const numberInputs = view.container.querySelectorAll('input[type="number"]');
       expect(numberInputs.length).toBeGreaterThanOrEqual(3); // logBuffer, metrics, status
     });
 
-    it('renders text inputs for shell command and namespace', () => {
+    it('renders the default-namespace text input in the regular section', () => {
       useStore.setState({ settingsOpen: true });
       view = render(<SettingsPanel />);
       const textInputs = view.container.querySelectorAll('input[type="text"], input:not([type])');
-      expect(textInputs.length).toBeGreaterThanOrEqual(2);
+      // At least defaultNamespace is visible without expanding Advanced.
+      expect(textInputs.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -125,9 +137,14 @@ describe('SettingsPanel', () => {
   });
 
   describe('MCP section', () => {
-    it('renders MCP panel inside settings', () => {
+    it('renders MCP panel inside the Advanced section once expanded', () => {
       useStore.setState({ settingsOpen: true });
       view = render(<SettingsPanel />);
+      // MCP lives in the collapsed Advanced block, so it is absent until expanded.
+      expect(view.queryByTestId('mcp-panel')).toBeNull();
+      const advancedToggle = view.queryByText(/Advanced|advanced|高级/i);
+      expect(advancedToggle).not.toBeNull();
+      view.click(advancedToggle!);
       expect(view.queryByTestId('mcp-panel')).not.toBeNull();
     });
   });

@@ -51,6 +51,7 @@ import {
   GROUP_ORDER,
   KIND_META,
   KIND_ORDER,
+  DEFAULT_OPEN_GROUPS,
   kindMeta,
   type NavGroup,
   type ResourceKind,
@@ -105,8 +106,12 @@ export function NavList() {
             />
           )
         ) : (
-          <div key={group}>
-            <div className={styles.sectionHeader}>{groupLabel(group, locale)}</div>
+          <ResourceGroupSection
+            key={group}
+            group={group}
+            header={groupLabel(group, locale)}
+            active={isGroupActive(group, nav, overlay, customKinds)}
+          >
             {kindsInGroup(group).map((kind) => {
               const active = nav === kind;
               const meta = kindMeta(kind, customKinds);
@@ -338,9 +343,85 @@ export function NavList() {
                 />
               </>
             )}
-          </div>
+          </ResourceGroupSection>
         )
       )}
+    </div>
+  );
+}
+
+/**
+ * Which overlay keys belong to each resource group — used to decide whether a
+ * group should auto-expand (when one of its overlays is the active one). Keys
+ * not listed here aren't tied to a group. Mirrors the extras rendered inline
+ * below; keeping them in sync is what makes "active overlay opens its group"
+ * work without the user hunting inside a fold.
+ */
+const GROUP_OVERLAYS: Partial<Record<NavGroup, OverlayKey[]>> = {
+  workloads: ['pod-files'],
+  network: ['endpoints', 'topology', 'ingress-routes'],
+  config: ['templates'],
+  access: ['audit'],
+  images: ['image-repos', 'image-transfer', 'sbom'],
+  helm: ['helm-market'],
+  cluster: ['metrics', 'alerting', 'grafana', 'diff', 'plugins'],
+};
+
+/** Whether any kind or overlay in this group is currently active. */
+function isGroupActive(
+  group: NavGroup,
+  nav: string,
+  overlay: OverlayKey | null,
+  customKinds: CustomKind[]
+): boolean {
+  if (kindsInGroup(group).some((k) => k === nav)) return true;
+  const overlays = GROUP_OVERLAYS[group] ?? [];
+  if (overlay && overlays.includes(overlay)) return true;
+  // Custom kinds live under 'custom', handled separately.
+  void customKinds;
+  return false;
+}
+
+/**
+ * A collapsible resource group — a chevron + localised header that reveals its
+ * kinds and tool overlays. High-frequency groups (DEFAULT_OPEN_GROUPS) start
+ * open; the rest fold to keep the first view focused. A group holding the
+ * active nav/overlay opens itself regardless of the default, so a restored
+ * selection or a freshly opened tool is never hidden inside a fold.
+ */
+function ResourceGroupSection({
+  group,
+  header,
+  active,
+  children,
+}: {
+  group: NavGroup;
+  header: string;
+  active: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState<boolean>(DEFAULT_OPEN_GROUPS.has(group));
+  // Auto-expand when something inside becomes active; never auto-collapse, so
+  // the user's manual "leave this open" choice is respected.
+  useEffect(() => {
+    if (active) setOpen(true);
+  }, [active]);
+  void group;
+  return (
+    <div>
+      <button
+        type="button"
+        className={styles.navGroup}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={header}
+      >
+        <span className={styles.navGroupChevron} aria-hidden="true">
+          {open ? '⌄' : '›'}
+        </span>
+        <span className={styles.navGroupLabel}>{header}</span>
+      </button>
+      {open && children}
     </div>
   );
 }

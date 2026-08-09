@@ -24,13 +24,28 @@ pub struct WebState {
     pub event_tx: tokio::sync::broadcast::Sender<WebEvent>,
     /// Per-run event store for polling. Maps run_id → list of events.
     pub ai_runs: Arc<Mutex<HashMap<String, Vec<serde_json::Value>>>>,
+    /// Per-run pending write-tool approvals: call_id → approval sender.
+    /// The agent loop's `await_approval` awaits the receiver; the
+    /// `/api/invoke/ai_approve_tool_call` handler resolves the sender.
+    pub pending_approvals: Arc<Mutex<HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    /// Bearer token every `/api/invoke/*` + `/hooks/*` request must carry.
+    /// Resolved from `K7S_WEB_TOKEN` or a persisted random secret — see
+    /// [`super::auth::resolve_token`].
+    pub web_token: Arc<String>,
+    /// Whether the bind address is loopback. Loopback binds publish the token
+    /// at `GET /api/web-token` (so the same-origin SPA can self-serve it);
+    /// non-loopback binds refuse to publish and require `K7S_WEB_TOKEN`.
+    pub is_loopback: bool,
 }
 
 impl WebState {
     /// Build a fresh web state. The sink the manager gets and the SSE
     /// receivers come from the same broadcast — one emit reaches every
     /// connected client.
-    pub fn new(data_dir: std::path::PathBuf) -> Self {
+    ///
+    /// `addr` is the bind address — used to set `is_loopback`, which controls
+    /// whether `GET /api/web-token` is mounted (loopback only).
+    pub fn new(data_dir: std::path::PathBuf, addr: std::net::SocketAddr) -> Self {
         // The trick: `web_sink` returns both an `EventSink` (which the manager
         // takes) and a *seed* `broadcast::Receiver`. We need a
         // `broadcast::Sender` to keep ourselves, so we go through
@@ -44,7 +59,17 @@ impl WebState {
         // on it for every new SSE connection.
         let event_tx = crate::core::events::web_sink_sender(&core);
 
-        Self { core, event_tx, ai_runs: Arc::new(Mutex::new(HashMap::new())) }
+        let web_token = Arc::new(super::auth::resolve_token(&core.data_dir));
+        let is_loopback = addr.ip().is_loopback();
+
+        Self {
+            core,
+            event_tx,
+            ai_runs: Arc::new(Mutex::new(HashMap::new())),
+            pending_approvals: Arc::new(Mutex::new(HashMap::new())),
+            web_token,
+            is_loopback,
+        }
     }
 
     /// A fresh subscriber for a new SSE connection.

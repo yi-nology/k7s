@@ -272,7 +272,9 @@ jobs:
       - name: build frontend
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Match the frontend/release jobs (which use "26") so the Docker
+          # image's bundled frontend is built with the same Node as CI.
+          node-version: "26"
 
       - name: install pnpm
         uses: pnpm/action-setup@v4

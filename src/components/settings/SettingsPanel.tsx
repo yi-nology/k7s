@@ -16,7 +16,7 @@
  * top so the user can see the effect while the panel is still open.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import styles from './SettingsPanel.module.css';
 import { useStore } from '../../store';
 import { LIMITS, DEFAULT_SETTINGS, sanitizeSettings, type Settings } from '../../lib/settings';
@@ -29,10 +29,15 @@ import { AiSettingsPanel } from '../ai/AiSettingsPanel';
 export function SettingsPanel() {
   const open = useStore((s) => s.settingsOpen);
   const setOpen = useStore((s) => s.setSettingsOpen);
+  const section = useStore((s) => s.settingsSection);
   const settings = useStore((s) => s.settings);
   const setSettings = useStore((s) => s.setSettings);
   const connected = useStore((s) => s.connection.phase === 'connected');
   const { t } = useTranslation();
+
+  // The AI config block — given an id + ref so a `settingsSection='ai'` request
+  // (from the chat panel's "enable AI" button) can scroll it into view.
+  const aiSectionRef = useRef<HTMLDivElement>(null);
 
   // Esc closes, matching every other overlay in the app.
   useEffect(() => {
@@ -46,6 +51,20 @@ export function SettingsPanel() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, setOpen]);
+
+  // Honour a requested scroll target once the panel has mounted its DOM.
+  // Cleared afterwards so re-opening without a target doesn't jump.
+  useEffect(() => {
+    if (!open || !section) return;
+    if (section === 'ai') {
+      // Defer a frame so the Advanced section (which may hold related config)
+      // has rendered before we measure.
+      const id = requestAnimationFrame(() => {
+        aiSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      return () => cancelAnimationFrame(id);
+    }
+  }, [open, section]);
 
   if (!open) return null;
 
@@ -115,58 +134,6 @@ export function SettingsPanel() {
           </Row>
 
           <Row
-            label={t('settings.logBuffer.label')}
-            hint={t('settings.logBuffer.hint', LIMITS.logBufferCap.min, LIMITS.logBufferCap.max)}
-          >
-            <input
-              className={styles.number}
-              type="number"
-              min={LIMITS.logBufferCap.min}
-              max={LIMITS.logBufferCap.max}
-              value={settings.logBufferCap}
-              onChange={(e) => update({ logBufferCap: Number(e.target.value) })}
-            />
-          </Row>
-
-          <Row
-            label={t('settings.metricsPoll.label')}
-            hint={t(
-              'settings.metricsPoll.hint',
-              LIMITS.metricsIntervalSecs.min,
-              LIMITS.metricsIntervalSecs.max,
-              connected
-            )}
-          >
-            <input
-              className={styles.number}
-              type="number"
-              min={LIMITS.metricsIntervalSecs.min}
-              max={LIMITS.metricsIntervalSecs.max}
-              value={settings.metricsIntervalSecs}
-              onChange={(e) => update({ metricsIntervalSecs: Number(e.target.value) })}
-            />
-          </Row>
-
-          <Row
-            label={t('settings.statusPoll.label')}
-            hint={t(
-              'settings.statusPoll.hint',
-              LIMITS.statusIntervalSecs.min,
-              LIMITS.statusIntervalSecs.max,
-              connected
-            )}
-          >
-            <input
-              className={styles.number}
-              type="number"
-              min={LIMITS.statusIntervalSecs.min}
-              max={LIMITS.statusIntervalSecs.max}
-              value={settings.statusIntervalSecs}
-              onChange={(e) => update({ statusIntervalSecs: Number(e.target.value) })}
-            />
-          </Row>
-
-          <Row
             label={t('settings.defaultNamespace.label')}
             hint={t('settings.defaultNamespace.hint')}
           >
@@ -178,33 +145,96 @@ export function SettingsPanel() {
             />
           </Row>
 
-          <Row label={t('settings.shellCommand.label')} hint={t('settings.shellCommand.hint')}>
-            <input
-              className={styles.text}
-              value={settings.shellCommand}
-              onChange={(e) => update({ shellCommand: e.target.value })}
-              placeholder={t('settings.shellCommand.placeholder')}
-            />
-          </Row>
-
-          <Row label={t('settings.nodeShellImage.label')} hint={t('settings.nodeShellImage.hint')}>
-            <input
-              className={styles.text}
-              value={settings.nodeShellImage}
-              onChange={(e) => update({ nodeShellImage: e.target.value })}
-              placeholder={t('settings.nodeShellImage.placeholder')}
-            />
-          </Row>
-
           {/* Built-in AI assistant — embeds an LLM + tool set in the app itself.
-              Runtime-toggled off by default; configure here to enable. */}
-          <AiSettingsPanel />
+              Runtime-toggled off by default; configure here to enable. The
+              container carries an id so the "enable AI" affordances can scroll
+              the user straight here via settingsSection='ai'. */}
+          <div id="settings-section-ai" ref={aiSectionRef}>
+            <AiSettingsPanel />
+          </div>
 
-          {/* AI integration — the MCP endpoint this same server exposes.
-              Renders below the regular settings so the "you can do all this
-              from Claude/Cursor too" point lands last, while the user is
-              still looking at the panel. */}
-          <McpPanel />
+          {/* Advanced — poll intervals, shell, and the MCP integration. These are
+              tuning knobs most users never touch, so they start folded. */}
+          <AdvancedSection
+            title={t('chrome.settings.advanced')}
+            hint={t('chrome.settings.advancedHint')}
+            startOpen={section === 'advanced'}
+          >
+            <Row
+              label={t('settings.logBuffer.label')}
+              hint={t('settings.logBuffer.hint', LIMITS.logBufferCap.min, LIMITS.logBufferCap.max)}
+            >
+              <input
+                className={styles.number}
+                type="number"
+                min={LIMITS.logBufferCap.min}
+                max={LIMITS.logBufferCap.max}
+                value={settings.logBufferCap}
+                onChange={(e) => update({ logBufferCap: Number(e.target.value) })}
+              />
+            </Row>
+
+            <Row
+              label={t('settings.metricsPoll.label')}
+              hint={t(
+                'settings.metricsPoll.hint',
+                LIMITS.metricsIntervalSecs.min,
+                LIMITS.metricsIntervalSecs.max,
+                connected
+              )}
+            >
+              <input
+                className={styles.number}
+                type="number"
+                min={LIMITS.metricsIntervalSecs.min}
+                max={LIMITS.metricsIntervalSecs.max}
+                value={settings.metricsIntervalSecs}
+                onChange={(e) => update({ metricsIntervalSecs: Number(e.target.value) })}
+              />
+            </Row>
+
+            <Row
+              label={t('settings.statusPoll.label')}
+              hint={t(
+                'settings.statusPoll.hint',
+                LIMITS.statusIntervalSecs.min,
+                LIMITS.statusIntervalSecs.max,
+                connected
+              )}
+            >
+              <input
+                className={styles.number}
+                type="number"
+                min={LIMITS.statusIntervalSecs.min}
+                max={LIMITS.statusIntervalSecs.max}
+                value={settings.statusIntervalSecs}
+                onChange={(e) => update({ statusIntervalSecs: Number(e.target.value) })}
+              />
+            </Row>
+
+            <Row label={t('settings.shellCommand.label')} hint={t('settings.shellCommand.hint')}>
+              <input
+                className={styles.text}
+                value={settings.shellCommand}
+                onChange={(e) => update({ shellCommand: e.target.value })}
+                placeholder={t('settings.shellCommand.placeholder')}
+              />
+            </Row>
+
+            <Row label={t('settings.nodeShellImage.label')} hint={t('settings.nodeShellImage.hint')}>
+              <input
+                className={styles.text}
+                value={settings.nodeShellImage}
+                onChange={(e) => update({ nodeShellImage: e.target.value })}
+                placeholder={t('settings.nodeShellImage.placeholder')}
+              />
+            </Row>
+
+            {/* AI integration — the MCP endpoint this same server exposes.
+                Renders inside Advanced so the "you can do all this from
+                Claude/Cursor too" point lands with the other integrations. */}
+            <McpPanel />
+          </AdvancedSection>
         </div>
 
         <div className={styles.footer}>
@@ -239,6 +269,43 @@ function Row({
         <div className={styles.hint}>{hint}</div>
       </div>
       {children}
+    </div>
+  );
+}
+
+/** A collapsible "Advanced" block — folds the tuning knobs most users never
+ *  touch. Mirrors the sidebar's disclosure idiom: a <button aria-expanded> with
+ *  a chevron that flips, and {open && children} beneath it. */
+function AdvancedSection({
+  title,
+  hint,
+  startOpen = false,
+  children,
+}: {
+  title: string;
+  hint: string;
+  startOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(startOpen);
+  return (
+    <div className={styles.advanced}>
+      <button
+        type="button"
+        className={styles.advancedToggle}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span className={styles.advancedChevron} aria-hidden="true">
+          {open ? '⌄' : '›'}
+        </span>
+        <span className={styles.advancedLabel}>{title}</span>
+      </button>
+      {open ? (
+        <div className={styles.advancedBody}>{children}</div>
+      ) : (
+        <div className={styles.advancedHint}>{hint}</div>
+      )}
     </div>
   );
 }

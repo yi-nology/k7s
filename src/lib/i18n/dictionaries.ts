@@ -31,6 +31,9 @@ export interface Dictionary {
       title: string;
       footerNote: string;
       reset: string;
+      /** Collapsible "Advanced" section header (holds poll/shell/MCP tuning). */
+      advanced: string;
+      advancedHint: string;
     };
     copy: string;
     copied: string;
@@ -106,6 +109,13 @@ export interface Dictionary {
       connecting: string;
       disconnected: string;
       noCluster: string;
+      errorDetails: string;
+      retry: string;
+    };
+    /** The floating AI assistant toggle button (bottom-right of the content area). */
+    aiFab: {
+      open: string;
+      title: string;
     };
     forwards: {
       label: string;
@@ -1115,6 +1125,8 @@ export interface Dictionary {
       tabSkills: string;
       tabMemory: string;
       tabCron: string;
+      /** Tooltip/title for the "⋯" overflow button holding the advanced tabs. */
+      moreTabs: string;
       newConversation: string;
       close: string;
       you: string;
@@ -1178,6 +1190,16 @@ export interface Dictionary {
       logs: string;
       describe: string;
       enableFirst: string;
+      /** Localised prompts sent to the model when a quick action is clicked.
+       *  Function leaves interpolate the selected resource's kind/name/namespace. */
+      clusterHealthMsg: string;
+      listNodesMsg: string;
+      findCrashLoopMsg: string;
+      resourcePressureMsg: string;
+      diagnoseMsg: (kind: string, name: string, ns: string) => string;
+      eventsMsg: (kind: string, name: string, ns: string) => string;
+      logsMsg: (kind: string, name: string, ns: string) => string;
+      describeMsg: (kind: string, name: string, ns: string) => string;
     };
     skills: {
       loading: string;

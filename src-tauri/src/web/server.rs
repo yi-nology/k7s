@@ -392,7 +392,20 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/events", get(events_handler))
         .route("/api/health", get(|| async { "ok" }))
         .route("/health", get(|| async { "ok" }))
-        .with_state(state)
+        // Loopback-only: publish the auth token so the same-origin SPA can
+        // self-serve it. The handler double-checks `is_loopback` and 404s
+        // if the router is somehow reached on a non-loopback bind.
+        .route("/api/web-token", get(handlers::web_token))
+        .with_state(state.clone())
+        // Auth gate: every `/api/invoke/*` and `/hooks/*` request must carry
+        // `Authorization: Bearer <token>`. Public endpoints (health/status/
+        // events, and loopback `/api/web-token`) are exempted inside the
+        // middleware by path. Applied after routes are registered so it sees
+        // the resolved state.
+        .layer(axum::middleware::from_fn_with_state(
+            state,
+            super::auth::require_token,
+        ))
         // The Streamable HTTP MCP transport. Same tools the stdio
         // `k7s-mcp` binary exposes, reachable by URL — point any modern
         // MCP client at `http://<host>:<port>/mcp` and you get the same
@@ -436,9 +449,10 @@ pub fn router(
 }
 
 /// Bind to `addr` and serve until the process is asked to stop. The
-/// Build the CORS layer. The server has no authentication, so an open
-/// `allow_origin(Any)` lets any web page issue cluster-control requests
-/// against a victim's k7s-web. Instead we allow only:
+/// Build the CORS layer. Although `/api/invoke/*` now requires a bearer
+/// token, an open `allow_origin(Any)` still lets any web page attempt
+/// cluster-control requests against a victim's k7s-web (and a leaked/token-
+/// readable page would succeed). Instead we allow only:
 /// - the server's own origin (prod: same-origin SPA),
 /// - the Vite dev origin (`http://localhost:1420`), and
 /// - any comma-separated origins in `K7S_ALLOWED_ORIGINS`.
@@ -497,16 +511,25 @@ pub async fn serve(
     };
     tracing::info!("k7s-web ({mode}) listening on http://{addr} (MCP: /mcp)");
 
-    // k7s-web has no built-in authentication and exposes the full Kubernetes
-    // control surface (apply/delete/drain/exec, plaintext Secret reads). When
-    // bound to anything other than loopback, shout about it so nobody
-    // accidentally puts an open cluster backdoor on the network.
+    // k7s-web exposes the full Kubernetes control surface (apply/delete/drain/
+    // exec, plaintext Secret reads). Every `/api/invoke/*` and `/hooks/*`
+    // request now requires a bearer token. On loopback the token is auto-
+    // generated and published at `GET /api/web-token` for the same-origin SPA;
+    // on non-loopback the operator MUST set `K7S_WEB_TOKEN`, and we warn loudly
+    // because a network-reachable cluster control surface is high-risk.
     if !addr.ip().is_loopback() {
+        if std::env::var("K7S_WEB_TOKEN").map(|t| t.trim().is_empty()).unwrap_or(true) {
+            tracing::warn!(
+                "⚠️  k7s-web is bound to {addr} (non-loopback) and K7S_WEB_TOKEN is not set. \
+                 A random token was generated and written to the data dir, but on a \
+                 non-loopback bind you cannot read it via /api/web-token (that route is \
+                 loopback-only). Set K7S_WEB_TOKEN explicitly so your clients know it."
+            );
+        }
         tracing::warn!(
-            "⚠️  k7s-web is bound to {addr} (non-loopback) with NO authentication. \
-             Any client that can reach this port has full cluster control — read every \
-             Secret, exec into any pod, delete resources, get a root shell on any node. \
-             Put it behind an authenticating reverse proxy, or bind to 127.0.0.1."
+            "⚠️  k7s-web on {addr} is network-reachable. Any client that can reach this \
+             port AND has the token has full cluster control. Prefer binding to 127.0.0.1 \
+             or sitting behind an authenticating reverse proxy."
         );
     }
 

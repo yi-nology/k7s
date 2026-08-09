@@ -21,6 +21,8 @@ export const zh: Dictionary = {
       title: '设置',
       footerNote: '修改自动保存',
       reset: '恢复默认',
+      advanced: '高级',
+      advancedHint: '轮询间隔、Shell 和集成配置——大多数用户无需修改。',
     },
     copy: '复制',
     copied: '已复制',
@@ -87,6 +89,12 @@ export const zh: Dictionary = {
       connecting: '连接中…',
       disconnected: '已断开',
       noCluster: '未选择集群',
+      errorDetails: '连接错误',
+      retry: '重试连接',
+    },
+    aiFab: {
+      open: '打开 AI 助手',
+      title: 'AI 助手',
     },
     forwards: {
       label: '端口转发:',
@@ -977,6 +985,7 @@ export const zh: Dictionary = {
       tabSkills: '⚡ 技能',
       tabMemory: '🧠 记忆',
       tabCron: '⏰ 定时',
+      moreTabs: '更多（技能、记忆、定时）',
       newConversation: '新建对话',
       close: '关闭',
       you: '你',
@@ -1040,6 +1049,16 @@ export const zh: Dictionary = {
       logs: '日志',
       describe: '详情',
       enableFirst: '请先在设置中启用 AI',
+      clusterHealthMsg: '检查集群的整体健康状况，列出所有问题。',
+      listNodesMsg: '列出集群中所有节点及其状态。',
+      findCrashLoopMsg: '在所有命名空间中查找处于 CrashLoopBackOff 或 ImagePullBackOff 的 Pod。',
+      resourcePressureMsg: '哪些命名空间占用的 CPU 和内存最多？',
+      diagnoseMsg: (kind, name, ns) =>
+        `诊断命名空间 ${ns} 中的 ${kind}/${name}。检查事件、状态条件和日志，找出任何问题的根本原因。`,
+      eventsMsg: (kind, name, ns) => `显示命名空间 ${ns} 中 ${kind}/${name} 的近期事件。`,
+      logsMsg: (kind, name, ns) => `获取命名空间 ${ns} 中 ${kind}/${name} 的日志，显示最近 50 行。`,
+      describeMsg: (kind, name, ns) =>
+        `描述命名空间 ${ns} 中的 ${kind}/${name}，显示完整的状态和条件。`,
     },
     skills: {
       loading: '加载技能…',

@@ -86,3 +86,18 @@ pnpm tauri dev
 - 预期行为
 - 实际行为
 - 环境信息
+
+## 已知技术债
+
+以下几项是已知但本次未处理的升级项，留作单独 PR（都涉及 lockfile / 配置迁移，需谨慎）：
+
+- **ESLint 8 → 9**：当前 `eslint ^8.57.1` 已 EOL，配置仍是 legacy
+  `.eslintrc.cjs`，lint 脚本用了 ESLint 9 已移除的 `--ext`。迁移需切换到
+  flat config（`eslint.config.js`）并升级 `@typescript-eslint` 到 8.x。
+- **Vitest → 4.1**：当前 `vitest ^3.1.3` 把 Vite 6 作为硬依赖拉入，而项目
+  构建用 Vite 8；测试引擎与构建引擎不一致。Vitest 4.1 起正式支持 Vite 8。
+- **schemars 版本收敛**：`Cargo.lock` 同时存在 schemars 0.8 / 0.9 / 1.x，
+  源于 `rmcp` 与本 crate 的版本差。收敛需验证 rmcp 的 derive 兼容性。
+- **`crates/probe` 游离于 CI**：独立 crate，不在 workspace 内，CI 不编译它。
+  建议纳入根 workspace 或单独加 CI 步骤。
+

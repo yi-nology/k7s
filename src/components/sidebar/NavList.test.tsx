@@ -204,4 +204,27 @@ describe('NavList', () => {
       expect(view.queryByText('Service Topology')).not.toBeNull();
     });
   });
+
+  describe('collapsible groups', () => {
+    it('folds low-frequency groups (Cluster) by default, expands on click', () => {
+      // Cluster is a low-frequency group — it starts collapsed so its tools
+      // (Metrics, Plugins, etc.) are hidden until the user opens it. The group
+      // header is still rendered (it's the expand trigger).
+      view = render(<NavList />);
+      expect(view.queryByText('Cluster')).not.toBeNull();
+      // Diff lives inside Cluster; it must be hidden while folded.
+      expect(view.queryByText('Diff')).toBeNull();
+      // Click the Cluster header to expand it.
+      view.click(view.getByText('Cluster'));
+      expect(view.queryByText('Diff')).not.toBeNull();
+    });
+
+    it('auto-expands a group when one of its overlays becomes active', () => {
+      // Opening a Cluster-group overlay (e.g. metrics) must expand Cluster so
+      // the active tool is visible, not buried in a fold.
+      useStore.setState({ overlay: 'metrics' });
+      view = render(<NavList />);
+      expect(view.queryByText('Metrics')).not.toBeNull();
+    });
+  });
 });

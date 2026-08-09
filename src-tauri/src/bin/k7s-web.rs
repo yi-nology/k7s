@@ -62,7 +62,7 @@ async fn main() -> std::io::Result<()> {
     // Embedded mode is active when no --static is given.
     let use_embedded = args.static_dir.is_none();
 
-    let state = WebState::new(data_dir);
+    let state = WebState::new(data_dir, addr);
 
     // Print the access URL prominently.
     let url = format!("http://{addr}");

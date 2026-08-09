@@ -33,7 +33,10 @@ COPY dist /dist
 # ─────────────────────────────────────────────────────────────────
 # Stage 2 — Rust binary
 # ─────────────────────────────────────────────────────────────────
-FROM rust:1.97-bookworm AS backend
+# `rust:1-bookworm` tracks the latest stable 1.x, matching CI's
+# `dtolnay/rust-toolchain@stable`. (Previously `rust:1.97`, which is a
+# future/non-existent tag as of 2026-08.) Satisfies rust-version = 1.77.2.
+FROM rust:1-bookworm AS backend
 
 # System deps. Bookworm's base image already has gcc/make/cmake,
 # but we need the Tauri webview toolchain because tauri 2's default

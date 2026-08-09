@@ -99,19 +99,40 @@ impl Default for HookConfig {
 }
 
 /// Verify a hook request's authentication.
+///
+/// Security default: **deny when no token is configured**. The previous
+/// behavior (empty token = open access) let anyone who could reach the port
+/// trigger the AI agent. Now hooks are only live when an operator has set a
+/// token (via `K7S_HOOK_TOKEN` or the config file). The comparison is
+/// constant-time to avoid a timing side-channel.
 pub fn verify_hook(config: &HookConfig, auth_header: Option<&str>) -> bool {
     if !config.enabled {
         return false;
     }
     if config.token.is_empty() {
-        return true; // no token configured = open access (dev mode)
+        // No token configured → refuse (fail closed).
+        return false;
     }
     match auth_header {
         Some(header) => {
             // Expect "Bearer <token>" or just the raw token.
             let token = header.strip_prefix("Bearer ").unwrap_or(header);
-            token == config.token
+            constant_time_eq(token.as_bytes(), config.token.as_bytes())
         }
         None => false,
     }
+}
+
+/// Constant-time byte comparison so a remote attacker can't time-attack the
+/// token byte-by-byte. Length mismatches return early (the length itself is
+/// not sensitive).
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    if a.len() != b.len() {
+        return false;
+    }
+    let mut diff = 0u8;
+    for (x, y) in a.iter().zip(b.iter()) {
+        diff |= x ^ y;
+    }
+    diff == 0
 }

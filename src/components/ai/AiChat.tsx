@@ -9,6 +9,7 @@
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getProvider } from '../../providers';
+import { apiHeaders } from '../../providers/transport';
 import type {
   AgentEvent,
   AiConfigView,
@@ -24,6 +25,9 @@ import { AiStatusBar } from './AiStatusBar';
 import { SkillsPanel } from './SkillsPanel';
 import { MemoryPanel } from './MemoryPanel';
 import { CronPanel } from './CronPanel';
+import { useTranslation } from '../../hooks/useI18n';
+import { useClickOutside } from '../../hooks/useClickOutside';
+import { useStore } from '../../store';
 import styles from './AiChat.module.css';
 
 type Tab = 'chat' | 'skills' | 'memory' | 'cron';
@@ -55,6 +59,8 @@ interface Props {
 }
 
 export function AiChat({ selectedContext, onClose }: Props) {
+  const { t } = useTranslation();
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
   const [rows, setRows] = useState<Row[]>([]);
   const [turnBoundaries, setTurnBoundaries] = useState<number[]>([0]); // indices where turns start
   const [input, setInput] = useState('');
@@ -67,6 +73,13 @@ export function AiChat({ selectedContext, onClose }: Props) {
   const [config, setConfig] = useState<AiConfigView | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Overflow menu for the advanced AI tabs (Skills/Memory/Cron) — kept folded
+  // behind a "⋯" so the default header shows only Chat, lowering the first-use
+  // cognitive load. The three tabs are advanced Agent concepts most users never
+  // touch; they remain one click away.
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowRef = useRef<HTMLDivElement>(null);
+  useClickOutside(overflowRef, () => setOverflowOpen(false), overflowOpen);
 
   // Load config + context on mount.
   useEffect(() => {
@@ -91,6 +104,17 @@ export function AiChat({ selectedContext, onClose }: Props) {
   const activeRunId = useRef<string | null>(null);
   const processEventRef = useRef(processEvent);
   processEventRef.current = processEvent;
+  // Set to true on unmount so the poll loop in send() stops itself instead of
+  // continuing to fire requests and setState on a gone component.
+  const pollCancelRef = useRef(false);
+  const pollAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      pollCancelRef.current = true;
+      pollAbortRef.current?.abort();
+    };
+  }, []);
 
   // No persistent SSE subscription — a per-run EventSource is created in
   // the send() function to avoid connection-limit issues with the
@@ -196,15 +220,23 @@ export function AiChat({ selectedContext, onClose }: Props) {
       activeRunId.current = id;
       setRunId(id);
       // Poll for events instead of SSE (avoids browser connection-limit issues).
+      pollCancelRef.current = false;
       const poll = async () => {
         let afterIndex = 0;
-        while (true) {
+        while (!pollCancelRef.current) {
           await new Promise((r) => setTimeout(r, 800));
+          if (pollCancelRef.current) break;
+          // One AbortController per iteration so an in-flight request is
+          // cancelled when the component unmounts (pollAbortRef.abort() in
+          // the cleanup effect).
+          const ac = new AbortController();
+          pollAbortRef.current = ac;
           try {
             const res = await fetch('/api/invoke/ai_poll_events', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: await apiHeaders(),
               body: JSON.stringify({ runId: id, afterIndex }),
+              signal: ac.signal,
             });
             const json = await res.json();
             // The API wraps responses in { ok, data }. Unwrap it.
@@ -218,7 +250,11 @@ export function AiChat({ selectedContext, onClose }: Props) {
               afterIndex = data.total ?? afterIndex + data.events.length;
             }
             if (data?.done) break;
-          } catch { break; }
+          } catch (e) {
+            // AbortError is expected on unmount; anything else stops the loop.
+            if ((e as Error)?.name === 'AbortError') return;
+            break;
+          }
         }
       };
       void poll();
@@ -279,30 +315,67 @@ export function AiChat({ selectedContext, onClose }: Props) {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <span className={styles.headerTitle}>✦ k7s AI</span>
+          <span className={styles.headerTitle}>{t('ai.chat.title')}</span>
           {activeSkillId && <span className={styles.skillBadge}>{activeSkillId}</span>}
         </div>
         <div className={styles.headerRight}>
-          {([['chat', '💬 Chat'], ['skills', '⚡ Skills'], ['memory', '🧠 Memory'], ['cron', '⏰ Cron']] as [Tab, string][]).map(
-            ([tabId, label]) => (
-              <button
-                key={tabId}
-                type="button"
-                className={tab === tabId ? styles.headerTabActive : styles.headerTab}
-                onClick={() => setTab(tabId)}
-                title={label}
-              >
-                {label}
-              </button>
-            )
-          )}
+          {/* Chat is the primary tab — always visible. */}
+          <button
+            type="button"
+            className={tab === 'chat' ? styles.headerTabActive : styles.headerTab}
+            onClick={() => setTab('chat')}
+            title={t('ai.chat.tabChat')}
+          >
+            {t('ai.chat.tabChat')}
+          </button>
+          {/* Skills / Memory / Cron — advanced Agent tabs, folded behind "⋯". */}
+          <div className={styles.overflowWrap} ref={overflowRef}>
+            <button
+              type="button"
+              className={
+                tab !== 'chat' ? styles.headerTabActive : styles.headerTab
+              }
+              onClick={() => setOverflowOpen((o) => !o)}
+              title={t('ai.chat.moreTabs')}
+              aria-haspopup="menu"
+              aria-expanded={overflowOpen}
+            >
+              ⋯
+            </button>
+            {overflowOpen && (
+              <div className={styles.overflowMenu} role="menu">
+                {(
+                  [
+                    ['skills', t('ai.chat.tabSkills')],
+                    ['memory', t('ai.chat.tabMemory')],
+                    ['cron', t('ai.chat.tabCron')],
+                  ] as [Tab, string][]
+                ).map(([tabId, label]) => (
+                  <button
+                    key={tabId}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={tab === tabId}
+                    className={`${styles.overflowRow} ${tab === tabId ? styles.overflowRowSelected : ''}`}
+                    onClick={() => {
+                      setTab(tabId);
+                      setOverflowOpen(false);
+                    }}
+                  >
+                    <span className={styles.overflowCheck}>{tab === tabId ? '✓' : ''}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {tab === 'chat' && rows.length > 0 && (
-            <button type="button" className={styles.headerTab} onClick={newChat} title="New conversation">
+            <button type="button" className={styles.headerTab} onClick={newChat} title={t('ai.chat.newConversation')}>
               🔄
             </button>
           )}
           {onClose && (
-            <button type="button" className={styles.headerTab} onClick={onClose} title="Close">
+            <button type="button" className={styles.headerTab} onClick={onClose} title={t('ai.chat.close')}>
               ✕
             </button>
           )}
@@ -335,7 +408,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
               if (row.kind === 'user') {
                 return (
                   <div key={i} className={styles.userMsg}>
-                    <div className={styles.userLabel}>You</div>
+                    <div className={styles.userLabel}>{t('ai.chat.you')}</div>
                     {row.text}
                   </div>
                 );
@@ -356,7 +429,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
               if (row.kind === 'assistant') {
                 return (
                   <div key={i} className={styles.assistantMsg}>
-                    <div className={styles.assistantLabel}>✦ k7s AI</div>
+                    <div className={styles.assistantLabel}>{t('ai.chat.assistant')}</div>
                     <MarkdownMessage content={row.text} />
                   </div>
                 );
@@ -399,13 +472,25 @@ export function AiChat({ selectedContext, onClose }: Props) {
             )}
           </div>
 
+          {/* When AI is disabled, surface a one-click path to the config rather
+              than leaving the user to find the settings gear themselves. */}
+          {!aiEnabled && (
+            <button
+              type="button"
+              className={styles.enableHint}
+              onClick={() => setSettingsOpen(true, 'ai')}
+            >
+              ⚙️ {t('ai.welcome.openSettings')}
+            </button>
+          )}
+
           {/* Input */}
           <div className={styles.inputArea}>
             <textarea
               ref={inputRef}
               className={styles.input}
               value={input}
-              placeholder={aiEnabled ? 'Ask anything about your cluster…' : 'Enable AI in Settings first…'}
+              placeholder={aiEnabled ? t('ai.chat.placeholder') : t('ai.chat.placeholderDisabled')}
               rows={1}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
@@ -414,7 +499,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
             <div className={styles.inputActions}>
               {busy ? (
                 <button type="button" className={styles.stopBtn} onClick={cancel}>
-                  Stop
+                  {t('ai.chat.stop')}
                 </button>
               ) : (
                 <button
@@ -447,6 +532,7 @@ function ReasoningBlock({
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  const { t } = useTranslation();
   return (
     <div className={styles.reasoningBlock}>
       <button
@@ -455,7 +541,7 @@ function ReasoningBlock({
         onClick={() => setExpanded(!expanded)}
       >
         <span>{expanded ? '▾' : '▸'}</span>
-        <span>💭 AI thinking</span>
+        <span>💭 {t('ai.chat.thinking')}</span>
         <span className={styles.reasoningLen}>{text.length} chars</span>
       </button>
       {expanded && <div className={styles.reasoningContent}>{text}</div>}

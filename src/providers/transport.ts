@@ -55,11 +55,45 @@ interface WireResponse<T> {
   error?: string;
 }
 
+/**
+ * Bearer token for the k7s-web API. The loopback server publishes a random
+ * token at `GET /api/web-token` (same-origin, so only the SPA can read it);
+ * every `/api/invoke/*` + `/hooks/*` call must carry it. Fetched once, cached
+ * for the page lifetime. Returns '' when there's no token (Tauri desktop, or a
+ * non-loopback bind that didn't set K7S_WEB_TOKEN) — callers then send no
+ * Authorization header and the request 401s, which is the correct failure.
+ */
+let webTokenPromise: Promise<string> | null = null;
+function getWebToken(): Promise<string> {
+  if (webTokenPromise) return webTokenPromise;
+  webTokenPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE}/web-token`);
+      if (!res.ok) return '';
+      const body = (await res.json()) as { token?: string };
+      return body.token ?? '';
+    } catch {
+      return '';
+    }
+  })();
+  return webTokenPromise;
+}
+
+/** Headers (incl. the bearer token when present) for an API request. */
+export async function apiHeaders(
+  extra?: Record<string, string>
+): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', ...extra };
+  const token = await getWebToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  return headers;
+}
+
 export const httpInvoke: Invoker = async <T>(cmd: string, args?: unknown): Promise<T> => {
   const url = `${API_BASE}/invoke/${cmd}`;
   const init: RequestInit = {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: await apiHeaders(),
     body: args === undefined ? undefined : JSON.stringify(args),
   };
   const res = await fetch(url, init);
@@ -132,7 +166,10 @@ const sharedEventBus = (() => {
     const url = `${API_BASE}/events`;
     void (async () => {
       try {
-        const res = await fetch(url, { signal: controller!.signal });
+        const res = await fetch(url, {
+          signal: controller!.signal,
+          headers: await apiHeaders(),
+        });
         if (!res.ok || !res.body) {
           throw new Error(`SSE: HTTP ${res.status}`);
         }

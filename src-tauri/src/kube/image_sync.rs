@@ -230,6 +230,21 @@ pub(crate) fn cleanup_authfile(path: Option<&std::path::PathBuf>) -> std::io::Re
     }
 }
 
+/// RAII guard over a skopeo auth file: deletes it on drop.
+///
+/// The auth file holds plaintext-equivalent registry credentials (`base64` is
+/// reversible). Previously the cleanup call lived only at the end of each
+/// function, so any `?` early-return between write and cleanup leaked the
+/// file in `/tmp`. Wrapping the path in this guard means every exit path —
+/// including `?` propagation — drops the guard and removes the file.
+pub(crate) struct AuthFileGuard(pub(crate) Option<std::path::PathBuf>);
+
+impl Drop for AuthFileGuard {
+    fn drop(&mut self) {
+        let _ = cleanup_authfile(self.0.as_ref());
+    }
+}
+
 /// Build a unique temp file path without creating it. Mirrors the project's
 /// existing temp-file convention (grafana.rs, audit.rs, client.rs): pid +
 /// nanosecond timestamp gives uniqueness without a tempfile crate dependency.
@@ -337,24 +352,26 @@ pub async fn copy_image(
     // Write credentials to temp auth files instead of placing them on the argv
     // (`--src-creds`/`--dest-creds` leak `user:pass` to `ps`/`/proc`). Each is
     // 0600 and deleted after the copy. Returns None for anonymous access.
-    let src_authfile = match (docker_transport_host(source), src_creds) {
+    // Wrapped in `AuthFileGuard` so any `?` early-return below still drops
+    // (deletes) the files — they hold plaintext-equivalent creds.
+    let src_authfile = AuthFileGuard(match (docker_transport_host(source), src_creds) {
         (Some(src_host), Some(creds)) => write_skopeo_authfile(src_host, AuthCreds::Raw(creds))?,
         _ => None,
-    };
-    let dest_authfile = write_skopeo_authfile(
+    });
+    let dest_authfile = AuthFileGuard(write_skopeo_authfile(
         &host,
         AuthCreds::Split {
             user: reg.username.as_str(),
             pass: reg.password.as_str(),
         },
-    )?;
+    )?);
 
     let argv = build_argv(
         &skopeo,
         source,
         &dest_ref,
-        src_authfile.as_deref(),
-        dest_authfile.as_deref(),
+        src_authfile.0.as_deref(),
+        dest_authfile.0.as_deref(),
         insecure_src,
         insecure_dest,
     );
@@ -438,10 +455,9 @@ pub async fn copy_image(
         lines,
         summary,
     };
-    // Wipe the temp auth files now that skopeo has finished — they held
-    // plaintext-equivalent credentials (base64 is reversible).
-    let _ = cleanup_authfile(src_authfile.as_ref());
-    let _ = cleanup_authfile(dest_authfile.as_ref());
+    // `src_authfile` / `dest_authfile` (AuthFileGuard) drop here, wiping the
+    // temp auth files — they held plaintext-equivalent credentials (base64
+    // is reversible). Drop runs on this happy path and on every `?` above.
     sink.emit(IMAGE_SYNC_DONE_EVENT, &result);
     if success {
         Ok(result)
@@ -538,20 +554,20 @@ pub async fn export_from_registry(
 
     // Write the source registry credentials to a temp auth file (0600) instead
     // of passing them as `--src-creds` on the argv, which leaks `user:pass` to
-    // `ps`/`/proc`.
-    let src_authfile = write_skopeo_authfile(
+    // `ps`/`/proc`. Wrapped in `AuthFileGuard` so early returns still clean up.
+    let src_authfile = AuthFileGuard(write_skopeo_authfile(
         &host,
         AuthCreds::Split {
             user: reg.username.as_str(),
             pass: reg.password.as_str(),
         },
-    )?;
+    )?);
 
     let argv = build_export_argv(
         &skopeo,
         &source_ref,
         &dest_ref,
-        src_authfile.as_deref(),
+        src_authfile.0.as_deref(),
         insecure_src,
     );
 
@@ -627,8 +643,7 @@ pub async fn export_from_registry(
         lines,
         summary,
     };
-    // Wipe the temp auth file now that skopeo has finished.
-    let _ = cleanup_authfile(src_authfile.as_ref());
+    // `src_authfile` (AuthFileGuard) drops here, wiping the temp auth file.
     sink.emit(IMAGE_SYNC_DONE_EVENT, &result);
     if success {
         Ok(result)

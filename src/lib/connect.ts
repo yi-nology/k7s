@@ -15,6 +15,7 @@
 
 import type { DataProvider } from '../providers/types';
 import { formatError, getProvider } from '../providers';
+import { getErrorReporter } from '../providers/errorHandler';
 import { useStore } from '../store';
 
 /** Monotonic request id. Bumped on every call; only the latest call writes. */
@@ -47,9 +48,14 @@ export async function connectTo(
     });
   } catch (e) {
     if (myToken !== currentToken) return;
+    const message = formatError(e);
     store.setConnection({
       phase: 'error',
-      error: formatError(e),
+      error: message,
     });
+    // Surface the failure as a toast too — the status dot going red is easy to
+    // miss, and the reason (kubeconfig missing, RBAC refused, network) is what
+    // the user actually needs to act on.
+    getErrorReporter()('Connection failed', message);
   }
 }

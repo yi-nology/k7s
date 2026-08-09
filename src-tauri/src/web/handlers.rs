@@ -468,9 +468,11 @@ pub async fn hook_wake(
     headers: axum::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
 ) -> axum::response::Response {
+    // Hooks are enabled only when a token is configured (fail-closed).
+    let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
     let hook_config = crate::ai::hooks::HookConfig {
-        enabled: true,
-        token: std::env::var("K7S_HOOK_TOKEN").unwrap_or_default(),
+        enabled: !token.is_empty(),
+        token,
         ..Default::default()
     };
     let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
@@ -500,9 +502,11 @@ pub async fn hook_agent(
     headers: axum::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
 ) -> axum::response::Response {
+    // Hooks are enabled only when a token is configured (fail-closed).
+    let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
     let hook_config = crate::ai::hooks::HookConfig {
-        enabled: true,
-        token: std::env::var("K7S_HOOK_TOKEN").unwrap_or_default(),
+        enabled: !token.is_empty(),
+        token,
         ..Default::default()
     };
     let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
@@ -530,9 +534,11 @@ pub async fn hook_event(
     headers: axum::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
 ) -> axum::response::Response {
+    // Hooks are enabled only when a token is configured (fail-closed).
+    let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
     let hook_config = crate::ai::hooks::HookConfig {
-        enabled: true,
-        token: std::env::var("K7S_HOOK_TOKEN").unwrap_or_default(),
+        enabled: !token.is_empty(),
+        token,
         ..Default::default()
     };
     let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
@@ -857,6 +863,12 @@ struct WebAiSink {
     event_tx: tokio::sync::broadcast::Sender<crate::core::events::WebEvent>,
     run_id: String,
     events_store: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<serde_json::Value>>>>,
+    /// Per-call approval senders. `await_approval` inserts one; the
+    /// `/api/invoke/ai_approve_tool_call` handler resolves it. If the handler
+    /// never runs (or the run is cancelled), the sender is dropped and the
+    /// receiver errors — which the agent loop treats as **deny** (the safe
+    /// default).
+    pending_approvals: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
 }
 
 impl crate::ai::agent::EventSink for WebAiSink {
@@ -874,12 +886,19 @@ impl crate::ai::agent::EventSink for WebAiSink {
             data,
         });
     }
-    fn await_approval(&self, _call_id: &str) -> tokio::sync::oneshot::Receiver<bool> {
-        // In web mode, auto-approve writes (same as FullAuto mode).
-        // A production implementation would pause and wait for a POST
-        // to /api/invoke/ai_approve_tool_call.
+    fn await_approval(&self, call_id: &str) -> tokio::sync::oneshot::Receiver<bool> {
+        // Register a pending approval and wait for the matching
+        // `ai_approve_tool_call` to resolve it. If nobody resolves it (the
+        // common case until the web approval UI ships), the sender is dropped
+        // when the run ends and the receiver errors → the agent loop treats
+        // that as a deny. This is the safe default: writes don't proceed
+        // without an explicit approval.
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let _ = tx.send(true);
+        if let Ok(mut map) = self.pending_approvals.lock() {
+            // A duplicate call_id (shouldn't happen) replaces the old sender,
+            // dropping it → old receiver sees deny. Acceptable.
+            map.insert(call_id.to_string(), tx);
+        }
         rx
     }
     fn is_cancelled(&self) -> bool {
@@ -951,16 +970,30 @@ pub async fn ai_chat_handler(
     let agent = crate::ai::agent::AgentLoop::new(crate::ai::tools::ToolRegistry::new(), llm_factory);
     // Store events for polling by the frontend.
     let events_store = state.ai_runs.clone();
-    let run_id_clone = run_id.clone();
 
     let sink: std::sync::Arc<dyn crate::ai::agent::EventSink> =
         std::sync::Arc::new(WebAiSink {
             event_tx: state.event_tx.clone(),
             run_id: run_id.clone(),
             events_store: events_store.clone(),
+            pending_approvals: state.pending_approvals.clone(),
         });
     let manager = state.core.manager.clone();
-    let mode = cfg.permission;
+    // SECURITY: web mode forces ReadOnly. Write tools are refused by the
+    // permission gate regardless of the saved config (FullAuto /
+    // ReadConfirmWrite). The approval channel exists (`await_approval` +
+    // `ai_approve_tool_call`), but until a web approval UI is in place we do
+    // not expose a way to flip the run back to an approving mode — so even a
+    // leaked token cannot make the LLM mutate the cluster.
+    let mode = if cfg.permission == crate::ai::config::PermissionMode::ReadOnly {
+        cfg.permission
+    } else {
+        tracing::warn!(
+            "web ai_chat: downgrading permission mode {:?} to ReadOnly (web mode safety default)",
+            cfg.permission
+        );
+        crate::ai::config::PermissionMode::ReadOnly
+    };
     let max_turns = cfg.max_turns;
     let session_id = body.get("sessionId").and_then(|v| v.as_str()).map(|s| s.to_string());
     let run_data_dir = data_dir.clone();
@@ -1008,6 +1041,10 @@ pub async fn ai_poll_events_handler(
     };
     match store.get(run_id) {
         Some(events) => {
+            // Clamp to bounds — `after_index` comes from the client and a
+            // value past the end would panic on the slice. Treat it as "no
+            // new events" instead.
+            let after_index = after_index.min(events.len());
             let new_events: Vec<_> = events[after_index..].to_vec();
             let done = new_events.iter().any(|e| {
                 e.get("event").and_then(|ev| ev.get("type")).and_then(|t| t.as_str()) == Some("done")
@@ -1025,12 +1062,41 @@ pub async fn ai_poll_events_handler(
 
 /// POST /invoke/ai_approve_tool_call — approve/deny a pending write tool.
 pub async fn ai_approve_tool_call_handler(
+    State(state): State<WebState>,
     Json(body): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let _run_id = body.get("runId").and_then(|v| v.as_str()).unwrap_or("");
-    let _call_id = body.get("callId").and_then(|v| v.as_str()).unwrap_or("");
-    let _approved = body.get("approved").and_then(|v| v.as_bool()).unwrap_or(false);
-    // In web mode with FullAuto, approvals are auto-granted.
-    // A production implementation would use a shared approval channel.
-    respond(Ok::<_, crate::error::AppError>(()))
+    let call_id = body.get("callId").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let approved = body.get("approved").and_then(|v| v.as_bool()).unwrap_or(false);
+    // Resolve the pending approval sender (if any) and deliver the verdict.
+    // The agent loop's `await_approval` is awaiting the matching receiver.
+    if let Ok(mut map) = state.pending_approvals.lock() {
+        if let Some(tx) = map.remove(&call_id) {
+            let _ = tx.send(approved);
+            return respond(Ok::<_, crate::error::AppError>(serde_json::json!({
+                "ok": true,
+                "resolved": true
+            })));
+        }
+    }
+    // No pending approval for that call_id — either unknown or already settled.
+    respond(Ok::<_, crate::error::AppError>(serde_json::json!({
+        "ok": true,
+        "resolved": false
+    })))
 }
+
+/// GET /api/web-token — return the auth token so the same-origin SPA can
+/// attach it to subsequent `/api/invoke/*` calls.
+///
+/// **Loopback only.** The router does not mount this route on non-loopback
+/// binds; this handler is a backstop that refuses if reached anyway.
+pub async fn web_token(State(state): State<WebState>) -> axum::response::Response {
+    if !state.is_loopback {
+        return axum::response::Response::builder()
+            .status(axum::http::StatusCode::NOT_FOUND)
+            .body(axum::body::Body::empty())
+            .unwrap();
+    }
+    Json(serde_json::json!({ "token": *state.web_token })).into_response()
+}
+

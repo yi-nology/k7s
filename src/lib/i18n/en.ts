@@ -21,6 +21,8 @@ export const en: Dictionary = {
       title: 'Settings',
       footerNote: 'changes save automatically',
       reset: 'reset to defaults',
+      advanced: 'Advanced',
+      advancedHint: 'Poll intervals, shell, and integrations — most users can leave these alone.',
     },
     copy: 'copy',
     copied: 'copied',
@@ -82,6 +84,12 @@ export const en: Dictionary = {
       connecting: 'connecting…',
       disconnected: 'disconnected',
       noCluster: 'no cluster',
+      errorDetails: 'Connection error',
+      retry: 'Retry connection',
+    },
+    aiFab: {
+      open: 'Open AI assistant',
+      title: 'AI assistant',
     },
     forwards: {
       label: 'forwards:',
@@ -981,6 +989,7 @@ export const en: Dictionary = {
       tabSkills: '⚡ Skills',
       tabMemory: '🧠 Memory',
       tabCron: '⏰ Cron',
+      moreTabs: 'More (Skills, Memory, Cron)',
       newConversation: 'New conversation',
       close: 'Close',
       you: 'You',
@@ -1044,6 +1053,18 @@ export const en: Dictionary = {
       logs: 'Logs',
       describe: 'Describe',
       enableFirst: 'Enable AI in Settings first',
+      clusterHealthMsg: 'Check the overall cluster health and list any problems.',
+      listNodesMsg: 'List all nodes in the cluster with their status.',
+      findCrashLoopMsg:
+        'Find all pods in CrashLoopBackOff or ImagePullBackOff across all namespaces.',
+      resourcePressureMsg: 'Which namespaces are using the most CPU and memory?',
+      diagnoseMsg: (kind, name, ns) =>
+        `Diagnose ${kind}/${name} in namespace ${ns}. Check events, conditions, and logs to find the root cause of any issues.`,
+      eventsMsg: (kind, name, ns) => `Show the recent events for ${kind}/${name} in namespace ${ns}.`,
+      logsMsg: (kind, name, ns) =>
+        `Get the logs for ${kind}/${name} in namespace ${ns}. Show the last 50 lines.`,
+      describeMsg: (kind, name, ns) =>
+        `Describe ${kind}/${name} in namespace ${ns}. Show the full status and conditions.`,
     },
     skills: {
       loading: 'Loading skills…',

@@ -19,10 +19,10 @@ export function QuickActions({ selectedContext, onAction, disabled }: Props) {
   const { t } = useTranslation();
 
   const CLUSTER_ACTIONS = [
-    { label: `🏥 ${t('ai.quickActions.clusterHealth')}`, message: 'Check the overall cluster health and list any problems.' },
-    { label: `📋 ${t('ai.quickActions.listNodes')}`, message: 'List all nodes in the cluster with their status.' },
-    { label: `🔍 ${t('ai.quickActions.findCrashLoop')}`, message: 'Find all pods in CrashLoopBackOff or ImagePullBackOff across all namespaces.' },
-    { label: `📊 ${t('ai.quickActions.resourcePressure')}`, message: 'Which namespaces are using the most CPU and memory?' },
+    { label: `🏥 ${t('ai.quickActions.clusterHealth')}`, message: t('ai.quickActions.clusterHealthMsg') },
+    { label: `📋 ${t('ai.quickActions.listNodes')}`, message: t('ai.quickActions.listNodesMsg') },
+    { label: `🔍 ${t('ai.quickActions.findCrashLoop')}`, message: t('ai.quickActions.findCrashLoopMsg') },
+    { label: `📊 ${t('ai.quickActions.resourcePressure')}`, message: t('ai.quickActions.resourcePressureMsg') },
   ];
 
   const RESOURCE_ACTIONS = [
@@ -60,13 +60,13 @@ export function QuickActions({ selectedContext, onAction, disabled }: Props) {
   const actions = RESOURCE_ACTIONS.map((a, i) => {
     switch (i) {
       case 0: // Diagnose
-        return { ...a, message: `Diagnose ${kind}/${name} in namespace ${ns}. Check events, conditions, and logs to find the root cause of any issues.` };
+        return { ...a, message: t('ai.quickActions.diagnoseMsg', kind, name, ns) };
       case 1: // Events
-        return { ...a, message: `Show the recent events for ${kind}/${name} in namespace ${ns}.` };
+        return { ...a, message: t('ai.quickActions.eventsMsg', kind, name, ns) };
       case 2: // Logs
-        return { ...a, message: `Get the logs for ${kind}/${name} in namespace ${ns}. Show the last 50 lines.` };
+        return { ...a, message: t('ai.quickActions.logsMsg', kind, name, ns) };
       case 3: // Describe
-        return { ...a, message: `Describe ${kind}/${name} in namespace ${ns}. Show the full status and conditions.` };
+        return { ...a, message: t('ai.quickActions.describeMsg', kind, name, ns) };
       default:
         return a;
     }

@@ -20,6 +20,7 @@ export const useStore = create<AppState>()((set, get, api) => ({
   settings: { ...DEFAULT_SETTINGS, theme: cachedTheme(), language: cachedLocale() },
   systemDark: prefersDark(),
   settingsOpen: false,
+  settingsSection: null,
   selection: EMPTY_SELECTION,
   setSettings: (patch: Partial<typeof DEFAULT_SETTINGS>) =>
     set((s) => {
@@ -30,7 +31,8 @@ export const useStore = create<AppState>()((set, get, api) => ({
           : s.logBuffer;
       return { settings, logBuffer };
     }),
-  setSettingsOpen: (open: boolean) => set({ settingsOpen: open }),
+  setSettingsOpen: (open: boolean, section?: string) =>
+    set({ settingsOpen: open, settingsSection: open ? (section ?? null) : null }),
   setSystemDark: (dark: boolean) => set({ systemDark: dark }),
   setSelection: (selection: { selected: string[]; anchor: string | null }) => set({ selection }),
   clearSelection: () => set({ selection: EMPTY_SELECTION }),

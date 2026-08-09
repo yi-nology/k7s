@@ -4,6 +4,7 @@
  */
 import styles from './AiChat.module.css';
 import { useTranslation } from '../../hooks/useI18n';
+import { useStore } from '../../store';
 
 interface Props {
   onExampleClick: (message: string) => void;
@@ -12,6 +13,7 @@ interface Props {
 
 export function AiWelcome({ onExampleClick, aiEnabled }: Props) {
   const { t } = useTranslation();
+  const setSettingsOpen = useStore((s) => s.setSettingsOpen);
 
   const examples = [
     { icon: '🔍', label: t('ai.welcome.diagnose'), message: t('ai.welcome.diagnoseMsg') },
@@ -31,6 +33,14 @@ export function AiWelcome({ onExampleClick, aiEnabled }: Props) {
       {!aiEnabled && (
         <div className={styles.welcomeSetup}>
           <p>{t('ai.welcome.notConfigured')}</p>
+          <button
+            type="button"
+            className={styles.welcomeSetupBtn}
+            onClick={() => setSettingsOpen(true, 'ai')}
+          >
+            {t('ai.welcome.openSettings')}
+          </button>
+          <p>{t('ai.welcome.setupAi')}</p>
         </div>
       )}
 

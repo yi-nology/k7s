@@ -44,7 +44,7 @@ import { PluginPanel } from './components/plugins/PluginPanel';
 import { SBOMPanel } from './components/sbom/SBOMPanel';
 import { AiChat } from './components/ai/AiChat';
 import { usePlugins } from './hooks/usePlugins';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import type { OverlayKey } from './store';
 
@@ -92,8 +92,12 @@ export default function App() {
   // Error toast system — registers the global error reporter on mount so
   // provider-level errors automatically show as toasts.
   const { toasts, showError, dismissToast } = useErrorToast();
-  // Register the reporter once (the hook identity is stable).
-  setErrorReporter(showError);
+  // Register the reporter as an effect (not during render) — `showError` is a
+  // stable useCallback identity, so this runs once; running it during render
+  // is a side-effect-in-render React violation.
+  useEffect(() => {
+    setErrorReporter(showError);
+  }, [showError]);
 
   // Which feature overlay is open, if any (Phase 1/2/4/5 entry points).
   const overlay = useStore((s) => s.overlay);
@@ -164,8 +168,8 @@ export default function App() {
               type="button"
               className={styles.aiFab}
               onClick={() => setAiOpen(true)}
-              aria-label="Open AI assistant"
-              title="AI assistant"
+              aria-label={t('chrome.aiFab.open')}
+              title={t('chrome.aiFab.title')}
             >
               ✦
             </button>

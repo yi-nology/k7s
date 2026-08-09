@@ -81,6 +81,56 @@
   background: var(--accent-soft);
 }
 
+/* ─── Overflow tab menu (Skills/Memory/Cron behind "⋯") ──────────────── */
+
+.overflowWrap {
+  position: relative;
+}
+
+.overflowMenu {
+  position: absolute;
+  right: 0;
+  top: 30px;
+  z-index: var(--z-menu);
+  min-width: 130px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-menu);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 4px 0;
+}
+
+.overflowRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 12px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  transition: background 0.1s ease;
+}
+
+.overflowRow:hover {
+  background: var(--bg-hover);
+}
+
+.overflowRowSelected {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.overflowCheck {
+  width: 12px;
+  color: var(--accent);
+  flex: none;
+  text-align: center;
+}
+
 /* ─── Body (scrollable message area) ──────────────────────────────────── */
 
 .body {
@@ -132,6 +182,24 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
   max-width: 300px;
+}
+
+.welcomeSetupBtn {
+  display: inline-block;
+  margin: var(--space-2) 0;
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.welcomeSetupBtn:hover {
+  background: var(--accent-softer);
 }
 
 .welcomeExamples {
@@ -478,6 +546,26 @@
 }
 
 /* ─── Input Area ──────────────────────────────────────────────────────── */
+
+/* One-click "enable AI" affordance shown above the input when the assistant
+   is off — saves the user hunting for the settings gear. */
+.enableHint {
+  margin: var(--space-2) var(--space-3) 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.1s ease;
+}
+
+.enableHint:hover {
+  background: var(--accent-softer);
+}
 
 .inputArea {
   display: flex;
