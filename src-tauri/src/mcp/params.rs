@@ -568,3 +568,91 @@ pub struct RbacWhoCanParams {
     #[serde(default)]
     pub namespace: String,
 }
+
+// Consolidated tool params
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmReleaseParams {
+    pub action: String,
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub chart: Option<String>,
+    #[serde(default)]
+    pub namespace: Option<String>,
+    #[serde(default)]
+    pub values: Option<String>,
+    #[serde(default)]
+    pub revision: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PortForwardParams {
+    pub action: String,
+    #[serde(default)]
+    pub namespace: Option<String>,
+    #[serde(default)]
+    pub pod: Option<String>,
+    #[serde(default)]
+    pub container_port: Option<u16>,
+    #[serde(default)]
+    pub local_port: Option<u16>,
+    #[serde(default)]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PrometheusUnifiedParams {
+    pub query: String,
+    #[serde(default)]
+    pub instance: Option<String>,
+    #[serde(default)]
+    pub range: Option<bool>,
+    #[serde(default)]
+    pub start: Option<String>,
+    #[serde(default)]
+    pub end: Option<String>,
+    #[serde(default)]
+    pub step: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SbomUnifiedParams {
+    pub action: String,
+    #[serde(default)]
+    pub image: Option<String>,
+    #[serde(default)]
+    pub namespace: Option<String>,
+    #[serde(default)]
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SilenceUnifiedParams {
+    pub action: String,
+    #[serde(default)]
+    pub instance: Option<String>,
+    #[serde(default)]
+    pub matchers: Option<Vec<String>>,
+    #[serde(default)]
+    pub starts_at: Option<String>,
+    #[serde(default)]
+    pub ends_at: Option<String>,
+    #[serde(default)]
+    pub creator: Option<String>,
+    #[serde(default)]
+    pub comment: Option<String>,
+    #[serde(default)]
+    pub silence_id: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ListKindsParams {
+    pub scope: String,
+}

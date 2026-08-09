@@ -2229,6 +2229,205 @@ impl K7sMcpServer {
         }))
     }
 
+    // === Consolidated tools (replace multiple single-purpose tools) ===
+
+    #[tool(
+        description = "Unified Helm release operation. action: install|upgrade|uninstall|rollback. Consolidates helm_install, helm_upgrade, helm_uninstall, helm_rollback into one tool."
+    )]
+    async fn helm_release(
+        &self,
+        Parameters(p): Parameters<HelmReleaseParams>,
+    ) -> Result<CallToolResult, McpError> {
+        match p.action.as_str() {
+            "install" => {
+                let params = super::params::HelmInstallParams {
+                    name: p.name.unwrap_or_default(),
+                    chart: p.chart.unwrap_or_default(),
+                    namespace: p.namespace.unwrap_or_default(),
+                    values: p.values,
+                };
+                self.helm_install(Parameters(params)).await
+            }
+            "upgrade" => {
+                let params = super::params::HelmUpgradeParams {
+                    name: p.name.unwrap_or_default(),
+                    chart: p.chart.unwrap_or_default(),
+                    namespace: p.namespace.unwrap_or_default(),
+                    values: p.values,
+                };
+                self.helm_upgrade(Parameters(params)).await
+            }
+            "uninstall" => {
+                let params = super::params::HelmUninstallParams {
+                    name: p.name.unwrap_or_default(),
+                    namespace: p.namespace.unwrap_or_default(),
+                };
+                self.helm_uninstall(Parameters(params)).await
+            }
+            "rollback" => {
+                let params = super::params::HelmRollbackParams {
+                    name: p.name.unwrap_or_default(),
+                    namespace: p.namespace.unwrap_or_default(),
+                    revision: p.revision.unwrap_or(0),
+                };
+                self.helm_rollback(Parameters(params)).await
+            }
+            _ => Err(McpError::invalid_params(
+                format!(
+                    "unknown action '{}': use install|upgrade|uninstall|rollback",
+                    p.action
+                ),
+                None,
+            )),
+        }
+    }
+
+    #[tool(
+        description = "Unified port-forward operation. action: start|stop|list. Consolidates start_port_forward, start_service_port_forward, stop_port_forward, list_port_forwards."
+    )]
+    async fn port_forward(
+        &self,
+        Parameters(p): Parameters<PortForwardParams>,
+    ) -> Result<CallToolResult, McpError> {
+        match p.action.as_str() {
+            "start" => {
+                let params = super::params::StartPortForwardParams {
+                    namespace: p.namespace.unwrap_or_default(),
+                    pod: p.pod.unwrap_or_default(),
+                    container_port: p.container_port.unwrap_or(0),
+                    local_port: p.local_port,
+                };
+                self.start_port_forward(Parameters(params)).await
+            }
+            "stop" => {
+                let params = super::params::StopForwardParams {
+                    id: p.id.unwrap_or_default(),
+                };
+                self.stop_port_forward(Parameters(params)).await
+            }
+            "list" => self.list_port_forwards().await,
+            _ => Err(McpError::invalid_params(
+                format!("unknown action '{}': use start|stop|list", p.action),
+                None,
+            )),
+        }
+    }
+
+    #[tool(
+        description = "Unified Prometheus query. Set range=true with start/end/step for range queries, or omit for instant queries. Consolidates prometheus_query and prometheus_query_range."
+    )]
+    async fn prometheus_query_unified(
+        &self,
+        Parameters(p): Parameters<PrometheusUnifiedParams>,
+    ) -> Result<CallToolResult, McpError> {
+        if p.range.unwrap_or(false) {
+            let params = super::params::PromQueryRangeParams {
+                instance: p.instance.unwrap_or_default(),
+                query: p.query,
+                start: p.start.unwrap_or_default(),
+                end: p.end.unwrap_or_default(),
+                step: p.step.unwrap_or_default(),
+            };
+            self.prometheus_query_range(Parameters(params)).await
+        } else {
+            let params = super::params::PromQueryParams {
+                instance: p.instance.unwrap_or_default(),
+                query: p.query,
+            };
+            self.prometheus_query(Parameters(params)).await
+        }
+    }
+
+    #[tool(
+        description = "Unified SBOM operation. action: generate|list|get. Consolidates sbom_generate_image, sbom_list_history, sbom_get."
+    )]
+    async fn sbom_unified(
+        &self,
+        Parameters(p): Parameters<SbomUnifiedParams>,
+    ) -> Result<CallToolResult, McpError> {
+        match p.action.as_str() {
+            "generate" => {
+                let params = super::params::SbomGenerateParams {
+                    image: p.image.unwrap_or_default(),
+                    namespace: p.namespace,
+                };
+                self.sbom_generate_image(Parameters(params)).await
+            }
+            "list" => self.sbom_list_history().await,
+            "get" => {
+                let params = super::params::SbomGetParams {
+                    id: p.id.unwrap_or_default(),
+                };
+                self.sbom_get(Parameters(params)).await
+            }
+            _ => Err(McpError::invalid_params(
+                format!("unknown action '{}': use generate|list|get", p.action),
+                None,
+            )),
+        }
+    }
+
+    #[tool(
+        description = "Unified AlertManager silence operation. action: create|delete. Consolidates create_silence and delete_silence."
+    )]
+    async fn silence(
+        &self,
+        Parameters(p): Parameters<SilenceUnifiedParams>,
+    ) -> Result<CallToolResult, McpError> {
+        match p.action.as_str() {
+            "create" => {
+                let params = super::params::CreateSilenceParams {
+                    instance: p.instance.unwrap_or_default(),
+                    matchers: p.matchers.unwrap_or_default(),
+                    starts_at: p.starts_at.unwrap_or_default(),
+                    ends_at: p.ends_at.unwrap_or_default(),
+                    creator: p.creator.unwrap_or_default(),
+                    comment: p.comment.unwrap_or_default(),
+                };
+                self.create_silence(Parameters(params)).await
+            }
+            "delete" => {
+                let params = super::params::DeleteSilenceParams {
+                    instance: p.instance.unwrap_or_default(),
+                    silence_id: p.silence_id.unwrap_or_default(),
+                };
+                self.delete_silence(Parameters(params)).await
+            }
+            _ => Err(McpError::invalid_params(
+                format!("unknown action '{}': use create|delete", p.action),
+                None,
+            )),
+        }
+    }
+
+    #[tool(
+        description = "Unified kind discovery. scope: builtin|custom|all. Consolidates list_builtin_kinds, list_custom_kinds, list_api_resources."
+    )]
+    async fn list_kinds(
+        &self,
+        Parameters(p): Parameters<ListKindsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        match p.scope.as_str() {
+            "builtin" => self.list_builtin_kinds().await,
+            "custom" => self.list_custom_kinds().await,
+            "all" => {
+                let builtin = crate::kube::ResourceKind::all()
+                    .iter()
+                    .map(|k| serde_json::json!({"id": k.id(), "name": k.display_name()}))
+                    .collect::<Vec<_>>();
+                let custom = self.manager().custom_kinds_list().await;
+                json_result(&serde_json::json!({
+                    "builtin": builtin,
+                    "custom": custom,
+                }))
+            }
+            _ => Err(McpError::invalid_params(
+                format!("unknown scope '{}': use builtin|custom|all", p.scope),
+                None,
+            )),
+        }
+    }
+
     #[tool(
         description = "Estimate resource costs for a namespace. Lists all pods with their CPU/memory requests and calculates approximate monthly cost based on standard cloud pricing."
     )]
