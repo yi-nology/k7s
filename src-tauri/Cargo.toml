@@ -81,6 +81,10 @@ sha1 = "0.10"
 sha2 = "0.10"
 # URL encoding for the browser module's web search (DuckDuckGo API).
 urlencoding = "2"
+# Regex for sandbox secret detection patterns.
+regex = "1"
+# Random jitter for retry backoff in timeouts module.
+rand = "0.8"
 # Cross-platform directory paths (home dir, temp dir, etc.)
 dirs = "5"
 # Canonicalize paths without UNC prefix on Windows

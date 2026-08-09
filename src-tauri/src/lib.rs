@@ -260,6 +260,15 @@ pub fn run() {
             commands::ai_session_create,
             commands::ai_session_delete,
             commands::ai_session_queue_size,
+            // Evolution (self-improving strategies).
+            commands::ai_evolution_strategies,
+            commands::ai_evolution_record_run,
+            commands::ai_evolution_delete_strategy,
+            // Sandbox security presets.
+            commands::ai_sandbox_presets,
+            // Knowledge sync (cluster docs, annotations, file import).
+            commands::ai_knowledge_sync,
+            commands::ai_knowledge_import,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");
