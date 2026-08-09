@@ -23,7 +23,7 @@ import styles from './SettingsPanel.module.css';
 /** Approximate count of MCP tools. Hard-coded for the hint copy; the
  *  real count is the source of truth in the Rust server. The point of
  *  this number is "a lot" — keeping it loosely accurate is fine. */
-const TOOL_COUNT = 30;
+const TOOL_COUNT = 91;
 
 export function McpPanel() {
   const { t } = useTranslation();

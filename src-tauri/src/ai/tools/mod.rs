@@ -1,6 +1,6 @@
 //! Independent AI tool set (Plan C core).
 //!
-//! These tools are **separate** from the MCP server's 79 `#[tool]`-macro tools.
+//! These tools are **separate** from the MCP server's 91 `#[tool]`-macro tools.
 //! They exist for one reason: the MCP tools are tuned for human-driven AI
 //! clients and use the rmcp protocol's result/error types; the agent loop here
 //! needs tools described as OpenAI function-call JSON Schemas, returning
