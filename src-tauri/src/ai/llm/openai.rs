@@ -56,6 +56,11 @@ struct ChatRequest<'a> {
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature: Option<f32>,
+    /// Reasoning models (MiMo, DeepSeek) use a lot of tokens for thinking
+    /// before producing the actual content. A generous default ensures the
+    /// content isn't truncated.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
 }
 
 #[derive(Serialize)]
@@ -116,6 +121,11 @@ struct Delta {
     content: Option<String>,
     #[serde(default)]
     tool_calls: Vec<DeltaToolCall>,
+    /// Reasoning models (MiMo, DeepSeek R1) stream their thinking in a
+    /// separate field. We accumulate it and include it in the final text
+    /// when `content` is empty, so the user sees what the AI was thinking.
+    #[serde(default)]
+    reasoning_content: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -216,6 +226,10 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
                 .collect(),
             stream: true,
             temperature,
+            // Reasoning models need generous token budgets. 4096 is a safe
+            // default for tool-calling conversations; providers that don't
+            // support max_tokens simply ignore the field.
+            max_tokens: Some(4096),
         })
         .expect("ChatRequest serialises");
 
@@ -285,6 +299,15 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
                                 }
                             }
                             if let Some(text) = choice.delta.content {
+                                if !text.is_empty() {
+                                    yield StreamEvent::TextDelta(text);
+                                }
+                            }
+                            // Reasoning models (MiMo, DeepSeek R1) stream
+                            // their thinking in a separate `reasoning_content`
+                            // field. Stream it as text so the user sees the
+                            // AI's reasoning in real-time.
+                            if let Some(text) = choice.delta.reasoning_content {
                                 if !text.is_empty() {
                                     yield StreamEvent::TextDelta(text);
                                 }

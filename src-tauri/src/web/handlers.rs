@@ -696,3 +696,60 @@ pub async fn ai_memory_preferences_handler(
 pub async fn ai_cron_presets_handler() -> axum::response::Response {
     respond(Ok(crate::ai::cron::builtin_presets()))
 }
+
+/// POST /invoke/ai_save_config
+pub async fn ai_save_config_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let config_input = args.get("configInput").cloned().unwrap_or(serde_json::Value::Null);
+    let config: crate::ai::config::AiConfig = match serde_json::from_value(config_input) {
+        Ok(c) => c,
+        Err(e) => return respond::<()>(Err(crate::error::AppError::Other(format!("invalid config: {e}")))),
+    };
+    respond(crate::ai::config::save(Some(&state.core.data_dir), &config)
+        .map_err(|e| crate::error::AppError::Other(e.to_string())))
+}
+
+/// POST /invoke/ai_save_api_key
+pub async fn ai_save_api_key_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let api_key = args.get("apiKey").and_then(|v| v.as_str()).unwrap_or("");
+    respond(crate::ai::config::save_api_key(Some(&state.core.data_dir), api_key)
+        .map_err(|e| crate::error::AppError::Other(e.to_string())))
+}
+
+/// POST /invoke/ai_test_connection
+pub async fn ai_test_connection_handler(
+    State(state): State<WebState>,
+) -> axum::response::Response {
+    use crate::ai::llm::LlmClient;
+    let dir = state.core.data_dir.clone();
+    let view = match tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir))).await {
+        Ok(Ok(v)) => v,
+        Ok(Err(e)) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
+        Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
+    };
+    let cfg = view.config;
+    let (base, model, key) = match crate::ai::config::resolve(&cfg, Some(&state.core.data_dir)) {
+        Ok(t) => t,
+        Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
+    };
+    let client = crate::ai::llm::OpenAiClient::new(base, model, key, cfg.provider.temperature);
+    use futures::StreamExt;
+    let mut stream = client.chat_stream(
+        &[crate::ai::llm::Message::System { content: "Reply with the single word: ok".into() }],
+        &[],
+    );
+    let mut got = String::new();
+    while let Some(item) = stream.next().await {
+        match item {
+            Ok(crate::ai::llm::StreamEvent::TextDelta(t)) => got.push_str(&t),
+            Ok(crate::ai::llm::StreamEvent::Done { .. }) => break,
+            Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
+        }
+    }
+    respond(Ok(format!("connected (model replied: {:?})", got.trim())))
+}

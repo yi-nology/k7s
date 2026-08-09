@@ -301,6 +301,18 @@ pub fn api_router(state: WebState) -> Router {
             post(handlers::ai_get_context_handler),
         )
         .route(
+            "/api/invoke/ai_save_config",
+            post(handlers::ai_save_config_handler),
+        )
+                .route(
+            "/api/invoke/ai_test_connection",
+            post(handlers::ai_test_connection_handler),
+        )
+        .route(
+            "/api/invoke/ai_save_api_key",
+            post(handlers::ai_save_api_key_handler),
+        )
+        .route(
             "/api/invoke/ai_list_skills",
             post(handlers::ai_list_skills_handler),
         )

@@ -430,18 +430,21 @@ impl AgentLoop {
 
             // If no tool calls, the turn is done.
             if tool_calls.is_empty() {
-                let final_text = if assistant_text.is_empty() {
+                // If the LLM didn't produce text but we have tool results,
+                // construct a fallback summary so the user always sees something.
+                let effective_text = if assistant_text.is_empty() {
+                    summarize_tool_results(&messages)
+                } else {
+                    assistant_text.clone()
+                };
+                let final_text = if effective_text.is_empty() {
                     None
                 } else {
-                    Some(assistant_text.clone())
+                    Some(effective_text.clone())
                 };
-                let response_text = assistant_text.clone();
+                let response_text = effective_text;
                 messages.push(Message::Assistant {
-                    content: if assistant_text.is_empty() {
-                        None
-                    } else {
-                        Some(assistant_text)
-                    },
+                    content: some_content(&assistant_text),
                     tool_calls: None,
                 });
                 sink.emit(AgentEvent::Done {
@@ -476,11 +479,7 @@ impl AgentLoop {
 
             // Record assistant turn in history.
             messages.push(Message::Assistant {
-                content: if assistant_text.is_empty() {
-                    None
-                } else {
-                    Some(assistant_text)
-                },
+                content: some_content(&assistant_text),
                 tool_calls: Some(tool_calls.clone()),
             });
 
@@ -690,6 +689,14 @@ impl AgentLoop {
     }
 }
 
+/// Normalize assistant text for storage in message history.
+/// Always returns `Some(text)` — even empty strings — because some LLM
+/// providers (MiMo, DeepSeek) require `content` to be present (non-null)
+/// on assistant messages, even when `tool_calls` is also present.
+fn some_content(text: &str) -> Option<String> {
+    Some(text.to_string())
+}
+
 /// Save assistant response to session (non-blocking, best-effort).
 fn save_session_response(data_dir: &std::path::Path, session_id: &Option<String>, response: &str) {
     if let Some(sid) = session_id {
@@ -702,6 +709,60 @@ fn save_session_response(data_dir: &std::path::Path, session_id: &Option<String>
             });
         }
     }
+}
+
+/// When the LLM doesn't produce a final text response (common with reasoning
+/// models that put everything in tool calls), construct a fallback summary from
+/// the tool results in the message history.
+fn summarize_tool_results(messages: &[Message]) -> String {
+    let mut summaries = Vec::new();
+    for msg in messages {
+        if let Message::Tool { content, .. } = msg {
+            // Try to extract a human-readable summary from the tool result.
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(content) {
+                if let Some(arr) = val.as_array() {
+                    // Array of resources — show count + first few names.
+                    let count = arr.len();
+                    let names: Vec<&str> = arr
+                        .iter()
+                        .take(5)
+                        .filter_map(|item| item.get("name").and_then(|n| n.as_str()))
+                        .collect();
+                    if !names.is_empty() {
+                        summaries.push(format!(
+                            "Found {} resources: {}{}",
+                            count,
+                            names.join(", "),
+                            if count > 5 { ", ..." } else { "" }
+                        ));
+                    }
+                } else if let Some(problems) = val.get("problems").and_then(|p| p.as_array()) {
+                    if problems.is_empty() {
+                        summaries.push("No problems found — cluster is healthy.".to_string());
+                    } else {
+                        summaries.push(format!("Found {} problems.", problems.len()));
+                    }
+                } else if let Some(b) = val.get("scaled").and_then(|v| v.as_bool()) {
+                    if b {
+                        summaries.push("Resource scaled successfully.".to_string());
+                    }
+                } else if let Some(b) = val.get("applied").and_then(|v| v.as_bool()) {
+                    if b {
+                        summaries.push("Manifest applied successfully.".to_string());
+                    }
+                } else if let Some(b) = val.get("deleted").and_then(|v| v.as_bool()) {
+                    if b {
+                        summaries.push("Resource deleted.".to_string());
+                    }
+                } else if let Some(b) = val.get("restarted").and_then(|v| v.as_bool()) {
+                    if b {
+                        summaries.push("Workload restarted.".to_string());
+                    }
+                }
+            }
+        }
+    }
+    summaries.join("\n")
 }
 
 /// Build a one-line human summary for a pending approval, e.g.
