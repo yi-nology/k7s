@@ -231,12 +231,23 @@ pub fn run() {
             commands::ai_cancel,
             // Skill market (Phase 2).
             commands::ai_list_skills,
-            // Cluster memory / knowledge base (Phase 3).
+            // Cluster memory / knowledge base (four-tier).
             commands::ai_memory_list,
             commands::ai_memory_search,
+            commands::ai_memory_search_vault,
             commands::ai_memory_add,
             commands::ai_memory_delete,
             commands::ai_memory_clear,
+            commands::ai_memory_add_runbook,
+            commands::ai_memory_preferences,
+            // Cron scheduler (scheduled AI tasks).
+            commands::ai_cron_list,
+            commands::ai_cron_presets,
+            commands::ai_cron_add,
+            commands::ai_cron_update,
+            commands::ai_cron_delete,
+            commands::ai_cron_toggle,
+            commands::ai_cron_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");

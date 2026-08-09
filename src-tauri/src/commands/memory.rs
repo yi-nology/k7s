@@ -1,6 +1,6 @@
-//! Tauri commands for the cluster memory / knowledge base.
+//! Tauri commands for the four-tier cluster memory / knowledge base.
 
-use crate::ai::memory::{MemoryEntry, MemorySource, MemoryStore};
+use crate::ai::memory::{MemoryEntry, MemorySource, MemoryStore, Tier, UserPreference};
 use crate::core::CoreState;
 use std::sync::Arc;
 use tauri::State;
@@ -8,10 +8,17 @@ use tauri::State;
 #[tauri::command]
 pub async fn ai_memory_list(
     kube_context: String,
+    tier: Option<String>,
     state: State<'_, Arc<CoreState>>,
 ) -> Result<Vec<MemoryEntry>, String> {
     let store = MemoryStore::open(&state.data_dir, &kube_context);
-    Ok(store.list().into_iter().cloned().collect())
+    let tier_filter = tier.and_then(|t| match t.as_str() {
+        "short_term" | "shortTerm" => Some(Tier::ShortTerm),
+        "long_term" | "longTerm" => Some(Tier::LongTerm),
+        "knowledge_vault" | "knowledgeVault" => Some(Tier::KnowledgeVault),
+        _ => None,
+    });
+    Ok(store.list(tier_filter).into_iter().cloned().collect())
 }
 
 #[tauri::command]
@@ -20,8 +27,18 @@ pub async fn ai_memory_search(
     query: String,
     state: State<'_, Arc<CoreState>>,
 ) -> Result<Vec<MemoryEntry>, String> {
-    let store = MemoryStore::open(&state.data_dir, &kube_context);
-    Ok(store.search(&query).into_iter().cloned().collect())
+    let mut store = MemoryStore::open(&state.data_dir, &kube_context);
+    Ok(store.search(&query))
+}
+
+#[tauri::command]
+pub async fn ai_memory_search_vault(
+    kube_context: String,
+    query: String,
+    state: State<'_, Arc<CoreState>>,
+) -> Result<Vec<MemoryEntry>, String> {
+    let mut store = MemoryStore::open(&state.data_dir, &kube_context);
+    Ok(store.search_vault(&query))
 }
 
 #[tauri::command]
@@ -29,10 +46,17 @@ pub async fn ai_memory_add(
     kube_context: String,
     content: String,
     tags: Vec<String>,
+    tier: Option<String>,
     state: State<'_, Arc<CoreState>>,
 ) -> Result<(), String> {
     let mut store = MemoryStore::open(&state.data_dir, &kube_context);
-    store.add(&content, tags, MemorySource::User);
+    let t = match tier.as_deref() {
+        Some("short_term" | "shortTerm") => Tier::ShortTerm,
+        Some("long_term" | "longTerm") => Tier::LongTerm,
+        Some("knowledge_vault" | "knowledgeVault") => Tier::KnowledgeVault,
+        _ => Tier::LongTerm, // default to long-term for user-added notes
+    };
+    store.add(t, &content, tags, MemorySource::User);
     Ok(())
 }
 
@@ -49,9 +73,38 @@ pub async fn ai_memory_delete(
 #[tauri::command]
 pub async fn ai_memory_clear(
     kube_context: String,
+    tier: Option<String>,
     state: State<'_, Arc<CoreState>>,
 ) -> Result<(), String> {
     let mut store = MemoryStore::open(&state.data_dir, &kube_context);
-    store.clear();
+    let tier_filter = tier.and_then(|t| match t.as_str() {
+        "short_term" | "shortTerm" => Some(Tier::ShortTerm),
+        "long_term" | "longTerm" => Some(Tier::LongTerm),
+        "knowledge_vault" | "knowledgeVault" => Some(Tier::KnowledgeVault),
+        _ => None,
+    });
+    store.clear(tier_filter);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn ai_memory_add_runbook(
+    kube_context: String,
+    title: String,
+    content: String,
+    tags: Vec<String>,
+    state: State<'_, Arc<CoreState>>,
+) -> Result<(), String> {
+    let mut store = MemoryStore::open(&state.data_dir, &kube_context);
+    store.add_runbook(&title, &content, tags);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn ai_memory_preferences(
+    kube_context: String,
+    state: State<'_, Arc<CoreState>>,
+) -> Result<Vec<UserPreference>, String> {
+    let store = MemoryStore::open(&state.data_dir, &kube_context);
+    Ok(store.preferences().to_vec())
 }

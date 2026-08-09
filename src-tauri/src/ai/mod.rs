@@ -29,11 +29,13 @@
 pub mod agent;
 pub mod config;
 pub mod context;
+pub mod cron;
 pub mod error;
 pub mod im;
 pub mod llm;
 pub mod memory;
 pub mod permission;
+pub mod planner;
 pub mod secret;
 pub mod skills;
 pub mod tools;
