@@ -97,6 +97,7 @@ impl ToolRegistry {
             Box::new(read_tools::BatchGet),
             Box::new(read_tools::DiffResources),
             Box::new(read_tools::HpaStatus),
+            Box::new(read_tools::SpawnSubAgent),
             // write
             Box::new(write_tools::ScaleWorkload),
             Box::new(write_tools::RestartWorkload),

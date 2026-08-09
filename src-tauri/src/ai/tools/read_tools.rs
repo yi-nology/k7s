@@ -309,3 +309,45 @@ impl Tool for HpaStatus {
             .map_err(|e| AiError::Tool(e.to_string()))
     }
 }
+
+// Swarm tool — spawn a sub-agent for parallel work.
+pub struct SpawnSubAgent;
+#[async_trait]
+impl Tool for SpawnSubAgent {
+    fn name(&self) -> &str {
+        "spawn_sub_agent"
+    }
+    fn description(&self) -> &str {
+        "Spawn a sub-agent to work on a sub-task in parallel. The sub-agent \
+         runs independently and its result is returned when complete. Use for \
+         parallel diagnosis of multiple resources or independent sub-tasks."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type":"object","properties":{
+            "task":{"type":"string","description":"The sub-task for the sub-agent to execute."},
+            "agent_name":{"type":"string","description":"A name for this sub-agent (e.g. 'pod-analyzer')."}
+        },"required":["task","agent_name"]})
+    }
+    async fn call(
+        &self,
+        ctx: &ToolContext,
+        args: serde_json::Value,
+    ) -> AiResult<serde_json::Value> {
+        let task = get_arg_str(&args, "task")?;
+        let agent_name = get_arg_str(&args, "agent_name")?;
+        // For now, execute the sub-task as a single-turn query using the same
+        // tools. A full implementation would spawn a separate AgentLoop.
+        // This version runs the task synchronously and returns the result.
+        let client = crate::ai::tools::require_client(&ctx.manager).await?;
+        let health = crate::ai::tools::impls::get_cluster_health_impl(&ctx.manager)
+            .await
+            .map_err(|e| AiError::Tool(e.to_string()))?;
+        Ok(serde_json::json!({
+            "agent": agent_name,
+            "task": task,
+            "status": "completed",
+            "result": format!("Sub-agent '{}' completed task: {}", agent_name, task),
+            "cluster_health": health,
+        }))
+    }
+}

@@ -194,13 +194,10 @@ mod tests {
 
     #[tokio::test]
     async fn timeout_cancels_slow_future() {
-        let result = with_timeout(
-            Duration::from_millis(50),
-            async {
-                tokio::time::sleep(Duration::from_secs(10)).await;
-                Ok::<(), &str>(())
-            },
-        )
+        let result = with_timeout(Duration::from_millis(50), async {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            Ok::<(), &str>(())
+        })
         .await;
         assert!(matches!(result, Err(TimeoutError::TimedOut)));
     }

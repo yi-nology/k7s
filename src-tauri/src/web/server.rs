@@ -261,6 +261,11 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/sbom/image", post(handlers::sbom_generate_image))
         .route("/api/sbom/history", get(handlers::sbom_list_history))
         .route("/api/sbom/:id", get(handlers::sbom_get))
+        // AI webhook hooks — external systems (monitoring, CI/CD) can trigger
+        // the AI agent via these endpoints. Authenticated via Bearer token.
+        .route("/hooks/wake", post(handlers::hook_wake))
+        .route("/hooks/agent", post(handlers::hook_agent))
+        .route("/hooks/event", post(handlers::hook_event))
         // Stubs for everything else.
         .route("/api/invoke/:cmd", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client

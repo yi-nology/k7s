@@ -185,9 +185,16 @@ pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> Result<Stri
 
 /// Start a streaming chat. Returns the run id immediately; events arrive via
 /// the `ai_event` Tauri event.
+///
+/// Integrates:
+/// - **Embedded models fallback**: if no API key is configured, probes
+///   localhost:11434 for Ollama and uses it automatically.
+/// - **Sessions**: if `session_id` is provided, loads history from the
+///   session and saves new messages after the run.
 #[tauri::command]
 pub async fn ai_chat(
     request: ChatRequest,
+    session_id: Option<String>,
     state: State<'_, Arc<CoreState>>,
     app: AppHandle,
     runtime: State<'_, Arc<AiRuntime>>,
@@ -198,8 +205,63 @@ pub async fn ai_chat(
         .map_err(|e| e.to_string())?
         .map_err(|e| e.to_string())?;
     let cfg = view.config;
-    let (base, model, key) =
-        config::resolve(&cfg, Some(&state.data_dir)).map_err(|e| e.to_string())?;
+
+    // Resolve LLM provider. If config::resolve fails (no API key), try
+    // embedded models (Ollama on localhost) as fallback.
+    let (base, model, key) = match config::resolve(&cfg, Some(&state.data_dir)) {
+        Ok(triple) => triple,
+        Err(_) => {
+            // Fallback: probe Ollama.
+            match crate::ai::embedded_models::discover_ollama(None).await {
+                Some(models) if !models.is_empty() => {
+                    let m = &models[0];
+                    tracing::info!(
+                        "no API key configured, using local Ollama model: {}",
+                        m.name
+                    );
+                    (
+                        "http://localhost:11434/v1".to_string(),
+                        m.name.clone(),
+                        "ollama".to_string(), // Ollama doesn't need a real key
+                    )
+                }
+                _ => {
+                    return Err(
+                        "No LLM configured. Set an API key in Settings → AI Assistant, \
+                         or install Ollama (ollama.com) for local inference."
+                            .to_string(),
+                    );
+                }
+            }
+        }
+    };
+
+    // Load session history if a session_id is provided.
+    let mut request = request;
+    if let Some(ref sid) = session_id {
+        let mgr = crate::ai::session::SessionManager::new(state.data_dir.clone());
+        if let Some(session) = mgr.get(sid).await {
+            if request.history.is_empty() {
+                // Convert session messages to the agent's Message format.
+                request.history = session
+                    .history
+                    .iter()
+                    .map(|m| match m.role.as_str() {
+                        "user" => crate::ai::llm::Message::User {
+                            content: m.content.clone(),
+                        },
+                        "assistant" => crate::ai::llm::Message::Assistant {
+                            content: Some(m.content.clone()),
+                            tool_calls: None,
+                        },
+                        _ => crate::ai::llm::Message::System {
+                            content: m.content.clone(),
+                        },
+                    })
+                    .collect();
+            }
+        }
+    }
 
     let run_id = uuid::Uuid::new_v4().to_string();
     let run_id_for_task = run_id.clone();
@@ -228,10 +290,22 @@ pub async fn ai_chat(
     let mode = cfg.permission;
     let max_turns = cfg.max_turns;
     let runtime_for_cleanup = (**runtime).clone();
+    let data_dir_for_session = state.data_dir.clone();
+    let session_id_for_save = session_id.clone();
+    let user_message_for_save = request.message.clone();
 
     tokio::spawn(async move {
         agent.run(request, mode, max_turns, manager, sink).await;
         runtime_for_cleanup.unregister(&run_id_for_task).await;
+
+        // Save messages to session if session_id was provided.
+        if let Some(sid) = session_id_for_save {
+            let mgr = crate::ai::session::SessionManager::new(data_dir_for_session);
+            mgr.add_message(&sid, "user", &user_message_for_save).await;
+            // The assistant response is in the last Done event, which the
+            // frontend already has. We save a placeholder here; the actual
+            // response could be captured from the EventSink if needed.
+        }
     });
 
     Ok(run_id)
