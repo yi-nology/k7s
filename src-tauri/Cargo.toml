@@ -84,7 +84,7 @@ urlencoding = "2"
 # Regex for sandbox secret detection patterns.
 regex = "1"
 # Random jitter for retry backoff in timeouts module.
-rand = "0.8"
+rand = "0.10"
 tokio-stream = { version = "0.1", features = ["sync"] }
 # Cross-platform directory paths (home dir, temp dir, etc.)
 dirs = "5"
