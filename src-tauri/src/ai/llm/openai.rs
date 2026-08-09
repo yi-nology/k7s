@@ -14,7 +14,6 @@
 
 use crate::ai::error::AiError;
 use crate::ai::llm::{ChatStream, FunctionDef, Message, OutgoingToolCall, StreamEvent, StreamItem};
-use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

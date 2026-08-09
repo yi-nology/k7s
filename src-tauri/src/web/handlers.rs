@@ -10,7 +10,6 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
     response::IntoResponse,
     Json,
 };
@@ -247,14 +246,11 @@ pub async fn connect(
 /// error so the front-end knows the call is unimplemented (rather than
 /// silently mis-routing).
 pub async fn not_implemented() -> axum::response::Response {
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(InvokeError {
-            ok: false,
-            error: "this command isn't bridged through the web shell yet".to_string(),
-        }),
-    )
-        .into_response()
+    InvokeError {
+        ok: false,
+        error: "this command isn't bridged through the web shell yet".to_string(),
+    }
+    .into_response()
 }
 
 // ---------------------------------------------------------------------------
