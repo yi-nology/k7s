@@ -7,7 +7,7 @@
  * backend through `ai_get_config`, `ai_save_config`, `ai_save_api_key`, and
  * `ai_test_connection`.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getProvider } from '../../providers';
 import type { AiConfigView, PermissionMode } from '../../lib/ai/types';
 import { useTranslation } from '../../hooks/useI18n';
@@ -38,20 +38,20 @@ export function AiSettingsPanel() {
   const [testMsg, setTestMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => {
-    void load();
-  }, []);
+  const provider = getProvider();
 
-  async function load() {
+  const load = useCallback(async () => {
     try {
       const view = await provider.aiGetConfig();
       setConfig(view);
     } catch (e) {
       setTestMsg({ ok: false, text: String(e) });
     }
-  }
+  }, [provider]);
 
-  const provider = getProvider();
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function save() {
     if (!config) return;

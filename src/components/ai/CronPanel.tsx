@@ -1,7 +1,7 @@
 /**
  * CronPanel — scheduled AI task management.
  */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getProvider } from '../../providers';
 import type { CronTask } from '../../lib/ai/types';
 import { useTranslation } from '../../hooks/useI18n';
@@ -15,14 +15,14 @@ export function CronPanel() {
   const [showPresets, setShowPresets] = useState(false);
   const provider = getProvider();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setTasks(await provider.aiCronList());
       setPresets(await provider.aiCronPresets());
     } catch { /* ignore */ } finally { setLoading(false); }
-  };
+  }, [provider]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const toggle = async (id: string) => {
     try { await provider.aiCronToggle(id); await load(); } catch { /* ignore */ }

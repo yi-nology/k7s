@@ -107,17 +107,20 @@ export function AiChat({ selectedContext, onClose }: Props) {
         cleanup = () => { unlistenFn?.(); };
       });
     } else {
-      // Web mode: subscribe to SSE events.
+      // Web mode: subscribe to SSE events. The endpoint sends events with
+      // `event: ai_event` headers, so we must use addEventListener (not
+      // onmessage, which only receives headerless events).
       const es = new EventSource('/api/events');
-      es.onmessage = (e) => {
+      const aiHandler = (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.name === 'ai_event') {
-            handler(data.data);
+          if (data.runId === runId) {
+            handler(data.event);
           }
         } catch { /* ignore parse errors */ }
       };
-      cleanup = () => { es.close(); };
+      es.addEventListener('ai_event', aiHandler);
+      cleanup = () => { es.removeEventListener('ai_event', aiHandler); es.close(); };
     }
     return () => { cleanup?.(); };
   }, [runId]); // eslint-disable-line react-hooks/exhaustive-deps

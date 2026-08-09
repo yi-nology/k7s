@@ -746,7 +746,8 @@ pub async fn ai_test_connection_handler(
     let mut got = String::new();
     while let Some(item) = stream.next().await {
         match item {
-            Ok(crate::ai::llm::StreamEvent::TextDelta(t)) => got.push_str(&t),
+            Ok(crate::ai::llm::StreamEvent::TextDelta(t))
+            | Ok(crate::ai::llm::StreamEvent::ReasoningDelta(t)) => got.push_str(&t),
             Ok(crate::ai::llm::StreamEvent::Done { .. }) => break,
             Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
         }
