@@ -162,51 +162,62 @@ impl AgentLoop {
         manager: Arc<ClientManager>,
         sink: Arc<dyn EventSink>,
     ) -> AiResult<()> {
-        let tool_ctx = ToolContext {
-            manager: manager.clone(),
-            data_dir: std::path::PathBuf::new(),
-        };
-
-        // Assemble the working message list.
-        let info = manager.connection_info().await;
-        let cluster_ver = info.as_ref().map(|i| i.version.clone());
-        let context_name = info.as_ref().map(|i| i.context.clone());
-        let mut sys = context::build_system_prompt(cluster_ver.as_deref(), context_name.as_deref());
-
-        // If a skill is active, append its steering prompt and filter tools.
-        let active_skill: Option<crate::ai::skills::Skill> =
-            req.skill_id.as_deref().and_then(|id| {
-                let data_dir = std::env::var("HOME").ok().map(|h| {
-                    std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
-                        "Library/Application Support/k7s"
-                    } else {
-                        ".config/k7s"
-                    })
-                });
-                crate::ai::skills::SkillRegistry::load(data_dir.as_deref())
-                    .get(id)
-                    .cloned()
-            });
-        if let Some(skill) = &active_skill {
-            sys.push_str("\n\n[Active Skill: ");
-            sys.push_str(&skill.name);
-            sys.push_str("]\n");
-            sys.push_str(&skill.system_prompt_suffix);
-        }
-
-        // Inject cluster memory (if kube_context is provided and data_dir is available).
-        let data_dir = std::env::var("HOME").ok().map(|h| {
+        // ----------------------------------------------------------------
+        // Resolve data_dir (shared across all modules).
+        // ----------------------------------------------------------------
+        let data_dir: Option<std::path::PathBuf> = std::env::var("HOME").ok().map(|h| {
             std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
                 "Library/Application Support/k7s"
             } else {
                 ".config/k7s"
             })
         });
-        let memory_block = if let (Some(ctx_name), Some(dir)) =
-            (req.kube_context.as_deref(), data_dir.as_deref())
-        {
-            let store = crate::ai::memory::MemoryStore::open(dir, ctx_name);
-            let block = store.to_context_block(20);
+        let data_dir_ref = data_dir.as_deref();
+
+        let tool_ctx = ToolContext {
+            manager: manager.clone(),
+            data_dir: data_dir.clone().unwrap_or_default(),
+        };
+
+        // ----------------------------------------------------------------
+        // Load cluster info.
+        // ----------------------------------------------------------------
+        let info = manager.connection_info().await;
+        let cluster_ver = info.as_ref().map(|i| i.version.clone());
+        let context_name = info.as_ref().map(|i| i.context.clone());
+
+        // ----------------------------------------------------------------
+        // Load skill (if any).
+        // ----------------------------------------------------------------
+        let active_skill: Option<crate::ai::skills::Skill> =
+            req.skill_id.as_deref().and_then(|id| {
+                crate::ai::skills::SkillRegistry::load(data_dir_ref)
+                    .get(id)
+                    .cloned()
+            });
+
+        // ----------------------------------------------------------------
+        // Load memory (four-tier).
+        // ----------------------------------------------------------------
+        let memory_block =
+            if let (Some(ctx_name), Some(dir)) = (req.kube_context.as_deref(), data_dir_ref) {
+                let store = crate::ai::memory::MemoryStore::open(dir, ctx_name);
+                let block = store.to_context_block(20);
+                if block.is_empty() {
+                    None
+                } else {
+                    Some(block)
+                }
+            } else {
+                None
+            };
+
+        // ----------------------------------------------------------------
+        // Load evolution strategies.
+        // ----------------------------------------------------------------
+        let evolution_block = if let Some(dir) = data_dir_ref {
+            let store = crate::ai::evolution::EvolutionStore::open(dir);
+            let block = store.to_context_block(&req.message);
             if block.is_empty() {
                 None
             } else {
@@ -215,27 +226,57 @@ impl AgentLoop {
         } else {
             None
         };
-        if let Some(ref block) = memory_block {
-            sys.push_str("\n\n");
-            sys.push_str(block);
-        }
 
+        // ----------------------------------------------------------------
+        // Load sandbox config.
+        // ----------------------------------------------------------------
+        let sandbox_config = crate::ai::sandbox::SandboxConfig::default();
+
+        // ----------------------------------------------------------------
+        // Load user preferences from memory.
+        // ----------------------------------------------------------------
+        let preferences: Vec<(String, String, f32)> =
+            if let (Some(ctx_name), Some(dir)) = (req.kube_context.as_deref(), data_dir_ref) {
+                let store = crate::ai::memory::MemoryStore::open(dir, ctx_name);
+                store
+                    .preferences()
+                    .iter()
+                    .map(|p| (p.key.clone(), p.value.clone(), p.confidence))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
+        // ----------------------------------------------------------------
+        // Build dynamic system prompt via PromptBuilder.
+        // ----------------------------------------------------------------
+        let mut builder = crate::ai::prompt_builder::PromptBuilder::new()
+            .base(cluster_ver.as_deref(), context_name.as_deref())
+            .sandbox(&sandbox_config.denied_namespaces, max_turns);
+
+        if let Some(skill) = &active_skill {
+            builder = builder.skill(&skill.name, &skill.system_prompt_suffix);
+        }
+        if let Some(ref block) = memory_block {
+            builder = builder.memory(block);
+        }
+        if let Some(ref block) = evolution_block {
+            builder = builder.evolution(block);
+        }
+        if !preferences.is_empty() {
+            builder = builder.preferences(&preferences);
+        }
+        let sys = builder.build();
+
+        // ----------------------------------------------------------------
+        // Assemble message list.
+        // ----------------------------------------------------------------
         let mut messages: Vec<Message> = Vec::with_capacity(req.history.len() + 3);
         messages.push(Message::System { content: sys });
-
-        // The messages BEFORE this index are regenerated fresh every run (the
-        // system prompt + the per-turn resource-context note). They must NOT be
-        // handed back to the UI as "history" — otherwise each turn the UI
-        // echoes them back and the prompt accumulates duplicates + stale
-        // resource notes. `returnable_start` marks the first message that's
-        // safe to persist across turns (the start of the real conversation).
         messages.extend(req.history.iter().cloned());
         let returnable_start = messages.len();
 
-        // Inject selected-resource context (if any) as a system note + the user msg.
-        // This note is transient too — it's rebuilt from the *current* selection
-        // each run, so it stays below `returnable_start`'s purview by being added
-        // after the history slice.
+        // Inject selected-resource context (transient).
         if let Some(sel) = &req.context {
             if sel.kind.is_some() && sel.name.is_some() {
                 if let Some(desc) = context::selected_resource_context(&manager, sel).await {
@@ -251,8 +292,10 @@ impl AgentLoop {
             content: req.message.clone(),
         });
 
+        // ----------------------------------------------------------------
+        // Prepare tools (filtered by skill whitelist).
+        // ----------------------------------------------------------------
         let mut tool_defs = self.registry.function_defs(mode);
-        // If a skill is active with a whitelist, filter tools.
         if let Some(skill) = &active_skill {
             if !skill.tool_whitelist.is_empty() {
                 tool_defs.retain(|d| skill.tool_whitelist.contains(&d.name));
@@ -260,31 +303,95 @@ impl AgentLoop {
         }
         let llm = (self.llm_factory)();
 
+        // ----------------------------------------------------------------
+        // Initialize run-scoped components.
+        // ----------------------------------------------------------------
+        let deadline = crate::ai::timeouts::RunDeadline::new(300); // 5 min default
+        let timeout_config = crate::ai::timeouts::TimeoutConfig::default();
+        let plugins = crate::ai::plugins::PluginRegistry::new(); // TODO: accept from caller
+
+        // Fire RunStart.
+        plugins.fire(&crate::ai::plugins::PluginEvent::RunStart {
+            run_id: "run",
+            user_message: &req.message,
+        });
+
+        // Track tool calls for evolution recording.
+        let mut tools_called: Vec<String> = Vec::new();
+        let run_start = std::time::Instant::now();
         let mut turns = 0u32;
 
+        // ----------------------------------------------------------------
+        // Main ReAct loop.
+        // ----------------------------------------------------------------
         loop {
             turns += 1;
+
+            // Check turn limit.
             if turns > max_turns {
-                // Don't emit Error here AND let run() emit it again (that would
-                // double-toast the UI). Just emit Done with the turn-limit note
-                // as the final message; run() sees Ok(()) and adds nothing.
                 sink.emit(AgentEvent::Done {
                     final_message: Some(format!(
                         "Reached the {max_turns}-turn limit without finishing."
                     )),
                     history: messages[returnable_start..].to_vec(),
                 });
+                // Record outcome for evolution.
+                self.record_outcome(
+                    &data_dir,
+                    &req.message,
+                    &tools_called,
+                    false,
+                    "turn limit",
+                    run_start,
+                    turns,
+                )
+                .await;
                 return Ok(());
             }
+
+            // Check cancellation.
             if sink.is_cancelled() {
-                // Emit Done so the UI clears its "loading" state and gets the
-                // history to continue from; otherwise the frontend hangs.
                 sink.emit(AgentEvent::Done {
                     final_message: Some("(cancelled)".to_string()),
                     history: messages[returnable_start..].to_vec(),
                 });
+                self.record_outcome(
+                    &data_dir,
+                    &req.message,
+                    &tools_called,
+                    false,
+                    "cancelled",
+                    run_start,
+                    turns,
+                )
+                .await;
                 return Ok(());
             }
+
+            // Check run deadline.
+            if deadline.is_expired() {
+                sink.emit(AgentEvent::Done {
+                    final_message: Some("Run deadline exceeded (5 minutes).".to_string()),
+                    history: messages[returnable_start..].to_vec(),
+                });
+                self.record_outcome(
+                    &data_dir,
+                    &req.message,
+                    &tools_called,
+                    false,
+                    "deadline",
+                    run_start,
+                    turns,
+                )
+                .await;
+                return Ok(());
+            }
+
+            // Fire BeforeLlm.
+            plugins.fire(&crate::ai::plugins::PluginEvent::BeforeLlm {
+                run_id: "run",
+                messages: &messages,
+            });
 
             // Drive one LLM turn.
             let mut stream = llm.chat_stream(&messages, &tool_defs);
@@ -310,13 +417,21 @@ impl AgentLoop {
                     }
                 }
             }
-            // If the LLM made no tool calls, the turn is done.
+
+            // Fire AfterLlm.
+            plugins.fire(&crate::ai::plugins::PluginEvent::AfterLlm {
+                run_id: "run",
+                response: &assistant_text,
+            });
+
+            // If no tool calls, the turn is done.
             if tool_calls.is_empty() {
                 let final_text = if assistant_text.is_empty() {
                     None
                 } else {
                     Some(assistant_text.clone())
                 };
+                let response_text = assistant_text.clone();
                 messages.push(Message::Assistant {
                     content: if assistant_text.is_empty() {
                         None
@@ -329,17 +444,37 @@ impl AgentLoop {
                     final_message: final_text,
                     history: messages[returnable_start..].to_vec(),
                 });
+                // Record successful outcome.
+                self.record_outcome(
+                    &data_dir,
+                    &req.message,
+                    &tools_called,
+                    true,
+                    &response_text,
+                    run_start,
+                    turns,
+                )
+                .await;
+                // Auto-summarize into short-term memory.
+                if let (Some(ctx_name), Some(dir)) = (req.kube_context.as_deref(), data_dir_ref) {
+                    let mut store = crate::ai::memory::MemoryStore::open(dir, ctx_name);
+                    store.auto_summarize(&req.message, &response_text, &tools_called);
+                }
+                // Fire RunEnd.
+                plugins.fire(&crate::ai::plugins::PluginEvent::RunEnd {
+                    run_id: "run",
+                    final_message: Some(&response_text),
+                });
                 return Ok(());
             }
 
-            // Record the assistant turn (text + its tool calls) in history.
-            let turn_text = if assistant_text.is_empty() {
-                None
-            } else {
-                Some(assistant_text)
-            };
+            // Record assistant turn in history.
             messages.push(Message::Assistant {
-                content: turn_text,
+                content: if assistant_text.is_empty() {
+                    None
+                } else {
+                    Some(assistant_text)
+                },
                 tool_calls: Some(tool_calls.clone()),
             });
 
@@ -348,9 +483,15 @@ impl AgentLoop {
                 if sink.is_cancelled() {
                     return Err(AiError::Cancelled);
                 }
+                if deadline.is_expired() {
+                    break;
+                }
+
                 let args: serde_json::Value =
                     serde_json::from_str(&call.arguments).unwrap_or(serde_json::Value::Null);
                 let is_write = self.registry.is_write(&call.name);
+                tools_called.push(call.name.clone());
+
                 sink.emit(AgentEvent::ToolCall {
                     call_id: call.id.clone(),
                     name: call.name.clone(),
@@ -358,36 +499,91 @@ impl AgentLoop {
                     is_write,
                 });
 
-                // Permission gate. `pre_denied` is Some(error) when the gate
-                // refused the call (deny mode, or user declined an approval);
-                // None means the tool may execute.
-                let pre_denied: Option<AiError> = match permission::decide(mode, is_write) {
-                    Decision::Allow => None,
-                    Decision::Deny => Some(AiError::PermissionDenied(format!(
-                        "write tool '{}' refused by permission mode {:?}",
-                        call.name, mode
-                    ))),
-                    Decision::NeedsApproval => {
+                // --- Plugin: BeforeTool ---
+                let plugin_decision = plugins.fire(&crate::ai::plugins::PluginEvent::BeforeTool {
+                    run_id: "run",
+                    tool_name: &call.name,
+                    args: &args,
+                });
+                if let crate::ai::plugins::PluginDecision::Block { reason } = &plugin_decision {
+                    sink.emit(AgentEvent::ToolResult {
+                        call_id: call.id.clone(),
+                        ok: false,
+                        result: serde_json::json!({ "error": format!("blocked by plugin: {reason}") }),
+                    });
+                    messages.push(Message::Tool {
+                        tool_call_id: call.id.clone(),
+                        content:
+                            serde_json::json!({ "error": format!("blocked by plugin: {reason}") })
+                                .to_string(),
+                    });
+                    continue;
+                }
+
+                // --- Sandbox evaluation ---
+                let sandbox_decision =
+                    crate::ai::sandbox::evaluate(&sandbox_config, &call.name, &args);
+                let pre_denied: Option<AiError> = match sandbox_decision {
+                    crate::ai::sandbox::SandboxDecision::Deny { reason } => {
+                        Some(AiError::PermissionDenied(format!(
+                            "sandbox denied '{}': {reason}",
+                            call.name
+                        )))
+                    }
+                    crate::ai::sandbox::SandboxDecision::Ask { reason } => {
+                        // Same as permission gate NeedsApproval.
                         let summary = summarize_call(&call.name, &args);
                         sink.emit(AgentEvent::PendingApproval {
                             call_id: call.id.clone(),
                             name: call.name.clone(),
                             arguments: args.clone(),
-                            summary,
+                            summary: format!("{summary} (sandbox: {reason})"),
                         });
                         let approved = matches!(sink.await_approval(&call.id).await, Ok(true));
                         if approved {
                             None
                         } else {
                             Some(AiError::PermissionDenied(format!(
-                                "user declined tool call '{}'",
+                                "user declined '{}' (sandbox)",
                                 call.name
                             )))
                         }
                     }
+                    crate::ai::sandbox::SandboxDecision::Allow => None,
                 };
 
-                // Execute (only if not already short-circuited by the gate).
+                // --- Permission gate (if sandbox allowed) ---
+                let pre_denied = if pre_denied.is_some() {
+                    pre_denied
+                } else {
+                    match permission::decide(mode, is_write) {
+                        Decision::Allow => None,
+                        Decision::Deny => Some(AiError::PermissionDenied(format!(
+                            "write tool '{}' refused by permission mode {:?}",
+                            call.name, mode
+                        ))),
+                        Decision::NeedsApproval => {
+                            let summary = summarize_call(&call.name, &args);
+                            sink.emit(AgentEvent::PendingApproval {
+                                call_id: call.id.clone(),
+                                name: call.name.clone(),
+                                arguments: args.clone(),
+                                summary,
+                            });
+                            let approved = matches!(sink.await_approval(&call.id).await, Ok(true));
+                            if approved {
+                                None
+                            } else {
+                                Some(AiError::PermissionDenied(format!(
+                                    "user declined '{}'",
+                                    call.name
+                                )))
+                            }
+                        }
+                    }
+                };
+
+                // --- Execute with timeout ---
                 let result_val: serde_json::Value = match pre_denied {
                     Some(e) => {
                         let msg = e.to_string();
@@ -398,34 +594,94 @@ impl AgentLoop {
                         });
                         serde_json::json!({ "error": msg })
                     }
-                    _ => match self.registry.dispatch(&call.name, &tool_ctx, args).await {
-                        Ok(v) => {
-                            sink.emit(AgentEvent::ToolResult {
-                                call_id: call.id.clone(),
-                                ok: true,
-                                result: v.clone(),
-                            });
-                            v
+                    _ => {
+                        let dispatch_result = crate::ai::timeouts::with_timeout(
+                            std::time::Duration::from_secs(timeout_config.tool_timeout_secs),
+                            self.registry.dispatch(&call.name, &tool_ctx, args.clone()),
+                        )
+                        .await;
+
+                        let result: AiResult<serde_json::Value> = match dispatch_result {
+                            Ok(v) => Ok(v),
+                            Err(crate::ai::timeouts::TimeoutError::TimedOut) => {
+                                Err(AiError::Tool(format!(
+                                    "tool '{}' timed out after {}s",
+                                    call.name, timeout_config.tool_timeout_secs
+                                )))
+                            }
+                            Err(crate::ai::timeouts::TimeoutError::Inner(e)) => Err(e),
+                        };
+
+                        // Fire AfterTool.
+                        plugins.fire(&crate::ai::plugins::PluginEvent::AfterTool {
+                            run_id: "run",
+                            tool_name: &call.name,
+                            result: &result
+                                .as_ref()
+                                .map(|_| serde_json::Value::Null)
+                                .map_err(|e| e.to_string()),
+                        });
+
+                        match result {
+                            Ok(v) => {
+                                sink.emit(AgentEvent::ToolResult {
+                                    call_id: call.id.clone(),
+                                    ok: true,
+                                    result: v.clone(),
+                                });
+                                v
+                            }
+                            Err(e) => {
+                                let msg = e.to_string();
+                                sink.emit(AgentEvent::ToolResult {
+                                    call_id: call.id.clone(),
+                                    ok: false,
+                                    result: serde_json::json!({ "error": msg }),
+                                });
+                                serde_json::json!({ "error": msg })
+                            }
                         }
-                        Err(e) => {
-                            let msg = e.to_string();
-                            sink.emit(AgentEvent::ToolResult {
-                                call_id: call.id.clone(),
-                                ok: false,
-                                result: serde_json::json!({ "error": msg }),
-                            });
-                            serde_json::json!({ "error": msg })
-                        }
-                    },
+                    }
                 };
 
-                // Compress very large tool results so we don't blow the context window.
                 let trimmed = trim_result(result_val);
                 messages.push(Message::Tool {
                     tool_call_id: call.id.clone(),
                     content: serde_json::to_string(&trimmed).unwrap_or_else(|_| "{}".into()),
                 });
             }
+        }
+    }
+
+    /// Record a run outcome in the evolution store for self-improvement.
+    async fn record_outcome(
+        &self,
+        data_dir: &Option<std::path::PathBuf>,
+        user_message: &str,
+        tools_called: &[String],
+        success: bool,
+        response: &str,
+        start: std::time::Instant,
+        turn_count: u32,
+    ) {
+        if let Some(dir) = data_dir {
+            let mut store = crate::ai::evolution::EvolutionStore::open(dir);
+            store.record_run(crate::ai::evolution::RunOutcome {
+                run_id: uuid::Uuid::new_v4().to_string(),
+                user_message: user_message.to_string(),
+                tools_called: tools_called.to_vec(),
+                success,
+                final_response: response.chars().take(500).collect(),
+                error: if success {
+                    None
+                } else {
+                    Some(response.to_string())
+                },
+                duration_ms: start.elapsed().as_millis() as u64,
+                turn_count,
+            });
+            // Periodically scan and update strategies.
+            store.scan_and_update();
         }
     }
 }
