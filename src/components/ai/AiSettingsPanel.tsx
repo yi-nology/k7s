@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react';
 import { getProvider } from '../../providers';
 import type { AiConfigView, PermissionMode } from '../../lib/ai/types';
+import { useTranslation } from '../../hooks/useI18n';
 import styles from './AiAssistantPanel.module.css';
 import s from '../settings/SettingsPanel.module.css';
 
@@ -30,6 +31,7 @@ const DEFAULT_BASE_URLS: Record<string, string> = {
 };
 
 export function AiSettingsPanel() {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<AiConfigView | null>(null);
   const [apiKey, setApiKey] = useState('');
   const [testing, setTesting] = useState(false);
@@ -63,7 +65,7 @@ export function AiSettingsPanel() {
       setTimeout(() => setSaved(false), 1500);
       await load();
     } catch (e) {
-      setTestMsg({ ok: false, text: `Save failed: ${e}` });
+      setTestMsg({ ok: false, text: t('ai.settings.saveFailed', String(e)) });
     }
   }
 
@@ -86,7 +88,7 @@ export function AiSettingsPanel() {
   }
 
   if (!config) {
-    return <div className={s.mcpHint}>Loading…</div>;
+    return <div className={s.mcpHint}>{t('chrome.common.loading')}</div>;
   }
 
   return (
@@ -94,12 +96,10 @@ export function AiSettingsPanel() {
       <div className={s.mcpHeader}>
         <div className={s.mcpHeaderText}>
           <div className={s.mcpTitle}>
-            AI Assistant <span className={s.mcpBadge}>BETA</span>
+            {t('ai.settings.title')} <span className={s.mcpBadge}>{t('ai.settings.beta')}</span>
           </div>
           <div className={s.mcpHint}>
-            A built-in chat assistant that can read and operate your cluster.
-            Bring your own key — works with any OpenAI-compatible provider
-            (DeepSeek, Kimi, Zhipu, OpenAI, local Ollama).
+            {t('ai.settings.description')}
           </div>
         </div>
       </div>
@@ -111,12 +111,12 @@ export function AiSettingsPanel() {
             checked={config.enabled}
             onChange={(e) => setConfig({ ...config, enabled: e.target.checked })}
           />
-          Enable AI assistant
+          {t('ai.settings.enable')}
         </label>
       </div>
 
       <div className={aiRow}>
-        <label className={aiLabel}>Provider preset</label>
+        <label className={aiLabel}>{t('ai.settings.providerPreset')}</label>
         <select
           className={s.mcpCopy}
           onChange={(e) => {
@@ -128,7 +128,7 @@ export function AiSettingsPanel() {
             ''
           }
         >
-          <option value="">Custom…</option>
+          <option value="">{t('ai.settings.custom')}</option>
           {Object.keys(DEFAULT_BASE_URLS).map((k) => (
             <option key={k} value={k}>
               {k}
@@ -138,7 +138,7 @@ export function AiSettingsPanel() {
       </div>
 
       <div className={aiRow}>
-        <label className={aiLabel}>Base URL</label>
+        <label className={aiLabel}>{t('ai.settings.baseUrl')}</label>
         <input
           className={aiInput}
           value={config.provider.baseUrl}
@@ -150,7 +150,7 @@ export function AiSettingsPanel() {
       </div>
 
       <div className={aiRow}>
-        <label className={aiLabel}>Model</label>
+        <label className={aiLabel}>{t('ai.settings.model')}</label>
         <input
           className={aiInput}
           value={config.provider.model}
@@ -163,7 +163,7 @@ export function AiSettingsPanel() {
 
       <div className={aiRow}>
         <label className={aiLabel}>
-          API key {config.hasApiKey && !apiKey && <span className={aiHint}>(stored)</span>}
+          {t('ai.settings.apiKey')} {config.hasApiKey && !apiKey && <span className={aiHint}>{t('ai.settings.stored')}</span>}
         </label>
         <input
           className={aiInput}
@@ -175,7 +175,7 @@ export function AiSettingsPanel() {
       </div>
 
       <div className={aiRow}>
-        <label className={aiLabel}>Permission mode</label>
+        <label className={aiLabel}>{t('ai.settings.permissionMode')}</label>
         <select
           className={s.mcpCopy}
           value={config.permission}
@@ -183,18 +183,18 @@ export function AiSettingsPanel() {
             setConfig({ ...config, permission: e.target.value as PermissionMode })
           }
         >
-          <option value="readConfirmWrite">Read freely, confirm writes (default)</option>
-          <option value="readOnly">Read-only</option>
-          <option value="fullAuto">Full auto (no confirmation)</option>
+          <option value="readConfirmWrite">{t('ai.settings.permReadWrite')}</option>
+          <option value="readOnly">{t('ai.settings.permReadOnly')}</option>
+          <option value="fullAuto">{t('ai.settings.permFullAuto')}</option>
         </select>
       </div>
 
       <div className={aiActions}>
         <button type="button" className={s.mcpCopy} onClick={test} disabled={testing}>
-          {testing ? 'Testing…' : 'Test connection'}
+          {testing ? t('ai.settings.testing') : t('ai.settings.testConnection')}
         </button>
         <button type="button" className={styles.sendBtn} onClick={save}>
-          {saved ? 'Saved ✓' : 'Save'}
+          {saved ? t('ai.settings.saved') : t('ai.settings.save')}
         </button>
       </div>
 

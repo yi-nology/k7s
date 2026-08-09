@@ -4,9 +4,11 @@
 import { useEffect, useState } from 'react';
 import { getProvider } from '../../providers';
 import type { CronTask } from '../../lib/ai/types';
+import { useTranslation } from '../../hooks/useI18n';
 import styles from './AiChat.module.css';
 
 export function CronPanel() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<CronTask[]>([]);
   const [presets, setPresets] = useState<CronTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,19 +40,19 @@ export function CronPanel() {
     } catch { /* ignore */ }
   };
 
-  if (loading) return <div className={styles.empty}>Loading…</div>;
+  if (loading) return <div className={styles.empty}>{t('ai.cron.loading')}</div>;
 
   return (
     <div className={styles.body}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
         <button type="button" className={styles.sendBtn} onClick={() => setShowPresets(!showPresets)} style={{ fontSize: 12, padding: '4px 10px' }}>
-          {showPresets ? 'Close' : '+ Add preset'}
+          {showPresets ? t('ai.cron.close') : t('ai.cron.addPreset')}
         </button>
       </div>
 
       {showPresets && (
         <div style={{ marginBottom: 10 }}>
-          <div className={styles.toolHeader}><span className={styles.toolName}>Preset tasks</span></div>
+          <div className={styles.toolHeader}><span className={styles.toolName}>{t('ai.cron.presetTasks')}</span></div>
           {presets.map((p) => (
             <div key={p.id} className={styles.toolCard} style={{ marginBottom: 4, cursor: 'pointer' }} onClick={() => addPreset(p)}>
               <div className={styles.toolHeader}>
@@ -63,7 +65,7 @@ export function CronPanel() {
         </div>
       )}
 
-      {tasks.length === 0 && <div className={styles.empty}>No scheduled tasks. Click "+ Add preset" to get started.</div>}
+      {tasks.length === 0 && <div className={styles.empty}>{t('ai.cron.noTasks')}</div>}
 
       {tasks.map((task) => (
         <div key={task.id} className={styles.toolCard} style={{ marginBottom: 6 }}>
@@ -71,16 +73,16 @@ export function CronPanel() {
             <span className={styles.toolIcon}>{task.enabled ? '▶' : '⏸'}</span>
             <span className={styles.toolName}>{task.name}</span>
             <span className={styles.toolStatusPill}>{task.cronExpr}</span>
-            <button type="button" className={styles.headerTab} onClick={() => remove(task.id)} title="Delete" style={{ marginLeft: 'auto' }}>✕</button>
+            <button type="button" className={styles.headerTab} onClick={() => remove(task.id)} title={t('ai.cron.delete')} style={{ marginLeft: 'auto' }}>✕</button>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 6 }}>{task.prompt.slice(0, 120)}</div>
           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <button type="button" onClick={() => toggle(task.id)} className={task.enabled ? styles.approveBtn : styles.denyBtn} style={{ fontSize: 11, padding: '2px 8px', flex: 'none' }}>
-              {task.enabled ? 'Enabled' : 'Disabled'}
+              {task.enabled ? t('ai.cron.enabled') : t('ai.cron.disabled')}
             </button>
             {task.lastRun && (
               <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                Last: {task.lastRun.slice(0, 16).replace('T', ' ')} {task.lastStatus === 'success' ? '✓' : task.lastStatus === 'failed' ? '✗' : ''}
+                {t('ai.cron.last')} {task.lastRun.slice(0, 16).replace('T', ' ')} {task.lastStatus === 'success' ? '✓' : task.lastStatus === 'failed' ? '✗' : ''}
               </span>
             )}
           </div>

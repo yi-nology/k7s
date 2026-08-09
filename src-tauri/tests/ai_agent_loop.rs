@@ -9,7 +9,9 @@
 
 use k7s_lib::ai::agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};
 use k7s_lib::ai::config::PermissionMode;
-use k7s_lib::ai::llm::{ChatStream, FunctionDef, LlmClient, Message, OutgoingToolCall, StreamEvent};
+use k7s_lib::ai::llm::{
+    ChatStream, FunctionDef, LlmClient, Message, OutgoingToolCall, StreamEvent,
+};
 use k7s_lib::ai::tools::ToolRegistry;
 use k7s_lib::core::events::mcp_sink;
 use k7s_lib::kube::manager::ClientManager;
@@ -36,7 +38,9 @@ struct MockLlm {
 
 impl MockLlm {
     fn new() -> Self {
-        Self { turn: Mutex::new(0) }
+        Self {
+            turn: Mutex::new(0),
+        }
     }
 }
 
@@ -50,7 +54,9 @@ impl LlmClient for MockLlm {
             1 => {
                 // First turn: emit text + a tool call to list pods.
                 vec![
-                    Ok(StreamEvent::TextDelta("Let me check the pods for you.".into())),
+                    Ok(StreamEvent::TextDelta(
+                        "Let me check the pods for you.".into(),
+                    )),
                     Ok(StreamEvent::Done {
                         tool_calls: vec![OutgoingToolCall {
                             id: "call_001".into(),
@@ -167,19 +173,36 @@ async fn agent_loop_full_cycle() {
     };
 
     agent
-        .run(req, PermissionMode::ReadConfirmWrite, 10, manager, sink.clone(), data_dir.clone(), None)
+        .run(
+            req,
+            PermissionMode::ReadConfirmWrite,
+            10,
+            manager,
+            sink.clone(),
+            data_dir.clone(),
+            None,
+        )
         .await;
 
     let events = sink.events();
     eprintln!("=== Events ({} total) ===", events.len());
     for (i, ev) in events.iter().enumerate() {
-        eprintln!("  [{i}] {:?}", serde_json::to_string(ev).unwrap_or_default());
+        eprintln!(
+            "  [{i}] {:?}",
+            serde_json::to_string(ev).unwrap_or_default()
+        );
     }
 
     // Verify we got the expected event sequence.
-    let has_text_delta = events.iter().any(|e| matches!(e, AgentEvent::TextDelta { .. }));
-    let has_tool_call = events.iter().any(|e| matches!(e, AgentEvent::ToolCall { name, .. } if name == "list_resources"));
-    let has_tool_result = events.iter().any(|e| matches!(e, AgentEvent::ToolResult { ok: true, .. }));
+    let has_text_delta = events
+        .iter()
+        .any(|e| matches!(e, AgentEvent::TextDelta { .. }));
+    let has_tool_call = events
+        .iter()
+        .any(|e| matches!(e, AgentEvent::ToolCall { name, .. } if name == "list_resources"));
+    let has_tool_result = events
+        .iter()
+        .any(|e| matches!(e, AgentEvent::ToolResult { ok: true, .. }));
     let has_done = events.iter().any(|e| matches!(e, AgentEvent::Done { .. }));
 
     assert!(has_text_delta, "should have text deltas from LLM");
@@ -188,7 +211,11 @@ async fn agent_loop_full_cycle() {
     assert!(has_done, "should end with Done event");
 
     // Verify the Done event includes history.
-    if let Some(AgentEvent::Done { history, final_message }) = events.iter().find(|e| matches!(e, AgentEvent::Done { .. })) {
+    if let Some(AgentEvent::Done {
+        history,
+        final_message,
+    }) = events.iter().find(|e| matches!(e, AgentEvent::Done { .. }))
+    {
         assert!(!history.is_empty(), "history should not be empty");
         assert!(final_message.is_some(), "should have a final message");
         eprintln!("=== Final message: {} ===", final_message.as_ref().unwrap());
@@ -254,19 +281,34 @@ async fn agent_loop_write_approval() {
     };
 
     agent
-        .run(req, PermissionMode::ReadConfirmWrite, 10, manager, sink.clone(), data_dir.clone(), None)
+        .run(
+            req,
+            PermissionMode::ReadConfirmWrite,
+            10,
+            manager,
+            sink.clone(),
+            data_dir.clone(),
+            None,
+        )
         .await;
 
     let events = sink.events();
     eprintln!("=== Write events ({} total) ===", events.len());
     for (i, ev) in events.iter().enumerate() {
-        eprintln!("  [{i}] {:?}", serde_json::to_string(ev).unwrap_or_default());
+        eprintln!(
+            "  [{i}] {:?}",
+            serde_json::to_string(ev).unwrap_or_default()
+        );
     }
 
     // Should have a PendingApproval event (write tool requires approval).
-    let has_approval = events.iter().any(|e| matches!(e, AgentEvent::PendingApproval { .. }));
+    let has_approval = events
+        .iter()
+        .any(|e| matches!(e, AgentEvent::PendingApproval { .. }));
     // Should have executed after auto-approval.
-    let has_result = events.iter().any(|e| matches!(e, AgentEvent::ToolResult { ok: true, .. }));
+    let has_result = events
+        .iter()
+        .any(|e| matches!(e, AgentEvent::ToolResult { ok: true, .. }));
 
     assert!(has_approval, "write tool should trigger PendingApproval");
     assert!(has_result, "tool should execute after approval");
@@ -339,18 +381,34 @@ async fn agent_loop_readonly_denies_writes() {
     };
 
     agent
-        .run(req, PermissionMode::ReadOnly, 10, manager, sink.clone(), data_dir.clone(), None)
+        .run(
+            req,
+            PermissionMode::ReadOnly,
+            10,
+            manager,
+            sink.clone(),
+            data_dir.clone(),
+            None,
+        )
         .await;
 
     let events = sink.events();
     eprintln!("=== ReadOnly events ===");
     for (i, ev) in events.iter().enumerate() {
-        eprintln!("  [{i}] {:?}", serde_json::to_string(ev).unwrap_or_default());
+        eprintln!(
+            "  [{i}] {:?}",
+            serde_json::to_string(ev).unwrap_or_default()
+        );
     }
 
     // Should NOT have any tool calls (write tools filtered out in ReadOnly).
-    let has_tool_call = events.iter().any(|e| matches!(e, AgentEvent::ToolCall { .. }));
-    assert!(!has_tool_call, "ReadOnly mode should not trigger any tool calls");
+    let has_tool_call = events
+        .iter()
+        .any(|e| matches!(e, AgentEvent::ToolCall { .. }));
+    assert!(
+        !has_tool_call,
+        "ReadOnly mode should not trigger any tool calls"
+    );
 
     let _ = std::fs::remove_dir_all(&data_dir);
 }

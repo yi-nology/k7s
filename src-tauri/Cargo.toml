@@ -85,6 +85,7 @@ urlencoding = "2"
 regex = "1"
 # Random jitter for retry backoff in timeouts module.
 rand = "0.8"
+tokio-stream = { version = "0.1", features = ["sync"] }
 # Cross-platform directory paths (home dir, temp dir, etc.)
 dirs = "5"
 # Canonicalize paths without UNC prefix on Windows

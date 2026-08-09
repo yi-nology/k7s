@@ -13,7 +13,7 @@
 //! the final [`StreamEvent::Done`].
 
 use crate::ai::error::AiError;
-use crate::ai::llm::{ChatStream, FunctionDef, Message, OutgoingToolCall, StreamEvent};
+use crate::ai::llm::{ChatStream, FunctionDef, Message, OutgoingToolCall, StreamEvent, StreamItem};
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -235,107 +235,115 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
 
         let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
-        Box::pin(async_stream::try_stream! {
-            let resp = http
+        // Spawn the HTTP request + SSE processing in a tokio task. The task
+        // sends items through a channel; the returned stream reads from it.
+        // This avoids all async_stream / try_stream macro issues with nested
+        // byte_stream polling.
+        let (tx, rx) = tokio::sync::mpsc::channel::<StreamItem>(64);
+
+        tokio::spawn(async move {
+            // Send the request.
+            let resp = match http
                 .post(&url)
                 .bearer_auth(&api_key)
                 .json(&body)
                 .send()
                 .await
-                .map_err(|e| AiError::Llm(e.to_string()))?;
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    let _ = tx.send(Err(AiError::Llm(e.to_string()))).await;
+                    return;
+                }
+            };
+
             let status = resp.status();
             if !status.is_success() {
                 let body = resp.text().await.unwrap_or_default();
-                Err(AiError::Llm(format!(
-                    "HTTP {status}: {}",
-                    body.chars().take(500).collect::<String>()
-                )))?;
-                // Unreachable: the `?` above ends the stream. Return so the
-                // borrow-checker is satisfied that `resp` is never used again
-                // on this path.
+                let _ = tx
+                    .send(Err(AiError::Llm(format!(
+                        "HTTP {status}: {}",
+                        body.chars().take(500).collect::<String>()
+                    ))))
+                    .await;
                 return;
             }
-            // Assembler for tool-call fragments, keyed by delta index.
+
+            // Read the full response body as bytes, then process SSE events.
+            // We do this instead of streaming because async_stream/try_stream
+            // macros have issues with reqwest's bytes_stream() in spawned tasks.
+            // The body is typically <100KB for a single LLM response.
+            let body_bytes = match resp.bytes().await {
+                Ok(b) => b,
+                Err(e) => {
+                    let _ = tx.send(Err(AiError::Llm(e.to_string()))).await;
+                    return;
+                }
+            };
+            let mut byte_buf: Vec<u8> = body_bytes.to_vec();
             let mut tool_acc: BTreeMap<usize, (String, String, String)> = BTreeMap::new();
             let mut finish_reason = String::from("stop");
 
-            // Buffer RAW BYTES, not a decoded String. `bytes_stream()` splits at
-            // arbitrary TCP byte boundaries, and decoding each chunk with
-            // `String::from_utf8_lossy` would corrupt any multibyte UTF-8
-            // sequence (Chinese characters, emoji) that straddles a chunk edge —
-            // each half becomes U+FFFD. We only decode complete SSE events,
-            // which always end at a line boundary, so the slice is valid UTF-8.
-            let mut byte_stream = resp.bytes_stream();
-            let mut byte_buf: Vec<u8> = Vec::new();
-            while let Some(chunk_res) = byte_stream.next().await {
-                let bytes = chunk_res.map_err(|e| AiError::Llm(e.to_string()))?;
-                byte_buf.extend_from_slice(&bytes);
-                // SSE events are separated by a blank line. Servers use either
-                // "\n\n" or "\r\n\r\n"; search for the byte pattern that handles
-                // both by looking for "\n\n" after CRLF→LF normalisation is
-                // expensive on bytes, so we search for either separator.
-                while let Some((pos, sep_len)) = find_event_boundary(&byte_buf) {
-                    let event_bytes = byte_buf.drain(..pos + sep_len).collect::<Vec<_>>();
-                    let event = String::from_utf8_lossy(&event_bytes);
-                    for line in event.lines() {
-                        let line = line.trim();
-                        if !line.starts_with("data:") {
-                            continue;
+            // Process all SSE events in the buffer.
+            while let Some((pos, sep_len)) = find_event_boundary(&byte_buf) {
+                let event_bytes: Vec<u8> = byte_buf.drain(..pos + sep_len).collect();
+                let event = String::from_utf8_lossy(&event_bytes);
+                for line in event.lines() {
+                    let line = line.trim();
+                    if !line.starts_with("data:") {
+                        continue;
+                    }
+                    let data = line["data:".len()..].trim();
+                    if data == "[DONE]" {
+                        let calls = finalize_tool_calls(&mut tool_acc);
+                        let _ = tx
+                            .send(Ok(StreamEvent::Done { tool_calls: calls, finish_reason }))
+                            .await;
+                        return;
+                    }
+                    let chunk: StreamChunk = match serde_json::from_str(data) {
+                        Ok(c) => c,
+                        Err(_) => continue,
+                    };
+                    for choice in chunk.choices {
+                        if let Some(reason) = choice.finish_reason {
+                            if !reason.is_empty() { finish_reason = reason; }
                         }
-                        let data = line["data:".len()..].trim();
-                        if data == "[DONE]" {
-                            let calls: Vec<OutgoingToolCall> = finalize_tool_calls(&mut tool_acc);
-                            yield StreamEvent::Done { tool_calls: calls, finish_reason };
-                            return;
+                        if let Some(text) = choice.delta.content {
+                            if !text.is_empty() {
+                                let _ = tx.send(Ok(StreamEvent::TextDelta(text))).await;
+                            }
                         }
-                        let chunk: StreamChunk = match serde_json::from_str(data) {
-                            Ok(c) => c,
-                            Err(_) => continue, // keep-alive / ping frames
-                        };
-                        for choice in chunk.choices {
-                            if let Some(reason) = choice.finish_reason {
-                                if !reason.is_empty() {
-                                    finish_reason = reason;
-                                }
+                        if let Some(text) = choice.delta.reasoning_content {
+                            if !text.is_empty() {
+                                let _ = tx.send(Ok(StreamEvent::TextDelta(text))).await;
                             }
-                            if let Some(text) = choice.delta.content {
-                                if !text.is_empty() {
-                                    yield StreamEvent::TextDelta(text);
-                                }
-                            }
-                            // Reasoning models (MiMo, DeepSeek R1) stream
-                            // their thinking in a separate `reasoning_content`
-                            // field. Stream it as text so the user sees the
-                            // AI's reasoning in real-time.
-                            if let Some(text) = choice.delta.reasoning_content {
-                                if !text.is_empty() {
-                                    yield StreamEvent::TextDelta(text);
-                                }
-                            }
-                            for tc in choice.delta.tool_calls {
-                                let entry = tool_acc
-                                    .entry(tc.index)
-                                    .or_insert_with(|| (String::new(), String::new(), String::new()));
-                                if let Some(id) = tc.id {
-                                    entry.0 = id;
-                                }
-                                if let Some(f) = tc.function {
-                                    if let Some(n) = f.name {
-                                        entry.1 = n;
-                                    }
-                                    if let Some(a) = f.arguments {
-                                        entry.2.push_str(&a);
-                                    }
-                                }
+                        }
+                        for tc in choice.delta.tool_calls {
+                            let entry = tool_acc.entry(tc.index)
+                                .or_insert_with(|| (String::new(), String::new(), String::new()));
+                            if let Some(id) = tc.id { entry.0 = id; }
+                            if let Some(f) = tc.function {
+                                if let Some(n) = f.name { entry.1 = n; }
+                                if let Some(a) = f.arguments { entry.2.push_str(&a); }
                             }
                         }
                     }
                 }
             }
-            // Stream closed without [DONE]; flush whatever we have.
-            let calls: Vec<OutgoingToolCall> = finalize_tool_calls(&mut tool_acc);
-            yield StreamEvent::Done { tool_calls: calls, finish_reason };
-        })
+
+            // Stream closed without [DONE].
+            let calls = finalize_tool_calls(&mut tool_acc);
+            let _ = tx
+                .send(Ok(StreamEvent::Done {
+                    tool_calls: calls,
+                    finish_reason,
+                }))
+                .await;
+        });
+
+        // Convert the channel receiver into a stream.
+        Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))
     }
 }
 
@@ -415,6 +423,31 @@ mod tests {
         // `\r\n\r\n` at position 7; the inner bytes mean a bare-\n search
         // wouldn't match at <=7, so crlf must win.
         assert_eq!(find_event_boundary(b"data: x\r\n\r\nrest"), Some((7, 4)));
+    }
+
+    #[test]
+    fn delta_parses_reasoning_content() {
+        // MiMo sends reasoning_content in a separate field.
+        let json = r#"{"content":null,"reasoning_content":"Hmm, the user"}"#;
+        let d: Delta = serde_json::from_str(json).unwrap();
+        assert_eq!(d.content, None);
+        assert_eq!(d.reasoning_content.as_deref(), Some("Hmm, the user"));
+    }
+
+    #[test]
+    fn delta_parses_empty_content() {
+        // MiMo sends content="" in the first chunk.
+        let json = r#"{"content":"","reasoning_content":null}"#;
+        let d: Delta = serde_json::from_str(json).unwrap();
+        assert_eq!(d.content, Some(String::new()));
+        assert_eq!(d.reasoning_content, None);
+    }
+
+    #[test]
+    fn delta_parses_content_with_text() {
+        let json = r#"{"content":"Hi there!","reasoning_content":null}"#;
+        let d: Delta = serde_json::from_str(json).unwrap();
+        assert_eq!(d.content.as_deref(), Some("Hi there!"));
     }
 
     #[test]

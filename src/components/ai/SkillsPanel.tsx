@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { getProvider } from '../../providers';
 import type { Skill } from '../../lib/ai/types';
+import { useTranslation } from '../../hooks/useI18n';
 import styles from './AiChat.module.css';
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function SkillsPanel({ activeId, onSelect }: Props) {
+  const { t } = useTranslation();
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +27,7 @@ export function SkillsPanel({ activeId, onSelect }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className={styles.empty}>Loading skills…</div>;
+  if (loading) return <div className={styles.empty}>{t('ai.skills.loading')}</div>;
 
   // Group by category.
   const groups = new Map<string, Skill[]>();
@@ -38,7 +40,7 @@ export function SkillsPanel({ activeId, onSelect }: Props) {
   return (
     <div className={styles.body}>
       <div className={styles.empty}>
-        Select a skill to pre-load its strategy for the next chat message.
+        {t('ai.skills.description')}
       </div>
       {[...groups.entries()].map(([cat, list]) => (
         <div key={cat}>
@@ -60,14 +62,14 @@ export function SkillsPanel({ activeId, onSelect }: Props) {
                   <span className={styles.toolName}>{skill.name}</span>
                   {isActive && (
                     <span className={styles.toolStatusPill} style={{ color: 'var(--status-ok)' }}>
-                      active
+                      {t('ai.skills.active')}
                     </span>
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{skill.description}</div>
                 {skill.toolWhitelist && skill.toolWhitelist.length > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                    Tools: {skill.toolWhitelist.join(', ')}
+                    {t('ai.skills.tools')} {skill.toolWhitelist.join(', ')}
                   </div>
                 )}
               </div>

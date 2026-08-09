@@ -16,6 +16,7 @@ use k7s_lib::ai::agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};
 use k7s_lib::ai::config::PermissionMode;
 use k7s_lib::ai::llm::OpenAiClient;
 use k7s_lib::ai::tools::ToolRegistry;
+use k7s_lib::ai::LlmClient;
 use k7s_lib::core::events::mcp_sink;
 use k7s_lib::kube::manager::ClientManager;
 use std::sync::{Arc, Mutex, Once};
@@ -35,7 +36,9 @@ struct CollectorSink {
 
 impl CollectorSink {
     fn new() -> Self {
-        Self { events: Mutex::new(Vec::new()) }
+        Self {
+            events: Mutex::new(Vec::new()),
+        }
     }
     fn events(&self) -> Vec<AgentEvent> {
         self.events.lock().unwrap().clone()
@@ -47,10 +50,15 @@ impl CollectorSink {
         })
     }
     fn tool_names(&self) -> Vec<String> {
-        self.events.lock().unwrap().iter().filter_map(|e| match e {
-            AgentEvent::ToolCall { name, .. } => Some(name.clone()),
-            _ => None,
-        }).collect()
+        self.events
+            .lock()
+            .unwrap()
+            .iter()
+            .filter_map(|e| match e {
+                AgentEvent::ToolCall { name, .. } => Some(name.clone()),
+                _ => None,
+            })
+            .collect()
     }
 }
 
@@ -69,7 +77,9 @@ impl EventSink for CollectorSink {
         let _ = tx.send(true); // auto-approve in tests
         rx
     }
-    fn is_cancelled(&self) -> bool { false }
+    fn is_cancelled(&self) -> bool {
+        false
+    }
 }
 
 /// Build a connected manager for the kind cluster.
@@ -78,11 +88,17 @@ async fn make_manager() -> Arc<ClientManager> {
     let (client, ctx) = k7s_lib::kube::client::build_client("kind-k7s-dev")
         .await
         .expect("build client");
-    manager.set_connected(client, k7s_lib::kube::manager::ConnectionInfo {
-        context: ctx,
-        server: String::new(),
-        version: String::new(),
-    }, 0).await;
+    manager
+        .set_connected(
+            client,
+            k7s_lib::kube::manager::ConnectionInfo {
+                context: ctx,
+                server: String::new(),
+                version: String::new(),
+            },
+            0,
+        )
+        .await;
     manager
 }
 
@@ -96,7 +112,10 @@ fn make_llm() -> OpenAiClient {
 }
 
 /// Run a single agent conversation and return the events.
-async fn run_agent(message: &str, context: Option<k7s_lib::ai::context::SelectedContext>) -> Arc<CollectorSink> {
+async fn run_agent(
+    message: &str,
+    context: Option<k7s_lib::ai::context::SelectedContext>,
+) -> Arc<CollectorSink> {
     ensure_crypto();
     let manager = make_manager().await;
     let llm_factory: Arc<dyn Fn() -> Box<dyn k7s_lib::ai::llm::LlmClient> + Send + Sync> =
@@ -113,7 +132,17 @@ async fn run_agent(message: &str, context: Option<k7s_lib::ai::context::Selected
         kube_context: Some("kind-k7s-dev".to_string()),
     };
 
-    agent.run(req, PermissionMode::FullAuto, 10, manager, sink.clone(), data_dir, None).await;
+    agent
+        .run(
+            req,
+            PermissionMode::FullAuto,
+            10,
+            manager,
+            sink.clone(),
+            data_dir,
+            None,
+        )
+        .await;
     sink
 }
 
@@ -125,13 +154,19 @@ async fn run_agent(message: &str, context: Option<k7s_lib::ai::context::Selected
 #[tokio::test]
 #[ignore = "needs real LLM + cluster"]
 async fn e2e_list_pods() {
-    let sink = run_agent("List all pods in the default namespace. Show their names and status.", None).await;
+    let sink = run_agent(
+        "List all pods in the default namespace. Show their names and status.",
+        None,
+    )
+    .await;
     let msg = sink.final_message().unwrap_or_default();
     eprintln!("=== AI response ===\n{msg}");
     // The response should mention the nginx-test pods we deployed.
-    assert!(msg.contains("nginx") || sink.tool_names().contains(&"list_resources".to_string()),
+    assert!(
+        msg.contains("nginx") || sink.tool_names().contains(&"list_resources".to_string()),
         "AI should have listed pods. Tools called: {:?}, Response: {}",
-        sink.tool_names(), msg
+        sink.tool_names(),
+        msg
     );
 }
 
@@ -139,14 +174,21 @@ async fn e2e_list_pods() {
 #[tokio::test]
 #[ignore = "needs real LLM + cluster"]
 async fn e2e_cluster_health() {
-    let sink = run_agent("Check the overall cluster health. Are there any problems?", None).await;
+    let sink = run_agent(
+        "Check the overall cluster health. Are there any problems?",
+        None,
+    )
+    .await;
     let msg = sink.final_message().unwrap_or_default();
     eprintln!("=== AI response ===\n{msg}");
     let tools = sink.tool_names();
     eprintln!("Tools called: {:?}", tools);
     // Accept if AI used tools OR gave a text response.
-    assert!(!msg.is_empty() || !tools.is_empty(),
-        "AI should give a health report or call tools. Response: {}", msg);
+    assert!(
+        !msg.is_empty() || !tools.is_empty(),
+        "AI should give a health report or call tools. Response: {}",
+        msg
+    );
 }
 
 /// Test 3: AI deploys nginx with a specific image.
@@ -166,9 +208,11 @@ async fn e2e_deploy_nginx() {
     eprintln!("=== Tools called: {:?} ===", tools);
     eprintln!("=== AI response ===\n{msg}");
     // Should have used apply_manifest.
-    assert!(tools.contains(&"apply_manifest".to_string()) || msg.contains("nginx-e2e"),
+    assert!(
+        tools.contains(&"apply_manifest".to_string()) || msg.contains("nginx-e2e"),
         "AI should have deployed nginx. Tools: {:?}, Response: {}",
-        tools, msg
+        tools,
+        msg
     );
 }
 
@@ -184,7 +228,8 @@ async fn e2e_create_configmap() {
     let tools = sink.tool_names();
     eprintln!("=== Tools: {:?} ===", tools);
     eprintln!("=== Response ===\n{msg}");
-    assert!(tools.contains(&"apply_manifest".to_string()) || msg.contains("app-config"),
+    assert!(
+        tools.contains(&"apply_manifest".to_string()) || msg.contains("app-config"),
         "AI should have created the ConfigMap"
     );
 }
@@ -202,7 +247,8 @@ async fn e2e_create_nodeport() {
     let tools = sink.tool_names();
     eprintln!("=== Tools: {:?} ===", tools);
     eprintln!("=== Response ===\n{msg}");
-    assert!(tools.contains(&"apply_manifest".to_string()) || msg.contains("NodePort"),
+    assert!(
+        tools.contains(&"apply_manifest".to_string()) || msg.contains("NodePort"),
         "AI should have created the NodePort service"
     );
 }
@@ -219,14 +265,21 @@ async fn e2e_diagnose_deployment() {
     let sink = run_agent(
         "Describe this deployment and check its events. Is it healthy?",
         Some(ctx),
-    ).await;
+    )
+    .await;
     let msg = sink.final_message().unwrap_or_default();
     eprintln!("=== Response ===\n{msg}");
     let tools = sink.tool_names();
     eprintln!("Tools called: {:?}", tools);
     // Accept if AI used tools OR gave a text response mentioning nginx.
-    assert!(msg.contains("nginx") || msg.contains("running") || msg.contains("healthy") || !tools.is_empty(),
-        "AI should describe the deployment or call tools. Tools: {:?}, Response: {}", tools, msg
+    assert!(
+        msg.contains("nginx")
+            || msg.contains("running")
+            || msg.contains("healthy")
+            || !tools.is_empty(),
+        "AI should describe the deployment or call tools. Tools: {:?}, Response: {}",
+        tools,
+        msg
     );
 }
 
@@ -250,11 +303,25 @@ async fn e2e_multi_turn() {
         skill_id: None,
         kube_context: Some("kind-k7s-dev".to_string()),
     };
-    agent.run(req1, PermissionMode::FullAuto, 10, manager.clone(), sink1.clone(), data_dir.clone(), None).await;
-    let history1 = sink1.events().iter().find_map(|e| match e {
-        AgentEvent::Done { history, .. } => Some(history.clone()),
-        _ => None,
-    }).unwrap_or_default();
+    agent
+        .run(
+            req1,
+            PermissionMode::FullAuto,
+            10,
+            manager.clone(),
+            sink1.clone(),
+            data_dir.clone(),
+            None,
+        )
+        .await;
+    let history1 = sink1
+        .events()
+        .iter()
+        .find_map(|e| match e {
+            AgentEvent::Done { history, .. } => Some(history.clone()),
+            _ => None,
+        })
+        .unwrap_or_default();
     let msg1 = sink1.final_message().unwrap_or_default();
     eprintln!("=== Turn 1 ===\n{msg1}");
 
@@ -267,13 +334,89 @@ async fn e2e_multi_turn() {
         skill_id: None,
         kube_context: Some("kind-k7s-dev".to_string()),
     };
-    agent.run(req2, PermissionMode::FullAuto, 10, manager.clone(), sink2.clone(), data_dir, None).await;
+    agent
+        .run(
+            req2,
+            PermissionMode::FullAuto,
+            10,
+            manager.clone(),
+            sink2.clone(),
+            data_dir,
+            None,
+        )
+        .await;
     let msg2 = sink2.final_message().unwrap_or_default();
     eprintln!("=== Turn 2 ===\n{msg2}");
     // Turn 2 should reference the count from turn 1.
     let tools2 = sink2.tool_names();
     eprintln!("Turn 2 tools: {:?}", tools2);
     // Accept if AI responded with text or used tools.
-    assert!(!msg2.is_empty() || !tools2.is_empty(),
-        "AI should answer the follow-up or call tools");
+    assert!(
+        !msg2.is_empty() || !tools2.is_empty(),
+        "AI should answer the follow-up or call tools"
+    );
+}
+
+/// Test: verify that reqwest streaming works with MiMo API.
+#[tokio::test]
+#[ignore = "needs real LLM"]
+async fn e2e_streaming_produces_text() {
+    ensure_crypto();
+    let api_key = std::env::var("XIAOMI_TOKEN_PLAN_API_KEY")
+        .unwrap_or_else(|_| "tp-cjo7bh4wjx1gnvpimjqi2i391nkoo3slp6u1z0timf07ywcp".to_string());
+    let client = reqwest::Client::new();
+    let resp = client
+        .post("https://token-plan-cn.xiaomimimo.com/v1/chat/completions")
+        .bearer_auth(&api_key)
+        .json(&serde_json::json!({
+            "model": "mimo-v2.5-pro",
+            "messages": [{"role": "user", "content": "Say hi"}],
+            "max_tokens": 200,
+            "stream": true
+        }))
+        .send()
+        .await
+        .expect("request should succeed");
+    assert!(resp.status().is_success(), "status: {}", resp.status());
+    use futures::StreamExt;
+    let mut stream = resp.bytes_stream();
+    let mut total_bytes = 0;
+    let mut chunk_count = 0;
+    while let Some(chunk) = stream.next().await {
+        let bytes = chunk.expect("chunk should be ok");
+        total_bytes += bytes.len();
+        chunk_count += 1;
+    }
+    eprintln!("=== reqwest stream: {chunk_count} chunks, {total_bytes} bytes ===");
+    assert!(total_bytes > 0, "streaming response should have data");
+}
+
+/// Test: read the full response body from MiMo to verify it's not empty.
+#[tokio::test]
+#[ignore = "needs real LLM"]
+async fn e2e_chat_stream_debug() {
+    ensure_crypto();
+    let api_key = std::env::var("XIAOMI_TOKEN_PLAN_API_KEY")
+        .unwrap_or_else(|_| "tp-cjo7bh4wjx1gnvpimjqi2i391nkoo3slp6u1z0timf07ywcp".to_string());
+    let client = reqwest::Client::new();
+    let resp = client
+        .post("https://token-plan-cn.xiaomimimo.com/v1/chat/completions")
+        .bearer_auth(&api_key)
+        .json(&serde_json::json!({
+            "model": "mimo-v2.5-pro",
+            "messages": [{"role": "user", "content": "Say hi"}],
+            "max_tokens": 200,
+            "stream": true
+        }))
+        .send()
+        .await
+        .expect("request failed");
+    let status = resp.status();
+    eprintln!("status: {status}");
+    let headers: Vec<_> = resp.headers().iter().collect();
+    eprintln!("headers: {headers:?}");
+    let body = resp.text().await.expect("body read failed");
+    eprintln!("body len: {}", body.len());
+    eprintln!("body first 500: {}", &body[..body.len().min(500)]);
+    assert!(!body.is_empty(), "response body should not be empty");
 }

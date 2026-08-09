@@ -6,6 +6,7 @@
  * - Resource selected: resource-level actions (diagnose, events, logs, etc.)
  */
 import type { SelectedContext } from '../../lib/ai/types';
+import { useTranslation } from '../../hooks/useI18n';
 import styles from './AiChat.module.css';
 
 interface Props {
@@ -14,21 +15,23 @@ interface Props {
   disabled: boolean;
 }
 
-const CLUSTER_ACTIONS = [
-  { label: '🏥 Cluster health', message: 'Check the overall cluster health and list any problems.' },
-  { label: '📋 List nodes', message: 'List all nodes in the cluster with their status.' },
-  { label: '🔍 Find CrashLoop pods', message: 'Find all pods in CrashLoopBackOff or ImagePullBackOff across all namespaces.' },
-  { label: '📊 Resource pressure', message: 'Which namespaces are using the most CPU and memory?' },
-];
-
-const RESOURCE_ACTIONS = [
-  { label: '🔍 Diagnose', message: '' },  // filled dynamically
-  { label: '📋 Events', message: '' },
-  { label: '📄 Logs', message: '' },
-  { label: '📝 Describe', message: '' },
-];
-
 export function QuickActions({ selectedContext, onAction, disabled }: Props) {
+  const { t } = useTranslation();
+
+  const CLUSTER_ACTIONS = [
+    { label: `🏥 ${t('ai.quickActions.clusterHealth')}`, message: 'Check the overall cluster health and list any problems.' },
+    { label: `📋 ${t('ai.quickActions.listNodes')}`, message: 'List all nodes in the cluster with their status.' },
+    { label: `🔍 ${t('ai.quickActions.findCrashLoop')}`, message: 'Find all pods in CrashLoopBackOff or ImagePullBackOff across all namespaces.' },
+    { label: `📊 ${t('ai.quickActions.resourcePressure')}`, message: 'Which namespaces are using the most CPU and memory?' },
+  ];
+
+  const RESOURCE_ACTIONS = [
+    { label: `🔍 ${t('ai.quickActions.diagnose')}`, message: '' },  // filled dynamically
+    { label: `📋 ${t('ai.quickActions.events')}`, message: '' },
+    { label: `📄 ${t('ai.quickActions.logs')}`, message: '' },
+    { label: `📝 ${t('ai.quickActions.describe')}`, message: '' },
+  ];
+
   const hasContext = selectedContext?.kind && selectedContext?.name;
 
   if (!hasContext) {
@@ -41,7 +44,7 @@ export function QuickActions({ selectedContext, onAction, disabled }: Props) {
             className={styles.quickActionBtn}
             onClick={() => onAction(a.message)}
             disabled={disabled}
-            title={disabled ? 'Enable AI in Settings first' : a.message}
+            title={disabled ? t('ai.quickActions.enableFirst') : a.message}
           >
             {a.label}
           </button>
@@ -54,15 +57,15 @@ export function QuickActions({ selectedContext, onAction, disabled }: Props) {
   const ns = selectedContext!.namespace || 'default';
   const name = selectedContext!.name!;
 
-  const actions = RESOURCE_ACTIONS.map((a) => {
-    switch (a.label) {
-      case '🔍 Diagnose':
+  const actions = RESOURCE_ACTIONS.map((a, i) => {
+    switch (i) {
+      case 0: // Diagnose
         return { ...a, message: `Diagnose ${kind}/${name} in namespace ${ns}. Check events, conditions, and logs to find the root cause of any issues.` };
-      case '📋 Events':
+      case 1: // Events
         return { ...a, message: `Show the recent events for ${kind}/${name} in namespace ${ns}.` };
-      case '📄 Logs':
+      case 2: // Logs
         return { ...a, message: `Get the logs for ${kind}/${name} in namespace ${ns}. Show the last 50 lines.` };
-      case '📝 Describe':
+      case 3: // Describe
         return { ...a, message: `Describe ${kind}/${name} in namespace ${ns}. Show the full status and conditions.` };
       default:
         return a;

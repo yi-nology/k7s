@@ -25,6 +25,7 @@ import type {
 import { SkillsPanel } from './SkillsPanel';
 import { MemoryPanel } from './MemoryPanel';
 import { CronPanel } from './CronPanel';
+import { useTranslation } from '../../hooks/useI18n';
 import styles from './AiAssistantPanel.module.css';
 
 type Tab = 'chat' | 'skills' | 'memory' | 'cron';
@@ -60,6 +61,7 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
   const [activeSkillId, setActiveSkillId] = useState<string | undefined>();
   // Current kubeconfig context (for memory scoping).
   const [kubeContext, _setKubeContext] = useState<string>('');
+  const { t } = useTranslation();
   useEffect(() => {
     invoke<string>('ai_get_context')
       .then((ctx) => {
@@ -225,12 +227,12 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
     <div className={styles.panel}>
       <div className={styles.header}>
         <div style={{ display: 'flex', gap: 8 }}>
-          {(['chat', 'skills', 'memory', 'cron'] as Tab[]).map((t) => (
+          {(['chat', 'skills', 'memory', 'cron'] as Tab[]).map((tabName) => (
             <button
-              key={t}
+              key={tabName}
               type="button"
-              className={tab === t ? styles.title : styles.close}
-              onClick={() => setTab(t)}
+              className={tab === tabName ? styles.title : styles.close}
+              onClick={() => setTab(tabName)}
               style={{
                 border: 'none',
                 background: 'none',
@@ -240,15 +242,15 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
                 padding: '2px 4px',
               }}
             >
-              {t === 'chat' ? '✦ Chat' : t === 'skills' ? '⚡ Skills' : t === 'memory' ? '🧠 Memory' : '⏰ Cron'}
-              {t === 'chat' && activeSkillId && (
+              {tabName === 'chat' ? t('ai.chat.tabChat') : tabName === 'skills' ? t('ai.chat.tabSkills') : tabName === 'memory' ? t('ai.chat.tabMemory') : t('ai.chat.tabCron')}
+              {tabName === 'chat' && activeSkillId && (
                 <span style={{ color: 'var(--ok, #22c55e)', marginLeft: 4 }}>●</span>
               )}
             </button>
           ))}
         </div>
         {onClose && (
-          <button type="button" className={styles.close} onClick={onClose} aria-label="Close">
+          <button type="button" className={styles.close} onClick={onClose} aria-label={t('ai.chat.close')}>
             ✕
           </button>
         )}
@@ -261,13 +263,13 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
       <div className={styles.body} ref={scrollRef}>
         {rows.length === 0 && (
           <div className={styles.empty}>
-            Ask anything about your cluster. Try:
+            {t('ai.chat.askAnything')}
             <ul>
-              <li>“list pods in default”</li>
-              <li>“what's wrong with the frontend namespace?”</li>
-              <li>“scale payments to 3 replicas”</li>
+              <li>{t('ai.chat.prompt1')}</li>
+              <li>{t('ai.chat.prompt2')}</li>
+              <li>{t('ai.chat.prompt3')}</li>
             </ul>
-            Write operations ask for confirmation before running.
+            {t('ai.chat.writeOpsNote')}
           </div>
         )}
         {rows.map((row, i) => {
@@ -305,14 +307,14 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
           );
         })}
         {busy && !rows.some((r) => r.kind === 'assistant' && r.text) && (
-          <div className={styles.thinking}>thinking…</div>
+          <div className={styles.thinking}>{t('ai.chat.thinking')}</div>
         )}
       </div>
       <div className={styles.inputBar}>
         <textarea
           className={styles.input}
           value={input}
-          placeholder="Ask the AI…"
+          placeholder={t('ai.chat.placeholder')}
           rows={1}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
@@ -320,7 +322,7 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
         />
         {busy ? (
           <button type="button" className={styles.stopBtn} onClick={cancel}>
-            Stop
+            {t('ai.chat.stop')}
           </button>
         ) : (
           <button
@@ -329,7 +331,7 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
             onClick={send}
             disabled={!input.trim()}
           >
-            Send
+            {t('ai.chat.send')}
           </button>
         )}
       </div>
@@ -355,12 +357,13 @@ function ToolCallCard({
   result?: unknown;
   onApprove?: (approved: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const stateLabel = {
-    running: 'running',
-    ok: 'done',
-    err: 'failed',
-    pending: 'awaiting approval',
-    denied: 'denied',
+    running: t('ai.chat.toolRunning'),
+    ok: t('ai.chat.toolDone'),
+    err: t('ai.chat.toolFailed'),
+    pending: t('ai.chat.toolAwaiting'),
+    denied: t('ai.chat.toolDenied'),
   }[state];
   return (
     <div className={`${styles.toolCard} ${styles[`tool_${state}`]}`}>
@@ -377,14 +380,14 @@ function ToolCallCard({
             className={styles.approveBtn}
             onClick={() => onApprove(true)}
           >
-            Approve
+            {t('ai.chat.approve')}
           </button>
           <button
             type="button"
             className={styles.denyBtn}
             onClick={() => onApprove(false)}
           >
-            Deny
+            {t('ai.chat.deny')}
           </button>
         </div>
       )}

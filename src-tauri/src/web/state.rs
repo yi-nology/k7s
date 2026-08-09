@@ -20,7 +20,7 @@ pub struct WebState {
     /// clone so the broadcast isn't dropped (it auto-closes with no
     /// receivers); every SSE connection calls [`subscribe_sse`] for its own
     /// receiver.
-    event_tx: tokio::sync::broadcast::Sender<WebEvent>,
+    pub event_tx: tokio::sync::broadcast::Sender<WebEvent>,
 }
 
 impl WebState {
@@ -47,5 +47,14 @@ impl WebState {
     /// A fresh subscriber for a new SSE connection.
     pub fn subscribe_sse(&self) -> WebEventReceiver {
         self.event_tx.subscribe()
+    }
+
+    /// Emit an event to all connected SSE clients. Used by the AI chat handler
+    /// to push `ai_event` frames.
+    pub fn emit_event(&self, name: impl Into<String>, data: serde_json::Value) {
+        let _ = self.event_tx.send(WebEvent {
+            name: name.into(),
+            data,
+        });
     }
 }

@@ -3,38 +3,40 @@
  * Introduces the AI assistant, lists capabilities, and offers example prompts.
  */
 import styles from './AiChat.module.css';
+import { useTranslation } from '../../hooks/useI18n';
 
 interface Props {
   onExampleClick: (message: string) => void;
   aiEnabled: boolean;
 }
 
-const EXAMPLES = [
-  { icon: '🔍', label: 'Diagnose a problem', message: 'What pods are in CrashLoopBackOff? Diagnose the root cause.' },
-  { icon: '📋', label: 'List resources', message: 'List all deployments in the default namespace.' },
-  { icon: '🏥', label: 'Health check', message: 'Check the overall cluster health.' },
-  { icon: '⚡', label: 'Scale a workload', message: 'Scale the nginx deployment to 3 replicas.' },
-];
-
 export function AiWelcome({ onExampleClick, aiEnabled }: Props) {
+  const { t } = useTranslation();
+
+  const examples = [
+    { icon: '🔍', label: t('ai.welcome.diagnose'), message: t('ai.welcome.diagnoseMsg') },
+    { icon: '📋', label: t('ai.welcome.listResources'), message: t('ai.welcome.listResourcesMsg') },
+    { icon: '🏥', label: t('ai.welcome.healthCheck'), message: t('ai.welcome.healthCheckMsg') },
+    { icon: '⚡', label: t('ai.welcome.scaleWorkload'), message: t('ai.welcome.scaleWorkloadMsg') },
+  ];
+
   return (
     <div className={styles.welcome}>
       <div className={styles.welcomeIcon}>✦</div>
-      <h3 className={styles.welcomeTitle}>k7s AI Assistant</h3>
+      <h3 className={styles.welcomeTitle}>{t('ai.welcome.title')}</h3>
       <p className={styles.welcomeDesc}>
-        Your Kubernetes operations assistant. I can read cluster state, diagnose
-        problems, and execute operations — all through natural language.
+        {t('ai.welcome.description')}
       </p>
 
       {!aiEnabled && (
         <div className={styles.welcomeSetup}>
-          <p>AI is not configured yet. Open <strong>Settings → AI Assistant</strong> to set up your LLM provider.</p>
+          <p>{t('ai.welcome.notConfigured')}</p>
         </div>
       )}
 
       <div className={styles.welcomeExamples}>
-        <div className={styles.welcomeExamplesLabel}>Try asking:</div>
-        {EXAMPLES.map((ex) => (
+        <div className={styles.welcomeExamplesLabel}>{t('ai.welcome.tryAsking')}</div>
+        {examples.map((ex) => (
           <button
             key={ex.label}
             type="button"

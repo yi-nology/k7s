@@ -12,8 +12,8 @@
  * Talks to the backend through the same Tauri commands as before.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '../../hooks/useI18n';
 import { getProvider } from '../../providers';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type {
   AgentEvent,
   AiConfigView,
@@ -65,6 +65,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
   const [config, setConfig] = useState<AiConfigView | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const { t } = useTranslation();
 
   // Load config + context on mount.
   useEffect(() => {
@@ -78,18 +79,45 @@ export function AiChat({ selectedContext, onClose }: Props) {
   }, [rows]);
 
   // Subscribe to ai_event while a run is active.
+  // Uses Tauri listen in desktop mode, SSE EventSource in web mode.
   useEffect(() => {
     if (!runId) return;
-    let unlisten: UnlistenFn | null = null;
-    let cancelled = false;
-    void listen<{ runId: string; event: AgentEvent }>('ai_event', (e) => {
-      if (e.payload.runId !== runId) return;
-      handleEvent(e.payload.event);
-    }).then((fn) => {
-      if (cancelled) fn();
-      else unlisten = fn;
-    });
-    return () => { cancelled = true; unlisten?.(); };
+    let cleanup: (() => void) | null = null;
+    const handler = (ev: AgentEvent) => {
+      const envelope = ev as unknown as { runId?: string; event?: AgentEvent };
+      // The event payload might be the envelope or the event directly.
+      const event = envelope.event ?? (ev as AgentEvent);
+      const evRunId = envelope.runId ?? runId;
+      if (evRunId !== runId) return;
+      handleEvent(event);
+    };
+
+    // Check if we're in Tauri mode.
+    const isTauri = '__TAURI__' in window;
+    if (isTauri) {
+      // Dynamic import to avoid bundling Tauri API in web builds.
+      import('@tauri-apps/api/event').then(({ listen }) => {
+        let unlistenFn: (() => void) | null = null;
+        void listen<{ runId: string; event: AgentEvent }>('ai_event', (e) => {
+          if (e.payload.runId !== runId) return;
+          handleEvent(e.payload.event);
+        }).then((fn) => { unlistenFn = fn; });
+        cleanup = () => { unlistenFn?.(); };
+      });
+    } else {
+      // Web mode: subscribe to SSE events.
+      const es = new EventSource('/api/events');
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.name === 'ai_event') {
+            handler(data.data);
+          }
+        } catch { /* ignore parse errors */ }
+      };
+      cleanup = () => { es.close(); };
+    }
+    return () => { cleanup?.(); };
   }, [runId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function pushRow(r: Row) { setRows((prev) => [...prev, r]); }
@@ -192,35 +220,35 @@ export function AiChat({ selectedContext, onClose }: Props) {
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <span className={styles.headerTitle}>✦ k7s AI</span>
+          <span className={styles.headerTitle}>{t('ai.chat.title')}</span>
           {activeSkillId && (
             <span className={styles.skillBadge}>{activeSkillId}</span>
           )}
         </div>
         <div className={styles.headerRight}>
           {([
-            ['chat', '💬 Chat'],
-            ['skills', '⚡ Skills'],
-            ['memory', '🧠 Memory'],
-            ['cron', '⏰ Cron'],
-          ] as [Tab, string][]).map(([t, label]) => (
+            ['chat', t('ai.chat.tabChat')],
+            ['skills', t('ai.chat.tabSkills')],
+            ['memory', t('ai.chat.tabMemory')],
+            ['cron', t('ai.chat.tabCron')],
+          ] as [Tab, string][]).map(([tabId, label]) => (
             <button
-              key={t}
+              key={tabId}
               type="button"
-              className={tab === t ? styles.headerTabActive : styles.headerTab}
-              onClick={() => setTab(t)}
+              className={tab === tabId ? styles.headerTabActive : styles.headerTab}
+              onClick={() => setTab(tabId)}
               title={label}
             >
               {label}
             </button>
           ))}
           {tab === 'chat' && rows.length > 0 && (
-            <button type="button" className={styles.headerTab} onClick={newChat} title="New conversation">
+            <button type="button" className={styles.headerTab} onClick={newChat} title={t('ai.chat.newConversation')}>
               🔄
             </button>
           )}
           {onClose && (
-            <button type="button" className={styles.headerTab} onClick={onClose} title="Close">
+            <button type="button" className={styles.headerTab} onClick={onClose} title={t('ai.chat.close')}>
               ✕
             </button>
           )}
@@ -247,7 +275,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
               if (row.kind === 'user') {
                 return (
                   <div key={i} className={styles.userMsg}>
-                    <div className={styles.userLabel}>You</div>
+                    <div className={styles.userLabel}>{t('ai.chat.you')}</div>
                     {row.text}
                   </div>
                 );
@@ -255,7 +283,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
               if (row.kind === 'assistant') {
                 return (
                   <div key={i} className={styles.assistantMsg}>
-                    <div className={styles.assistantLabel}>✦ k7s AI</div>
+                    <div className={styles.assistantLabel}>{t('ai.chat.assistant')}</div>
                     <MarkdownMessage content={row.text} />
                   </div>
                 );
@@ -295,7 +323,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
               ref={inputRef}
               className={styles.input}
               value={input}
-              placeholder={aiEnabled ? 'Ask anything about your cluster…' : 'Enable AI in Settings first…'}
+              placeholder={aiEnabled ? t('ai.chat.placeholder') : t('ai.chat.placeholderDisabled')}
               rows={1}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
@@ -304,7 +332,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
             <div className={styles.inputActions}>
               {busy ? (
                 <button type="button" className={styles.stopBtn} onClick={cancel}>
-                  Stop
+                  {t('ai.chat.stop')}
                 </button>
               ) : (
                 <button

@@ -6,15 +6,8 @@
  * Write tools in 'pending' state show Approve/Deny buttons inline.
  */
 import { useState } from 'react';
+import { useTranslation } from '../../hooks/useI18n';
 import styles from './AiChat.module.css';
-
-const STATUS_LABELS: Record<string, string> = {
-  running: 'Running',
-  ok: 'Done',
-  err: 'Failed',
-  pending: 'Needs approval',
-  denied: 'Denied',
-};
 
 const STATUS_ICONS: Record<string, string> = {
   running: '⏳',
@@ -34,7 +27,16 @@ interface Props {
 }
 
 export function ToolCallCard({ name, args, isWrite, state, result, onApprove }: Props) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(state === 'pending');
+
+  const STATUS_LABELS: Record<string, string> = {
+    running: t('ai.toolCall.running'),
+    ok: t('ai.toolCall.done'),
+    err: t('ai.toolCall.failed'),
+    pending: t('ai.toolCall.needsApproval'),
+    denied: t('ai.toolCall.denied'),
+  };
 
   const stateClass =
     state === 'ok'
@@ -73,7 +75,7 @@ export function ToolCallCard({ name, args, isWrite, state, result, onApprove }: 
         <div className={styles.toolBody}>
           {argsDisplay && (
             <div className={styles.toolSection}>
-              <div className={styles.toolSectionLabel}>Parameters</div>
+              <div className={styles.toolSectionLabel}>{t('ai.toolCall.parameters')}</div>
               <pre className={styles.toolPre}>{argsDisplay}</pre>
             </div>
           )}
@@ -87,7 +89,7 @@ export function ToolCallCard({ name, args, isWrite, state, result, onApprove }: 
                   onApprove(true);
                 }}
               >
-                ✓ Approve
+                {t('ai.toolCall.approve')}
               </button>
               <button
                 type="button"
@@ -97,14 +99,14 @@ export function ToolCallCard({ name, args, isWrite, state, result, onApprove }: 
                   onApprove(false);
                 }}
               >
-                ✗ Deny
+                {t('ai.toolCall.deny')}
               </button>
             </div>
           )}
           {resultDisplay && (
             <div className={styles.toolSection}>
               <div className={styles.toolSectionLabel}>
-                {state === 'err' ? 'Error' : 'Result'}
+                {state === 'err' ? t('ai.toolCall.error') : t('ai.toolCall.result')}
               </div>
               <pre className={styles.toolPre}>{resultDisplay}</pre>
             </div>
