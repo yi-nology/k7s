@@ -37,6 +37,8 @@ type Tab = 'chat' | 'skills' | 'memory' | 'cron';
 type Row =
   | { kind: 'user'; text: string }
   | { kind: 'assistant'; text: string }
+  | { kind: 'reasoning'; text: string }
+  | { kind: 'context'; blockType: string; summary: string }
   | {
       kind: 'tool';
       callId: string;
@@ -138,6 +140,18 @@ export function AiChat({ selectedContext, onClose }: Props) {
           }
           return [...prev, { kind: 'assistant', text: ev.text }];
         });
+        break;
+      case 'reasoningDelta':
+        setRows((prev) => {
+          const last = prev[prev.length - 1];
+          if (last && last.kind === 'reasoning') {
+            return [...prev.slice(0, -1), { kind: 'reasoning', text: last.text + ev.text }];
+          }
+          return [...prev, { kind: 'reasoning', text: ev.text }];
+        });
+        break;
+      case 'contextInjected':
+        pushRow({ kind: 'context', blockType: ev.blockType, summary: ev.summary });
         break;
       case 'toolCall':
         pushRow({ kind: 'tool', callId: ev.callId, name: ev.name, args: ev.arguments, isWrite: ev.isWrite, state: ev.isWrite ? 'pending' : 'running' });
@@ -280,6 +294,12 @@ export function AiChat({ selectedContext, onClose }: Props) {
                   </div>
                 );
               }
+              if (row.kind === 'reasoning') {
+                return <ReasoningBlock key={i} text={row.text} />;
+              }
+              if (row.kind === 'context') {
+                return <ContextBadge key={i} blockType={row.blockType} summary={row.summary} />;
+              }
               if (row.kind === 'assistant') {
                 return (
                   <div key={i} className={styles.assistantMsg}>
@@ -351,6 +371,42 @@ export function AiChat({ selectedContext, onClose }: Props) {
 
       {/* Status bar */}
       <AiStatusBar config={config} connected={!!kubeContext} contextName={kubeContext} />
+    </div>
+  );
+}
+
+/** Collapsible reasoning block — shows the LLM's thinking process. */
+function ReasoningBlock({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className={styles.reasoningBlock}>
+      <button
+        type="button"
+        className={styles.reasoningToggle}
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span>{expanded ? '▾' : '▸'}</span>
+        <span>💭 AI thinking</span>
+        <span className={styles.reasoningLen}>{text.length} chars</span>
+      </button>
+      {expanded && <div className={styles.reasoningContent}>{text}</div>}
+    </div>
+  );
+}
+
+/** Context injection badge — shows what context was loaded. */
+function ContextBadge({ blockType, summary }: { blockType: string; summary: string }) {
+  const icons: Record<string, string> = {
+    skill: '⚡',
+    memory: '🧠',
+    evolution: '📈',
+    sandbox: '🔒',
+    preferences: '⚙️',
+  };
+  return (
+    <div className={styles.contextBadge}>
+      <span>{icons[blockType] || '📋'}</span>
+      <span>{summary}</span>
     </div>
   );
 }

@@ -72,6 +72,9 @@ pub struct FunctionDef {
 pub enum StreamEvent {
     /// A chunk of assistant text (streamed token-by-token to the UI).
     TextDelta(String),
+    /// A chunk of reasoning text from reasoning models (MiMo, DeepSeek R1).
+    /// Displayed separately as a collapsible thinking block.
+    ReasoningDelta(String),
     /// The turn finished; if tool_calls is non-empty, the agent should dispatch
     /// them and loop, otherwise this is the final answer.
     Done {

@@ -129,6 +129,12 @@ export interface ExecutionPlan {
 /** AgentEvent variants — matches `AgentEvent` in `ai/agent.rs`. */
 export type AgentEvent =
   | { type: 'textDelta'; text: string }
+  | { type: 'reasoningDelta'; text: string }
+  | {
+      type: 'contextInjected';
+      blockType: string;
+      summary: string;
+    }
   | {
       type: 'toolCall';
       callId: string;

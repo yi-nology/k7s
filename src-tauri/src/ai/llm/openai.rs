@@ -316,7 +316,7 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
                         }
                         if let Some(text) = choice.delta.reasoning_content {
                             if !text.is_empty() {
-                                let _ = tx.send(Ok(StreamEvent::TextDelta(text))).await;
+                                let _ = tx.send(Ok(StreamEvent::ReasoningDelta(text))).await;
                             }
                         }
                         for tc in choice.delta.tool_calls {

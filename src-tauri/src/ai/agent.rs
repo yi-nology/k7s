@@ -59,9 +59,22 @@ pub struct ChatRequest {
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum AgentEvent {
-    /// Incremental assistant text.
+    /// Incremental assistant text (content field from the LLM).
     #[serde(rename_all = "camelCase")]
     TextDelta { text: String },
+    /// Incremental reasoning text (reasoning_content from reasoning models
+    /// like MiMo, DeepSeek R1). Displayed as a collapsible thinking block.
+    #[serde(rename_all = "camelCase")]
+    ReasoningDelta { text: String },
+    /// Context that was injected into the system prompt before the run.
+    /// Lets the user see exactly what the AI "knows".
+    #[serde(rename_all = "camelCase")]
+    ContextInjected {
+        /// "memory" | "skill" | "evolution" | "sandbox" | "preferences"
+        block_type: String,
+        /// Short summary of what was injected.
+        summary: String,
+    },
     /// The assistant wants to call a tool; shown in the UI as a card.
     #[serde(rename_all = "camelCase")]
     ToolCall {
@@ -305,6 +318,41 @@ impl AgentLoop {
         }
         let llm = (self.llm_factory)();
 
+        // Emit context injection events so the user can see what the AI "knows".
+        if let Some(skill) = &active_skill {
+            sink.emit(AgentEvent::ContextInjected {
+                block_type: "skill".into(),
+                summary: format!("{}: {}", skill.name, skill.description),
+            });
+        }
+        if memory_block.is_some() {
+            sink.emit(AgentEvent::ContextInjected {
+                block_type: "memory".into(),
+                summary: "Cluster memory loaded (recent + long-term + vault)".into(),
+            });
+        }
+        if evolution_block.is_some() {
+            sink.emit(AgentEvent::ContextInjected {
+                block_type: "evolution".into(),
+                summary: "Learned strategies from past runs".into(),
+            });
+        }
+        if !sandbox_config.denied_namespaces.is_empty() {
+            sink.emit(AgentEvent::ContextInjected {
+                block_type: "sandbox".into(),
+                summary: format!(
+                    "Security: denied namespaces [{}]",
+                    sandbox_config.denied_namespaces.join(", ")
+                ),
+            });
+        }
+        if !preferences.is_empty() {
+            sink.emit(AgentEvent::ContextInjected {
+                block_type: "preferences".into(),
+                summary: format!("{} user preferences loaded", preferences.len()),
+            });
+        }
+
         // ----------------------------------------------------------------
         // Initialize run-scoped components.
         // ----------------------------------------------------------------
@@ -406,6 +454,14 @@ impl AgentLoop {
                     StreamEvent::TextDelta(t) => {
                         assistant_text.push_str(&t);
                         sink.emit(AgentEvent::TextDelta { text: t });
+                    }
+                    StreamEvent::ReasoningDelta(t) => {
+                        // Reasoning is accumulated into assistant_text too (so
+                        // it becomes the final answer when content is empty),
+                        // but emitted as a separate event for the UI to render
+                        // as a collapsible thinking block.
+                        assistant_text.push_str(&t);
+                        sink.emit(AgentEvent::ReasoningDelta { text: t });
                     }
                     StreamEvent::Done {
                         tool_calls: tc,
