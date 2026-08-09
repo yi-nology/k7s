@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::error::AppResult;
-use k8s_openapi::api::apps::v1::{Deployment, ReplicaSet, StatefulSet};
+use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
 use k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler;
 use k8s_openapi::api::batch::v1::{CronJob, Job};
 use k8s_openapi::api::core::v1::{PersistentVolumeClaim, Service};
@@ -685,5 +685,145 @@ pub async fn gather_hpa(client: Client, namespace: &str, name: &str) -> AppResul
     );
 
     meta_sections(&mut props, &hpa);
+    Ok(props)
+}
+
+// ---- DaemonSet ----
+
+pub async fn gather_daemonset(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
+    let api: Api<DaemonSet> = Api::namespaced(client.clone(), namespace);
+    let ds = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+    let spec = ds.spec.clone().unwrap_or_default();
+    let status = ds.status.clone().unwrap_or_default();
+    let mut props = Properties::default();
+
+    let desired = status.desired_number_scheduled;
+    let ready = status.number_ready;
+    let available = status.number_available.unwrap_or(0);
+    let unavailable = status.number_unavailable.unwrap_or(0);
+
+    props.fields(
+        "Overview",
+        vec![
+            field_toned(
+                "pods",
+                format!("{ready}/{desired} ready"),
+                ready_tone(ready, desired),
+            ),
+            field("scheduled", status.current_number_scheduled.to_string()),
+            field("available", available.to_string()),
+            field_toned(
+                "unavailable",
+                unavailable.to_string(),
+                if unavailable > 0 { Tone::Warn } else { Tone::Secondary },
+            ),
+            field(
+                "selector",
+                selector_text(spec.selector.match_labels.as_ref()),
+            ),
+            field("update strategy", spec.update_strategy.as_ref().map(|s| {
+                s.type_.clone().unwrap_or_else(|| "RollingUpdate".into())
+            }).unwrap_or_else(|| DASH.into())),
+        ],
+    );
+
+    // ---- conditions ----
+    conditions_section(
+        &mut props,
+        status
+            .conditions
+            .unwrap_or_default()
+            .into_iter()
+            .map(|cd| Condition {
+                type_: cd.type_,
+                status: cd.status,
+                reason: or_dash(cd.reason),
+                message: or_dash(cd.message),
+                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+            })
+            .collect(),
+    );
+
+    meta_sections(&mut props, &ds);
+    Ok(props)
+}
+
+// ---- ReplicaSet ----
+
+pub async fn gather_replicaset(
+    client: Client,
+    namespace: &str,
+    name: &str,
+) -> AppResult<Properties> {
+    let api: Api<ReplicaSet> = Api::namespaced(client.clone(), namespace);
+    let rs = api
+        .get(name)
+        .await
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+    let spec = rs.spec.clone().unwrap_or_default();
+    let status = rs.status.clone().unwrap_or_default();
+    let mut props = Properties::default();
+
+    let desired = spec.replicas.unwrap_or(1);
+    let ready = status.ready_replicas.unwrap_or(0);
+    let available = status.available_replicas.unwrap_or(0);
+
+    props.fields(
+        "Overview",
+        vec![
+            field_toned(
+                "replicas",
+                format!("{ready}/{desired} ready"),
+                ready_tone(ready, desired),
+            ),
+            field("available", available.to_string()),
+            field("fully labeled", status.fully_labeled_replicas.unwrap_or(0).to_string()),
+            field(
+                "selector",
+                selector_text(spec.selector.match_labels.as_ref()),
+            ),
+        ],
+    );
+
+    // Owner references (usually a Deployment)
+    let owners: Vec<Vec<String>> = rs
+        .metadata
+        .owner_references
+        .as_ref()
+        .map(|refs| {
+            refs.iter()
+                .map(|r| vec![r.kind.clone(), r.name.clone()])
+                .collect()
+        })
+        .unwrap_or_default();
+    if !owners.is_empty() {
+        props.push_table("Owner References", None, &["KIND", "NAME"], owners);
+    }
+
+    // ---- conditions ----
+    conditions_section(
+        &mut props,
+        status
+            .conditions
+            .unwrap_or_default()
+            .into_iter()
+            .map(|cd| Condition {
+                type_: cd.type_,
+                status: cd.status,
+                reason: or_dash(cd.reason),
+                message: or_dash(cd.message),
+                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+            })
+            .collect(),
+    );
+
+    meta_sections(&mut props, &rs);
     Ok(props)
 }

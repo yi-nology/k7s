@@ -356,6 +356,30 @@ pub fn api_router(state: WebState) -> Router {
             "/api/invoke/ai_memory_preferences",
             post(handlers::ai_memory_preferences_handler),
         )
+        .route(
+            "/api/invoke/ai_memory_delete",
+            post(handlers::ai_memory_delete_handler),
+        )
+        .route(
+            "/api/invoke/ai_memory_clear",
+            post(handlers::ai_memory_clear_handler),
+        )
+        .route(
+            "/api/invoke/ai_memory_search_vault",
+            post(handlers::ai_memory_search_vault_handler),
+        )
+        .route(
+            "/api/invoke/ai_cron_add",
+            post(handlers::ai_cron_add_handler),
+        )
+        .route(
+            "/api/invoke/ai_cron_toggle",
+            post(handlers::ai_cron_toggle_handler),
+        )
+        .route(
+            "/api/invoke/ai_cron_delete",
+            post(handlers::ai_cron_delete_handler),
+        )
         // Stubs for everything else.
         .route("/api/invoke/:cmd", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client

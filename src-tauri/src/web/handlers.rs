@@ -688,6 +688,84 @@ pub async fn ai_memory_preferences_handler(
     respond(Ok(prefs))
 }
 
+/// POST /invoke/ai_memory_delete
+pub async fn ai_memory_delete_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
+    let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
+    let deleted = store.delete(id);
+    respond(Ok(serde_json::json!({ "deleted": deleted })))
+}
+
+/// POST /invoke/ai_memory_clear
+pub async fn ai_memory_clear_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let tier_str = args.get("tier").and_then(|v| v.as_str());
+    let tier = tier_str.and_then(|s| match s {
+        "shortTerm" => Some(crate::ai::memory::Tier::ShortTerm),
+        "longTerm" => Some(crate::ai::memory::Tier::LongTerm),
+        "knowledgeVault" => Some(crate::ai::memory::Tier::KnowledgeVault),
+        _ => None,
+    });
+    let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
+    store.clear(tier);
+    respond(Ok(serde_json::json!({ "ok": true })))
+}
+
+/// POST /invoke/ai_memory_search_vault
+pub async fn ai_memory_search_vault_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+    let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
+    let results = store.search_vault(query);
+    respond(Ok(results))
+}
+
+/// POST /invoke/ai_cron_add
+pub async fn ai_cron_add_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let task: crate::ai::cron::CronTask = match serde_json::from_value(args) {
+        Ok(t) => t,
+        Err(e) => return respond::<()>(Err(crate::error::AppError::Other(e.to_string()))),
+    };
+    let scheduler = crate::ai::cron::CronScheduler::new(state.core.data_dir.clone());
+    scheduler.add(task).await;
+    respond(Ok(serde_json::json!({ "ok": true })))
+}
+
+/// POST /invoke/ai_cron_toggle
+pub async fn ai_cron_toggle_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
+    let scheduler = crate::ai::cron::CronScheduler::new(state.core.data_dir.clone());
+    let toggled = scheduler.toggle(id).await;
+    respond(Ok(serde_json::json!({ "toggled": toggled })))
+}
+
+/// POST /invoke/ai_cron_delete
+pub async fn ai_cron_delete_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
+    let scheduler = crate::ai::cron::CronScheduler::new(state.core.data_dir.clone());
+    let deleted = scheduler.delete(id).await;
+    respond(Ok(serde_json::json!({ "deleted": deleted })))
+}
+
 /// POST /invoke/ai_cron_presets
 pub async fn ai_cron_presets_handler() -> axum::response::Response {
     respond(Ok(crate::ai::cron::builtin_presets()))

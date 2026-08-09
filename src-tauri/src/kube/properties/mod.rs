@@ -436,6 +436,8 @@ pub async fn gather(
         "deployments" => workload::gather_deployment(client, namespace, name).await,
         "services" => network::gather_service(client, namespace, name).await,
         "statefulsets" => workload::gather_statefulset(client, namespace, name).await,
+        "daemonsets" => workload::gather_daemonset(client, namespace, name).await,
+        "replicasets" => workload::gather_replicaset(client, namespace, name).await,
         "ingresses" => network::gather_ingress(client, namespace, name).await,
         "nodes" => cluster::gather_node(client, name).await,
         "configmaps" => config::gather_configmap(client, namespace, name).await,
