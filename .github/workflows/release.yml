@@ -175,7 +175,7 @@ jobs:
 
       - name: build & release
         id: tauri
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -217,7 +217,7 @@ jobs:
 
       - name: re-upload modified DMG
         if: runner.os == 'macOS'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: src-tauri/target/release/bundle/dmg/*.dmg
         env:
@@ -240,7 +240,7 @@ jobs:
           fi
 
       - name: upload k7s-web
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: |
             src-tauri/target/release/k7s-web-*
@@ -310,7 +310,7 @@ jobs:
           flavor: latest=auto
 
       - name: build & push multi-arch
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
