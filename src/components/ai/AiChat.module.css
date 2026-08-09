@@ -748,6 +748,28 @@
   color: var(--text-primary);
 }
 
+/* Fenced code block rendered by react-shiki (replaces the old
+   react-syntax-highlighter inline-theme object). `addDefaultStyles` is off,
+   so we drive the chrome here; Shiki's own spans carry the token colours. */
+.codeBlock {
+  background: var(--bg-terminal);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  margin: 8px 0;
+  overflow-x: auto;
+}
+.codeBlock pre {
+  margin: 0;
+  background: transparent !important;
+  padding: 0;
+}
+.codeBlock code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  background: transparent !important;
+}
+
 .tableWrapper {
   overflow-x: auto;
   margin: var(--space-2) 0;

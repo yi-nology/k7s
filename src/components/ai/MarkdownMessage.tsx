@@ -2,34 +2,15 @@
  * MarkdownMessage — renders AI assistant replies as formatted Markdown.
  *
  * Uses react-markdown + remark-gfm for GFM tables, task lists, strikethrough.
- * Code blocks get syntax highlighting via react-syntax-highlighter with a
- * theme that matches k7s's dark color palette.
+ * Code blocks get syntax highlighting via react-shiki (Shiki, a TextMate-
+ * grammar highlighter). This replaced react-syntax-highlighter, which pulled
+ * in highlight.js@10.7.3 — that line is EOL and carries a ReDoS advisory
+ * (GHSA-7wwv-vh3v-6h6q) with no patch; Shiki has no such issue.
  */
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import ShikiHighlighter from 'react-shiki';
 import styles from './AiChat.module.css';
-
-// Customize the syntax highlighter theme to match k7s's --bg-terminal.
-const k7sTheme = {
-  ...vscDarkPlus,
-  'pre[class*="language-"]': {
-    ...vscDarkPlus['pre[class*="language-"]'],
-    background: 'var(--bg-terminal)',
-    borderRadius: 'var(--radius-sm)',
-    padding: '10px 12px',
-    margin: '8px 0',
-    fontSize: '12px',
-    lineHeight: '1.5',
-    fontFamily: 'var(--font-mono)',
-  },
-  'code[class*="language-"]': {
-    ...vscDarkPlus['code[class*="language-"]'],
-    fontFamily: 'var(--font-mono)',
-    fontSize: '12px',
-  },
-};
 
 export function MarkdownMessage({ content }: { content: string }) {
   return (
@@ -42,13 +23,18 @@ export function MarkdownMessage({ content }: { content: string }) {
             const codeStr = String(children).replace(/\n$/, '');
             if (match) {
               return (
-                <SyntaxHighlighter
-                  style={k7sTheme}
+                <ShikiHighlighter
                   language={match[1]}
-                  PreTag="div"
+                  theme="vsc-dark-plus"
+                  // Match the old compact look: no language badge, no built-in
+                  // layout styles — we drive appearance through AiChat.module.css.
+                  showLanguage={false}
+                  addDefaultStyles={false}
+                  className={styles.codeBlock}
+                  as="div"
                 >
                   {codeStr}
-                </SyntaxHighlighter>
+                </ShikiHighlighter>
               );
             }
             // Inline code.
