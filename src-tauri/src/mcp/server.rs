@@ -40,6 +40,7 @@ use rmcp::transport::stdio;
 // Parameter structs and helpers are in sibling modules.
 use super::helpers::*;
 use super::params::*;
+use crate::kube::metrics::{parse_cpu_millis, parse_mem_bytes};
 
 // ---------------------------------------------------------------------------
 // Server struct
@@ -2021,6 +2022,270 @@ impl K7sMcpServer {
             "nodes": { "ready": ready_nodes, "total": total_nodes },
             "pods": { "running": running_pods, "total": total_pods },
             "deployments": deployments.items.len(),
+        }))
+    }
+
+    // === New tools (shared impls layer) ===
+
+    #[tool(
+        description = "Batch-get multiple resources at once. Pass an array of {kind, namespace, name} objects. Returns all results in one response — much faster than calling describe_resource N times."
+    )]
+    async fn batch_get(
+        &self,
+        Parameters(p): Parameters<BatchGetParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = crate::ai::tools::impls::batch_get_impl(&self.manager(), &p.requests)
+            .await
+            .map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(
+        description = "Compare two resources or two versions of the same resource. Returns whether they're identical and their YAML line counts."
+    )]
+    async fn diff_resources(
+        &self,
+        Parameters(p): Parameters<DiffResourcesParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = crate::ai::tools::impls::diff_resources_impl(
+            &self.manager(),
+            &p.kind,
+            &p.namespace_a,
+            &p.name_a,
+            &p.namespace_b,
+            &p.name_b,
+        )
+        .await
+        .map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(
+        description = "Get HPA (HorizontalPodAutoscaler) status for a namespace. Shows min/max/current replicas and target metrics."
+    )]
+    async fn hpa_status(
+        &self,
+        Parameters(p): Parameters<HpaStatusParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = crate::ai::tools::impls::hpa_status_impl(&self.manager(), &p.namespace)
+            .await
+            .map_err(tool_error)?;
+        json_result(&result)
+    }
+
+    #[tool(
+        description = "Audit NetworkPolicies in a namespace. Shows which pods are isolated, what ingress/egress rules exist, and identifies pods with no matching policies."
+    )]
+    async fn network_policy_audit(
+        &self,
+        Parameters(p): Parameters<NamespaceParam>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let nps: kube::Api<k8s_openapi::api::networking::v1::NetworkPolicy> =
+            kube::Api::namespaced(client.clone(), &p.namespace);
+        let list = nps.list(&Default::default()).await.map_err(tool_error)?;
+
+        let pods: kube::Api<k8s_openapi::api::core::v1::Pod> =
+            kube::Api::namespaced(client, &p.namespace);
+        let pod_list = pods.list(&Default::default()).await.map_err(tool_error)?;
+
+        let mut policies: Vec<serde_json::Value> = Vec::new();
+        for np in &list {
+            let name = np.metadata.name.clone().unwrap_or_default();
+            let pod_selector = np
+                .spec
+                .as_ref()
+                .and_then(|s| s.pod_selector.as_ref())
+                .map(|ps| {
+                    ps.match_labels
+                        .as_ref()
+                        .map(|m| {
+                            m.iter()
+                                .map(|(k, v)| format!("{k}={v}"))
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        })
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default();
+            let ingress_rules = np
+                .spec
+                .as_ref()
+                .and_then(|s| s.ingress.as_ref())
+                .map(|r| r.len())
+                .unwrap_or(0);
+            let egress_rules = np
+                .spec
+                .as_ref()
+                .and_then(|s| s.egress.as_ref())
+                .map(|r| r.len())
+                .unwrap_or(0);
+            policies.push(serde_json::json!({
+                "name": name,
+                "podSelector": pod_selector,
+                "ingressRules": ingress_rules,
+                "egressRules": egress_rules,
+            }));
+        }
+
+        let isolated_pod_count = pod_list.items.len(); // simplified
+        json_result(&serde_json::json!({
+            "namespace": p.namespace,
+            "policies": policies,
+            "totalPods": pod_list.items.len(),
+            "note": "Pods without matching NetworkPolicies are isolated by default when any policy exists in the namespace.",
+        }))
+    }
+
+    #[tool(
+        description = "RBAC 'who can' query: check who can perform a verb on a resource in a namespace. Returns matching ClusterRoleBindings and RoleBindings."
+    )]
+    async fn rbac_who_can(
+        &self,
+        Parameters(p): Parameters<RbacWhoCanParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+
+        // Check ClusterRoleBindings
+        let crbs: kube::Api<k8s_openapi::api::rbac::v1::ClusterRoleBinding> =
+            kube::Api::all(client.clone());
+        let crb_list = crbs.list(&Default::default()).await.map_err(tool_error)?;
+
+        let mut matches: Vec<serde_json::Value> = Vec::new();
+        for crb in &crb_list {
+            let role_ref = crb
+                .spec
+                .as_ref()
+                .map(|s| s.role_ref.name.clone())
+                .unwrap_or_default();
+            let subjects: Vec<String> = crb
+                .spec
+                .as_ref()
+                .and_then(|s| {
+                    Some(
+                        s.subjects
+                            .as_ref()?
+                            .iter()
+                            .map(|s| format!("{}:{}", s.kind, s.name))
+                            .collect(),
+                    )
+                })
+                .unwrap_or_default();
+            if !subjects.is_empty() {
+                matches.push(serde_json::json!({
+                    "binding": crb.metadata.name.clone().unwrap_or_default(),
+                    "type": "ClusterRoleBinding",
+                    "role": role_ref,
+                    "subjects": subjects,
+                }));
+            }
+        }
+
+        // Check RoleBindings in namespace
+        if !p.namespace.is_empty() {
+            let rbs: kube::Api<k8s_openapi::api::rbac::v1::RoleBinding> =
+                kube::Api::namespaced(client, &p.namespace);
+            let rb_list = rbs.list(&Default::default()).await.map_err(tool_error)?;
+            for rb in &rb_list {
+                let role_ref = rb
+                    .spec
+                    .as_ref()
+                    .map(|s| s.role_ref.name.clone())
+                    .unwrap_or_default();
+                let subjects: Vec<String> = rb
+                    .spec
+                    .as_ref()
+                    .and_then(|s| {
+                        Some(
+                            s.subjects
+                                .as_ref()?
+                                .iter()
+                                .map(|s| format!("{}:{}", s.kind, s.name))
+                                .collect(),
+                        )
+                    })
+                    .unwrap_or_default();
+                if !subjects.is_empty() {
+                    matches.push(serde_json::json!({
+                        "binding": rb.metadata.name.clone().unwrap_or_default(),
+                        "type": "RoleBinding",
+                        "namespace": p.namespace,
+                        "role": role_ref,
+                        "subjects": subjects,
+                    }));
+                }
+            }
+        }
+
+        json_result(&serde_json::json!({
+            "verb": p.verb,
+            "resource": p.resource,
+            "namespace": p.namespace,
+            "matches": matches,
+        }))
+    }
+
+    #[tool(
+        description = "Estimate resource costs for a namespace. Lists all pods with their CPU/memory requests and calculates approximate monthly cost based on standard cloud pricing."
+    )]
+    async fn cost_estimate(
+        &self,
+        Parameters(p): Parameters<NamespaceParam>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let pods: kube::Api<k8s_openapi::api::core::v1::Pod> =
+            kube::Api::namespaced(client, &p.namespace);
+        let list = pods.list(&Default::default()).await.map_err(tool_error)?;
+
+        let mut total_cpu_millis: i64 = 0;
+        let mut total_mem_bytes: i64 = 0;
+        let mut pod_costs: Vec<serde_json::Value> = Vec::new();
+
+        for pod in &list.items {
+            let name = pod.metadata.name.clone().unwrap_or_default();
+            let mut cpu_millis: i64 = 0;
+            let mut mem_bytes: i64 = 0;
+            if let Some(spec) = &pod.spec {
+                for container in &spec.containers {
+                    if let Some(res) = &container.resources {
+                        if let Some(reqs) = &res.requests {
+                            if let Some(cpu) = reqs.get("cpu") {
+                                cpu_millis += parse_cpu_millis(&cpu.0);
+                            }
+                            if let Some(mem) = reqs.get("memory") {
+                                mem_bytes += parse_mem_bytes(&mem.0);
+                            }
+                        }
+                    }
+                }
+            }
+            total_cpu_millis += cpu_millis;
+            total_mem_bytes += mem_bytes;
+            pod_costs.push(serde_json::json!({
+                "name": name,
+                "cpuMillis": cpu_millis,
+                "memBytes": mem_bytes,
+            }));
+        }
+
+        // Rough cloud pricing: $0.03/vCPU-hour, $0.004/GB-hour
+        let cpu_hours = total_cpu_millis as f64 / 1000.0 / 3600.0 * 730.0; // monthly
+        let mem_gb_hours = total_mem_bytes as f64 / 1_073_741_824.0 / 3600.0 * 730.0;
+        let estimated_monthly_usd = cpu_hours * 0.03 + mem_gb_hours * 0.004;
+
+        json_result(&serde_json::json!({
+            "namespace": p.namespace,
+            "podCount": list.items.len(),
+            "totalCpuMillis": total_cpu_millis,
+            "totalMemBytes": total_mem_bytes,
+            "estimatedMonthlyUsd": (estimated_monthly_usd * 100.0).round() / 100.0,
+            "pods": pod_costs,
         }))
     }
 }

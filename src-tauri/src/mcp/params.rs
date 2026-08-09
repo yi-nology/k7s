@@ -525,3 +525,46 @@ pub struct SbomGetParams {
     /// The SBOM id returned by `sbom_generate_image`.
     pub id: String,
 }
+
+// ---------------------------------------------------------------------------
+// New tool parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchGetParams {
+    pub requests: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct DiffResourcesParams {
+    pub kind: String,
+    #[serde(default)]
+    pub namespace_a: String,
+    pub name_a: String,
+    #[serde(default)]
+    pub namespace_b: String,
+    pub name_b: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HpaStatusParams {
+    pub namespace: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct NamespaceParam {
+    pub namespace: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RbacWhoCanParams {
+    pub verb: String,
+    pub resource: String,
+    #[serde(default)]
+    pub namespace: String,
+}
