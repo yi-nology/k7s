@@ -1900,8 +1900,8 @@ impl K7sMcpServer {
         Parameters(p): Parameters<AuditSearchParams>,
     ) -> Result<CallToolResult, McpError> {
         let query = crate::kube::audit::AuditQuery {
+            namespace: String::new(),
             instance: p.instance,
-            namespace: p.namespace.unwrap_or_default(),
             resource: p.resource.unwrap_or_default(),
             user: p.user.unwrap_or_default(),
             since_seconds: p.since_seconds.unwrap_or(3600),
@@ -2097,7 +2097,7 @@ impl K7sMcpServer {
             let pod_selector = np
                 .spec
                 .as_ref()
-                .and_then(|s| s.pod_selector.as_ref())
+                .map(|s| &s.pod_selector)
                 .map(|ps| {
                     ps.match_labels
                         .as_ref()
@@ -2157,22 +2157,14 @@ impl K7sMcpServer {
 
         let mut matches: Vec<serde_json::Value> = Vec::new();
         for crb in &crb_list {
-            let role_ref = crb
-                .spec
-                .as_ref()
-                .map(|s| s.role_ref.name.clone())
-                .unwrap_or_default();
+            let role_ref = crb.role_ref.name.clone();
             let subjects: Vec<String> = crb
-                .spec
+                .subjects
                 .as_ref()
-                .and_then(|s| {
-                    Some(
-                        s.subjects
-                            .as_ref()?
-                            .iter()
-                            .map(|s| format!("{}:{}", s.kind, s.name))
-                            .collect(),
-                    )
+                .map(|subs| {
+                    subs.iter()
+                        .map(|s| format!("{}:{}", s.kind, s.name))
+                        .collect::<Vec<_>>()
                 })
                 .unwrap_or_default();
             if !subjects.is_empty() {
@@ -2191,22 +2183,14 @@ impl K7sMcpServer {
                 kube::Api::namespaced(client, &p.namespace);
             let rb_list = rbs.list(&Default::default()).await.map_err(tool_error)?;
             for rb in &rb_list {
-                let role_ref = rb
-                    .spec
-                    .as_ref()
-                    .map(|s| s.role_ref.name.clone())
-                    .unwrap_or_default();
+                let role_ref = rb.role_ref.name.clone();
                 let subjects: Vec<String> = rb
-                    .spec
+                    .subjects
                     .as_ref()
-                    .and_then(|s| {
-                        Some(
-                            s.subjects
-                                .as_ref()?
-                                .iter()
-                                .map(|s| format!("{}:{}", s.kind, s.name))
-                                .collect(),
-                        )
+                    .map(|subs| {
+                        subs.iter()
+                            .map(|s| format!("{}:{}", s.kind, s.name))
+                            .collect::<Vec<_>>()
                     })
                     .unwrap_or_default();
                 if !subjects.is_empty() {
@@ -2241,34 +2225,42 @@ impl K7sMcpServer {
         match p.action.as_str() {
             "install" => {
                 let params = super::params::HelmInstallParams {
-                    name: p.name.unwrap_or_default(),
+                    release: p.release.unwrap_or_default(),
                     chart: p.chart.unwrap_or_default(),
-                    namespace: p.namespace.unwrap_or_default(),
-                    values: p.values,
+                    version: p.version.clone().unwrap_or_default(),
+                    namespace: p.namespace.clone().unwrap_or_default(),
+                    values: p.values.unwrap_or_default(),
+                    dry_run: false,
+                    create_namespace: false,
                 };
                 self.helm_install(Parameters(params)).await
             }
             "upgrade" => {
                 let params = super::params::HelmUpgradeParams {
-                    name: p.name.unwrap_or_default(),
+                    release: p.release.unwrap_or_default(),
                     chart: p.chart.unwrap_or_default(),
-                    namespace: p.namespace.unwrap_or_default(),
-                    values: p.values,
+                    version: p.version.clone().unwrap_or_default(),
+                    namespace: p.namespace.clone().unwrap_or_default(),
+                    values: p.values.unwrap_or_default(),
+                    dry_run: false,
+                    reuse_values: false,
+                    rollback_on_failure: false,
                 };
                 self.helm_upgrade(Parameters(params)).await
             }
             "uninstall" => {
                 let params = super::params::HelmUninstallParams {
-                    name: p.name.unwrap_or_default(),
-                    namespace: p.namespace.unwrap_or_default(),
+                    release: p.release.unwrap_or_default(),
+                    namespace: p.namespace.clone().unwrap_or_default(),
+                    keep_history: false,
                 };
                 self.helm_uninstall(Parameters(params)).await
             }
             "rollback" => {
                 let params = super::params::HelmRollbackParams {
-                    name: p.name.unwrap_or_default(),
-                    namespace: p.namespace.unwrap_or_default(),
-                    revision: p.revision.unwrap_or(0),
+                    release: p.release.unwrap_or_default(),
+                    namespace: p.namespace.clone().unwrap_or_default(),
+                    revision: p.revision,
                 };
                 self.helm_rollback(Parameters(params)).await
             }
@@ -2292,10 +2284,10 @@ impl K7sMcpServer {
         match p.action.as_str() {
             "start" => {
                 let params = super::params::StartPortForwardParams {
-                    namespace: p.namespace.unwrap_or_default(),
+                    namespace: p.namespace.clone().unwrap_or_default(),
                     pod: p.pod.unwrap_or_default(),
-                    container_port: p.container_port.unwrap_or(0),
-                    local_port: p.local_port,
+                    remote_port: p.container_port.unwrap_or(0),
+                    local_port: p.local_port.unwrap_or(0),
                 };
                 self.start_port_forward(Parameters(params)).await
             }
@@ -2321,18 +2313,18 @@ impl K7sMcpServer {
         Parameters(p): Parameters<PrometheusUnifiedParams>,
     ) -> Result<CallToolResult, McpError> {
         if p.range.unwrap_or(false) {
-            let params = super::params::PromQueryRangeParams {
-                instance: p.instance.unwrap_or_default(),
-                query: p.query,
-                start: p.start.unwrap_or_default(),
-                end: p.end.unwrap_or_default(),
-                step: p.step.unwrap_or_default(),
+            let params = super::params::PrometheusQueryRangeParams {
+                name: p.instance.unwrap_or_default(),
+                promql: p.query,
+                start_ms: p.start.unwrap_or_default().parse().unwrap_or(0),
+                end_ms: p.end.unwrap_or_default().parse().unwrap_or(0),
+                step_seconds: p.step.unwrap_or_default().parse().unwrap_or(60),
             };
             self.prometheus_query_range(Parameters(params)).await
         } else {
-            let params = super::params::PromQueryParams {
-                instance: p.instance.unwrap_or_default(),
-                query: p.query,
+            let params = super::params::PrometheusQueryParams {
+                name: p.instance.unwrap_or_default(),
+                promql: p.query,
             };
             self.prometheus_query(Parameters(params)).await
         }
@@ -2348,8 +2340,8 @@ impl K7sMcpServer {
         match p.action.as_str() {
             "generate" => {
                 let params = super::params::SbomGenerateParams {
-                    image: p.image.unwrap_or_default(),
-                    namespace: p.namespace,
+                    image_ref: p.image.unwrap_or_default(),
+                    format: String::new(),
                 };
                 self.sbom_generate_image(Parameters(params)).await
             }
@@ -2379,10 +2371,8 @@ impl K7sMcpServer {
                 let params = super::params::CreateSilenceParams {
                     instance: p.instance.unwrap_or_default(),
                     matchers: p.matchers.unwrap_or_default(),
-                    starts_at: p.starts_at.unwrap_or_default(),
-                    ends_at: p.ends_at.unwrap_or_default(),
-                    creator: p.creator.unwrap_or_default(),
-                    comment: p.comment.unwrap_or_default(),
+                    comment: p.comment,
+                    duration_hours: p.duration_hours,
                 };
                 self.create_silence(Parameters(params)).await
             }
@@ -2411,14 +2401,23 @@ impl K7sMcpServer {
             "builtin" => self.list_builtin_kinds().await,
             "custom" => self.list_custom_kinds().await,
             "all" => {
-                let builtin = crate::kube::ResourceKind::all()
-                    .iter()
-                    .map(|k| serde_json::json!({"id": k.id(), "name": k.display_name()}))
-                    .collect::<Vec<_>>();
-                let custom = self.manager().custom_kinds_list().await;
+                let builtin = vec![
+                    serde_json::json!({"id": "pods", "name": "Pods"}),
+                    serde_json::json!({"id": "deployments", "name": "Deployments"}),
+                    serde_json::json!({"id": "services", "name": "Services"}),
+                    serde_json::json!({"id": "nodes", "name": "Nodes"}),
+                    serde_json::json!({"id": "namespaces", "name": "Namespaces"}),
+                    serde_json::json!({"id": "configmaps", "name": "ConfigMaps"}),
+                    serde_json::json!({"id": "secrets", "name": "Secrets"}),
+                    serde_json::json!({"id": "statefulsets", "name": "StatefulSets"}),
+                    serde_json::json!({"id": "daemonsets", "name": "DaemonSets"}),
+                    serde_json::json!({"id": "jobs", "name": "Jobs"}),
+                    serde_json::json!({"id": "cronjobs", "name": "CronJobs"}),
+                    serde_json::json!({"id": "ingresses", "name": "Ingresses"}),
+                    serde_json::json!({"id": "persistentvolumeclaims", "name": "PVCs"}),
+                ];
                 json_result(&serde_json::json!({
                     "builtin": builtin,
-                    "custom": custom,
                 }))
             }
             _ => Err(McpError::invalid_params(

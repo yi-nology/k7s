@@ -576,15 +576,17 @@ pub struct RbacWhoCanParams {
 pub struct HelmReleaseParams {
     pub action: String,
     #[serde(default)]
-    pub name: Option<String>,
+    pub release: Option<String>,
     #[serde(default)]
     pub chart: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
     #[serde(default)]
     pub namespace: Option<String>,
     #[serde(default)]
     pub values: Option<String>,
     #[serde(default)]
-    pub revision: Option<i32>,
+    pub revision: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
@@ -638,15 +640,11 @@ pub struct SilenceUnifiedParams {
     #[serde(default)]
     pub instance: Option<String>,
     #[serde(default)]
-    pub matchers: Option<Vec<String>>,
-    #[serde(default)]
-    pub starts_at: Option<String>,
-    #[serde(default)]
-    pub ends_at: Option<String>,
-    #[serde(default)]
-    pub creator: Option<String>,
+    pub matchers: Option<Vec<SilenceMatcherInput>>,
     #[serde(default)]
     pub comment: Option<String>,
+    #[serde(default)]
+    pub duration_hours: Option<i64>,
     #[serde(default)]
     pub silence_id: Option<String>,
 }
