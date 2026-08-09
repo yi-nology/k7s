@@ -14,7 +14,6 @@
 //! run concurrently via tokio tasks.
 
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use tokio::sync::mpsc;
 
 /// A message sent between agents (A2A protocol).

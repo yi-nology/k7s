@@ -73,7 +73,7 @@ pub struct UrlContent {
 fn html_to_text(html: &str, max_chars: usize) -> String {
     let mut result = String::new();
     let mut skip_content = false; // inside <script> or <style>
-    let mut in_tag = false;
+    let in_tag = false;
     let mut tag_name = String::new();
 
     let chars: Vec<char> = html.chars().collect();
@@ -85,7 +85,6 @@ fn html_to_text(html: &str, max_chars: usize) -> String {
         let c = chars[i];
         if c == '<' {
             // Extract tag name (skip '/' for closing tags).
-            in_tag = true;
             tag_name.clear();
             let mut j = i + 1;
             if j < chars.len() && chars[j] == '/' {
@@ -111,7 +110,7 @@ fn html_to_text(html: &str, max_chars: usize) -> String {
             if !skip_content {
                 result.push(' ');
             }
-            in_tag = false;
+
             continue;
         }
         if !skip_content && !in_tag {

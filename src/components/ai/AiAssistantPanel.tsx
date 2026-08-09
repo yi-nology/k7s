@@ -61,12 +61,9 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
   // Current kubeconfig context (for memory scoping).
   const [kubeContext, _setKubeContext] = useState<string>('');
   useEffect(() => {
-    // Fetch the current context from the connection info.
-    invoke<{ context: string }>('ai_get_config')
-      .then(() => {
-        // We don't have a direct command for connection info; use the
-        // connection_info method via a lightweight approach.
-        // For now, leave kubeContext empty until the user is connected.
+    invoke<string>('ai_get_context')
+      .then((ctx) => {
+        if (ctx) _setKubeContext(ctx);
       })
       .catch(() => {});
   }, []);

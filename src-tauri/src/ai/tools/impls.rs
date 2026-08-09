@@ -13,7 +13,6 @@ use crate::error::{AppError, AppResult};
 use crate::kube::manager::ClientManager;
 use kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
 use kube::ResourceExt;
-use std::sync::Arc;
 
 // ---------------------------------------------------------------------------
 // Read tools

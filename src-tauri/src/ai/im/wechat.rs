@@ -11,9 +11,11 @@ use crate::ai::im::{ImAdapter, ImMessage, WeChatConfig};
 use sha1::{Digest, Sha1};
 
 pub struct WeChatAdapter {
+    #[allow(dead_code)]
     token: String,
     #[allow(dead_code)]
     aes_key: String,
+    #[allow(dead_code)]
     corp_id: String,
 }
 
@@ -41,7 +43,7 @@ impl ImAdapter for WeChatAdapter {
         let mut nonce = String::new();
         for (k, v) in headers {
             match k.as_str() {
-                "msg_signature" | "msg_signature" => msg_signature = v.clone(),
+                "msg_signature" => msg_signature = v.clone(),
                 "timestamp" => timestamp = v.clone(),
                 "nonce" => nonce = v.clone(),
                 _ => {}

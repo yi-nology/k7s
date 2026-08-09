@@ -117,6 +117,17 @@ impl EventSink for TauriEventSink {
 // Commands
 // ---------------------------------------------------------------------------
 
+/// Get the current kubeconfig context name (for memory/session scoping).
+#[tauri::command]
+pub async fn ai_get_context(state: State<'_, Arc<CoreState>>) -> Result<String, String> {
+    Ok(state
+        .manager
+        .connection_info()
+        .await
+        .map(|i| i.context)
+        .unwrap_or_default())
+}
+
 #[tauri::command]
 pub async fn ai_get_config(state: State<'_, Arc<CoreState>>) -> Result<AiConfigView, String> {
     // config::load is synchronous (std::fs); wrap in spawn_blocking so the
@@ -294,17 +305,29 @@ pub async fn ai_chat(
     let session_id_for_save = session_id.clone();
     let user_message_for_save = request.message.clone();
 
+    let run_data_dir = state.data_dir.clone();
+    let run_session_id = session_id.clone();
+
     tokio::spawn(async move {
-        agent.run(request, mode, max_turns, manager, sink).await;
+        agent
+            .run(
+                request,
+                mode,
+                max_turns,
+                manager,
+                sink,
+                run_data_dir,
+                run_session_id,
+            )
+            .await;
         runtime_for_cleanup.unregister(&run_id_for_task).await;
 
-        // Save messages to session if session_id was provided.
+        // Save user message to session if session_id was provided.
+        // The assistant response is saved by the agent loop itself
+        // (in run_inner after the Done event).
         if let Some(sid) = session_id_for_save {
             let mgr = crate::ai::session::SessionManager::new(data_dir_for_session);
             mgr.add_message(&sid, "user", &user_message_for_save).await;
-            // The assistant response is in the last Done event, which the
-            // frontend already has. We save a placeholder here; the actual
-            // response could be captured from the EventSink if needed.
         }
     });
 

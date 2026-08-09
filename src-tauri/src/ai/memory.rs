@@ -22,7 +22,6 @@
 //! Decay: short-term memories older than `ttl_days` are pruned on load.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Memory tier — determines storage, retrieval priority, and lifetime.
@@ -95,8 +94,10 @@ pub struct UserPreference {
 /// Public API: load/save/query memories for the current context.
 pub struct MemoryStore {
     dir: PathBuf,
+    #[allow(dead_code)]
     context: String,
     data: MemoryFile,
+    #[allow(dead_code)]
     ttl_days: u64,
 }
 

@@ -9,7 +9,6 @@
 //! runs as a background tokio task managed by [`CronScheduler`].
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 

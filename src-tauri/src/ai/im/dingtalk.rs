@@ -14,6 +14,7 @@ pub struct DingTalkAdapter {
     #[allow(dead_code)]
     app_key: String,
     app_secret: String,
+    #[allow(dead_code)]
     token: String,
 }
 

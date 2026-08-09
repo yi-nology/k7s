@@ -15,8 +15,6 @@
 //! Plugins are registered at startup and called in order. Each plugin can
 //! pass, modify, or block the message/call.
 
-use serde::{Deserialize, Serialize};
-
 /// The lifecycle events a plugin can receive.
 #[derive(Clone, Debug)]
 pub enum PluginEvent<'a> {
@@ -188,7 +186,7 @@ impl AgentPlugin for RateLimiter {
     }
 
     fn on_event(&self, event: &PluginEvent) -> PluginDecision {
-        if let PluginEvent::BeforeTool { tool_name, .. } = event {
+        if let PluginEvent::BeforeTool { tool_name: _, .. } = event {
             let mut calls = self.calls.lock().unwrap();
             let now = std::time::Instant::now();
             // Remove calls older than 1 minute.

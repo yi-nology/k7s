@@ -141,10 +141,20 @@ impl AgentLoop {
         max_turns: u32,
         manager: Arc<ClientManager>,
         sink: Arc<dyn EventSink>,
+        data_dir: std::path::PathBuf,
+        session_id: Option<String>,
     ) {
         // Best-effort run; all errors become a terminal Error event.
         match self
-            .run_inner(req, mode, max_turns, manager, sink.clone())
+            .run_inner(
+                req,
+                mode,
+                max_turns,
+                manager,
+                sink.clone(),
+                data_dir,
+                session_id,
+            )
             .await
         {
             Ok(()) => {}
@@ -161,22 +171,14 @@ impl AgentLoop {
         max_turns: u32,
         manager: Arc<ClientManager>,
         sink: Arc<dyn EventSink>,
+        data_dir: std::path::PathBuf,
+        session_id: Option<String>,
     ) -> AiResult<()> {
-        // ----------------------------------------------------------------
-        // Resolve data_dir (shared across all modules).
-        // ----------------------------------------------------------------
-        let data_dir: Option<std::path::PathBuf> = std::env::var("HOME").ok().map(|h| {
-            std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
-                "Library/Application Support/k7s"
-            } else {
-                ".config/k7s"
-            })
-        });
-        let data_dir_ref = data_dir.as_deref();
+        let data_dir_ref = Some(data_dir.as_path());
 
         let tool_ctx = ToolContext {
             manager: manager.clone(),
-            data_dir: data_dir.clone().unwrap_or_default(),
+            data_dir: data_dir.clone(),
         };
 
         // ----------------------------------------------------------------
@@ -308,7 +310,9 @@ impl AgentLoop {
         // ----------------------------------------------------------------
         let deadline = crate::ai::timeouts::RunDeadline::new(300); // 5 min default
         let timeout_config = crate::ai::timeouts::TimeoutConfig::default();
-        let plugins = crate::ai::plugins::PluginRegistry::new(); // TODO: accept from caller
+        let mut plugins = crate::ai::plugins::PluginRegistry::new();
+        plugins.register(Box::new(crate::ai::plugins::AuditLogger));
+        plugins.register(Box::new(crate::ai::plugins::RateLimiter::new(30)));
 
         // Fire RunStart.
         plugins.fire(&crate::ai::plugins::PluginEvent::RunStart {
@@ -444,6 +448,8 @@ impl AgentLoop {
                     final_message: final_text,
                     history: messages[returnable_start..].to_vec(),
                 });
+                // Save assistant response to session.
+                save_session_response(&data_dir, &session_id, &response_text);
                 // Record successful outcome.
                 self.record_outcome(
                     &data_dir,
@@ -656,7 +662,7 @@ impl AgentLoop {
     /// Record a run outcome in the evolution store for self-improvement.
     async fn record_outcome(
         &self,
-        data_dir: &Option<std::path::PathBuf>,
+        data_dir: &std::path::Path,
         user_message: &str,
         tools_called: &[String],
         success: bool,
@@ -664,24 +670,36 @@ impl AgentLoop {
         start: std::time::Instant,
         turn_count: u32,
     ) {
-        if let Some(dir) = data_dir {
-            let mut store = crate::ai::evolution::EvolutionStore::open(dir);
-            store.record_run(crate::ai::evolution::RunOutcome {
-                run_id: uuid::Uuid::new_v4().to_string(),
-                user_message: user_message.to_string(),
-                tools_called: tools_called.to_vec(),
-                success,
-                final_response: response.chars().take(500).collect(),
-                error: if success {
-                    None
-                } else {
-                    Some(response.to_string())
-                },
-                duration_ms: start.elapsed().as_millis() as u64,
-                turn_count,
+        let mut store = crate::ai::evolution::EvolutionStore::open(data_dir);
+        store.record_run(crate::ai::evolution::RunOutcome {
+            run_id: uuid::Uuid::new_v4().to_string(),
+            user_message: user_message.to_string(),
+            tools_called: tools_called.to_vec(),
+            success,
+            final_response: response.chars().take(500).collect(),
+            error: if success {
+                None
+            } else {
+                Some(response.to_string())
+            },
+            duration_ms: start.elapsed().as_millis() as u64,
+            turn_count,
+        });
+        // Periodically scan and update strategies.
+        store.scan_and_update();
+    }
+}
+
+/// Save assistant response to session (non-blocking, best-effort).
+fn save_session_response(data_dir: &std::path::Path, session_id: &Option<String>, response: &str) {
+    if let Some(sid) = session_id {
+        if !response.is_empty() {
+            let mgr = crate::ai::session::SessionManager::new(data_dir.to_path_buf());
+            let sid = sid.clone();
+            let resp = response.to_string();
+            tokio::spawn(async move {
+                mgr.add_message(&sid, "assistant", &resp).await;
             });
-            // Periodically scan and update strategies.
-            store.scan_and_update();
         }
     }
 }

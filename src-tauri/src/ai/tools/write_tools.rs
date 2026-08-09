@@ -1,7 +1,7 @@
 //! Write tools — thin wrappers around `impls::*_impl()`.
 
 use crate::ai::error::{AiError, AiResult};
-use crate::ai::tools::{get_arg_i64, get_arg_str, get_opt_str, impls, ok_value, Tool, ToolContext};
+use crate::ai::tools::{get_arg_i64, get_arg_str, get_opt_str, impls, Tool, ToolContext};
 use async_trait::async_trait;
 
 pub struct ScaleWorkload;

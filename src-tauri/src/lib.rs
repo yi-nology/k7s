@@ -222,6 +222,7 @@ pub fn run() {
             // RBAC Security Audit
             commands::security_audit_run,
             // Built-in AI assistant (runtime-toggled). See commands::ai.
+            commands::ai_get_context,
             commands::ai_get_config,
             commands::ai_save_config,
             commands::ai_save_api_key,

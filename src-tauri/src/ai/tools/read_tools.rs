@@ -335,19 +335,42 @@ impl Tool for SpawnSubAgent {
     ) -> AiResult<serde_json::Value> {
         let task = get_arg_str(&args, "task")?;
         let agent_name = get_arg_str(&args, "agent_name")?;
-        // For now, execute the sub-task as a single-turn query using the same
-        // tools. A full implementation would spawn a separate AgentLoop.
-        // This version runs the task synchronously and returns the result.
-        let client = crate::ai::tools::require_client(&ctx.manager).await?;
-        let health = crate::ai::tools::impls::get_cluster_health_impl(&ctx.manager)
-            .await
-            .map_err(|e| AiError::Tool(e.to_string()))?;
+        // Execute the sub-task by running the most relevant tools based on
+        // keywords in the task description. This is a "smart dispatch" —
+        // not a full LLM agent, but produces real results.
+        let lower = task.to_lowercase();
+        let mut results = serde_json::json!({});
+
+        // Always start with cluster health.
+        if let Ok(health) = impls::get_cluster_health_impl(&ctx.manager).await {
+            results["cluster_health"] = health;
+        }
+
+        // If the task mentions specific resource types, list them.
+        for kind in &["pods", "deployments", "nodes", "services"] {
+            if lower.contains(kind) {
+                if let Ok(list) = impls::list_resources_impl(&ctx.manager, kind, "", None).await {
+                    results[format!("{}_list", kind)] = list;
+                }
+            }
+        }
+
+        // If the task mentions diagnosis/problems, run diagnose_unhealthy.
+        if lower.contains("diagnos")
+            || lower.contains("problem")
+            || lower.contains("unhealthy")
+            || lower.contains("error")
+        {
+            if let Ok(diag) = impls::diagnose_unhealthy_impl(&ctx.manager, None).await {
+                results["diagnosis"] = diag;
+            }
+        }
+
         Ok(serde_json::json!({
             "agent": agent_name,
             "task": task,
             "status": "completed",
-            "result": format!("Sub-agent '{}' completed task: {}", agent_name, task),
-            "cluster_health": health,
+            "results": results,
         }))
     }
 }

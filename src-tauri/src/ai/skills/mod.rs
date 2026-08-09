@@ -17,7 +17,6 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 /// A single skill definition.
 #[derive(Clone, Debug, Serialize, Deserialize)]
