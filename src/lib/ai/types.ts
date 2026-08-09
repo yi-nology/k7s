@@ -73,13 +73,57 @@ export interface Skill {
   category: string;
 }
 
+/** Memory tier — matches `Tier` in `ai/memory.rs`. */
+export type MemoryTier = 'shortTerm' | 'longTerm' | 'knowledgeVault';
+
 /** A memory entry — matches `MemoryEntry` in `ai/memory.rs`. */
 export interface MemoryEntry {
   id: string;
+  tier: MemoryTier;
   createdAt: string;
   content: string;
   tags: string[];
   source: 'user' | 'ai';
+  referenceCount: number;
+  promoteAt: number;
+}
+
+/** A user preference learned from conversations. */
+export interface UserPreference {
+  key: string;
+  value: string;
+  learnedAt: string;
+  confidence: number;
+}
+
+/** A scheduled AI task — matches `CronTask` in `ai/cron.rs`. */
+export interface CronTask {
+  id: string;
+  name: string;
+  cronExpr: string;
+  prompt: string;
+  enabled: boolean;
+  skillId?: string;
+  lastRun?: string;
+  lastResult?: string;
+  lastStatus: 'never' | 'success' | 'failed';
+}
+
+/** A plan step — matches `PlanStep` in `ai/planner.rs`. */
+export interface PlanStep {
+  index: number;
+  description: string;
+  message: string;
+  dependsOn: number[];
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  result?: string;
+}
+
+/** An execution plan — matches `ExecutionPlan` in `ai/planner.rs`. */
+export interface ExecutionPlan {
+  request: string;
+  steps: PlanStep[];
+  status: 'planning' | 'executing' | 'completed' | 'failed';
 }
 
 /** AgentEvent variants — matches `AgentEvent` in `ai/agent.rs`. */

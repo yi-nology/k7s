@@ -24,9 +24,10 @@ import type {
 } from '../../lib/ai/types';
 import { SkillsPanel } from './SkillsPanel';
 import { MemoryPanel } from './MemoryPanel';
+import { CronPanel } from './CronPanel';
 import styles from './AiAssistantPanel.module.css';
 
-type Tab = 'chat' | 'skills' | 'memory';
+type Tab = 'chat' | 'skills' | 'memory' | 'cron';
 
 /** One renderable transcript row. */
 type Row =
@@ -227,7 +228,7 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
     <div className={styles.panel}>
       <div className={styles.header}>
         <div style={{ display: 'flex', gap: 8 }}>
-          {(['chat', 'skills', 'memory'] as Tab[]).map((t) => (
+          {(['chat', 'skills', 'memory', 'cron'] as Tab[]).map((t) => (
             <button
               key={t}
               type="button"
@@ -242,7 +243,7 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
                 padding: '2px 4px',
               }}
             >
-              {t === 'chat' ? '✦ Chat' : t === 'skills' ? '⚡ Skills' : '🧠 Memory'}
+              {t === 'chat' ? '✦ Chat' : t === 'skills' ? '⚡ Skills' : t === 'memory' ? '🧠 Memory' : '⏰ Cron'}
               {t === 'chat' && activeSkillId && (
                 <span style={{ color: 'var(--ok, #22c55e)', marginLeft: 4 }}>●</span>
               )}
@@ -257,6 +258,7 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
       </div>
       {tab === 'skills' && <SkillsPanel activeId={activeSkillId} onSelect={onSkillSelect} />}
       {tab === 'memory' && <MemoryPanel kubeContext={kubeContext} />}
+      {tab === 'cron' && <CronPanel />}
       {tab === 'chat' && (
       <>
       <div className={styles.body} ref={scrollRef}>
