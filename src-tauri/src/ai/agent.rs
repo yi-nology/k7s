@@ -451,7 +451,6 @@ impl AgentLoop {
             let mut assistant_text = String::new();
             let mut tool_calls: Vec<OutgoingToolCall> = Vec::new();
             while let Some(item) = stream.next().await {
-                tracing::debug!("LLM stream event received");
                 match item? {
                     StreamEvent::TextDelta(t) => {
                         assistant_text.push_str(&t);
@@ -492,7 +491,9 @@ impl AgentLoop {
                 // If the LLM didn't produce text but we have tool results,
                 // construct a fallback summary so the user always sees something.
                 let effective_text = if assistant_text.is_empty() {
-                    summarize_tool_results(&messages)
+                    let summary = summarize_tool_results(&messages);
+                    tracing::info!(summary_len = summary.len(), "fallback summary generated");
+                    summary
                 } else {
                     assistant_text.clone()
                 };
@@ -506,6 +507,7 @@ impl AgentLoop {
                     content: some_content(&assistant_text),
                     tool_calls: None,
                 });
+                tracing::info!(final_text_len = final_text.as_ref().map_or(0, |s| s.len()), "emitting Done event");
                 sink.emit(AgentEvent::Done {
                     final_message: final_text,
                     history: messages[returnable_start..].to_vec(),
@@ -775,8 +777,11 @@ fn save_session_response(data_dir: &std::path::Path, session_id: &Option<String>
 /// the tool results in the message history.
 fn summarize_tool_results(messages: &[Message]) -> String {
     let mut summaries = Vec::new();
+    let mut tool_count = 0;
     for msg in messages {
         if let Message::Tool { content, .. } = msg {
+            tool_count += 1;
+            tracing::debug!(content_len = content.len(), "processing tool result for summary");
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(content) {
                 if let Some(arr) = val.as_array() {
                     // Array of resources — show count + first few names.
@@ -834,8 +839,10 @@ fn summarize_tool_results(messages: &[Message]) -> String {
     }
     if summaries.is_empty() {
         // No tool results at all — the model just didn't respond.
+        tracing::warn!(tool_count, "no summaries generated from tool results");
         "AI did not produce a response. Please try again.".to_string()
     } else {
+        tracing::info!(tool_count, summary_count = summaries.len(), "tool result summaries generated");
         summaries.join("\n\n")
     }
 }

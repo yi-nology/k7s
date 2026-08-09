@@ -233,6 +233,8 @@ export interface DataProvider {
   onNodeMetrics(cb: (metrics: NodeMetricsMap) => void): Unsub;
   onClusterStatus(cb: (status: ClusterStatus) => void): Unsub;
   onWatchStatus(cb: (activeStreams: number) => void): Unsub;
+  /** Subscribe to AI agent events (SSE `ai_event`). */
+  onAiEvent(cb: (data: { runId: string; event: unknown }) => void): Unsub;
   /** Per-kind watch status: "ok" when watching succeeds, "forbidden" on 403. */
   onWatchKindStatus(cb: (kind: string, status: 'ok' | 'forbidden') => void): Unsub;
   /** Progress of running node drains (B20). */

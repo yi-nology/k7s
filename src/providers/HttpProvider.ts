@@ -553,6 +553,11 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     return () => sub.unsubscribe();
   }
 
+  onAiEvent(cb: (data: { runId: string; event: unknown }) => void): Unsub {
+    const sub = httpSubscribe<{ runId: string; event: unknown }>('ai_event', cb);
+    return () => sub.unsubscribe();
+  }
+
   onWatchKindStatus(cb: (kind: string, status: 'ok' | 'forbidden') => void): Unsub {
     const sub = httpSubscribe<{ kind: string; status: string }>('watch-kind-status', (payload) => {
       cb(payload.kind, payload.status as 'ok' | 'forbidden');

@@ -574,8 +574,16 @@ pub async fn hook_event(
 
 /// POST /invoke/ai_get_config
 pub async fn ai_get_config_handler(State(state): State<WebState>) -> axum::response::Response {
-    let result = crate::ai::config::load(Some(&state.core.data_dir))
-        .map_err(|e| crate::error::AppError::Other(e.to_string()));
+    let dir = state.core.data_dir.clone();
+    let result = match tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir)))
+    ).await {
+        Ok(Ok(Ok(view))) => Ok(view),
+        Ok(Ok(Err(e))) => Err(crate::error::AppError::Other(e.to_string())),
+        Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
+        Err(_) => Err(crate::error::AppError::Other("config load timed out (keychain may be locked)".into())),
+    };
     respond(result)
 }
 
@@ -781,8 +789,13 @@ pub async fn ai_save_config_handler(
         Ok(c) => c,
         Err(e) => return respond::<()>(Err(crate::error::AppError::Other(format!("invalid config: {e}")))),
     };
-    respond(crate::ai::config::save(Some(&state.core.data_dir), &config)
-        .map_err(|e| crate::error::AppError::Other(e.to_string())))
+    let dir = state.core.data_dir.clone();
+    let result = match tokio::task::spawn_blocking(move || crate::ai::config::save(Some(&dir), &config)).await {
+        Ok(Ok(())) => Ok::<(), crate::error::AppError>(()),
+        Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
+        Err(e) => Err(crate::error::AppError::Other(e.to_string())),
+    };
+    respond(result)
 }
 
 /// POST /invoke/ai_save_api_key
@@ -790,9 +803,14 @@ pub async fn ai_save_api_key_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let api_key = args.get("apiKey").and_then(|v| v.as_str()).unwrap_or("");
-    respond(crate::ai::config::save_api_key(Some(&state.core.data_dir), api_key)
-        .map_err(|e| crate::error::AppError::Other(e.to_string())))
+    let api_key = args.get("apiKey").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let dir = state.core.data_dir.clone();
+    let result = match tokio::task::spawn_blocking(move || crate::ai::config::save_api_key(Some(&dir), &api_key)).await {
+        Ok(Ok(())) => Ok::<(), crate::error::AppError>(()),
+        Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
+        Err(e) => Err(crate::error::AppError::Other(e.to_string())),
+    };
+    respond(result)
 }
 
 /// POST /invoke/ai_test_connection

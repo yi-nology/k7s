@@ -76,6 +76,10 @@ export class MockConnectionMixin {
     return () => {}; // mock: no RBAC errors
   }
 
+  onAiEvent(_cb: (data: { runId: string; event: unknown }) => void): Unsub {
+    return () => {}; // mock: no AI events
+  }
+
   // Override in main class
   protected emitAllRows(): void {
     // Implemented in MockProvider

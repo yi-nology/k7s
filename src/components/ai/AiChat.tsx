@@ -87,53 +87,63 @@ export function AiChat({ selectedContext, onClose }: Props) {
     });
   }, [rows]);
 
-  // SSE subscription.
+  // Persistent SSE subscription — one EventSource for the lifetime of the
+  // component. Events are filtered by the current runId via a ref so we
+  // never miss events due to React's async rendering.
+  const activeRunId = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!runId) return;
-    let cleanup: (() => void) | null = null;
-    const handleEvent = (ev: AgentEvent) => {
-      const envelope = ev as unknown as { runId?: string; event?: AgentEvent };
-      const event = envelope.event ?? (ev as AgentEvent);
-      const evRunId = envelope.runId ?? runId;
-      if (evRunId !== runId) return;
-      processEvent(event);
-    };
     const isTauri = '__TAURI__' in window;
     if (isTauri) {
+      let unlistenFn: (() => void) | null = null;
       import('@tauri-apps/api/event').then(({ listen }) => {
-        let unlistenFn: (() => void) | null = null;
         void listen<{ runId: string; event: AgentEvent }>('ai_event', (e) => {
-          if (e.payload.runId !== runId) return;
+          if (e.payload.runId !== activeRunId.current) return;
           processEvent(e.payload.event);
-        }).then((fn) => {
-          unlistenFn = fn;
-        });
-        cleanup = () => {
-          unlistenFn?.();
-        };
+        }).then((fn) => { unlistenFn = fn; });
       });
+      return () => { unlistenFn?.(); };
     } else {
-      const es = new EventSource('/api/events');
-      const aiHandler = (e: MessageEvent) => {
+      // Web mode: use fetch+ReadableStream (same as SharedEventBus) to avoid
+      // EventSource connection issues with many concurrent SSE streams.
+      const controller = new AbortController();
+      void (async () => {
         try {
-          const data = JSON.parse(e.data);
-          if (data.runId === runId) {
-            handleEvent(data.event);
+          const res = await fetch('/api/events', { signal: controller.signal });
+          if (!res.ok || !res.body) return;
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = '';
+          let currentEvent: string | null = null;
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+            let nl: number;
+            while ((nl = buf.indexOf('\n')) >= 0) {
+              const line = buf.slice(0, nl).replace(/\r$/, '');
+              buf = buf.slice(nl + 1);
+              if (line === '') {
+                currentEvent = null;
+              } else if (line.startsWith('event: ')) {
+                currentEvent = line.slice(7);
+              } else if (line.startsWith('data: ') && currentEvent === 'ai_event') {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.runId === activeRunId.current) {
+                    processEvent(data.event);
+                  }
+                } catch { /* ignore */ }
+              }
+            }
           }
-        } catch {
-          /* ignore */
+        } catch (e) {
+          if ((e as Error).name !== 'AbortError') console.warn('[AI] SSE error:', e);
         }
-      };
-      es.addEventListener('ai_event', aiHandler);
-      cleanup = () => {
-        es.removeEventListener('ai_event', aiHandler);
-        es.close();
-      };
+      })();
+      return () => { controller.abort(); };
     }
-    return () => {
-      cleanup?.();
-    };
-  }, [runId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pushRow = useCallback((r: Row) => {
     setRows((prev) => [...prev, r]);
@@ -202,11 +212,13 @@ export function AiChat({ selectedContext, onClose }: Props) {
         }
         setHistory(ev.history);
         setBusy(false);
+        activeRunId.current = null;
         setRunId(null);
         break;
       case 'error':
         pushRow({ kind: 'error', text: ev.message });
         setBusy(false);
+        activeRunId.current = null;
         setRunId(null);
         break;
     }
@@ -230,6 +242,10 @@ export function AiChat({ selectedContext, onClose }: Props) {
     };
     try {
       const id = await getProvider().aiChat(req);
+      // Set the active runId on the ref FIRST so the persistent SSE listener
+      // starts accepting events for this run immediately. Then update state
+      // to trigger re-render (for the stop button etc.).
+      activeRunId.current = id;
       setRunId(id);
     } catch (e) {
       pushRow({ kind: 'error', text: String(e) });

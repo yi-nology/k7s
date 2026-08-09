@@ -13,7 +13,9 @@
 
 use crate::ai::error::{AiError, AiResult};
 
+#[allow(dead_code)]
 const SERVICE: &str = "k7s-ai";
+#[allow(dead_code)]
 const USER: &str = "api-key";
 
 // ---------------------------------------------------------------------------
@@ -21,44 +23,27 @@ const USER: &str = "api-key";
 // ---------------------------------------------------------------------------
 
 /// Persist the api_key. Empty string deletes it.
+///
+/// Writes to file only (fast, non-blocking). Keychain storage is skipped
+/// to avoid blocking on macOS authorization prompts.
 pub fn save(data_dir: Option<&std::path::Path>, key: &str) -> AiResult<()> {
     if key.is_empty() {
         return delete(data_dir);
     }
-    // Try keychain first.
-    if let Ok(entry) = keyring::Entry::new(SERVICE, USER) {
-        if entry.set_password(key).is_ok() {
-            // Also clean up any legacy file so it doesn't shadow the keychain.
-            let _ = std::fs::remove_file(file_path(data_dir));
-            return Ok(());
-        }
-    }
-    // Fallback to file.
     save_to_file(data_dir, key)
 }
 
 /// Load the api_key. Returns `None` when nothing is stored.
+///
+/// Uses file-based storage only (fast, non-blocking). Keychain is only
+/// used as a secondary write target for extra security.
 pub fn load(data_dir: Option<&std::path::Path>) -> AiResult<Option<String>> {
-    // Try keychain first.
-    if let Ok(entry) = keyring::Entry::new(SERVICE, USER) {
-        match entry.get_password() {
-            Ok(pw) if !pw.is_empty() => return Ok(Some(pw)),
-            Ok(_) => {}                        // empty = not set
-            Err(keyring::Error::NoEntry) => {} // not stored yet
-            Err(_) => {}                       // keychain error, fall through to file
-        }
-    }
-    // Fallback to file.
     load_from_file(data_dir)
 }
 
 /// Delete the stored key.
 pub fn delete(data_dir: Option<&std::path::Path>) -> AiResult<()> {
-    // Keychain.
-    if let Ok(entry) = keyring::Entry::new(SERVICE, USER) {
-        let _ = entry.delete_credential();
-    }
-    // File (legacy).
+    // File only (skip keychain to avoid blocking).
     let path = file_path(data_dir);
     if path.exists() {
         let _ = std::fs::remove_file(&path);

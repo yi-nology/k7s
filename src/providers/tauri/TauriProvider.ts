@@ -255,6 +255,10 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
     return subscribe<number>('watch-status', cb);
   }
 
+  onAiEvent(cb: (data: { runId: string; event: unknown }) => void): Unsub {
+    return subscribe<{ runId: string; event: unknown }>('ai_event', cb);
+  }
+
   onWatchKindStatus(cb: (kind: string, status: 'ok' | 'forbidden') => void): Unsub {
     return subscribe<{ kind: string; status: string }>('watch-kind-status', (payload) => {
       cb(payload.kind, payload.status as 'ok' | 'forbidden');
