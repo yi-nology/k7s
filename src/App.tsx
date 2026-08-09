@@ -42,7 +42,7 @@ import { IngressEditor } from './components/ingress/IngressEditor';
 import { ResourceDiff } from './components/diff/ResourceDiff';
 import { PluginPanel } from './components/plugins/PluginPanel';
 import { SBOMPanel } from './components/sbom/SBOMPanel';
-import { AiAssistantPanel } from './components/ai/AiAssistantPanel';
+import { AiChat } from './components/ai/AiChat';
 import { usePlugins } from './hooks/usePlugins';
 import { useState } from 'react';
 import type { ComponentType } from 'react';
@@ -120,7 +120,7 @@ export default function App() {
             >
               <ResourceTable />
               <DetailPanel />
-              {aiOpen && <AiAssistantPanel onClose={() => setAiOpen(false)} />}
+              {aiOpen && <AiChat onClose={() => setAiOpen(false)} />}
             </div>
             {(() => {
               if (overlay === null || overlay === 'pod-files') return null;
