@@ -313,6 +313,10 @@ pub fn api_router(state: WebState) -> Router {
             post(handlers::ai_cancel_handler),
         )
         .route(
+            "/api/invoke/ai_poll_events",
+            post(handlers::ai_poll_events_handler),
+        )
+        .route(
             "/api/invoke/ai_approve_tool_call",
             post(handlers::ai_approve_tool_call_handler),
         )

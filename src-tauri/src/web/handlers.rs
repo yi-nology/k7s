@@ -851,15 +851,24 @@ pub async fn ai_test_connection_handler(
 // AI chat (streaming via SSE)
 // ---------------------------------------------------------------------------
 
-/// A web-mode EventSink that pushes AgentEvents to the SSE broadcast channel.
+/// A web-mode EventSink that pushes AgentEvents to the SSE broadcast channel
+/// AND stores them for polling.
 struct WebAiSink {
     event_tx: tokio::sync::broadcast::Sender<crate::core::events::WebEvent>,
     run_id: String,
+    events_store: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<serde_json::Value>>>>,
 }
 
 impl crate::ai::agent::EventSink for WebAiSink {
     fn emit(&self, ev: crate::ai::agent::AgentEvent) {
         let data = serde_json::json!({ "runId": self.run_id, "event": ev });
+        // Store for polling.
+        if let Ok(mut store) = self.events_store.lock() {
+            if let Some(events) = store.get_mut(&self.run_id) {
+                events.push(data.clone());
+            }
+        }
+        // Also broadcast via SSE.
         let _ = self.event_tx.send(crate::core::events::WebEvent {
             name: "ai_event".into(),
             data,
@@ -940,16 +949,26 @@ pub async fn ai_chat_handler(
         });
 
     let agent = crate::ai::agent::AgentLoop::new(crate::ai::tools::ToolRegistry::new(), llm_factory);
+    // Store events for polling by the frontend.
+    let events_store = state.ai_runs.clone();
+    let run_id_clone = run_id.clone();
+
     let sink: std::sync::Arc<dyn crate::ai::agent::EventSink> =
         std::sync::Arc::new(WebAiSink {
             event_tx: state.event_tx.clone(),
             run_id: run_id.clone(),
+            events_store: events_store.clone(),
         });
     let manager = state.core.manager.clone();
     let mode = cfg.permission;
     let max_turns = cfg.max_turns;
     let session_id = body.get("sessionId").and_then(|v| v.as_str()).map(|s| s.to_string());
     let run_data_dir = data_dir.clone();
+
+    // Initialize the run's event store.
+    if let Ok(mut store) = events_store.lock() {
+        store.insert(run_id.clone(), Vec::new());
+    }
 
     tokio::spawn(async move {
         agent
@@ -969,6 +988,39 @@ pub async fn ai_cancel_handler(
     // store a CancellationToken per run_id.
     let _run_id = body.get("runId").and_then(|v| v.as_str()).unwrap_or("");
     respond(Ok::<_, crate::error::AppError>(()))
+}
+
+/// POST /invoke/ai_poll_events — poll for events from a running/completed AI chat.
+/// Returns events since `afterIndex` (0-based). The frontend calls this in a
+/// loop after sending a message, avoiding SSE connection-limit issues.
+pub async fn ai_poll_events_handler(
+    State(state): State<WebState>,
+    Json(body): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let run_id = body.get("runId").and_then(|v| v.as_str()).unwrap_or("");
+    let after_index = body.get("afterIndex").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+    if run_id.is_empty() {
+        return respond(Ok::<_, crate::error::AppError>(serde_json::json!({"events": [], "done": true})));
+    }
+    let store = match state.ai_runs.lock() {
+        Ok(s) => s,
+        Err(_) => return respond(Ok::<_, crate::error::AppError>(serde_json::json!({"events": [], "done": true}))),
+    };
+    match store.get(run_id) {
+        Some(events) => {
+            let new_events: Vec<_> = events[after_index..].to_vec();
+            let done = new_events.iter().any(|e| {
+                e.get("event").and_then(|ev| ev.get("type")).and_then(|t| t.as_str()) == Some("done")
+                    || e.get("event").and_then(|ev| ev.get("type")).and_then(|t| t.as_str()) == Some("error")
+            });
+            respond(Ok::<_, crate::error::AppError>(serde_json::json!({
+                "events": new_events,
+                "done": done,
+                "total": events.len()
+            })))
+        }
+        None => respond(Ok::<_, crate::error::AppError>(serde_json::json!({"events": [], "done": true}))),
+    }
 }
 
 /// POST /invoke/ai_approve_tool_call — approve/deny a pending write tool.

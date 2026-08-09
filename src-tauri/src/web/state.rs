@@ -4,7 +4,8 @@
 //! `app.manage`). Here we wrap it with the SSE receiver, which only the
 //! web shell has — the Tauri shell never serves SSE.
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use crate::core::events::{WebEvent, WebEventReceiver};
 use crate::core::CoreState;
@@ -21,6 +22,8 @@ pub struct WebState {
     /// receivers); every SSE connection calls [`subscribe_sse`] for its own
     /// receiver.
     pub event_tx: tokio::sync::broadcast::Sender<WebEvent>,
+    /// Per-run event store for polling. Maps run_id → list of events.
+    pub ai_runs: Arc<Mutex<HashMap<String, Vec<serde_json::Value>>>>,
 }
 
 impl WebState {
@@ -41,7 +44,7 @@ impl WebState {
         // on it for every new SSE connection.
         let event_tx = crate::core::events::web_sink_sender(&core);
 
-        Self { core, event_tx }
+        Self { core, event_tx, ai_runs: Arc::new(Mutex::new(HashMap::new())) }
     }
 
     /// A fresh subscriber for a new SSE connection.
