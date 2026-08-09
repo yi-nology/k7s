@@ -32,13 +32,19 @@ export function TabStrip() {
         const icon = meta?.icon ?? '?';
         const isActive = tab.uid === activeUid;
         return (
-          <button
+          <div
             key={tab.uid}
-            type="button"
             role="tab"
+            tabIndex={0}
             aria-selected={isActive}
             className={cx(styles.tab, isActive && styles.tabActive)}
             onClick={() => setActive(tab.uid)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setActive(tab.uid);
+              }
+            }}
             onAuxClick={(e) => {
               // Middle-click closes the tab.
               if (e.button === 1) closeTab(tab.uid);
@@ -61,7 +67,7 @@ export function TabStrip() {
             >
               x
             </button>
-          </button>
+          </div>
         );
       })}
     </div>

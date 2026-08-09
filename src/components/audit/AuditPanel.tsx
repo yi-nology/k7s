@@ -4,7 +4,7 @@
  * Lists Loki instances (CRUD), queries kube-apiserver audit events,
  * and renders them in a filterable table.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import type { AuditEvent, AuditQuery, LokiConfig } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
@@ -267,9 +267,8 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
               </thead>
               <tbody>
                 {events.map((evt) => (
-                  <>
+                  <Fragment key={evt.auditId || evt.timestamp}>
                     <tr
-                      key={evt.auditId || evt.timestamp}
                       style={{ cursor: 'pointer' }}
                       onClick={() => setExpandedId(expandedId === evt.auditId ? null : evt.auditId)}
                     >
@@ -296,7 +295,7 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

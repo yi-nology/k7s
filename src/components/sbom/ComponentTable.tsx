@@ -40,7 +40,7 @@ export function ComponentTable({ components }: Props) {
           <tbody>
             {components.map((c, index) => (
               <tr
-                key={`${c.purl || `${c.name}-${c.version}-${index}`}`}
+                key={`${c.purl || `${c.name}-${c.version}`}-${index}`}
                 style={{ borderBottom: '1px solid var(--border)' }}
               >
                 <td style={{ padding: '6px 12px' }}>{c.name}</td>

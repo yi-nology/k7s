@@ -5,6 +5,7 @@
  * events time-range dropdown, and row click interaction via the store.
  */
 
+import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
 import type { Row } from '../../providers/types';
@@ -124,7 +125,9 @@ describe('ResourceTable', () => {
       expect(view.queryByText('redis-pod')).not.toBeNull();
 
       // Set filter via store
-      useStore.setState({ tableFilter: 'nginx' });
+      act(() => {
+        useStore.setState({ tableFilter: 'nginx' });
+      });
       // Re-render
       view = render(<ResourceTable />);
       expect(view.queryByText('nginx-pod')).not.toBeNull();

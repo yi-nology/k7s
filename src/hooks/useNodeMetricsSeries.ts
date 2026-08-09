@@ -77,9 +77,9 @@ export function useNodeMetricsSeries(node: string | undefined): NodeMetricsPoint
     sample();
     const id = setInterval(sample, POLL_MS);
     return () => clearInterval(id);
-    // nodeMetrics is read at sample time, not depended on for effect re-run —
-    // we want one stable interval per node, reading the latest snapshot each tick.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // nodeMetrics is read at sample time via useStore.getState(), not depended
+    // on for effect re-run — we want one stable interval per node, reading the
+    // latest snapshot each tick.
   }, [node]);
 
   // tick forces a re-render when the ref mutates; return the current snapshot.

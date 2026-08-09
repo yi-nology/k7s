@@ -4,6 +4,7 @@
  * Covers: empty state, rendering forwards, stop button, copy behavior.
  */
 
+import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { ForwardsBar } from './ForwardsBar';
@@ -123,9 +124,11 @@ describe('ForwardsBar', () => {
       // Find the stop button (contains "✕")
       const stopBtn = view.queryByText('✕');
       expect(stopBtn).not.toBeNull();
-      view.click(stopBtn!);
-      // Wait for async
-      await new Promise((r) => setTimeout(r, 0));
+      await act(async () => {
+        view.click(stopBtn!);
+        // Wait for async state updates
+        await new Promise((r) => setTimeout(r, 0));
+      });
       expect(mockStopPortForward).toHaveBeenCalledWith('fwd-1');
     });
   });

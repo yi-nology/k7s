@@ -5,6 +5,7 @@
  * reset button, theme/language selects.
  */
 
+import { act } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from '../../store';
 import { DEFAULT_SETTINGS, type Settings } from '../../lib/settings';
@@ -14,6 +15,11 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 // Mock McpPanel to avoid complex dependencies.
 vi.mock('./McpPanel', () => ({
   McpPanel: () => <div data-testid="mcp-panel">MCP Panel</div>,
+}));
+
+// Mock AiSettingsPanel to avoid async state updates on mount.
+vi.mock('../ai/AiSettingsPanel', () => ({
+  AiSettingsPanel: () => <div data-testid="ai-settings-panel">AI Settings</div>,
 }));
 
 let view: RenderResult;
@@ -76,7 +82,9 @@ describe('SettingsPanel', () => {
     it('closes on Escape key', () => {
       useStore.setState({ settingsOpen: true });
       view = render(<SettingsPanel />);
-      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      });
       expect(useStore.getState().settingsOpen).toBe(false);
     });
   });
