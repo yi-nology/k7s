@@ -206,10 +206,10 @@ export function AiChat({ selectedContext, onClose }: Props) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ runId: id, afterIndex }),
             });
-            const data = await res.json();
-            // eslint-disable-next-line no-console
-            console.error('[AI-POLL]', 'events:', data.events?.length, 'done:', data.done, 'afterIndex:', afterIndex);
-            if (data.events) {
+            const json = await res.json();
+            // The API wraps responses in { ok, data }. Unwrap it.
+            const data = json.ok ? json.data : json;
+            if (data?.events) {
               for (const evt of data.events) {
                 if (evt.runId === activeRunId.current) {
                   processEventRef.current(evt.event);
@@ -217,7 +217,7 @@ export function AiChat({ selectedContext, onClose }: Props) {
               }
               afterIndex = data.total ?? afterIndex + data.events.length;
             }
-            if (data.done) break;
+            if (data?.done) break;
           } catch { break; }
         }
       };
