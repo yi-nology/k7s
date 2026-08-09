@@ -62,6 +62,10 @@ export function mockProperties(ref: ResourceRef): Properties | null {
       return serviceProperties(ref);
     case 'statefulsets':
       return statefulSetProperties(ref);
+    case 'replicasets':
+      return replicaSetProperties(ref);
+    case 'daemonsets':
+      return daemonSetProperties(ref);
     case 'nodes':
       return nodeProperties(ref);
     case 'helm':
@@ -515,6 +519,68 @@ function statefulSetProperties(ref: ResourceRef): Properties {
         'no conditions reported'
       ),
       chips('Labels', [['app', ref.name]]),
+    ],
+  };
+}
+
+function replicaSetProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields('Overview', [
+        f('replicas', '2/2 ready', 'ok'),
+        f('available', '2'),
+        f('fully labeled', '2'),
+        f('selector', `app=${ref.name.split('-').slice(0, -1).join('-')}`),
+      ]),
+      table(
+        'Owner References',
+        ['KIND', 'NAME'],
+        [[n('Deployment'), link(ref.name.split('-').slice(0, -1).join('-'), 'deployments', ref.name.split('-').slice(0, -1).join('-'), ref.namespace)]],
+        'no owner references'
+      ),
+      table(
+        'Conditions',
+        ['TYPE', 'STATUS', 'REASON', 'MESSAGE', 'SINCE'],
+        [
+          [
+            n('ReplicaFailure'),
+            c('True', 'warn'),
+            c('FailedCreate'),
+            c('pods forbidden: failed quota'),
+            age(daysAgo(1)),
+          ],
+        ],
+        'no conditions reported'
+      ),
+      chips('Labels', [
+        ['app', ref.name.split('-').slice(0, -1).join('-')],
+        ['pod-template-hash', ref.name.split('-').pop() ?? ''],
+      ]),
+    ],
+  };
+}
+
+function daemonSetProperties(ref: ResourceRef): Properties {
+  return {
+    sections: [
+      fields('Overview', [
+        f('pods', '1/1 ready', 'ok'),
+        f('scheduled', '1'),
+        f('available', '1'),
+        f('unavailable', '0'),
+        f('selector', `app=${ref.name}`),
+        f('update strategy', 'RollingUpdate'),
+      ]),
+      table(
+        'Conditions',
+        ['TYPE', 'STATUS', 'REASON', 'MESSAGE', 'SINCE'],
+        [],
+        'no conditions reported'
+      ),
+      chips('Labels', [
+        ['app', ref.name],
+        ['k8s-app', ref.name],
+      ]),
     ],
   };
 }
