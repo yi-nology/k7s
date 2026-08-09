@@ -266,6 +266,15 @@ pub fn api_router(state: WebState) -> Router {
         .route("/hooks/wake", post(handlers::hook_wake))
         .route("/hooks/agent", post(handlers::hook_agent))
         .route("/hooks/event", post(handlers::hook_event))
+        // AI assistant endpoints.
+        .route("/api/invoke/ai_get_config", post(handlers::ai_get_config_handler))
+        .route("/api/invoke/ai_get_context", post(handlers::ai_get_context_handler))
+        .route("/api/invoke/ai_list_skills", post(handlers::ai_list_skills_handler))
+        .route("/api/invoke/ai_memory_list", post(handlers::ai_memory_list_handler))
+        .route("/api/invoke/ai_memory_search", post(handlers::ai_memory_search_handler))
+        .route("/api/invoke/ai_memory_add", post(handlers::ai_memory_add_handler))
+        .route("/api/invoke/ai_cron_list", post(handlers::ai_cron_list_handler))
+        .route("/api/invoke/ai_evolution_strategies", post(handlers::ai_evolution_strategies_handler))
         // Stubs for everything else.
         .route("/api/invoke/:cmd", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client

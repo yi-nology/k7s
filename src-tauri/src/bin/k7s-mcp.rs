@@ -36,6 +36,9 @@ use k7s_lib::mcp::K7sMcpServer;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
+    // Install the rustls crypto provider before any TLS connections.
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     // Match the Tauri shell's default level so logs feel familiar; the host
     // sees the same severity structure as its own MCP servers.
     tracing_subscriber::fmt()

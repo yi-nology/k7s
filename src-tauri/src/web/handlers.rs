@@ -450,3 +450,97 @@ pub async fn hook_event(
     }))
     .into_response()
 }
+
+// ---------------------------------------------------------------------------
+// AI assistant web handlers
+// ---------------------------------------------------------------------------
+
+/// POST /invoke/ai_get_config
+pub async fn ai_get_config_handler(
+    State(state): State<WebState>,
+) -> axum::response::Response {
+    let result = crate::ai::config::load(Some(&state.core.data_dir)).map_err(|e| crate::error::AppError::Other(e.to_string()));
+    respond(result)
+}
+
+/// POST /invoke/ai_get_context
+pub async fn ai_get_context_handler(
+    State(state): State<WebState>,
+) -> axum::response::Response {
+    let ctx = state.core.manager.connection_info().await
+        .map(|i| i.context)
+        .unwrap_or_default();
+    respond(Ok(ctx))
+}
+
+/// POST /invoke/ai_list_skills
+pub async fn ai_list_skills_handler(
+    State(state): State<WebState>,
+) -> axum::response::Response {
+    let reg = crate::ai::skills::SkillRegistry::load(Some(&state.core.data_dir));
+    let skills: Vec<crate::ai::skills::Skill> = reg.list().into_iter().cloned().collect();
+    respond(Ok(skills))
+}
+
+/// POST /invoke/ai_memory_list
+pub async fn ai_memory_list_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
+    let entries: Vec<crate::ai::memory::MemoryEntry> = store.list(None).into_iter().cloned().collect();
+    respond(Ok(entries))
+}
+
+/// POST /invoke/ai_memory_search
+pub async fn ai_memory_search_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
+    let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
+    let results = store.search(query);
+    respond(Ok(results))
+}
+
+/// POST /invoke/ai_memory_add
+pub async fn ai_memory_add_handler(
+    State(state): State<WebState>,
+    Json(args): Json<serde_json::Value>,
+) -> axum::response::Response {
+    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let content = args.get("content").and_then(|v| v.as_str()).unwrap_or("");
+    let tags: Vec<String> = args.get("tags")
+        .and_then(|v| v.as_array())
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .unwrap_or_default();
+    let tier_str = args.get("tier").and_then(|v| v.as_str()).unwrap_or("longTerm");
+    let tier = match tier_str {
+        "shortTerm" => crate::ai::memory::Tier::ShortTerm,
+        "knowledgeVault" => crate::ai::memory::Tier::KnowledgeVault,
+        _ => crate::ai::memory::Tier::LongTerm,
+    };
+    let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
+    store.add(tier, content, tags, crate::ai::memory::MemorySource::User);
+    respond(Ok(serde_json::json!({"ok": true})))
+}
+
+/// POST /invoke/ai_cron_list
+pub async fn ai_cron_list_handler(
+    State(state): State<WebState>,
+) -> axum::response::Response {
+    let scheduler = crate::ai::cron::CronScheduler::new(state.core.data_dir.clone());
+    let tasks = scheduler.list().await;
+    respond(Ok(tasks))
+}
+
+/// POST /invoke/ai_evolution_strategies
+pub async fn ai_evolution_strategies_handler(
+    State(state): State<WebState>,
+) -> axum::response::Response {
+    let store = crate::ai::evolution::EvolutionStore::open(&state.core.data_dir);
+    let strategies: Vec<crate::ai::evolution::Strategy> = store.list_strategies().to_vec();
+    respond(Ok(strategies))
+}
