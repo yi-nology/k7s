@@ -10,7 +10,7 @@ pub fn map_role(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -36,7 +36,7 @@ pub fn map_clusterrole(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -64,7 +64,7 @@ pub fn map_rolebinding(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -98,7 +98,7 @@ pub fn map_clusterrolebinding(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),

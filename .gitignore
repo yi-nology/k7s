@@ -57,3 +57,5 @@ crates/probe/last_run.err.txt
 # tool artifacts
 .zcode/
 .playwright-mcp/
+tests/e2e/test-results/
+test-results/

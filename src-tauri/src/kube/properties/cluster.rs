@@ -107,7 +107,7 @@ pub(super) async fn gather_node(client: Client, name: &str) -> AppResult<Propert
                 status: cd.status,
                 reason: or_dash(cd.reason),
                 message: or_dash(cd.message),
-                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+                since: cd.last_transition_time.map(|t| t.0.to_string()),
             })
             .collect(),
     );
@@ -354,7 +354,7 @@ pub(super) async fn gather_pvc(
                 status: cd.status,
                 reason: or_dash(cd.reason),
                 message: or_dash(cd.message),
-                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+                since: cd.last_transition_time.map(|t| t.0.to_string()),
             })
             .collect(),
     );

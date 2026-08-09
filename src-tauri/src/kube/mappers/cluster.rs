@@ -113,7 +113,7 @@ pub fn map_event(e: &k8s_openapi::api::core::v1::Event) -> Row {
         Cell::new(object, Tone::Secondary),
         Cell::new(e.namespace().unwrap_or_default(), Tone::Muted),
         // Age from last-seen (not creation): events repeat and update lastTimestamp.
-        Cell::age(Some(last.to_rfc3339())).with_sort(last.timestamp_millis() as f64),
+        Cell::age(Some(last.to_string())).with_sort(last.as_millisecond() as f64),
         Cell::new(format!("×{}", e.count.unwrap_or(1)), Tone::Secondary),
         Cell::new(e.message.clone().unwrap_or_default(), Tone::Secondary),
     ];
@@ -137,7 +137,7 @@ pub fn map_event(e: &k8s_openapi::api::core::v1::Event) -> Row {
 }
 
 /// Best "last seen" time for an event: lastTimestamp, else eventTime, else creation.
-fn event_last_seen(e: &k8s_openapi::api::core::v1::Event) -> chrono::DateTime<chrono::Utc> {
+fn event_last_seen(e: &k8s_openapi::api::core::v1::Event) -> k8s_openapi::jiff::Timestamp {
     if let Some(t) = &e.last_timestamp {
         return t.0;
     }
@@ -146,7 +146,7 @@ fn event_last_seen(e: &k8s_openapi::api::core::v1::Event) -> chrono::DateTime<ch
     }
     e.creation_timestamp()
         .map(|t| t.0)
-        .unwrap_or_else(chrono::Utc::now)
+        .unwrap_or_default()
 }
 
 /// Order the events feed: Warnings first, then most-recent first, capped.

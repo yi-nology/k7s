@@ -478,14 +478,14 @@ pub async fn hpa_status_impl(
         .iter()
         .map(|h| {
             let name = h.name_any();
-            let spec = h.spec.as_ref();
+            let spec = &h.spec;
             let status = h.status.as_ref();
             serde_json::json!({
                 "name": name,
-                "minReplicas": spec.and_then(|s| s.min_replicas).unwrap_or(1),
-                "maxReplicas": spec.map(|s| s.max_replicas).unwrap_or(0),
+                "minReplicas": spec.min_replicas.unwrap_or(1),
+                "maxReplicas": spec.max_replicas,
                 "currentReplicas": status.as_ref().and_then(|s| s.current_replicas).unwrap_or(0),
-                "targetCPU": spec.and_then(|s| s.metrics.as_ref()).and_then(|m| m.first()).map(|_| "configured"),
+                "targetCPU": spec.metrics.as_ref().and_then(|m| m.first()).map(|_| "configured"),
             })
         })
         .collect();

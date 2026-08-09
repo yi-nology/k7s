@@ -54,7 +54,7 @@ pub async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResul
             Field {
                 label: "started".into(),
                 value: match status.start_time.as_ref() {
-                    Some(t) => Cell::age(Some(t.0.to_rfc3339())),
+                    Some(t) => Cell::age(Some(t.0.to_string())),
                     None => muted(DASH),
                 },
                 nav: None,

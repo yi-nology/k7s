@@ -146,7 +146,7 @@ pub async fn gather_deployment(
                         c(want.to_string()),
                         c(s.replicas.to_string()),
                         Cell::new(rs_ready.to_string(), ready_tone(rs_ready, want)),
-                        Cell::age(rs.creation_timestamp().map(|t| t.0.to_rfc3339())),
+                        Cell::age(rs.creation_timestamp().map(|t| t.0.to_string())),
                     ]
                 })
                 .collect()
@@ -171,7 +171,7 @@ pub async fn gather_deployment(
                 status: cd.status,
                 reason: or_dash(cd.reason),
                 message: or_dash(cd.message),
-                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+                since: cd.last_transition_time.map(|t| t.0.to_string()),
             })
             .collect(),
     );
@@ -211,25 +211,26 @@ pub async fn gather_statefulset(
     // one is worth flagging rather than quietly linking nowhere: without it the
     // pods' DNS names don't resolve.
     let svc_name = spec.service_name.clone();
-    let svc_exists = !svc_name.is_empty()
+    let svc_name_str = svc_name.as_deref().unwrap_or("");
+    let svc_exists = !svc_name_str.is_empty()
         && Api::<Service>::namespaced(client.clone(), namespace)
-            .get_metadata(&svc_name)
+            .get_metadata(svc_name_str)
             .await
             .is_ok();
-    let service_field = match (svc_name.is_empty(), svc_exists) {
+    let service_field = match (svc_name_str.is_empty(), svc_exists) {
         (true, _) => field("service name", DASH),
         (false, true) => nav_field(
             "service name",
-            svc_name.clone(),
+            svc_name_str.to_string(),
             Some(NavTarget::namespaced(
                 "services",
                 namespace,
-                svc_name.clone(),
+                svc_name_str.to_string(),
             )),
         ),
         (false, false) => field_toned(
             "service name",
-            format!("{svc_name} (not found)"),
+            format!("{svc_name_str} (not found)"),
             Tone::Warn,
         ),
     };
@@ -368,7 +369,7 @@ pub async fn gather_statefulset(
                                 Tone::Secondary,
                                 Some(NavTarget::cluster("persistentvolumes", volume)),
                             ),
-                            Cell::age(p.creation_timestamp().map(|t| t.0.to_rfc3339())),
+                            Cell::age(p.creation_timestamp().map(|t| t.0.to_string())),
                         ]
                     })
                     .collect()
@@ -394,7 +395,7 @@ pub async fn gather_statefulset(
                 status: cd.status,
                 reason: or_dash(cd.reason),
                 message: or_dash(cd.message),
-                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+                since: cd.last_transition_time.map(|t| t.0.to_string()),
             })
             .collect(),
     );
@@ -463,7 +464,7 @@ pub async fn gather_job(client: Client, namespace: &str, name: &str) -> AppResul
                 status: cd.status,
                 reason: or_dash(cd.reason),
                 message: or_dash(cd.message),
-                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+                since: cd.last_transition_time.map(|t| t.0.to_string()),
             })
             .collect(),
     );
@@ -478,7 +479,7 @@ pub async fn gather_cronjob(client: Client, namespace: &str, name: &str) -> AppR
         .get(name)
         .await
         .map_err(|e| AppError::Kube(e.to_string()))?;
-    let spec = cj.spec.clone().unwrap_or_default();
+    let spec = cj.spec.clone();
     let status = cj.status.clone().unwrap_or_default();
     let mut props = Properties::default();
 
@@ -514,7 +515,7 @@ pub async fn gather_cronjob(client: Client, namespace: &str, name: &str) -> AppR
             ),
             Field {
                 label: "last schedule".into(),
-                value: Cell::age(status.last_schedule_time.map(|t| t.0.to_rfc3339())),
+                value: Cell::age(status.last_schedule_time.map(|t| t.0.to_string())),
                 nav: None,
             },
         ],
@@ -541,7 +542,7 @@ pub async fn gather_cronjob(client: Client, namespace: &str, name: &str) -> AppR
                         .as_ref()
                         .and_then(|s| s.completion_time.as_ref())
                         .or_else(|| j.status.as_ref().and_then(|s| s.start_time.as_ref()))
-                        .map(|t| t.0.to_rfc3339())
+                        .map(|t| t.0.to_string())
                         .unwrap_or_default(),
                 )
             });
@@ -569,7 +570,7 @@ pub async fn gather_cronjob(client: Client, namespace: &str, name: &str) -> AppR
                             s.completion_time
                                 .as_ref()
                                 .or(s.start_time.as_ref())
-                                .map(|t| t.0.to_rfc3339()),
+                                .map(|t| t.0.to_string()),
                         ),
                     ]
                 })
@@ -594,7 +595,7 @@ pub async fn gather_hpa(client: Client, namespace: &str, name: &str) -> AppResul
         .get(name)
         .await
         .map_err(|e| AppError::Kube(e.to_string()))?;
-    let spec = hpa.spec.clone().unwrap_or_default();
+    let spec = hpa.spec.clone();
     let status = hpa.status.clone().unwrap_or_default();
     let mut props = Properties::default();
 
@@ -679,7 +680,7 @@ pub async fn gather_hpa(client: Client, namespace: &str, name: &str) -> AppResul
                 status: cd.status,
                 reason: or_dash(cd.reason),
                 message: or_dash(cd.message),
-                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+                since: cd.last_transition_time.map(|t| t.0.to_string()),
             })
             .collect(),
     );
@@ -746,7 +747,7 @@ pub async fn gather_daemonset(
                 status: cd.status,
                 reason: or_dash(cd.reason),
                 message: or_dash(cd.message),
-                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+                since: cd.last_transition_time.map(|t| t.0.to_string()),
             })
             .collect(),
     );
@@ -819,7 +820,7 @@ pub async fn gather_replicaset(
                 status: cd.status,
                 reason: or_dash(cd.reason),
                 message: or_dash(cd.message),
-                since: cd.last_transition_time.map(|t| t.0.to_rfc3339()),
+                since: cd.last_transition_time.map(|t| t.0.to_string()),
             })
             .collect(),
     );

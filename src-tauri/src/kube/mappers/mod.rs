@@ -43,7 +43,7 @@ pub(super) fn uid_of<K: ResourceExt>(obj: &K) -> String {
 /// RFC3339 creation timestamp string, or "" if unset.
 pub(super) fn creation_rfc3339<K: ResourceExt>(obj: &K) -> String {
     obj.creation_timestamp()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default()
 }
 
@@ -137,7 +137,8 @@ pub fn humanize_duration(mut secs: i64) -> String {
 
 /// Seconds between an RFC3339-ish k8s `Time` and now (clamped at 0).
 pub(super) fn secs_since(t: &k8s_openapi::apimachinery::pkg::apis::meta::v1::Time) -> i64 {
-    (chrono::Utc::now() - t.0).num_seconds().max(0)
+    let now = k8s_openapi::jiff::Timestamp::now();
+    now.duration_since(t.0).as_secs().max(0)
 }
 
 /// Build a namespaced Row from prebuilt cells (shared by the simple kinds).

@@ -76,7 +76,7 @@ fn map_slice(s: &EndpointSlice) -> EndpointRow {
         .and_then(|p| p.port);
     let mut ready = 0i64;
     let mut addresses = Vec::new();
-    for endpoint in &s.endpoints {
+    for endpoint in s.endpoints.iter().flatten() {
         if endpoint
             .conditions
             .as_ref()
@@ -104,7 +104,7 @@ fn map_slice(s: &EndpointSlice) -> EndpointRow {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     EndpointRow {
         name: s.name_any(),
@@ -137,7 +137,7 @@ pub async fn addresses_for(
     let api: Api<EndpointSlice> = Api::namespaced(client.clone(), namespace);
     let slice = api.get(name).await?;
     let mut out = Vec::new();
-    for endpoint in &slice.endpoints {
+    for endpoint in slice.endpoints.as_deref().unwrap_or_default() {
         let ready = endpoint
             .conditions
             .as_ref()
@@ -222,7 +222,7 @@ mod tests {
                 labels: Some(labels),
                 ..Default::default()
             },
-            endpoints,
+            endpoints: Some(endpoints),
             ..Default::default()
         }
     }

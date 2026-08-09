@@ -113,7 +113,7 @@ pub(super) async fn gather_webhook(
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
 
     let mut props = Properties::default();
@@ -287,7 +287,7 @@ pub(super) async fn gather_crd_detail(client: Client, kind_id: &str) -> AppResul
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
 
     props.fields(

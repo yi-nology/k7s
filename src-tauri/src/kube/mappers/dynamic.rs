@@ -21,7 +21,7 @@ pub fn map_dynamic(o: &kube::core::DynamicObject, namespaced: bool) -> Row {
     if namespaced {
         cells.push(Cell::new(o.namespace().unwrap_or_default(), Tone::Muted));
     }
-    cells.push(Cell::age(o.creation_timestamp().map(|t| t.0.to_rfc3339())));
+    cells.push(Cell::age(o.creation_timestamp().map(|t| t.0.to_string())));
 
     Row {
         uid: uid_of(o),
@@ -48,7 +48,7 @@ pub fn map_pdb(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -83,7 +83,7 @@ pub fn map_mutating_webhook(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -111,7 +111,7 @@ pub fn map_validating_webhook(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -166,7 +166,7 @@ pub fn map_api_service(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -220,7 +220,7 @@ pub fn map_hpa(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -262,7 +262,7 @@ pub fn map_resourcequota(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),
@@ -296,7 +296,7 @@ pub fn map_limitrange(obj: &DynamicObject) -> Row {
         .metadata
         .creation_timestamp
         .as_ref()
-        .map(|t| t.0.to_rfc3339())
+        .map(|t| t.0.to_string())
         .unwrap_or_default();
     let cells = vec![
         Cell::new(obj.name_any(), Tone::Primary),

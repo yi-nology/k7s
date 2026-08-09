@@ -93,7 +93,7 @@ pub async fn trigger_cronjob(
             }]),
             ..Default::default()
         },
-        spec: cj.spec.and_then(|s| s.job_template.spec),
+        spec: cj.spec.job_template.spec,
         ..Default::default()
     };
     let job_api: Api<Job> = Api::namespaced(client, &namespace);

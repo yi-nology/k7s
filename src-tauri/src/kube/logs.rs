@@ -113,7 +113,12 @@ pub fn log_params(container: &str, opts: &LogStreamOptions) -> LogParams {
         (Some(ts), _) => {
             // Parse the resume time; ignore a malformed value rather than failing.
             if let Ok(dt) = DateTime::parse_from_rfc3339(ts) {
-                lp.since_time = Some(dt.with_timezone(&Utc));
+                let dt_utc = dt.with_timezone(&Utc);
+                lp.since_time = k8s_openapi::jiff::Timestamp::new(
+                    dt_utc.timestamp(),
+                    dt_utc.timestamp_subsec_nanos() as i32,
+                )
+                .ok();
             }
         }
         (None, Some(secs)) => lp.since_seconds = Some(secs),

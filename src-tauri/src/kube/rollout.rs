@@ -231,7 +231,7 @@ async fn list_deployment_revisions(
                     .metadata
                     .creation_timestamp
                     .as_ref()
-                    .map(|t| t.0.to_rfc3339())
+                    .map(|t| t.0.to_string())
                     .unwrap_or_default(),
                 is_current: rev.is_some() && rev == current_rev,
             }
@@ -301,7 +301,7 @@ async fn list_controller_revisions(
                     .metadata
                     .creation_timestamp
                     .as_ref()
-                    .map(|t| t.0.to_rfc3339())
+                    .map(|t| t.0.to_string())
                     .unwrap_or_default(),
                 is_current,
             }

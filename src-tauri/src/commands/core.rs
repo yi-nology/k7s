@@ -754,7 +754,7 @@ pub(crate) async fn require_client(mgr: &ClientManager) -> AppResult<kube::Clien
 }
 
 /// Best "last seen" time for sorting: last_timestamp, else event_time, else epoch.
-fn last_seen(e: &Event) -> chrono::DateTime<chrono::Utc> {
+fn last_seen(e: &Event) -> k8s_openapi::jiff::Timestamp {
     if let Some(t) = &e.last_timestamp {
         return t.0;
     }
@@ -764,11 +764,13 @@ fn last_seen(e: &Event) -> chrono::DateTime<chrono::Utc> {
     // Fall back to creation time or the epoch.
     e.creation_timestamp()
         .map(|t| t.0)
-        .unwrap_or_else(|| chrono::DateTime::<chrono::Utc>::UNIX_EPOCH)
+        .unwrap_or_default()
 }
 
 /// Humanized age of an event's last occurrence (e.g. "2m").
 fn event_age(e: &Event) -> String {
-    let secs = (chrono::Utc::now() - last_seen(e)).num_seconds().max(0);
+    let now = k8s_openapi::jiff::Timestamp::now();
+    let seen = last_seen(e);
+    let secs = now.duration_since(seen).as_secs().max(0);
     mappers::humanize_duration(secs)
 }

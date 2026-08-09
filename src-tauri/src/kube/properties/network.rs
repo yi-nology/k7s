@@ -286,7 +286,7 @@ pub(super) async fn gather_service(
     let mut ep_rows: Vec<Vec<Cell>> = Vec::new();
     if let Ok(list) = slices {
         for slice in list.items {
-            for ep in slice.endpoints {
+            for ep in slice.endpoints.into_iter().flatten() {
                 let ready = ep
                     .conditions
                     .as_ref()
@@ -354,8 +354,8 @@ pub(super) async fn gather_networkpolicy(
 
     let pod_sel = spec
         .pod_selector
-        .match_labels
         .as_ref()
+        .and_then(|s| s.match_labels.as_ref())
         .map(|m| selector_text(Some(m)))
         .unwrap_or_else(|| DASH.into());
 
@@ -379,7 +379,7 @@ pub(super) async fn gather_networkpolicy(
     // selector is empty (matchLabels: {}), the policy selects ALL pods in the
     // namespace — listing them is the most useful thing the panel can do.
     let pod_api: Api<Pod> = Api::namespaced(client.clone(), namespace);
-    let selector_match = spec.pod_selector.match_labels.as_ref();
+    let selector_match = spec.pod_selector.as_ref().and_then(|s| s.match_labels.as_ref());
     let lp = match selector_match {
         Some(m) if !m.is_empty() => {
             let label_str = m
@@ -415,7 +415,7 @@ pub(super) async fn gather_networkpolicy(
                         Some(NavTarget::namespaced("pods", namespace, pod_name)),
                     ),
                     Cell::new(phase, phase_tone),
-                    Cell::age(p.creation_timestamp().map(|t| t.0.to_rfc3339())),
+                    Cell::age(p.creation_timestamp().map(|t| t.0.to_string())),
                 ]
             })
             .collect(),
