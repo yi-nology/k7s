@@ -1,6 +1,6 @@
 # k7s
 
-> A desktop-grade Kubernetes monitor with a Linear / Vercel aesthetic — **and** a stdio + HTTP MCP server (79 tools) so any AI client can drive a real cluster the same way.
+> A desktop-grade Kubernetes monitor with a Linear / Vercel aesthetic — **and** a stdio + HTTP MCP server (91 tools) so any AI client can drive a real cluster the same way.
 
 ![k7s — pods table (dark)](docs/screenshots/01-pods-table.png)
 
@@ -20,7 +20,7 @@ Targets **macOS** and **Linux** (desktop), runs in **any browser** via `k7s-web`
 - [🤔 Why k7s (vs Lens / KubePi / Headlamp)](#-why-k7s-vs-lens--kubepi--headlamp)
 - [✨ Features](#-features)
 - [🧠 Built-in AI Assistant](#-built-in-ai-assistant)
-- [🤖 MCP server — 79 tools](#-mcp-server--79-tools)
+- [🤖 MCP server — 91 tools](#-mcp-server--91-tools)
 - [🖼 Three ways to run](#-three-ways-to-run)
 - [📸 Screenshots](#-screenshots)
 - [🧱 Tech stack](#-tech-stack)
@@ -78,7 +78,7 @@ k7s, [Lens](https://k8slens.dev/), [KubePi](https://github.com/1Panel-dev/KubePi
 | Capability | **k7s** | **Lens** | **KubePi** | **Headlamp** |
 |---|:---:|:---:|:---:|:---:|
 | **🤖 AI / MCP server** | | | | |
-| MCP server (stdio + HTTP) | ✅ **79 tools** | — | — | — |
+| MCP server (stdio + HTTP) | ✅ **91 tools** | — | — | — |
 | AI cluster diagnostics (`diagnose_cluster`, `suggest_fix`) | ✅ | — | — | — |
 | Cluster health score (0–100, letter grade) | ✅ | — | — | — |
 | **🧭 Browsing & ops** | | | | |
@@ -140,7 +140,7 @@ k7s, [Lens](https://k8slens.dev/), [KubePi](https://github.com/1Panel-dev/KubePi
 
 ### Who should pick what
 
-- **Pick k7s** if you want a **fast, native, single-binary** K8s monitor with **first-class AI control** (79 MCP tools, cluster diagnostics), **deep observability** (Prometheus + Grafana + AlertManager + Loki in one app), and **supply-chain tooling** (SBOM, air-gapped image transfer) — and you don't need SSO/RBAC for a shared team web login.
+- **Pick k7s** if you want a **fast, native, single-binary** K8s monitor with **first-class AI control** (91 MCP tools, cluster diagnostics), **deep observability** (Prometheus + Grafana + AlertManager + Loki in one app), and **supply-chain tooling** (SBOM, air-gapped image transfer) — and you don't need SSO/RBAC for a shared team web login.
 - **Pick Lens** if you want the **most mature desktop K8s IDE** with the **largest extension marketplace** and you're happy on a heavyweight Electron app.
 - **Pick KubePi** if you need **SSO + RBAC + audit log** for a **shared team installation** behind a web login, with Helm marketplace and image-registry management built in.
 - **Pick Headlamp** if you want a **clean, plugin-friendly web dashboard** with strong **OIDC** support that can also run as an in-cluster plugin.
@@ -250,7 +250,7 @@ Bulk-aware context menus shared between the detail "⋯" menu and the table righ
 
 k7s ships an **embedded AI agent** — a chat panel inside the app that can diagnose, inspect, and operate your cluster using natural language. It runs a full **ReAct (Reasoning + Acting) loop**: the LLM thinks, picks a tool, asks for permission if needed, executes, observes the result, and repeats until the task is done.
 
-> The built-in AI assistant is **separate from** the MCP server. The MCP server exposes 79 tools to external AI clients (Claude Desktop, Cursor, etc.); the built-in assistant is a self-contained agent **inside k7s** with its own ~12 optimized tools, permission gate, skills, and memory.
+> The built-in AI assistant is **separate from** the MCP server. The MCP server exposes 91 tools to external AI clients (Claude Desktop, Cursor, etc.); the built-in assistant is a self-contained agent **inside k7s** with its own ~12 optimized tools, permission gate, skills, and memory.
 
 ### Screenshots
 
@@ -301,7 +301,7 @@ Write tools include: `scale_workload`, `restart_workload`, `delete_resource`, `a
 
 ### Built-in tools (~12)
 
-The agent has its own optimized tool set, independent from the MCP server's 79 tools:
+The agent has its own optimized tool set, independent from the MCP server's 91 tools:
 
 | Group | Tools | Description |
 |---|---|---|
@@ -363,21 +363,22 @@ Create cron-scheduled AI tasks that run automatically — e.g., "every morning a
 
 ---
 
-## 🤖 MCP server — 79 tools
+## 🤖 MCP server — 91 tools
 
 k7s ships a first-party MCP server called **`k7s-mcp`** that exposes the **same Kubernetes plumbing** the desktop and web shells use, over the [Model Context Protocol](https://modelcontextprotocol.io/). AI clients (Claude Desktop, Cursor, Claude Code, …) can drive a real cluster through it.
 
-**79 tools** in total, grouped:
+**91 tools** in total, grouped:
 
 | Category | Tools | Count |
 |---|---|---|
 | **Connection** | `list_contexts`, `connect`, `disconnect`, `status` | 4 |
-| **Read** | `list_resources`, `get_resource`, `describe_resource`, `get_events`, `get_logs` | 5 |
+| **Read** | `list_resources`, `get_resource`, `describe_resource`, `get_events`, `get_logs`, `batch_get` | 6 |
 | **Write** | `apply_yaml`, `dry_run_yaml`, `delete_resource`, `scale_resource`, `set_cordon`, `restart_pod`, `restart_rollout`, `drain_node` | 8 |
 | **Shell / exec / port-forward / pod-files / discovery** | `start_port_forward`, `start_service_port_forward`, `stop_port_forward`, `list_port_forwards`, `start_shell`, `shell_input`, `shell_resize`, `stop_shell`, `start_node_shell`, `stop_node_shell`, `exec_command`, `rollout_status`, `top_pods`, `top_nodes`, `trigger_cronjob`, `apply_yaml_bundle`, `dry_run_yaml_bundle`, `list_api_resources`, `list_endpoints`, `pod_list_files`, `pod_read_file`, `pod_write_file`, `pod_download_file`, `pod_upload_file`, `import_kubeconfig`, `default_kubeconfig_path`, `list_builtin_kinds`, `list_custom_kinds` | 28 |
-| **Helm** | `helm_install`, `helm_upgrade`, `helm_uninstall`, `helm_rollback`, `helm_history`, `helm_show_values`, `helm_list_repos`, `helm_search_charts`, `helm_add_repo`, `helm_remove_repo`, `helm_update_repo` | 10 (11 names) |
-| **Monitoring** | `prometheus_query`, `prometheus_query_range`, `alertmanager_alerts`, `alertmanager_silences`, `grafana_dashboard_url`, `grafana_search`, `image_registry_tags`, `image_registry_manifest`, `saved_query_run`, `image_sync_status`, `image_copy`, `image_inspect_archive`, `diagnose_cluster`, `suggest_fix`, `find_resources_by_label`, `create_silence`, `delete_silence`, `list_alert_rules`, `audit_search`, `sbom_generate_image`, `sbom_list_history`, `sbom_get`, `cluster_health` | 24 |
-| **Total** | | **79** |
+| **Helm** | `helm_install`, `helm_upgrade`, `helm_uninstall`, `helm_rollback`, `helm_history`, `helm_show_values`, `helm_list_repos`, `helm_search_charts`, `helm_add_repo`, `helm_remove_repo`, `helm_update_repo`, `helm_release` | 12 |
+| **Monitoring** | `prometheus_query`, `prometheus_query_range`, `alertmanager_alerts`, `alertmanager_silences`, `grafana_dashboard_url`, `grafana_search`, `image_registry_tags`, `image_registry_manifest`, `saved_query_run`, `image_sync_status`, `image_copy`, `image_inspect_archive`, `diagnose_cluster`, `suggest_fix`, `find_resources_by_label`, `create_silence`, `delete_silence`, `list_alert_rules`, `audit_search`, `sbom_generate_image`, `sbom_list_history`, `sbom_get`, `cluster_health` | 23 |
+| **Unified / convenience** | `port_forward`, `prometheus_query_unified`, `sbom_unified`, `silence`, `list_kinds`, `diff_resources`, `hpa_status`, `network_policy_audit`, `rbac_who_can`, `cost_estimate` | 10 |
+| **Total** | | **91** |
 
 **Read** — list / get / describe / logs / events / metrics for Pods, Deployments, Services, Nodes, Namespaces, and any CRD.
 
@@ -393,7 +394,7 @@ k7s ships a first-party MCP server called **`k7s-mcp`** that exposes the **same 
 
 **Image / air-gap** — `skopeo` sync into a registry, tarball inspect.
 
-**Enhanced AI helpers** — `diagnose_cluster` (node health, pod failures, deployment availability, warning events, resource pressure → structured report), `suggest_fix` (actionable fixes for a resource), `find_resources_by_label`, `create_silence` / `delete_silence`, `audit_search` (K8s audit via Loki), `sbom_generate_image` / `sbom_list_history` / `sbom_get`, and `cluster_health` (0–100 score + letter grade).
+**Enhanced AI helpers** — `diagnose_cluster` (node health, pod failures, deployment availability, warning events, resource pressure → structured report), `suggest_fix` (actionable fixes for a resource), `find_resources_by_label`, `create_silence` / `delete_silence`, `audit_search` (K8s audit via Loki), `sbom_generate_image` / `sbom_list_history` / `sbom_get`, `cluster_health` (0–100 score + letter grade), `cost_estimate` (per-namespace resource cost), `rbac_who_can` (RBAC query), `network_policy_audit`, `hpa_status`, `diff_resources`, and `batch_get`.
 
 ### Choose your transport
 

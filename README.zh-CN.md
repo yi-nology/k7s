@@ -1,6 +1,6 @@
 # k7s
 
-> 桌面级 Kubernetes 监控器，具有 Linear / Vercel 美学 — **并且**内置 stdio + HTTP MCP server（79 个工具），让任意 AI 客户端都能以相同方式驱动真实集群。
+> 桌面级 Kubernetes 监控器，具有 Linear / Vercel 美学 — **并且**内置 stdio + HTTP MCP server（91 个工具），让任意 AI 客户端都能以相同方式驱动真实集群。
 
 ![k7s — pods table (dark)](docs/screenshots/01-pods-table.png)
 
@@ -20,7 +20,7 @@
 - [🤔 为什么选择 k7s（与 Lens / KubePi / Headlamp 对比）](#-为什么选择-k7s与-lens--kubepi--headlamp-对比)
 - [✨ 功能](#-功能)
 - [🧠 内置 AI 助手](#-内置-ai-助手)
-- [🤖 MCP server — 79 个工具](#-mcp-server--79-个工具)
+- [🤖 MCP server — 91 个工具](#-mcp-server--91-个工具)
 - [🖼 三种运行方式](#-三种运行方式)
 - [📸 截图](#-截图)
 - [🧱 技术栈](#-技术栈)
@@ -77,7 +77,7 @@ k7s、[Lens](https://k8slens.dev/)、[KubePi](https://github.com/1Panel-dev/Kube
 | 功能 | **k7s** | **Lens** | **KubePi** | **Headlamp** |
 |---|:---:|:---:|:---:|:---:|
 | **🤖 AI / MCP server** | | | | |
-| MCP server (stdio + HTTP) | ✅ **79 个工具** | — | — | — |
+| MCP server (stdio + HTTP) | ✅ **91 个工具** | — | — | — |
 | AI 集群诊断 (`diagnose_cluster`, `suggest_fix`) | ✅ | — | — | — |
 | 集群健康评分 (0–100, 字母等级) | ✅ | — | — | — |
 | **🧭 浏览与操作** | | | | |
@@ -139,7 +139,7 @@ k7s、[Lens](https://k8slens.dev/)、[KubePi](https://github.com/1Panel-dev/Kube
 
 ### 如何选择
 
-- **选择 k7s**：如果你想要一个**快速、原生、单二进制**的 K8s 监控器，具有**一流的 AI 控制**（79 个 MCP 工具、集群诊断）、**深度可观测性**（Prometheus + Grafana + AlertManager + Loki 集成）和**供应链工具**（SBOM、离线镜像传输）——且不需要团队共享的 Web 登录。
+- **选择 k7s**：如果你想要一个**快速、原生、单二进制**的 K8s 监控器，具有**一流的 AI 控制**（91 个 MCP 工具、集群诊断）、**深度可观测性**（Prometheus + Grafana + AlertManager + Loki 集成）和**供应链工具**（SBOM、离线镜像传输）——且不需要团队共享的 Web 登录。
 - **选择 Lens**：如果你想要**最成熟的桌面 K8s IDE**，拥有**最大的扩展市场**，且不介意 Electron 应用的体积。
 - **选择 KubePi**：如果你需要**SSO + RBAC + 审计日志**用于**团队共享安装**，并内置 Helm 市场和镜像仓库管理。
 - **选择 Headlamp**：如果你想要一个**简洁、插件友好的 Web 仪表盘**，具有强大的 **OIDC** 支持，也可以作为集群内插件运行。
@@ -203,7 +203,7 @@ k7s、[Lens](https://k8slens.dev/)、[KubePi](https://github.com/1Panel-dev/Kube
 ### 跨领域
 - **Node drain** —— 进度条带在导航时不被销毁；遇到 PDB 阻塞时会显式提示
 - **Port forward** —— 支持 Service 或 Pod，活动转发显示在底部条带上，点击即可复制 `localhost:<port>`，错误会高亮
-- **MCP server**（`k7s-mcp`）—— 通过 stdio [Model Context Protocol](https://modelcontextprotocol.io/) 把同一套 K8s 能力暴露给 AI 客户端（Claude Desktop、Cursor、Claude Code 等），79 个工具，覆盖读、写、port-forward 与 shell 会话
+- **MCP server**（`k7s-mcp`）—— 通过 stdio [Model Context Protocol](https://modelcontextprotocol.io/) 把同一套 K8s 能力暴露给 AI 客户端（Claude Desktop、Cursor、Claude Code 等），91 个工具，覆盖读、写、port-forward 与 shell 会话
 
 ---
 
@@ -211,7 +211,7 @@ k7s、[Lens](https://k8slens.dev/)、[KubePi](https://github.com/1Panel-dev/Kube
 
 k7s 内置了一个 **AI 智能代理** —— 应用内的聊天面板，可以用自然语言诊断、检查和操作你的集群。它运行完整的 **ReAct（推理 + 行动）循环**：LLM 思考 → 选择工具 → 需要时请求权限 → 执行 → 观察结果 → 重复，直到任务完成。
 
-> 内置 AI 助手与 MCP server 是**独立的**。MCP server 将 79 个工具暴露给外部 AI 客户端（Claude Desktop、Cursor 等）；内置助手是 **k7s 内部**的自包含代理，拥有独立的 ~12 个优化工具、权限门控、技能和记忆系统。
+> 内置 AI 助手与 MCP server 是**独立的**。MCP server 将 91 个工具暴露给外部 AI 客户端（Claude Desktop、Cursor 等）；内置助手是 **k7s 内部**的自包含代理，拥有独立的 ~12 个优化工具、权限门控、技能和记忆系统。
 
 ### 截图
 
@@ -262,7 +262,7 @@ API Key 存储在 **系统钥匙串**（macOS Keychain / Linux Secret Service）
 
 ### 内置工具（~12 个）
 
-代理拥有独立的优化工具集，与 MCP server 的 79 个工具分开：
+代理拥有独立的优化工具集，与 MCP server 的 91 个工具分开：
 
 | 分组 | 工具 | 说明 |
 |---|---|---|
@@ -324,7 +324,7 @@ k7s 可以通过 Webhook 将 AI 生成的告警和摘要转发到你的团队聊
 
 ---
 
-## 🤖 MCP server — 79 个工具
+## 🤖 MCP server — 91 个工具
 
 k7s 提供两种 MCP 传输方式，让你可以通过 AI 客户端（如 Claude Desktop、Cursor、Claude Code）控制真实 K8s 集群。
 
@@ -366,9 +366,9 @@ k7s-web --addr 0.0.0.0:8080
 }
 ```
 
-### 工具一览（约 79 个）
+### 工具一览（91 个）
 
-覆盖：资源浏览、详情查看、YAML 编辑、日志流、Shell 会话、Node Shell、Helm 操作、镜像仓库、SBOM、安全审计、Prometheus 查询、Grafana 仪表盘、AlertManager、Loki 日志等。
+覆盖：资源浏览、详情查看、YAML 编辑、日志流、Shell 会话、Node Shell、Helm 操作、镜像仓库、SBOM、安全审计、Prometheus 查询、Grafana 仪表盘、AlertManager、Loki 日志、批量查询、资源 Diff、HPA 状态、网络策略审计、RBAC 查询、成本估算等。
 
 ### 快速冒烟测试
 
@@ -675,7 +675,7 @@ export const gpuMonitorPlugin = definePlugin({
 
 ## 🗺 路线图
 
-- [x] MCP server（79 个工具）
+- [x] MCP server（91 个工具）
 - [x] SBOM 生成
 - [x] 离线镜像传输
 - [x] 安全审计
