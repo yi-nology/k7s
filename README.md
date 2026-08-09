@@ -19,6 +19,7 @@ Targets **macOS** and **Linux** (desktop), runs in **any browser** via `k7s-web`
 - [🚀 Quick start](#-quick-start)
 - [🤔 Why k7s (vs Lens / KubePi / Headlamp)](#-why-k7s-vs-lens--kubepi--headlamp)
 - [✨ Features](#-features)
+- [🧠 Built-in AI Assistant](#-built-in-ai-assistant)
 - [🤖 MCP server — 79 tools](#-mcp-server--79-tools)
 - [🖼 Three ways to run](#-three-ways-to-run)
 - [📸 Screenshots](#-screenshots)
@@ -245,6 +246,123 @@ Bulk-aware context menus shared between the detail "⋯" menu and the table righ
 
 ---
 
+## 🧠 Built-in AI Assistant
+
+k7s ships an **embedded AI agent** — a chat panel inside the app that can diagnose, inspect, and operate your cluster using natural language. It runs a full **ReAct (Reasoning + Acting) loop**: the LLM thinks, picks a tool, asks for permission if needed, executes, observes the result, and repeats until the task is done.
+
+> The built-in AI assistant is **separate from** the MCP server. The MCP server exposes 79 tools to external AI clients (Claude Desktop, Cursor, etc.); the built-in assistant is a self-contained agent **inside k7s** with its own ~12 optimized tools, permission gate, skills, and memory.
+
+### Screenshots
+
+| AI Chat Panel | AI Settings |
+| --- | --- |
+| ![AI Chat Panel](docs/screenshots/ai-02-chat-panel.png) | ![AI Settings](docs/screenshots/ai-03-settings.png) |
+
+### How it works
+
+```
+User prompt
+    ↓
+LLM (reasoning) → selects tool → Permission Gate → execute → observe result
+    ↓                                                          ↓
+    ← ← ← ← ← ← ← ← loop until done ← ← ← ← ← ← ← ← ← ←
+    ↓
+Final answer (Markdown)
+```
+
+### Supported LLM providers
+
+Any **OpenAI-compatible** API works. Tested providers:
+
+| Provider | Base URL | Model examples |
+|---|---|---|
+| **DeepSeek** | `https://api.deepseek.com/v1` | `deepseek-chat`, `deepseek-reasoner` |
+| **OpenAI** | `https://api.openai.com/v1` | `gpt-4o-mini`, `gpt-4o` |
+| **Kimi (Moonshot)** | `https://api.moonshot.cn/v1` | `kimi-k2` |
+| **Zhipu (GLM)** | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
+| **Ollama** | `http://localhost:11434/v1` | `qwen2.5`, `llama3`, any local model |
+| **Custom** | any OpenAI-compatible URL | — |
+
+API keys are stored encrypted in the **OS keychain** (macOS Keychain / Linux Secret Service) — never in plaintext config files.
+
+### Permission modes
+
+The permission gate is the hard boundary between the AI and your cluster:
+
+| Mode | Read tools | Write tools | Use case |
+|---|---|---|---|
+| **ReadOnly** | ✅ auto | ❌ blocked | Safe exploration, no cluster mutations |
+| **ReadConfirmWrite** (default) | ✅ auto | 🔔 pause for approval | Daily driver — you stay in control |
+| **FullAuto** | ✅ auto | ✅ auto | Power user / demo — use with care |
+
+Write tools include: `scale_workload`, `restart_workload`, `delete_resource`, `apply_manifest`, `cordon_node`, `drain_node`. In **ReadConfirmWrite** mode, the agent pauses and shows a confirmation card with the tool name and arguments before executing.
+
+> **Web mode** (`k7s-web`) forces **ReadOnly** regardless of config — the AI can never mutate your cluster through the web UI.
+
+### Built-in tools (~12)
+
+The agent has its own optimized tool set, independent from the MCP server's 79 tools:
+
+| Group | Tools | Description |
+|---|---|---|
+| **Read** | `list_resources`, `get_resource`, `describe_resource`, `get_events`, `get_pod_logs`, `top_pods`, `top_nodes` | Browse and inspect any K8s resource |
+| **Diag** | `diagnose_cluster`, `suggest_fix`, `cluster_health` | Structured cluster diagnostics, actionable fixes, 0–100 health score |
+| **Write** | `scale_workload`, `restart_workload`, `delete_resource`, `apply_manifest` | Mutating operations (permission-gated) |
+
+### Skills — reusable prompt templates
+
+Skills are pre-built instruction templates that steer the agent toward a specific task strategy. Each skill carries a system prompt suffix, a tool whitelist, and example conversations.
+
+**Built-in skills:**
+
+| Skill | Category | What it does |
+|---|---|---|
+| **CrashLoopBackOff 诊断** | Troubleshooting | Systematic diagnosis: events → previous logs → root cause → fix steps |
+| **PDB 安全 Drain** | Operations | Check PDB constraints before draining a node; never drains without approval |
+| **滚动升级 Checklist** | Deployment | Guide through rolling upgrade: check strategy → update image → monitor rollout |
+| **资源压力分析** | Analysis | Find CPU/memory pressure by node and namespace; identify resource hogs |
+
+Users can install custom skills as JSON files under `<data_dir>/skills/`.
+
+### Memory
+
+The agent remembers conversation context across turns within a session. The memory panel lets you view, search, and clear stored memories.
+
+### IM integrations (webhook alerts)
+
+k7s can forward AI-generated alerts and summaries to your team chat via webhook:
+
+| Platform | Config |
+|---|---|
+| **WeChat Work** (企业微信) | Webhook URL |
+| **DingTalk** (钉钉) | Webhook URL + optional signing secret |
+| **Feishu / Lark** (飞书) | Webhook URL |
+
+### Scheduled AI tasks
+
+Create cron-scheduled AI tasks that run automatically — e.g., "every morning at 9am, check cluster health and send a summary to DingTalk".
+
+### Quick setup
+
+1. Open **Settings → AI** in k7s
+2. Toggle **Enable AI Assistant**
+3. Enter your LLM provider's **Base URL** and **Model**
+4. Enter your **API Key** (stored encrypted in OS keychain)
+5. Choose a **Permission mode** (default: ReadConfirmWrite)
+6. Click the ✦ icon in the sidebar to open the AI chat panel
+
+### Example prompts
+
+| Prompt | What the agent does |
+|---|---|
+| *"Diagnose why payment-pod is CrashLooping"* | Runs CrashLoop skill: events → logs → root cause → fix |
+| *"Show me all pods in production namespace eating more than 1Gi RAM"* | `list_resources` + `top_pods` → filtered report |
+| *"What's the cluster health score?"* | `cluster_health` → 0–100 score + letter grade + breakdown |
+| *"Scale deployment/nginx to 5 replicas"* | Permission gate → `scale_workload` → confirm → execute |
+| *"Suggest fixes for the failing cronjob"* | `diagnose_cluster` + `suggest_fix` → actionable steps |
+
+---
+
 ## 🤖 MCP server — 79 tools
 
 k7s ships a first-party MCP server called **`k7s-mcp`** that exposes the **same Kubernetes plumbing** the desktop and web shells use, over the [Model Context Protocol](https://modelcontextprotocol.io/). AI clients (Claude Desktop, Cursor, Claude Code, …) can drive a real cluster through it.
@@ -374,6 +492,14 @@ Plotly-powered charts for any node or pod: CPU, memory, network and load, plus f
 | Metrics | Dashboard |
 | --- | --- |
 | ![Metrics](docs/screenshots/06-metrics.png) | ![Dashboard](docs/screenshots/07-dashboard.png) |
+
+### 🧠 AI Assistant
+
+The built-in AI chat panel — click the ✦ icon to open. Ask questions in natural language, the agent diagnoses and operates your cluster through a ReAct loop with permission gating.
+
+| AI Chat Panel | AI Settings (Desktop only) |
+| --- | --- |
+| ![AI Chat Panel](docs/screenshots/ai-02-chat-panel.png) | ![AI Settings](docs/screenshots/ai-03-settings.png) |
 
 ---
 

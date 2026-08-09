@@ -19,6 +19,7 @@
 - [🚀 快速开始](#-快速开始)
 - [🤔 为什么选择 k7s（与 Lens / KubePi / Headlamp 对比）](#-为什么选择-k7s与-lens--kubepi--headlamp-对比)
 - [✨ 功能](#-功能)
+- [🧠 内置 AI 助手](#-内置-ai-助手)
 - [🤖 MCP server — 79 个工具](#-mcp-server--79-个工具)
 - [🖼 三种运行方式](#-三种运行方式)
 - [📸 截图](#-截图)
@@ -153,25 +154,6 @@ k7s、[Lens](https://k8slens.dev/)、[KubePi](https://github.com/1Panel-dev/Kube
 
 ---
 
-## ⚡ 快速安装
-
-**macOS (Apple Silicon) / Linux — 一行命令：**
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | bash
-```
-
-脚本自动检测操作系统和架构，下载最新版本并安装：
-- **macOS**（Apple Silicon）：挂载 `.dmg` 并将 `k7s.app` 复制到 `/Applications`
-- **Linux (deb)**：通过 dpkg 安装 `.deb` 包（Debian/Ubuntu）
-- **Linux (rpm)**：通过 dnf/yum 安装 `.rpm` 包（Fedora/RHEL/CentOS）
-- **Linux (回退)**：安装 AppImage 到 `~/.local/bin/`
-- 支持 **amd64** 和 **arm64** 架构
-
-**Windows / macOS Intel：** 从 [GitHub Releases](https://github.com/zy84338719/k7s/releases) 下载对应安装包。
-
----
-
 ## ✨ 功能
 
 ### 核心 Shell
@@ -222,6 +204,123 @@ curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | ba
 - **Node drain** —— 进度条带在导航时不被销毁；遇到 PDB 阻塞时会显式提示
 - **Port forward** —— 支持 Service 或 Pod，活动转发显示在底部条带上，点击即可复制 `localhost:<port>`，错误会高亮
 - **MCP server**（`k7s-mcp`）—— 通过 stdio [Model Context Protocol](https://modelcontextprotocol.io/) 把同一套 K8s 能力暴露给 AI 客户端（Claude Desktop、Cursor、Claude Code 等），79 个工具，覆盖读、写、port-forward 与 shell 会话
+
+---
+
+## 🧠 内置 AI 助手
+
+k7s 内置了一个 **AI 智能代理** —— 应用内的聊天面板，可以用自然语言诊断、检查和操作你的集群。它运行完整的 **ReAct（推理 + 行动）循环**：LLM 思考 → 选择工具 → 需要时请求权限 → 执行 → 观察结果 → 重复，直到任务完成。
+
+> 内置 AI 助手与 MCP server 是**独立的**。MCP server 将 79 个工具暴露给外部 AI 客户端（Claude Desktop、Cursor 等）；内置助手是 **k7s 内部**的自包含代理，拥有独立的 ~12 个优化工具、权限门控、技能和记忆系统。
+
+### 截图
+
+| AI 聊天面板 | AI 设置 |
+| --- | --- |
+| ![AI 聊天面板](docs/screenshots/ai-02-chat-panel.png) | ![AI 设置](docs/screenshots/ai-03-settings.png) |
+
+### 工作原理
+
+```
+用户输入
+    ↓
+LLM（推理）→ 选择工具 → 权限门控 → 执行 → 观察结果
+    ↓                                          ↓
+    ← ← ← ← ← ← ← 循环直到完成 ← ← ← ← ← ← ←
+    ↓
+最终回答（Markdown）
+```
+
+### 支持的 LLM 提供商
+
+任何 **OpenAI 兼容** API 均可使用。已测试的提供商：
+
+| 提供商 | Base URL | 模型示例 |
+|---|---|---|
+| **DeepSeek** | `https://api.deepseek.com/v1` | `deepseek-chat`、`deepseek-reasoner` |
+| **OpenAI** | `https://api.openai.com/v1` | `gpt-4o-mini`、`gpt-4o` |
+| **Kimi（月之暗面）** | `https://api.moonshot.cn/v1` | `kimi-k2` |
+| **智谱（GLM）** | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
+| **Ollama** | `http://localhost:11434/v1` | `qwen2.5`、`llama3`、任意本地模型 |
+| **自定义** | 任意 OpenAI 兼容 URL | — |
+
+API Key 存储在 **系统钥匙串**（macOS Keychain / Linux Secret Service）中加密保存 —— 永远不会以明文写入配置文件。
+
+### 权限模式
+
+权限门控是 AI 与集群之间的硬边界：
+
+| 模式 | 读操作 | 写操作 | 适用场景 |
+|---|---|---|---|
+| **ReadOnly**（只读） | ✅ 自动执行 | ❌ 阻止 | 安全探索，不修改集群 |
+| **ReadConfirmWrite**（默认） | ✅ 自动执行 | 🔔 暂停等待确认 | 日常使用 —— 你始终掌控 |
+| **FullAuto**（全自动） | ✅ 自动执行 | ✅ 自动执行 | 高级用户 / 演示 —— 请谨慎使用 |
+
+写操作包括：`scale_workload`、`restart_workload`、`delete_resource`、`apply_manifest`、`cordon_node`、`drain_node`。在 **ReadConfirmWrite** 模式下，代理会暂停并显示确认卡片（含工具名称和参数），等待你确认后才执行。
+
+> **Web 模式**（`k7s-web`）强制使用 **ReadOnly** —— AI 无法通过 Web UI 修改你的集群。
+
+### 内置工具（~12 个）
+
+代理拥有独立的优化工具集，与 MCP server 的 79 个工具分开：
+
+| 分组 | 工具 | 说明 |
+|---|---|---|
+| **读取** | `list_resources`、`get_resource`、`describe_resource`、`get_events`、`get_pod_logs`、`top_pods`、`top_nodes` | 浏览和检查任意 K8s 资源 |
+| **诊断** | `diagnose_cluster`、`suggest_fix`、`cluster_health` | 结构化集群诊断、可操作修复建议、0–100 健康评分 |
+| **写入** | `scale_workload`、`restart_workload`、`delete_resource`、`apply_manifest` | 变更操作（受权限门控保护） |
+
+### 技能（Skills）—— 可复用的提示词模板
+
+技能是预构建的指令模板，引导代理采用特定的任务策略。每个技能包含系统提示词后缀、工具白名单和示例对话。
+
+**内置技能：**
+
+| 技能 | 分类 | 功能 |
+|---|---|---|
+| **CrashLoopBackOff 诊断** | 故障排查 | 系统性诊断：events → previous logs → 根因分析 → 修复步骤 |
+| **PDB 安全 Drain** | 运维操作 | drain 前检查 PDB 约束，确保不中断关键服务 |
+| **滚动升级 Checklist** | 部署 | 引导滚动升级：检查策略 → 更新镜像 → 监控 rollout |
+| **资源压力分析** | 分析 | 按节点和命名空间分析 CPU/内存压力，找出资源大户 |
+
+用户可以将自定义技能作为 JSON 文件安装到 `<data_dir>/skills/` 目录下。
+
+### 记忆系统
+
+代理在会话内跨轮次记住对话上下文。记忆面板支持查看、搜索和清除存储的记忆。
+
+### IM 集成（Webhook 告警）
+
+k7s 可以通过 Webhook 将 AI 生成的告警和摘要转发到你的团队聊天工具：
+
+| 平台 | 配置 |
+|---|---|
+| **企业微信** | Webhook URL |
+| **钉钉** | Webhook URL + 可选签名密钥 |
+| **飞书** | Webhook URL |
+
+### 定时 AI 任务
+
+创建基于 Cron 的定时 AI 任务，自动执行 —— 例如"每天早上 9 点检查集群健康状况并发送摘要到钉钉"。
+
+### 快速配置
+
+1. 在 k7s 中打开 **设置 → AI**
+2. 开启 **AI 助手**
+3. 输入 LLM 提供商的 **Base URL** 和 **模型名称**
+4. 输入 **API Key**（加密存储在系统钥匙串中）
+5. 选择**权限模式**（默认：ReadConfirmWrite）
+6. 点击侧边栏的 ✦ 图标打开 AI 聊天面板
+
+### 示例提问
+
+| 提问 | 代理行为 |
+|---|---|
+| *"诊断一下 payment-pod 为什么 CrashLoop"* | 运行 CrashLoop 技能：events → logs → 根因 → 修复建议 |
+| *"列出 production 命名空间中内存超过 1Gi 的 Pod"* | `list_resources` + `top_pods` → 过滤报告 |
+| *"集群健康评分多少？"* | `cluster_health` → 0–100 分 + 字母等级 + 分项明细 |
+| *"把 deployment/nginx 扩容到 5 个副本"* | 权限门控 → `scale_workload` → 确认 → 执行 |
+| *"给失败的 cronjob 提供修复建议"* | `diagnose_cluster` + `suggest_fix` → 可操作步骤 |
 
 ---
 
@@ -351,6 +450,14 @@ docker run -d --name k7s-mcp \
 基于 Plotly 的 Node / Pod 指标图：CPU、内存、网络、Load，以及文件系统用量；数据通过 port-forward 的 metrics 端点实时刷新。
 
 ![Metrics](docs/screenshots/06-metrics.png)
+
+### 🧠 AI 助手
+
+内置 AI 聊天面板 —— 点击 ✦ 图标打开。用自然语言提问，代理通过 ReAct 循环和权限门控来诊断和操作你的集群。
+
+| AI 聊天面板 | AI 设置（仅桌面端） |
+| --- | --- |
+| ![AI 聊天面板](docs/screenshots/ai-02-chat-panel.png) | ![AI 设置](docs/screenshots/ai-03-settings.png) |
 
 ---
 
