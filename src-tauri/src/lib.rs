@@ -248,6 +248,18 @@ pub fn run() {
             commands::ai_cron_delete,
             commands::ai_cron_toggle,
             commands::ai_cron_history,
+            // Embedded / local models.
+            commands::ai_discover_local_models,
+            commands::ai_local_model_presets,
+            commands::ai_check_local_model,
+            // Browser tools.
+            commands::ai_fetch_url,
+            commands::ai_web_search,
+            // Sessions.
+            commands::ai_session_list,
+            commands::ai_session_create,
+            commands::ai_session_delete,
+            commands::ai_session_queue_size,
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");

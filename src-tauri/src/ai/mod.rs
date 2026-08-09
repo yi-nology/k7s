@@ -27,17 +27,23 @@
 //! settings is enough — no recompile, no separate binary.
 
 pub mod agent;
+pub mod browser;
 pub mod config;
 pub mod context;
 pub mod cron;
+pub mod embedded_models;
 pub mod error;
+pub mod hooks;
 pub mod im;
 pub mod llm;
 pub mod memory;
 pub mod permission;
 pub mod planner;
+pub mod plugins;
 pub mod secret;
+pub mod session;
 pub mod skills;
+pub mod swarm;
 pub mod tools;
 
 pub use agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};

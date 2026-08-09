@@ -4,6 +4,7 @@
 //! request/response operations plus starting/stopping log streams.
 
 pub mod ai;
+pub mod ai_extra;
 pub mod core;
 pub mod cron;
 pub mod forward;
@@ -18,6 +19,7 @@ pub mod storage;
 
 // Re-export all commands so `commands::func` paths in lib.rs still work.
 pub use ai::*;
+pub use ai_extra::*;
 pub use core::*;
 pub use cron::*;
 pub use forward::*;
