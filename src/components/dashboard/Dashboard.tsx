@@ -252,14 +252,11 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
           // a blank tile.
           const label = kindLabelFor(k.id, [], locale) ?? k.id;
           return (
-            <div
+            <button
+              type="button"
               key={k.id}
               className={styles.resourceCard}
               onClick={() => {
-                // Jump to the kind's table — closing the overlay so the
-                // table is actually visible behind it. setNav alone would
-                // change the active kind but leave the dashboard covering
-                // everything, which was the point of the audit fix.
                 setNav(k.id);
                 if (onClose) onClose();
                 else closeOverlay();
@@ -269,7 +266,7 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
               <div className={styles.resourceLabel} style={{ color: k.color }}>
                 {label}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

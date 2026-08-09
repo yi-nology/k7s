@@ -23,9 +23,9 @@ export function SBOMPanel({ onClose }: { onClose?: () => void }) {
     try {
       // Let the backend determine the appropriate temp directory for the platform
       const path = await getProvider().sbomExport(sbom.id, `sbom-${sbom.id}.json`);
-      setSuccess(`Exported to: ${path}`);
+      setSuccess(t('sbom.export.success', path));
     } catch (e) {
-      setError(`Export failed: ${e}`);
+      setError(t('sbom.export.failed', String(e)));
     }
   };
 
@@ -57,7 +57,7 @@ export function SBOMPanel({ onClose }: { onClose?: () => void }) {
           </button>
         </div>
         <div className={styles.actions}>
-          <button onClick={handleExport} title="Export">
+          <button onClick={handleExport} title={t('sbom.export.button', 'Export')}>
             <Download size={16} />
           </button>
           {onClose && (

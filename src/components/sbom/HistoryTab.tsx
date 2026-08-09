@@ -27,7 +27,7 @@ export function HistoryTab({ onSelect }: Props) {
       const sbom = await getProvider().sbomGet(id);
       onSelect(sbom);
     } catch (e) {
-      setError(`Failed to load SBOM: ${e}`);
+      setError(t('sbom.historyLoadFailed', String(e)));
     }
   };
 

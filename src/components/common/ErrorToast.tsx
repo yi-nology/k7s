@@ -10,6 +10,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AlertCircle, X } from 'lucide-react';
 import { cx } from '../../lib/cx';
+import { useTranslation } from '../../hooks/useI18n';
 import styles from './ErrorToast.module.css';
 
 /** A single toast notification. */
@@ -31,6 +32,7 @@ interface ErrorToastProps {
 }
 
 export function ErrorToast({ toasts, onDismiss }: ErrorToastProps) {
+  const { t } = useTranslation();
   const [internal, setInternal] = useState<InternalToast[]>([]);
 
   // Sync incoming toasts with internal state (add new, start exit on removed).
@@ -77,7 +79,7 @@ export function ErrorToast({ toasts, onDismiss }: ErrorToastProps) {
   if (internal.length === 0) return null;
 
   return (
-    <div className={styles.container} role="region" aria-label="Notifications">
+    <div className={styles.container} role="region" aria-label={t('notifications.ariaLabel')}>
       {internal.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onClose={onDismiss} onExited={handleAnimationEnd} />
       ))}
@@ -94,6 +96,7 @@ interface ToastItemProps {
 /** A single toast card. Memoized: multiple toasts stack and only the changed
  *  toast should re-render when the list is updated. */
 const ToastItem = React.memo(function ToastItem({ toast, onClose, onExited }: ToastItemProps) {
+  const { t } = useTranslation();
   // Auto-dismiss after duration.
   useEffect(() => {
     if (toast.duration <= 0 || toast.exiting) return;
@@ -119,7 +122,7 @@ const ToastItem = React.memo(function ToastItem({ toast, onClose, onExited }: To
         type="button"
         className={styles.close}
         onClick={() => onClose(toast.id)}
-        aria-label="Dismiss notification"
+        aria-label={t('notifications.dismiss')}
       >
         <X size={14} aria-hidden="true" />
       </button>

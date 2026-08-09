@@ -793,13 +793,13 @@ pub async fn gather_replicaset(
     );
 
     // Owner references (usually a Deployment)
-    let owners: Vec<Vec<String>> = rs
+    let owners: Vec<Vec<Cell>> = rs
         .metadata
         .owner_references
         .as_ref()
         .map(|refs| {
             refs.iter()
-                .map(|r| vec![r.kind.clone(), r.name.clone()])
+                .map(|r| vec![c(&r.kind), c(&r.name)])
                 .collect()
         })
         .unwrap_or_default();

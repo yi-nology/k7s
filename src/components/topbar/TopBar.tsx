@@ -21,27 +21,31 @@ import { groupLabel, kindLabelFor, LOCALES, LOCALE_LABELS, type Locale } from '.
 /** Human-readable labels for each overlay key, used in the breadcrumb when an
  *  overlay is active.  Keys not listed here fall back to a title-cased version
  *  of the raw key string. */
-const OVERLAY_LABELS: Partial<Record<OverlayKey, string>> = {
-  'helm-market': 'Helm Market',
-  'pod-files': 'Pod Files',
-  'image-repos': 'Image Repos',
-  'image-transfer': 'Image Transfer',
-  templates: 'Templates',
-  dashboard: 'Dashboard',
-  metrics: 'Metrics Explorer',
-  grafana: 'Grafana',
-  endpoints: 'Endpoints',
-  topology: 'Topology',
-  'ingress-routes': 'Ingress Routes',
-  alerting: 'Alerting',
-  audit: 'Audit',
-  'ingress-editor': 'Ingress Editor',
-  diff: 'Diff',
-  plugins: 'Plugins',
-};
+function getOverlayLabels(t: ReturnType<typeof useTranslation>['t']): Partial<Record<OverlayKey, string>> {
+  return {
+    'helm-market': t('overlayLabels.helmMarket'),
+    'pod-files': t('overlayLabels.podFiles'),
+    'image-repos': t('overlayLabels.imageRepos'),
+    'image-transfer': t('overlayLabels.imageTransfer'),
+    templates: t('overlayLabels.templates'),
+    dashboard: t('overlayLabels.dashboard'),
+    metrics: t('overlayLabels.metricsExplorer'),
+    grafana: t('overlayLabels.grafana'),
+    endpoints: t('overlayLabels.endpoints'),
+    topology: t('overlayLabels.topology'),
+    'ingress-routes': t('overlayLabels.ingressRoutes'),
+    alerting: t('overlayLabels.alerting'),
+    audit: t('overlayLabels.audit'),
+    'ingress-editor': t('overlayLabels.ingressEditor'),
+    diff: t('overlayLabels.diff'),
+    plugins: t('overlayLabels.plugins'),
+    sbom: t('overlayLabels.sbom'),
+  };
+}
 
-function overlayLabel(key: OverlayKey): string {
-  return OVERLAY_LABELS[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
+function overlayLabel(key: OverlayKey, t: ReturnType<typeof useTranslation>['t']): string {
+  const labels = getOverlayLabels(t);
+  return labels[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 export function TopBar() {
@@ -108,7 +112,7 @@ export function TopBar() {
         {overlay !== null ? (
           <>
             {cluster} <span className={styles.sep}>/</span>{' '}
-            <span className={styles.kind}>{overlayLabel(overlay)}</span>
+            <span className={styles.kind}>{overlayLabel(overlay, t)}</span>
           </>
         ) : (
           <>

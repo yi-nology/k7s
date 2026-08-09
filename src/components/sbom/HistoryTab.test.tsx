@@ -267,7 +267,8 @@ describe('HistoryTab', () => {
       view.click(view.container.querySelector('tbody tr')! as HTMLElement);
 
       await vi.waitFor(() => {
-        expect(view.queryByText(/Failed to load SBOM/)).not.toBeNull();
+        // The mock t() returns the fallback arg (the error string).
+        expect(view.queryByText(/not found/)).not.toBeNull();
       });
     });
   });

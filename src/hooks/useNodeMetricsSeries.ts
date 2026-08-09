@@ -31,7 +31,6 @@ const MAX_POINTS = 60; // ~15min at the 15s poll interval
 const POLL_MS = 15_000;
 
 export function useNodeMetricsSeries(node: string | undefined): NodeMetricsPoint[] {
-  const nodeMetrics = useStore((s) => s.nodeMetrics);
   const seriesRef = useRef<NodeMetricsPoint[]>([]);
   const [tick, setTick] = useState(0);
 
@@ -45,7 +44,8 @@ export function useNodeMetricsSeries(node: string | undefined): NodeMetricsPoint
       return;
     }
     const sample = () => {
-      const m = nodeMetrics[node];
+      // Read from the live store to avoid stale closure over nodeMetrics.
+      const m = useStore.getState().nodeMetrics[node];
       if (!m) return;
       const now = Date.now();
       const last = seriesRef.current[seriesRef.current.length - 1];

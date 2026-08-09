@@ -31,7 +31,13 @@ export function useAsyncEffect(effect: AsyncEffect, deps: React.DependencyList):
   useEffect(() => {
     mounted.current = true;
     const isMounted = () => mounted.current;
-    void effect(isMounted);
+    // Catch errors to prevent unhandled promise rejections. Callers should
+    // handle their own errors inside the effect; this is a safety net.
+    Promise.resolve(effect(isMounted)).catch((e) => {
+      if (mounted.current) {
+        console.error('[useAsyncEffect] unhandled error:', e);
+      }
+    });
     return () => {
       mounted.current = false;
     };

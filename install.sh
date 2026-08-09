@@ -106,6 +106,11 @@ install_macos() {
 
   hdiutil detach "$mount_point" -quiet 2>/dev/null || true
   rmdir "$mount_point" 2>/dev/null || true
+
+  # Remove Gatekeeper quarantine attribute so the app opens without
+  # the "k7s is damaged" error on unsigned builds.
+  info "Removing Gatekeeper quarantine attribute..."
+  xattr -cr /Applications/k7s.app 2>/dev/null || true
 }
 
 install_linux() {

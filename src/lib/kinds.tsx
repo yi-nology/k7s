@@ -354,8 +354,10 @@ export const GROUP_ORDER: NavGroup[] = [
 export const KINDS_WITH_PROPERTIES: ReadonlySet<string> = new Set<string>([
   'pods',
   'deployments',
-  'services',
+  'replicasets',
   'statefulsets',
+  'daemonsets',
+  'services',
   'nodes',
   'helm',
   'ingresses',

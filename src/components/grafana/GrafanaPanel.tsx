@@ -22,12 +22,14 @@ import type {
 import { useTranslation } from '../../hooks/useI18n';
 import styles from './GrafanaPanel.module.css';
 
-const RANGE_OPTIONS = [
-  { label: 'Last 1h', minutes: 60 },
-  { label: 'Last 6h', minutes: 360 },
-  { label: 'Last 24h', minutes: 1440 },
-  { label: 'Last 7d', minutes: 10080 },
-];
+function getRangeOptions(t: (key: string) => string) {
+  return [
+    { label: t('grafanaRange.last1h'), minutes: 60 },
+    { label: t('grafanaRange.last6h'), minutes: 360 },
+    { label: t('grafanaRange.last24h'), minutes: 1440 },
+    { label: t('grafanaRange.last7d'), minutes: 10080 },
+  ];
+}
 
 export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
@@ -254,7 +256,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
               <div className={styles.dashHeader}>
                 <h3>{t('grafana.dashboards', 'Preset dashboards')}</h3>
                 <div className={styles.rangePresets}>
-                  {RANGE_OPTIONS.map((r) => (
+                  {getRangeOptions(t).map((r) => (
                     <button
                       key={r.label}
                       className={
@@ -323,7 +325,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                   className={styles.iframe}
                   src={iframeUrl}
                   title="Grafana"
-                  sandbox="allow-same-origin allow-scripts allow-popups"
+                  sandbox="allow-same-origin allow-scripts"
                 />
               )}
             </>

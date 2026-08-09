@@ -11,9 +11,11 @@
 import { useStore } from '../../store';
 import { cx } from '../../lib/cx';
 import { kindMeta, type KindId } from '../../lib/kinds';
+import { useTranslation } from '../../hooks/useI18n';
 import styles from './TabStrip.module.css';
 
 export function TabStrip() {
+  const { t } = useTranslation();
   const tabs = useStore((s) => s.detailTabs);
   const activeUid = useStore((s) => s.activeDetailTabUid);
   const setActive = useStore((s) => s.setActiveDetailTab);
@@ -24,7 +26,7 @@ export function TabStrip() {
   if (tabs.length <= 1) return null;
 
   return (
-    <div className={styles.strip} role="tablist" aria-label="Detail tabs">
+    <div className={styles.strip} role="tablist" aria-label={t('detailTabs.ariaLabel')}>
       {tabs.map((tab) => {
         const meta = kindMeta(tab.kind as KindId, customKinds);
         const icon = meta?.icon ?? '?';
@@ -55,7 +57,7 @@ export function TabStrip() {
                 closeTab(tab.uid);
               }}
               aria-label={`Close ${tab.row.name} tab`}
-              title="Close tab"
+              title={t('detailTabs.closeTab')}
             >
               x
             </button>

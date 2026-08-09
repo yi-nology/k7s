@@ -133,16 +133,22 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
               {report?.findings.length ?? 0}
             </span>
           </div>
-          {SEVERITY_ORDER.map((sev) => (
-            <div
-              key={sev}
-              className={cx(styles.severityFilter, severityFilter === sev && styles.severityFilterActive)}
-              onClick={() => setSeverityFilter(sev)}
-            >
-              <span>{sev}</span>
-              <span className={`${styles.severityBadge} ${severityClass(sev)}`}>{counts[sev]}</span>
-            </div>
-          ))}
+          {SEVERITY_ORDER.map((sev) => {
+            const sevLabel = sev === 'Critical' ? t('securityExtra.critical')
+              : sev === 'High' ? t('securityExtra.high')
+              : sev === 'Medium' ? t('securityExtra.medium')
+              : t('securityExtra.low');
+            return (
+              <div
+                key={sev}
+                className={cx(styles.severityFilter, severityFilter === sev && styles.severityFilterActive)}
+                onClick={() => setSeverityFilter(sev)}
+              >
+                <span>{sevLabel}</span>
+                <span className={`${styles.severityBadge} ${severityClass(sev)}`}>{counts[sev]}</span>
+              </div>
+            );
+          })}
         </aside>
         <main className={styles.main}>
           {loading && (
@@ -177,7 +183,11 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
                     <span
                       className={`${styles.findingSeverity} ${severityClass(finding.severity)}`}
                     >
-                      {finding.severity}
+                      {finding.severity === 'Critical' ? t('securityExtra.critical')
+                        : finding.severity === 'High' ? t('securityExtra.high')
+                        : finding.severity === 'Medium' ? t('securityExtra.medium')
+                        : finding.severity === 'Low' ? t('securityExtra.low')
+                        : finding.severity}
                     </span>
                     <span className={styles.findingMessage}>{finding.message}</span>
                   </div>

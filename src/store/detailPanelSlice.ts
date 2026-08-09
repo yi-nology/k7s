@@ -178,13 +178,24 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
   openDetailTab: (kind, row) =>
     set((s) => {
       const existing = s.detailTabs.find((t) => t.row.uid === row.uid);
-      if (existing) return { activeDetailTabUid: existing.uid, selectedRow: null };
+      if (existing) {
+        return {
+          activeDetailTabUid: existing.uid,
+          nav: existing.kind,
+          selectedRow: existing.row,
+          activeTab: existing.activeTab,
+          ...logResetPatch(),
+        };
+      }
       const uid = crypto.randomUUID();
       const activeTab: DetailTab = row.pod ? 'logs' : 'yaml';
       return {
         detailTabs: [...s.detailTabs, { uid, kind, row, activeTab }],
         activeDetailTabUid: uid,
-        selectedRow: null,
+        nav: kind,
+        selectedRow: row,
+        activeTab,
+        ...logResetPatch(),
       };
     }),
   closeDetailTab: (uid) =>
@@ -192,9 +203,17 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
       const idx = s.detailTabs.findIndex((t) => t.uid === uid);
       if (idx < 0) return {};
       const next = s.detailTabs.filter((t) => t.uid !== uid);
-      if (next.length === 0) return { detailTabs: [], activeDetailTabUid: null };
+      if (next.length === 0) return { detailTabs: [], activeDetailTabUid: null, selectedRow: null };
       const newActive = next[Math.min(idx, next.length - 1)];
-      return { detailTabs: next, activeDetailTabUid: newActive.uid };
+      // Update all related fields so the panel shows the new active tab's data
+      return {
+        detailTabs: next,
+        activeDetailTabUid: newActive.uid,
+        nav: newActive.kind,
+        selectedRow: newActive.row,
+        activeTab: newActive.activeTab,
+        ...logResetPatch(),
+      };
     }),
   pruneDetailTabs: (kind, rows) =>
     set((s) => {
@@ -205,14 +224,21 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
         (t) => t.kind !== kind || rows.some((r) => r.uid === t.row.uid)
       );
       if (filtered.length === s.detailTabs.length) return {};
+      if (filtered.length === 0) return { detailTabs: [], activeDetailTabUid: null, selectedRow: null };
+      const activeStillExists = filtered.some((t) => t.uid === s.activeDetailTabUid);
+      const newActive = activeStillExists
+        ? filtered.find((t) => t.uid === s.activeDetailTabUid)!
+        : filtered[0];
       return {
         detailTabs: filtered,
-        activeDetailTabUid:
-          filtered.length === 0
-            ? null
-            : filtered.some((t) => t.uid === s.activeDetailTabUid)
-              ? s.activeDetailTabUid
-              : filtered[0].uid,
+        activeDetailTabUid: newActive.uid,
+        // Only update related fields if the active tab changed
+        ...(activeStillExists ? {} : {
+          nav: newActive.kind,
+          selectedRow: newActive.row,
+          activeTab: newActive.activeTab,
+          ...logResetPatch(),
+        }),
       };
     }),
   setActiveDetailTab: (uid) =>
@@ -247,13 +273,24 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
       const row = s.selectedRow;
       const kind = s.nav;
       const existing = s.detailTabs.find((t) => t.row.uid === row.uid);
-      if (existing) return { activeDetailTabUid: existing.uid, selectedRow: null };
+      if (existing) {
+        return {
+          activeDetailTabUid: existing.uid,
+          nav: existing.kind,
+          selectedRow: existing.row,
+          activeTab: existing.activeTab,
+          ...logResetPatch(),
+        };
+      }
       const uid = crypto.randomUUID();
       const activeTab: DetailTab = row.pod ? 'logs' : 'yaml';
       return {
         detailTabs: [...s.detailTabs, { uid, kind, row, activeTab }],
         activeDetailTabUid: uid,
-        selectedRow: null,
+        nav: kind,
+        selectedRow: row,
+        activeTab,
+        ...logResetPatch(),
       };
     }),
   jumpTo: (kind, row) => set((s) => jumpPatch(s, kind, row)),

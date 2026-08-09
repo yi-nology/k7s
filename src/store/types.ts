@@ -95,9 +95,6 @@ export const POD_SAMPLE_CAP = 240;
  */
 export const LOG_BUFFER_CAP_DEFAULT = 200;
 
-/** Empty selection state. */
-export const EMPTY_SELECTION: SelectionState = { selected: [], anchor: null };
-
 /** Selection state for multi-row selection. */
 export interface SelectionState {
   selected: string[];

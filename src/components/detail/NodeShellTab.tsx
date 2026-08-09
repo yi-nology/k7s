@@ -37,6 +37,7 @@ export function NodeShellTab() {
 
   const [phase, setPhase] = useState<Phase>({ state: 'idle' });
   const handleRef = useRef<NodeShellHandle | null>(null);
+  const dataSubRef = useRef<{ dispose(): void } | null>(null);
   // The terminal exists only once a session has been asked for; keying on the node
   // means switching nodes tears the old one down.
   const started = phase.state !== 'idle';
@@ -46,6 +47,8 @@ export function NodeShellTab() {
   // privileged pod, and "out of sight" is the worst way for one to be still alive.
   useEffect(() => {
     return () => {
+      dataSubRef.current?.dispose();
+      dataSubRef.current = null;
       handleRef.current?.stop();
       handleRef.current = null;
       sessionRef.current = null;
@@ -80,7 +83,9 @@ export function NodeShellTab() {
       // by now; wire keystrokes and sync the size.
       const term = termRef.current;
       if (term) {
-        term.onData((d) => handle.input(d));
+        // Dispose any previous subscription before creating a new one.
+        dataSubRef.current?.dispose();
+        dataSubRef.current = term.onData((d) => handle.input(d));
         handle.resize(term.cols, term.rows);
       }
     } catch (e) {
@@ -93,6 +98,8 @@ export function NodeShellTab() {
   };
 
   const stop = () => {
+    dataSubRef.current?.dispose();
+    dataSubRef.current = null;
     handleRef.current?.stop();
     handleRef.current = null;
     sessionRef.current = null;

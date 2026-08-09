@@ -164,25 +164,25 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
           {showAdd && (
             <div style={{ marginTop: 4 }}>
               <input
-                placeholder="Name"
+                placeholder={t('auditExtra.namePlaceholder')}
                 value={addName}
                 onChange={(e) => setAddName(e.target.value)}
                 style={inputStyle}
               />
               <input
-                placeholder="URL"
+                placeholder={t('auditExtra.urlPlaceholder')}
                 value={addUrl}
                 onChange={(e) => setAddUrl(e.target.value)}
                 style={inputStyle}
               />
               <input
-                placeholder="Username"
+                placeholder={t('auditExtra.usernamePlaceholder')}
                 value={addUser}
                 onChange={(e) => setAddUser(e.target.value)}
                 style={inputStyle}
               />
               <input
-                placeholder="Password"
+                placeholder={t('auditExtra.passwordPlaceholder')}
                 type="password"
                 value={addPass}
                 onChange={(e) => setAddPass(e.target.value)}
@@ -242,7 +242,7 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
               {t('audit.refresh', 'Refresh')}
             </button>
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-              {loading ? t('audit.loading', 'Loading…') : `${events.length} events`}
+              {loading ? t('audit.loading', 'Loading…') : t('auditExtra.eventsCount', events.length)}
             </span>
           </div>
 

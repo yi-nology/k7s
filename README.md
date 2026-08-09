@@ -619,7 +619,6 @@ docker compose up -d           # → http://localhost:8080
 | `--static-dir` | `dist/` next to the binary | Frontend static files |
 | `--no-mcp` | enabled | Disable the embedded `/mcp` route |
 | `--no-open` | opens browser | Don't auto-open the default browser |
-| `--no-tray` | shows tray | Don't show the system tray icon |
 
 ### Production checklist
 
@@ -642,13 +641,11 @@ The k7s desktop app is built on Tauri 2 (WebView2), which needs **Windows 10+**.
 
 - Auto-selection of a free port (with `--port` override)
 - Auto-open of the default browser (`--no-open` to disable)
-- System tray icon (copy link / quit) — `--no-tray` to disable
 - Embedded MCP server at `/mcp` (AI clients can connect)
 
 ```
 k7s-web --port 8080        # preferred port
 k7s-web --no-open          # don't auto-open the browser
-k7s-web --no-tray          # no system tray
 k7s-web --static ./dist    # use an external directory instead of embedded assets
 ```
 

@@ -56,7 +56,6 @@ export type {
 
 // Re-export values from store/types.ts
 export {
-  EMPTY_SELECTION,
   EMPTY_ROWS,
   rowsFor,
   selectKindCounts,

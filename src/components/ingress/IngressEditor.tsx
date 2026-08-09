@@ -168,13 +168,13 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
       const summary = results
         .map((r) => `${r.kind}/${r.namespace}/${r.name}: ${r.error || 'ok'}`)
         .join('\n');
-      setDryRunResult(summary || 'Dry run passed');
+      setDryRunResult(summary || t('ingressEditorExtra.dryRunPassed'));
     } catch (e: unknown) {
       setError(formatError(e));
     } finally {
       setBusy(false);
     }
-  }, [yamlMode, yaml, generatedYaml]);
+  }, [yamlMode, yaml, generatedYaml, t]);
 
   const handleApply = useCallback(async () => {
     // Validate form inputs before applying
@@ -406,9 +406,9 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
                           }}
                           style={inputStyle}
                         >
-                          <option value="Prefix">Prefix</option>
-                          <option value="Exact">Exact</option>
-                          <option value="ImplementationSpecific">ImplementationSpecific</option>
+                          <option value="Prefix">{t('ingressEditorExtra.pathTypePrefix')}</option>
+                          <option value="Exact">{t('ingressEditorExtra.pathTypeExact')}</option>
+                          <option value="ImplementationSpecific">{t('ingressEditorExtra.pathTypeImplSpecific')}</option>
                         </select>
                       </label>
                       <label style={labelColStyle}>
@@ -497,7 +497,7 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
                       update('annotations', a2);
                     }}
                     style={{ ...inputStyle, flex: 1 }}
-                    placeholder="key"
+                    placeholder={t('ingressEditorExtra.keyPlaceholder')}
                   />
                   <input
                     value={ann.value}
@@ -507,7 +507,7 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
                       update('annotations', a2);
                     }}
                     style={{ ...inputStyle, flex: 2 }}
-                    placeholder="value"
+                    placeholder={t('ingressEditorExtra.valuePlaceholder')}
                   />
                   <button
                     type="button"

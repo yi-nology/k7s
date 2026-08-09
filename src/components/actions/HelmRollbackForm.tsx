@@ -233,11 +233,11 @@ function HelmRevisionPicker({
             <thead>
               <tr>
                 <th style={{ ...thStyle, width: 30 }} />
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>Status</th>
-                <th style={thStyle}>Chart</th>
-                <th style={thStyle}>Updated</th>
-                <th style={thStyle}>Description</th>
+                <th style={thStyle}>{tr('rollbackTable.revision')}</th>
+                <th style={thStyle}>{tr('rollbackTable.status')}</th>
+                <th style={thStyle}>{tr('rollbackTable.chart')}</th>
+                <th style={thStyle}>{tr('rollbackTable.updated')}</th>
+                <th style={thStyle}>{tr('rollbackTable.description')}</th>
               </tr>
             </thead>
             <tbody>
@@ -272,7 +272,7 @@ function HelmRevisionPicker({
                     <td style={tdStyle}>
                       {rev.status}
                       {isCurrent && (
-                        <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>(current)</span>
+                        <span style={{ color: 'var(--text-muted)', marginLeft: 4 }}>{tr('rollbackTable.current')}</span>
                       )}
                     </td>
                     <td style={tdStyle}>{rev.chart}</td>

@@ -12,6 +12,7 @@ import { useStore } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { connectTo } from '../../lib/connect';
 import { cx } from '../../lib/cx';
+import { useTranslation } from '../../hooks/useI18n';
 
 const MAX_SLOTS = 8;
 
@@ -21,6 +22,7 @@ function initials(name: string): string {
 }
 
 export function Hotbar() {
+  const { t } = useTranslation();
   const hotbar = useStore((s) => s.hotbar);
   const connection = useStore((s) => s.connection);
   const addHotbarItem = useStore((s) => s.addHotbarItem);
@@ -64,19 +66,24 @@ export function Hotbar() {
         const isActive = ctx === connection.context;
         return (
           <div key={ctx} style={{ position: 'relative' }}>
-            <div
+            <button
+              type="button"
               className={cx(styles.slot, isActive && styles.slotActive)}
               title={ctx}
               onClick={() => handleSlotClick(ctx)}
               onContextMenu={(e) => handleContextMenu(e, ctx)}
             >
               {initials(ctx)}
-            </div>
+            </button>
             {menuTarget === ctx && (
               <div className={styles.menu} ref={menuRef}>
-                <div className={styles.menuItem} onClick={() => handleRemove(ctx)}>
-                  Remove from hotbar
-                </div>
+                <button
+                  type="button"
+                  className={styles.menuItem}
+                  onClick={() => handleRemove(ctx)}
+                >
+                  {t('sidebar.hotbar.removeFromHotbar')}
+                </button>
               </div>
             )}
           </div>
@@ -84,13 +91,14 @@ export function Hotbar() {
       })}
       {/* Empty "+" slots — only show one if there's room and a context is connected. */}
       {emptySlots > 0 && connection.context && (
-        <div
+        <button
+          type="button"
           className={`${styles.slot} ${styles.slotEmpty}`}
-          title="Pin current context"
+          title={t('sidebar.hotbar.pinContext')}
           onClick={handleAdd}
         >
           +
-        </div>
+        </button>
       )}
     </div>
   );

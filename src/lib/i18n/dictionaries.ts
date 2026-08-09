@@ -965,6 +965,7 @@ export interface Dictionary {
     filters: string;
     all: string;
     ruleId: string;
+    emptyStart: string;
     emptyFindings: string;
   };
 
@@ -1023,6 +1024,12 @@ export interface Dictionary {
       tool: string;
       duration: string;
     };
+    export: {
+      button: string;
+      success: (path: string) => string;
+      failed: (error: string) => string;
+    };
+    historyLoadFailed: (error: string) => string;
   };
 
   /** Ingress editor overlay (form-based ingress creation/editing). */
@@ -1061,6 +1068,239 @@ export interface Dictionary {
     empty: string;
     col: { ingress: string; service: string };
     legend: { tls: string; noTls: string };
+  };
+
+  /** AI assistant — settings panel, chat, memory, cron, skills, tool calls. */
+  ai: {
+    settings: {
+      title: string;
+      beta: string;
+      description: string;
+      enable: string;
+      providerPreset: string;
+      custom: string;
+      baseUrl: string;
+      model: string;
+      apiKey: string;
+      stored: string;
+      permissionMode: string;
+      permReadWrite: string;
+      permReadOnly: string;
+      permFullAuto: string;
+      testing: string;
+      testConnection: string;
+      saved: string;
+      save: string;
+      saveFailed: (e: string) => string;
+    };
+    welcome: {
+      title: string;
+      description: string;
+      notConfigured: string;
+      openSettings: string;
+      setupAi: string;
+      tryAsking: string;
+      diagnose: string;
+      diagnoseMsg: string;
+      listResources: string;
+      listResourcesMsg: string;
+      healthCheck: string;
+      healthCheckMsg: string;
+      scaleWorkload: string;
+      scaleWorkloadMsg: string;
+    };
+    chat: {
+      title: string;
+      tabChat: string;
+      tabSkills: string;
+      tabMemory: string;
+      tabCron: string;
+      newConversation: string;
+      close: string;
+      you: string;
+      assistant: string;
+      placeholder: string;
+      placeholderDisabled: string;
+      stop: string;
+      send: string;
+      thinking: string;
+      askAnything: string;
+      examplePrompts: string;
+      prompt1: string;
+      prompt2: string;
+      prompt3: string;
+      writeOpsNote: string;
+      toolRunning: string;
+      toolDone: string;
+      toolFailed: string;
+      toolAwaiting: string;
+      toolDenied: string;
+      approve: string;
+      deny: string;
+    };
+    memory: {
+      tierAll: string;
+      tierRecent: string;
+      tierLongTerm: string;
+      tierVault: string;
+      loading: string;
+      prefs: string;
+      searchPlaceholder: string;
+      learnedPrefs: string;
+      noPrefs: string;
+      addNote: string;
+      tags: string;
+      add: string;
+      noMatches: string;
+      noMemories: string;
+      delete: string;
+      referenced: (n: number) => string;
+      autoPromotes: (n: number) => string;
+    };
+    cron: {
+      loading: string;
+      close: string;
+      addPreset: string;
+      presetTasks: string;
+      noTasks: string;
+      delete: string;
+      enabled: string;
+      disabled: string;
+      last: string;
+    };
+    quickActions: {
+      clusterHealth: string;
+      listNodes: string;
+      findCrashLoop: string;
+      resourcePressure: string;
+      diagnose: string;
+      events: string;
+      logs: string;
+      describe: string;
+      enableFirst: string;
+    };
+    skills: {
+      loading: string;
+      description: string;
+      active: string;
+      tools: string;
+    };
+    toolCall: {
+      running: string;
+      done: string;
+      failed: string;
+      needsApproval: string;
+      denied: string;
+      parameters: string;
+      approve: string;
+      deny: string;
+      error: string;
+      result: string;
+    };
+  };
+
+  /** Sidebar chrome that isn't covered by chrome.sidebar. */
+  sidebar: {
+    mainNav: string;
+    brandSub: string;
+    hotbar: {
+      removeFromHotbar: string;
+      pinContext: string;
+    };
+    navAriaLabel: string;
+  };
+
+  /** Detail tab strip. */
+  detailTabs: {
+    ariaLabel: string;
+    closeTab: string;
+    init: string;
+  };
+
+  /** Notification toast. */
+  notifications: {
+    ariaLabel: string;
+    dismiss: string;
+  };
+
+  /** Properties tab additions. */
+  propertiesExtra: {
+    hideValues: string;
+    showValues: string;
+    decoding: string;
+    key: string;
+    value: string;
+    clickToCopy: string;
+    collapse: string;
+    copied: string;
+    noData: string;
+  };
+
+  /** Helm rollback form additions. */
+  rollbackTable: {
+    revision: string;
+    status: string;
+    chart: string;
+    updated: string;
+    description: string;
+    current: string;
+  };
+
+  /** TopBar overlay labels. */
+  overlayLabels: {
+    helmMarket: string;
+    podFiles: string;
+    imageRepos: string;
+    imageTransfer: string;
+    templates: string;
+    dashboard: string;
+    metricsExplorer: string;
+    grafana: string;
+    endpoints: string;
+    topology: string;
+    ingressRoutes: string;
+    alerting: string;
+    audit: string;
+    ingressEditor: string;
+    diff: string;
+    plugins: string;
+    security: string;
+    sbom: string;
+  };
+
+  /** Grafana time range labels. */
+  grafanaRange: {
+    last1h: string;
+    last6h: string;
+    last24h: string;
+    last7d: string;
+  };
+
+  /** Audit filter placeholders. */
+  auditExtra: {
+    namePlaceholder: string;
+    urlPlaceholder: string;
+    usernamePlaceholder: string;
+    passwordPlaceholder: string;
+    eventsCount: (n: number) => string;
+  };
+
+  /** Ingress editor path type options. */
+  ingressEditorExtra: {
+    pathTypePrefix: string;
+    pathTypeExact: string;
+    pathTypeImplSpecific: string;
+    dryRunPassed: string;
+    keyPlaceholder: string;
+    valuePlaceholder: string;
+  };
+
+  /** Security severity labels. */
+  securityExtra: {
+    critical: string;
+    high: string;
+    medium: string;
+    low: string;
   };
 }
 

@@ -10,15 +10,17 @@ import { ClusterSwitcher } from './ClusterSwitcher';
 import { Hotbar } from './Hotbar';
 import { NavList } from './NavList';
 import { WatchFooter } from './WatchFooter';
+import { useTranslation } from '../../hooks/useI18n';
 
 export function Sidebar() {
+  const { t } = useTranslation();
   // data-surface="panel": in light mode the sidebar is dark chrome (tokens.css).
   return (
     <nav
       className={styles.sidebar}
       data-surface="panel"
       role="navigation"
-      aria-label="Main navigation"
+      aria-label={t('sidebar.mainNav')}
     >
       <div className={styles.brand}>
         <div className={styles.brandMark} aria-hidden="true">
@@ -26,7 +28,7 @@ export function Sidebar() {
         </div>
         <div>
           <div className={styles.brandName}>k7s</div>
-          <div className={styles.brandSub}>kubernetes manager</div>
+          <div className={styles.brandSub}>{t('sidebar.brandSub')}</div>
         </div>
       </div>
       <ClusterSwitcher />

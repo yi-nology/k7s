@@ -158,6 +158,7 @@ export function RevisionsTab() {
 }
 
 function ImageList({ images }: { images: ContainerImage[] }) {
+  const { t } = useTranslation();
   if (images.length === 0) {
     return <div className={styles.muted}>—</div>;
   }
@@ -167,7 +168,7 @@ function ImageList({ images }: { images: ContainerImage[] }) {
         <div key={img.name} className={styles.imageRow}>
           <span className={styles.imageName}>
             {img.name}
-            {img.init && <span className={styles.badge}>init</span>}
+            {img.init && <span className={styles.badge}>{t('detailTabs.init')}</span>}
           </span>
           <span className={styles.imageValue}>{img.image || '—'}</span>
         </div>

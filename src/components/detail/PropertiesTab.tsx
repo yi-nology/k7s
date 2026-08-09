@@ -177,6 +177,7 @@ function SectionView({
   onCopy,
   onToggleExpand,
 }: { section: Section; now: number } & SecretDecodeProps) {
+  const { t } = useTranslation();
   const { body } = section;
   return (
     <div className={styles.section}>
@@ -189,7 +190,7 @@ function SectionView({
       {/* Secret decode toggle: appears above the Data table for secrets. */}
       {isDataSection && (
         <button type="button" className={styles.secretToggle} onClick={onToggleSecrets}>
-          {showSecrets ? '\uD83D\uDE48 Hide Values' : '\uD83D\uDC41 Show Values'}
+          {showSecrets ? t('propertiesExtra.hideValues') : t('propertiesExtra.showValues')}
         </button>
       )}
 
@@ -204,7 +205,7 @@ function SectionView({
       {body.type === 'table' && isDataSection && showSecrets ? (
         // Decoded secret values view.
         secretLoading ? (
-          <div className={styles.empty}>Decoding...</div>
+          <div className={styles.empty}>{t('propertiesExtra.decoding')}</div>
         ) : secretError ? (
           <div className={styles.empty}>{secretError}</div>
         ) : secretData && secretData.length > 0 ? (
@@ -212,8 +213,8 @@ function SectionView({
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th className={styles.th}>Key</th>
-                  <th className={styles.th}>Value</th>
+                  <th className={styles.th}>{t('propertiesExtra.key')}</th>
+                  <th className={styles.th}>{t('propertiesExtra.value')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -226,7 +227,7 @@ function SectionView({
                     <tr key={entry.key}>
                       <td className={[styles.td, styles.tdName].join(' ')}>{entry.key}</td>
                       <td className={[styles.td, styles.tdWrap, styles.secretValue].join(' ')}>
-                        <span onClick={() => onCopy(entry.key, entry.value)} title="Click to copy">
+                        <span onClick={() => onCopy(entry.key, entry.value)} title={t('propertiesExtra.clickToCopy')}>
                           {displayValue}
                           {isLong && (
                             <button
@@ -238,13 +239,13 @@ function SectionView({
                               }}
                             >
                               {isExpanded
-                                ? ' [collapse]'
+                                ? ` ${t('propertiesExtra.collapse')}`
                                 : ` [+${entry.value.length - SECRET_TRUNCATE_LEN}]`}
                             </button>
                           )}
                         </span>
                         {copiedKey === entry.key && (
-                          <span className={styles.copiedToast}>Copied</span>
+                          <span className={styles.copiedToast}>{t('propertiesExtra.copied')}</span>
                         )}
                       </td>
                     </tr>
@@ -254,7 +255,7 @@ function SectionView({
             </table>
           </div>
         ) : (
-          <div className={styles.empty}>No data entries</div>
+          <div className={styles.empty}>{t('propertiesExtra.noData')}</div>
         )
       ) : (
         body.type === 'table' &&
