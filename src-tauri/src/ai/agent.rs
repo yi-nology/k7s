@@ -774,7 +774,6 @@ fn summarize_tool_results(messages: &[Message]) -> String {
     let mut summaries = Vec::new();
     for msg in messages {
         if let Message::Tool { content, .. } = msg {
-            // Try to extract a human-readable summary from the tool result.
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(content) {
                 if let Some(arr) = val.as_array() {
                     // Array of resources — show count + first few names.
@@ -782,7 +781,11 @@ fn summarize_tool_results(messages: &[Message]) -> String {
                     let names: Vec<&str> = arr
                         .iter()
                         .take(5)
-                        .filter_map(|item| item.get("name").and_then(|n| n.as_str()))
+                        .filter_map(|item| {
+                            item.get("name")
+                                .and_then(|n| n.as_str())
+                                .or_else(|| item.get("node").and_then(|n| n.as_str()))
+                        })
                         .collect();
                     if !names.is_empty() {
                         summaries.push(format!(
@@ -791,6 +794,9 @@ fn summarize_tool_results(messages: &[Message]) -> String {
                             names.join(", "),
                             if count > 5 { ", ..." } else { "" }
                         ));
+                    } else {
+                        // Array with no name field — show count.
+                        summaries.push(format!("Result: {count} items."));
                     }
                 } else if let Some(problems) = val.get("problems").and_then(|p| p.as_array()) {
                     if problems.is_empty() {
@@ -799,26 +805,36 @@ fn summarize_tool_results(messages: &[Message]) -> String {
                         summaries.push(format!("Found {} problems.", problems.len()));
                     }
                 } else if let Some(b) = val.get("scaled").and_then(|v| v.as_bool()) {
-                    if b {
-                        summaries.push("Resource scaled successfully.".to_string());
-                    }
+                    if b { summaries.push("Resource scaled successfully.".into()); }
                 } else if let Some(b) = val.get("applied").and_then(|v| v.as_bool()) {
-                    if b {
-                        summaries.push("Manifest applied successfully.".to_string());
-                    }
+                    if b { summaries.push("Manifest applied successfully.".into()); }
                 } else if let Some(b) = val.get("deleted").and_then(|v| v.as_bool()) {
-                    if b {
-                        summaries.push("Resource deleted.".to_string());
-                    }
+                    if b { summaries.push("Resource deleted.".into()); }
                 } else if let Some(b) = val.get("restarted").and_then(|v| v.as_bool()) {
-                    if b {
-                        summaries.push("Workload restarted.".to_string());
+                    if b { summaries.push("Workload restarted.".into()); }
+                } else {
+                    // Generic: show a compact representation of the result.
+                    let compact = serde_json::to_string(&val)
+                        .unwrap_or_default();
+                    if compact.len() <= 500 {
+                        summaries.push(compact);
+                    } else {
+                        summaries.push(format!("{}…", &compact[..500]));
                     }
                 }
+            } else {
+                // Non-JSON tool result — show as-is (truncated).
+                let preview = content.chars().take(300).collect::<String>();
+                summaries.push(preview);
             }
         }
     }
-    summaries.join("\n")
+    if summaries.is_empty() {
+        // No tool results at all — the model just didn't respond.
+        "AI did not produce a response. Please try again.".to_string()
+    } else {
+        summaries.join("\n\n")
+    }
 }
 
 /// Build a one-line human summary for a pending approval, e.g.
