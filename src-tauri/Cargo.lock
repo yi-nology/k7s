@@ -2203,6 +2203,7 @@ dependencies = [
  "reqwest",
  "rmcp",
  "rust-embed",
+ "rustls",
  "schemars 1.2.2",
  "serde",
  "serde_json",

@@ -38,3 +38,29 @@ pub fn decide(mode: PermissionMode, is_write: bool) -> Decision {
         PermissionMode::FullAuto => Decision::Allow,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The 3×2 truth table that defines the gate. Read tools bypass it in every
+    /// mode; write tools are gated by mode. This is the security boundary, so
+    /// every cell is asserted explicitly.
+    #[test]
+    fn gate_truth_table() {
+        // Reads always allowed.
+        assert_eq!(decide(PermissionMode::ReadOnly, false), Decision::Allow);
+        assert_eq!(
+            decide(PermissionMode::ReadConfirmWrite, false),
+            Decision::Allow
+        );
+        assert_eq!(decide(PermissionMode::FullAuto, false), Decision::Allow);
+        // Writes gated by mode.
+        assert_eq!(decide(PermissionMode::ReadOnly, true), Decision::Deny);
+        assert_eq!(
+            decide(PermissionMode::ReadConfirmWrite, true),
+            Decision::NeedsApproval
+        );
+        assert_eq!(decide(PermissionMode::FullAuto, true), Decision::Allow);
+    }
+}

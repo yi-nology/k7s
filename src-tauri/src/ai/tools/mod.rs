@@ -215,3 +215,95 @@ pub async fn dynamic_api(
 pub fn ok_value<T: Serialize + ?Sized>(payload: &T) -> AiResult<serde_json::Value> {
     serde_json::to_value(payload).map_err(|e| AiError::Tool(e.to_string()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The default registry ships the documented tool set and each tool name is
+    /// unique (a duplicate would silently shadow one in the dispatch map).
+    #[test]
+    fn default_registry_has_unique_names() {
+        let reg = ToolRegistry::new();
+        let names: Vec<&str> = reg.tools.iter().map(|t| t.name()).collect();
+        let expected = [
+            "list_resources",
+            "describe_resource",
+            "get_resource_yaml",
+            "get_events",
+            "get_pod_logs",
+            "get_cluster_health",
+            "top_nodes",
+            "scale_workload",
+            "restart_workload",
+            "delete_resource",
+            "apply_manifest",
+            "diagnose_unhealthy",
+        ];
+        for e in expected {
+            assert!(names.contains(&e), "missing tool: {e}");
+        }
+        // uniqueness
+        let mut sorted = names.clone();
+        sorted.sort();
+        let mut dups = 0;
+        for w in sorted.windows(2) {
+            if w[0] == w[1] {
+                dups += 1;
+            }
+        }
+        assert_eq!(dups, 0, "duplicate tool names: {:?}", sorted);
+    }
+
+    /// `function_defs` must hand the LLM the read tools in every mode, but drop
+    /// the write tools in ReadOnly mode — otherwise the LLM would try to call
+    /// them and the gate would refuse, wasting a turn.
+    #[test]
+    fn function_defs_filter_writes_in_readonly() {
+        let reg = ToolRegistry::new();
+        let full = reg.function_defs(PermissionMode::FullAuto);
+        let ro = reg.function_defs(PermissionMode::ReadOnly);
+        // FullAuto exposes everything.
+        assert!(full.iter().any(|d| d.name == "scale_workload"));
+        assert!(full.iter().any(|d| d.name == "list_resources"));
+        // ReadOnly drops all writes but keeps reads.
+        assert!(!ro.iter().any(|d| d.name == "scale_workload"));
+        assert!(!ro.iter().any(|d| d.name == "delete_resource"));
+        assert!(ro.iter().any(|d| d.name == "list_resources"));
+        assert!(ro.iter().any(|d| d.name == "diagnose_unhealthy"));
+    }
+
+    /// `is_write` correctly classifies a few representative tools — this is what
+    /// the permission gate keys off, so a misclassification here is a security
+    /// hole (a write that slips through as a read).
+    #[test]
+    fn is_write_classification() {
+        let reg = ToolRegistry::new();
+        assert!(reg.is_write("scale_workload"));
+        assert!(reg.is_write("delete_resource"));
+        assert!(reg.is_write("apply_manifest"));
+        assert!(!reg.is_write("list_resources"));
+        assert!(!reg.is_write("describe_resource"));
+        assert!(!reg.is_write("get_pod_logs"));
+        // Unknown tool is treated as non-write (and dispatch will error), so a
+        // bad name can never accidentally execute as a write.
+        assert!(!reg.is_write("does_not_exist"));
+    }
+
+    /// Dispatching an unknown tool yields a ToolArgs error rather than panicking.
+    #[tokio::test]
+    async fn unknown_tool_errors() {
+        let reg = ToolRegistry::new();
+        let ctx = ToolContext {
+            manager: std::sync::Arc::new(crate::kube::ClientManager::new(
+                crate::core::events::mcp_sink(),
+            )),
+            data_dir: std::path::PathBuf::new(),
+        };
+        let err = reg
+            .dispatch("no_such_tool", &ctx, serde_json::Value::Null)
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AiError::ToolArgs(_)));
+    }
+}

@@ -35,6 +35,10 @@ tauri-plugin-window-state = "2"
 # `rustls` brings in TLS for the LLM provider (https://api.deepseek.com etc.);
 # kube already uses a rustls backend so this stays consistent.
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+# Direct dependency so integration tests (tests/) can install the crypto
+# provider without going through Tauri's startup. Same version kube+reqwest
+# pull transitively.
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
 
 # --- Serialization ---
 serde = { version = "1", features = ["derive"] }
