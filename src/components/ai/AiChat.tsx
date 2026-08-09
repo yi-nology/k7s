@@ -341,6 +341,9 @@ export function AiChat({ selectedContext, onClose }: Props) {
               }
 
               if (row.kind === 'context') {
+                // Only show context badges for the current turn — past turns
+                // have the same context and don't need to repeat it.
+                if (!isCurrentTurn) return null;
                 return <ContextBadge key={i} blockType={row.blockType} summary={row.summary} />;
               }
 

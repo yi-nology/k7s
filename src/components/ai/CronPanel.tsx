@@ -2,7 +2,7 @@
  * CronPanel — scheduled AI task management.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { CronTask } from '../../lib/ai/types';
 import { useTranslation } from '../../hooks/useI18n';
 import styles from './AiChat.module.css';
@@ -12,24 +12,26 @@ export function CronPanel() {
   const [tasks, setTasks] = useState<CronTask[]>([]);
   const [presets, setPresets] = useState<CronTask[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showPresets, setShowPresets] = useState(false);
   const provider = getProvider();
 
   const load = useCallback(async () => {
     try {
+      setError(null);
       setTasks(await provider.aiCronList());
       setPresets(await provider.aiCronPresets());
-    } catch { /* ignore */ } finally { setLoading(false); }
+    } catch (e) { setError(formatError(e)); } finally { setLoading(false); }
   }, [provider]);
 
   useEffect(() => { void load(); }, [load]);
 
   const toggle = async (id: string) => {
-    try { await provider.aiCronToggle(id); await load(); } catch { /* ignore */ }
+    try { await provider.aiCronToggle(id); await load(); } catch (e) { setError(formatError(e)); }
   };
 
   const remove = async (id: string) => {
-    try { await provider.aiCronDelete(id); await load(); } catch { /* ignore */ }
+    try { await provider.aiCronDelete(id); await load(); } catch (e) { setError(formatError(e)); }
   };
 
   const addPreset = async (preset: CronTask) => {
@@ -37,13 +39,18 @@ export function CronPanel() {
       await provider.aiCronAdd({ ...preset, id: preset.id + '-' + Date.now() });
       setShowPresets(false);
       await load();
-    } catch { /* ignore */ }
+    } catch (e) { setError(formatError(e)); }
   };
 
   if (loading) return <div className={styles.empty}>{t('ai.cron.loading')}</div>;
 
   return (
     <div className={styles.body}>
+      {error && (
+        <div style={{ padding: 8, background: 'var(--status-err-soft)', color: 'var(--status-err)', borderRadius: 4, marginBottom: 8, fontSize: 12 }}>
+          {error}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
         <button type="button" className={styles.sendBtn} onClick={() => setShowPresets(!showPresets)} style={{ fontSize: 12, padding: '4px 10px' }}>
           {showPresets ? t('ai.cron.close') : t('ai.cron.addPreset')}

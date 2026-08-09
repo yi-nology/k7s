@@ -3,7 +3,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useTranslation } from '../../hooks/useI18n';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import type { MemoryEntry, MemoryTier, UserPreference } from '../../lib/ai/types';
 import styles from './AiChat.module.css';
 
@@ -28,11 +28,13 @@ export function MemoryPanel({ kubeContext }: Props) {
   const [newNote, setNewNote] = useState('');
   const [newTags, setNewTags] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showPrefs, setShowPrefs] = useState(false);
   const provider = getProvider();
 
   const load = async () => {
     try {
+      setError(null);
       if (query.trim()) {
         const results = await provider.aiMemorySearch(kubeContext, query.trim());
         setEntries(tier === 'all' ? results : results.filter((e) => e.tier === tier));
@@ -40,8 +42,8 @@ export function MemoryPanel({ kubeContext }: Props) {
         setEntries(await provider.aiMemoryList(kubeContext, tier === 'all' ? undefined : tier));
       }
       setPrefs(await provider.aiMemoryPreferences(kubeContext));
-    } catch {
-      /* ignore */
+    } catch (e) {
+      setError(formatError(e));
     } finally {
       setLoading(false);
     }
@@ -62,20 +64,29 @@ export function MemoryPanel({ kubeContext }: Props) {
       setNewNote('');
       setNewTags('');
       await load();
-    } catch { /* ignore */ }
+    } catch (e) {
+      setError(formatError(e));
+    }
   };
 
   const deleteEntry = async (id: string) => {
     try {
       await provider.aiMemoryDelete(kubeContext, id);
       await load();
-    } catch { /* ignore */ }
+    } catch (e) {
+      setError(formatError(e));
+    }
   };
 
   if (loading) return <div className={styles.empty}>{t('ai.memory.loading')}</div>;
 
   return (
     <div className={styles.body}>
+      {error && (
+        <div style={{ padding: 8, background: 'var(--status-err-soft)', color: 'var(--status-err)', borderRadius: 4, marginBottom: 8, fontSize: 12 }}>
+          {error}
+        </div>
+      )}
       {/* Tier filter tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
         {(['all', 'shortTerm', 'longTerm', 'knowledgeVault'] as TierFilter[]).map((tf) => (

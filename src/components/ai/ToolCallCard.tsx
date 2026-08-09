@@ -52,6 +52,7 @@ export function ToolCallCard({ name, args, isWrite, state, result, defaultExpand
 
   // Format args as key: value pairs instead of raw JSON.
   const argsDisplay = formatArgs(args);
+  const argsSummary = formatArgsSummary(args);
   const resultDisplay = result !== undefined ? formatResult(result) : null;
 
   return (
@@ -64,6 +65,7 @@ export function ToolCallCard({ name, args, isWrite, state, result, defaultExpand
       >
         <span className={styles.toolIcon}>{isWrite ? '✎' : '🔍'}</span>
         <span className={styles.toolName}>{formatToolName(name)}</span>
+        {argsSummary && <span className={styles.toolArgsSummary}>{argsSummary}</span>}
         <span className={styles.toolStatusPill}>
           <span>{STATUS_ICONS[state]}</span>
           <span>{STATUS_LABELS[state]}</span>
@@ -116,6 +118,21 @@ export function ToolCallCard({ name, args, isWrite, state, result, defaultExpand
       )}
     </div>
   );
+}
+
+/** Build a compact one-line summary of args for the collapsed header. */
+function formatArgsSummary(args: unknown): string {
+  if (!args || typeof args !== 'object') return '';
+  const obj = args as Record<string, unknown>;
+  // Show the most relevant args for each tool type.
+  const parts: string[] = [];
+  if (obj.namespace) parts.push(String(obj.namespace));
+  if (obj.name) parts.push(String(obj.name));
+  if (obj.kind) parts.push(String(obj.kind));
+  if (obj.replicas !== undefined) parts.push(`→ ${obj.replicas} replicas`);
+  if (obj.query) parts.push(String(obj.query));
+  if (obj.yaml) parts.push('YAML manifest');
+  return parts.join(' · ') || '';
 }
 
 /** Convert tool name to human-readable label. */

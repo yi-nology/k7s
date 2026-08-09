@@ -770,3 +770,15 @@
     border-top: 1px solid var(--border-default);
   }
 }
+
+/* ─── Tool args summary (compact line in header) ──────────────────────── */
+
+.toolArgsSummary {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

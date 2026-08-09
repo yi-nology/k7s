@@ -30,7 +30,6 @@ import type {
   ApplyResult,
   Alert,
   AlertManager,
-  DocDryRun,
   ExportFromRegistryResult,
   ImportImageResult,
   SkopeoAvailability,
@@ -144,6 +143,10 @@ export function importKubeconfigViaInput(input: HTMLInputElement): Promise<Impor
     const settle = (fn: () => void) => {
       if (settled) return;
       settled = true;
+      // Remove both listeners to prevent leaks — whichever didn't fire
+      // would otherwise stay attached indefinitely.
+      input.removeEventListener('change', onChange);
+      input.removeEventListener('cancel', onCancel);
       // Reset value so picking the same file twice still fires `change`.
       input.value = '';
       fn();
@@ -365,17 +368,12 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     container: string,
     opts: { sinceSeconds?: number; previous?: boolean }
   ): Promise<SavedLog | null> {
-    // The browser has no native "save file" dialog wired up. We download the
-    // log text via a transient anchor in the calling component (it owns the
-    // <a download>), so this just hands back the URL pattern; the actual
-    // export is performed by a custom round-trip below.
-    const url = `/api/invoke/export_logs`;
     // Issue the export as a POST with a JSON body, get the line count back
     // so the caller can show "saved N lines". A richer implementation would
     // stream the text back; for now, save to a server-side temp and let the
-    // browser download it through a separate GET. (B47)
+    // browser download it through a separate GET.
     const path = `/tmp/k7s-logs-${ref.namespace}-${ref.name}-${Date.now()}.log`;
-    const lines = await httpInvoke<number>(url, {
+    const lines = await httpInvoke<number>('export_logs', {
       namespace: ref.namespace ?? '',
       pod: ref.name,
       container,
@@ -383,11 +381,7 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
       previous: opts.previous ?? false,
       path,
     });
-    return {
-      path,
-      lines,
-      bytes: 0, // back-end doesn't echo this; the UI can stat the file
-    } as SavedLog;
+    return { path, lines };
   }
   async stopLogs(id: string): Promise<void> {
     await httpInvoke('stop_log_stream', { streamId: id });
@@ -690,10 +684,7 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     return [];
   }
 
-  // ---- Multi-doc dry run: not proxied yet. ----
-  async dryRunYamlBundle(_yaml: string): Promise<DocDryRun[]> {
-    return [];
-  }
+  // Multi-doc dry run is handled by the base class via rpc('dry_run_yaml_bundle').
 
   // ---- Image import: desktop only. The web shell has no access to the
   // user's local filesystem, so the native file-picker path doesn't apply
@@ -713,21 +704,8 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
 
   // exportFromNode / listNodeImages are inherited from BaseRpcProvider (faithful bridges).
 
-  async exportFromRegistry(
-    registryName: string,
-    repo: string,
-    tag: string,
-    savePath: string,
-    insecureSrc: boolean,
-    _onLog: (line: string) => void
-  ): Promise<ExportFromRegistryResult> {
-    return httpInvoke<ExportFromRegistryResult>('export_from_registry', {
-      registryName,
-      repo,
-      tag,
-      savePath,
-      insecureSrc,
-    });
+  async exportFromRegistry(): Promise<ExportFromRegistryResult> {
+    return desktopOnly('Registry export');
   }
 
   async imageCopy(

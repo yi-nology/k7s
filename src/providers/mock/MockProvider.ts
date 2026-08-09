@@ -7,6 +7,7 @@
  */
 
 import type {
+  ImageManifest,
   DataProvider,
   ImageRegistry,
   ImageRegistryUpsert,
@@ -31,8 +32,6 @@ import type {
   EndpointRow,
   EndpointAddress,
   PromQueryResult,
-  ImageManifest,
-  ImageLayer,
   DashboardPreset,
   CreateSilenceRequest,
   RuleGroup,
@@ -217,28 +216,6 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
     };
   }
 
-  async checkSkopeo(): Promise<SkopeoAvailability> {
-    return { available: true, path: '/usr/bin/skopeo', version: '1.13.0' };
-  }
-
-  async syncImage(): Promise<ImageSyncResult> {
-    return {
-      source: 'docker-archive:/tmp/nginx.tar',
-      destination: 'docker://registry.demo/library/nginx:1.25',
-      success: true,
-      lines: 10,
-      summary: 'Copied nginx:1.25 to registry.demo/library/nginx:1.25',
-    };
-  }
-
-  async listImageArchives(): Promise<ArchiveInfo[]> {
-    return [];
-  }
-
-  async listEndpointSlices(): Promise<EndpointRow[]> {
-    return [];
-  }
-
   async listEndpoints(): Promise<EndpointRow[]> {
     return [];
   }
@@ -246,73 +223,6 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
   async listEndpointAddresses(_namespace: string, _name: string): Promise<EndpointAddress[]> {
     return [];
   }
-
-  async promQuery(_expr: string): Promise<PromQueryResult> {
-    return { resultType: 'vector', series: [] };
-  }
-
-  async imageManifest(_registry: string, _repo: string, _tag: string): Promise<ImageManifest> {
-    return {
-      schemaVersion: 2,
-      mediaType: 'application/vnd.docker.distribution.manifest.v2+json',
-      size: 1000,
-      digest: 'sha256:' + 'a'.repeat(64),
-      raw: '{}',
-      configDigest: 'sha256:' + 'b'.repeat(64),
-      configSize: 500,
-      layers: [],
-    };
-  }
-
-  async imageLayers(_registry: string, _repo: string, _tag: string): Promise<ImageLayer[]> {
-    return [];
-  }
-
-  // ---- Saved queries (demo: empty). ----
-  async listSavedQueries(): Promise<SavedQuery[]> {
-    return [];
-  }
-
-  async saveSavedQuery(_query: SavedQuery): Promise<void> {}
-
-  async deleteSavedQuery(_id: string): Promise<void> {}
-
-  // ---- Metrics config (demo: stub). ----
-  async getMetricsConfig(): Promise<MetricsConfig> {
-    return DEMO_METRICS_CONFIG;
-  }
-
-  async updateMetricsConfig(_input: MetricsConfigUpsert): Promise<MetricsConfig> {
-    return DEMO_METRICS_CONFIG;
-  }
-
-  // ---- Grafana config (demo: stub). ----
-  async getGrafanaConfig(): Promise<GrafanaConfig> {
-    return DEMO_GRAFANA_CONFIG;
-  }
-
-  async updateGrafanaConfig(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return DEMO_GRAFANA_CONFIG;
-  }
-
-  // ---- Alerting (demo: stubs). ----
-  async getAlertmanager(): Promise<AlertManager> {
-    return DEMO_ALERTMANAGER_CONFIG;
-  }
-
-  async updateAlertmanager(_input: AlertManagerUpsert): Promise<AlertManager> {
-    return DEMO_ALERTMANAGER_CONFIG;
-  }
-
-  async getAlerts(): Promise<Alert[]> {
-    return [];
-  }
-
-  async createSilence(_silence: Silence): Promise<string> {
-    return 'mock-silence-id';
-  }
-
-  async deleteSilence(_id: string): Promise<void> {}
 
   // ---- Pod file management: demo mode renders a static tree. ----
   async podFilesList(

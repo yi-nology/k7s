@@ -138,6 +138,7 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
 
   getEvents(ref: ResourceRef): Promise<EventItem[]> {
     return invoke<EventItem[]>('get_events', {
+      kind: ref.kind,
       namespace: ref.namespace ?? '',
       name: ref.name,
     });
@@ -481,7 +482,7 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
 
   podFilesList(ref: ResourceRef, container: string | null, path: string): Promise<PodFileEntry[]> {
     return invoke<PodFileEntry[]>('pod_files_list', {
-      namespace: ref.namespace,
+      namespace: ref.namespace ?? '',
       pod: ref.name,
       container,
       path,
@@ -489,7 +490,7 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
   }
   podFilesRead(ref: ResourceRef, container: string | null, path: string): Promise<string> {
     return invoke<string>('pod_files_read', {
-      namespace: ref.namespace,
+      namespace: ref.namespace ?? '',
       pod: ref.name,
       container,
       path,
@@ -502,7 +503,7 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
     content: string
   ): Promise<void> {
     return invoke<void>('pod_files_write', {
-      namespace: ref.namespace,
+      namespace: ref.namespace ?? '',
       pod: ref.name,
       container,
       path,
@@ -513,7 +514,7 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
     // Tauri serialises Vec<u8> as a number array; convert back to a typed
     // array on this side for the eventual `new Blob([bytes])` call.
     return invoke<number[]>('pod_files_download', {
-      namespace: ref.namespace,
+      namespace: ref.namespace ?? '',
       pod: ref.name,
       container,
       path,
@@ -526,7 +527,7 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
     tarBytes: Uint8Array
   ): Promise<void> {
     return invoke<void>('pod_files_upload', {
-      namespace: ref.namespace,
+      namespace: ref.namespace ?? '',
       pod: ref.name,
       container,
       destDir,
