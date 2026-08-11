@@ -186,7 +186,7 @@ impl AgentPlugin for RateLimiter {
     }
 
     fn on_event(&self, event: &PluginEvent) -> PluginDecision {
-        if let PluginEvent::BeforeTool { tool_name: _, .. } = event {
+        if let PluginEvent::BeforeTool { .. } = event {
             let mut calls = self.calls.lock().unwrap();
             let now = std::time::Instant::now();
             // Remove calls older than 1 minute.

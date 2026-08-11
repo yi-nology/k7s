@@ -142,7 +142,7 @@ impl EvolutionStore {
             .strategies
             .iter()
             .filter(|s| s.confidence > 0.3)
-            .filter_map(|s| {
+            .map(|s| {
                 let relevance = if s.problem_pattern.to_lowercase().contains(&q)
                     || s.tags.iter().any(|t| q.contains(&t.to_lowercase()))
                 {
@@ -151,7 +151,7 @@ impl EvolutionStore {
                     0.3
                 };
                 let score = s.confidence * relevance;
-                Some((score, s))
+                (score, s)
             })
             .collect();
         scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));

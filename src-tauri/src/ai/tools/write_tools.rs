@@ -28,7 +28,7 @@ impl Tool for ScaleWorkload {
     ) -> AiResult<serde_json::Value> {
         let replicas = get_arg_i64(&args, "replicas")?;
         if !(0..=1000).contains(&replicas) {
-            return Err(AiError::ToolArgs(format!("replicas must be 0..=1000")));
+            return Err(AiError::ToolArgs("replicas must be 0..=1000".to_string()));
         }
         impls::scale_resource_impl(
             &ctx.manager,

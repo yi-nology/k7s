@@ -147,6 +147,7 @@ impl AgentLoop {
     }
 
     /// Run one user message to completion.
+    #[allow(clippy::too_many_arguments)]
     pub async fn run(
         &self,
         req: ChatRequest,
@@ -177,6 +178,7 @@ impl AgentLoop {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     async fn run_inner(
         &self,
         req: ChatRequest,
@@ -720,6 +722,7 @@ impl AgentLoop {
     }
 
     /// Record a run outcome in the evolution store for self-improvement.
+    #[allow(clippy::too_many_arguments)]
     async fn record_outcome(
         &self,
         data_dir: &std::path::Path,

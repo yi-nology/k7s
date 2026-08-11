@@ -36,9 +36,10 @@ pub struct PlanStep {
     pub result: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum StepStatus {
+    #[default]
     Pending,
     Running,
     Completed,
@@ -46,11 +47,6 @@ pub enum StepStatus {
     Skipped,
 }
 
-impl Default for StepStatus {
-    fn default() -> Self {
-        StepStatus::Pending
-    }
-}
 
 /// The full execution plan.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -64,20 +60,16 @@ pub struct ExecutionPlan {
     pub status: PlanStatus,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum PlanStatus {
+    #[default]
     Planning,
     Executing,
     Completed,
     Failed,
 }
 
-impl Default for PlanStatus {
-    fn default() -> Self {
-        PlanStatus::Planning
-    }
-}
 
 /// Events emitted during plan execution (streamed to the frontend).
 #[derive(Clone, Debug, Serialize, Deserialize)]

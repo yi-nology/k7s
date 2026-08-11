@@ -44,19 +44,15 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum CronRunStatus {
+    #[default]
     Never,
     Success,
     Failed,
 }
 
-impl Default for CronRunStatus {
-    fn default() -> Self {
-        CronRunStatus::Never
-    }
-}
 
 /// Result of a cron task run.
 #[derive(Clone, Debug, Serialize, Deserialize)]

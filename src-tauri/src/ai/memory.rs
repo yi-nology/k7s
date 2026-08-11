@@ -382,7 +382,7 @@ impl MemoryStore {
 }
 
 fn safe_name(context: &str) -> String {
-    context.replace('/', "_").replace(':', "_")
+    context.replace(['/', ':'], "_")
 }
 
 fn truncate(s: &str, max_chars: usize) -> String {

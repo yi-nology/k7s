@@ -12,23 +12,18 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// How aggressive the AI is allowed to be on the cluster.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum PermissionMode {
     /// No write tools are even offered to the LLM.
     ReadOnly,
     /// Write tools are offered but every invocation pauses for user approval.
+    #[default]
     ReadConfirmWrite,
     /// Write tools run without confirmation. Use with care.
     FullAuto,
 }
 
-impl Default for PermissionMode {
-    fn default() -> Self {
-        // Conservative default: never mutate the cluster without the user saying so.
-        PermissionMode::ReadConfirmWrite
-    }
-}
 
 /// Non-secret LLM provider config. The secret `api_key` lives in [`secret`].
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

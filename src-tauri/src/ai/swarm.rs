@@ -69,6 +69,12 @@ pub struct SwarmOrchestrator {
     active: Vec<String>,
 }
 
+impl Default for SwarmOrchestrator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SwarmOrchestrator {
     pub fn new() -> Self {
         let (result_tx, result_rx) = mpsc::channel(100);

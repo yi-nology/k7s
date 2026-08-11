@@ -74,7 +74,7 @@ fn default_severity() -> String {
 }
 
 /// Hook authentication configuration.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HookConfig {
     /// Whether hooks are enabled.
@@ -88,15 +88,6 @@ pub struct HookConfig {
     pub allowed_ips: Vec<String>,
 }
 
-impl Default for HookConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            token: String::new(),
-            allowed_ips: Vec::new(),
-        }
-    }
-}
 
 /// Verify a hook request's authentication.
 ///

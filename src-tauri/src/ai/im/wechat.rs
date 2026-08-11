@@ -73,7 +73,7 @@ impl ImAdapter for WeChatAdapter {
 
         // Verify signature (best-effort; production should enforce this).
         if !msg_signature.is_empty() {
-            let mut parts = vec![self.token.clone(), timestamp.clone(), nonce.clone()];
+            let mut parts = [self.token.clone(), timestamp.clone(), nonce.clone()];
             parts.sort();
             let joined = parts.join("");
             let mut hasher = Sha1::new();
