@@ -24,6 +24,7 @@ import { asTheme, type Theme } from '../../lib/theme';
 import { asLocale, LOCALES, type Locale } from '../../lib/i18n';
 import { useTranslation } from '../../hooks/useI18n';
 import { McpPanel } from './McpPanel';
+import { ScannerPanel } from './ScannerPanel';
 import { AiSettingsPanel } from '../ai/AiSettingsPanel';
 
 export function SettingsPanel() {
@@ -229,6 +230,10 @@ export function SettingsPanel() {
                 placeholder={t('settings.nodeShellImage.placeholder')}
               />
             </Row>
+
+            {/* Scanner — SBOM / vulnerability scanning engine configuration.
+                Shows which engines are available and lets the user override paths. */}
+            <ScannerPanel />
 
             {/* AI integration — the MCP endpoint this same server exposes.
                 Renders inside Advanced so the "you can do all this from

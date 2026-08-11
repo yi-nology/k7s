@@ -482,6 +482,10 @@ export interface DataProvider {
   sbomGet(id: string): Promise<SbomResult>;
   sbomExport(id: string, outputPath: string): Promise<string>;
 
+  // ---- Scanner Status ----
+  /** Return the availability and configuration of all scanning engines. */
+  scannerStatus(): Promise<import('./scanner').ScannerStatus>;
+
   // ---- RBAC Security Audit ----
   /** Run an RBAC security audit on the connected cluster. */
   securityAudit(): Promise<AuditReport>;

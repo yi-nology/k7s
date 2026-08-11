@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Search, Loader2 } from 'lucide-react';
 import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import type { SbomResult, SbomFormat } from '../../providers/types/sbom';
+import type { ScannerStatus } from '../../providers/types/scanner';
 import { ComponentTable } from './ComponentTable';
 import { VulnTable } from './VulnTable';
 
@@ -17,6 +18,19 @@ export function ImageSBOMTab({ onResult }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sbom, setSbom] = useState<SbomResult | null>(null);
+  const [scannerInfo, setScannerInfo] = useState<ScannerStatus | null>(null);
+
+  const fetchScanner = useCallback(async () => {
+    try {
+      setScannerInfo(await getProvider().scannerStatus());
+    } catch {
+      // Non-critical; just don't show the indicator.
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchScanner();
+  }, [fetchScanner]);
 
   const handleGenerate = async () => {
     if (!imageRef.trim()) return;
@@ -81,6 +95,44 @@ export function ImageSBOMTab({ onResult }: Props) {
           {t('sbom.image.generate', 'Generate')}
         </button>
       </div>
+
+      {scannerInfo && (
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--text-secondary)',
+            marginBottom: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: 'var(--status-ok, #22c55e)',
+              display: 'inline-block',
+            }}
+          />
+          <span>
+            {t('sbom.scanner.via', 'via')}{' '}
+            <strong>{scannerInfo.activeEngine}</strong>
+            {scannerInfo.activeEngine !== 'native' && (
+              <span style={{ opacity: 0.7 }}>
+                {' '}
+                ({scannerInfo.engines.find((e) => e.name === scannerInfo.activeEngine)?.pathSource})
+              </span>
+            )}
+          </span>
+          <span style={{ opacity: 0.5 }}>·</span>
+          <span>
+            {t('sbom.scanner.fallback', 'fallback')}:{' '}
+            {scannerInfo.engines.map((e) => e.name).join(' → ')}
+          </span>
+        </div>
+      )}
 
       {error && (
         <div

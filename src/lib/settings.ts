@@ -44,6 +44,13 @@ export interface Settings {
    * and on an air-gapped cluster must come from a registry the nodes can reach.
    */
   nodeShellImage: string;
+  // ---- scanner (SBOM / image vulnerability scanning) ----
+  /** Custom path to the trivy binary; empty = auto-detect. */
+  scannerTrivyPath: string;
+  /** Custom path to the grype binary; empty = auto-detect. */
+  scannerGrypePath: string;
+  /** Timeout for scanner invocations (e.g. "5m", "300s"); empty = 5m default. */
+  scannerTimeout: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -60,6 +67,9 @@ export const DEFAULT_SETTINGS: Settings = {
   // older prefs files (pre-language) render in English until the user changes it.
   language: 'en',
   nodeShellImage: '',
+  scannerTrivyPath: '',
+  scannerGrypePath: '',
+  scannerTimeout: '',
 };
 
 /**
@@ -102,6 +112,26 @@ function sanitizeNodeShellImage(raw: string): string {
   return trimmed;
 }
 
+/** Sanitize a filesystem path: trim, reject shell metacharacters and traversal. */
+function sanitizePath(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === '') return '';
+  // Block shell metacharacters and obvious injection vectors.
+  if (/[;&|`$(){}!#~<>]/.test(trimmed)) return '';
+  // Block relative traversal.
+  if (trimmed.includes('..')) return '';
+  return trimmed;
+}
+
+/** Sanitize a timeout string like "5m", "300s", "1h". Empty = default. */
+function sanitizeTimeout(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === '') return '';
+  // Must be a number followed by s, m, or h.
+  if (!/^\d+[smh]$/i.test(trimmed)) return '';
+  return trimmed;
+}
+
 /**
  * Coerce anything (persisted prefs from an older version, a half-typed field)
  * into usable settings. Every field falls back to its default independently, so
@@ -139,5 +169,11 @@ export function sanitizeSettings(raw: SettingsInput | null | undefined): Setting
     language: asLocale(s.language),
     nodeShellImage:
       typeof s.nodeShellImage === 'string' ? sanitizeNodeShellImage(s.nodeShellImage) : '',
+    scannerTrivyPath:
+      typeof s.scannerTrivyPath === 'string' ? sanitizePath(s.scannerTrivyPath) : '',
+    scannerGrypePath:
+      typeof s.scannerGrypePath === 'string' ? sanitizePath(s.scannerGrypePath) : '',
+    scannerTimeout:
+      typeof s.scannerTimeout === 'string' ? sanitizeTimeout(s.scannerTimeout) : '',
   };
 }

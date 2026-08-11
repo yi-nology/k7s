@@ -584,10 +584,27 @@ fn cached_grype_path() -> &'static Option<String> {
     GRYPE_PATH.get_or_init(which_grype)
 }
 
+/// If `custom` is a non-empty string and the path exists on disk, use it;
+/// otherwise fall back to the auto-detected cached value.
+fn resolve_path_or_auto<'a>(
+    custom: Option<&str>,
+    auto: &'static Option<String>,
+) -> Option<String> {
+    if let Some(p) = custom {
+        let trimmed = p.trim();
+        if !trimmed.is_empty() && std::path::Path::new(trimmed).exists() {
+            return Some(trimmed.to_string());
+        }
+    }
+    auto.clone()
+}
+
 /// SBOM generation engine with three-tier fallback.
 pub struct SbomEngine {
     trivy_path: Option<String>,
     grype_path: Option<String>,
+    /// Timeout string passed to trivy (e.g. "5m", "300s").
+    timeout: String,
 }
 
 impl Default for SbomEngine {
@@ -602,6 +619,27 @@ impl SbomEngine {
         Self {
             trivy_path: cached_trivy_path().clone(),
             grype_path: cached_grype_path().clone(),
+            timeout: "5m".to_string(),
+        }
+    }
+
+    /// Create an engine with custom binary paths and timeout from user prefs.
+    /// Each path, if non-empty, overrides the auto-detected value.
+    pub fn with_prefs(
+        custom_trivy_path: Option<&str>,
+        custom_grype_path: Option<&str>,
+        timeout: Option<&str>,
+    ) -> Self {
+        let trivy_path = resolve_path_or_auto(custom_trivy_path, cached_trivy_path());
+        let grype_path = resolve_path_or_auto(custom_grype_path, cached_grype_path());
+        let timeout = timeout
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or("5m")
+            .to_string();
+        Self {
+            trivy_path,
+            grype_path,
+            timeout,
         }
     }
 
@@ -639,7 +677,7 @@ impl SbomEngine {
         let mut sbom = self.generate_image_sbom(image_ref, format).await?;
 
         if let Some(ref path) = self.trivy_path {
-            let vulns = scan_vulnerabilities(path, image_ref).await?;
+            let vulns = scan_vulnerabilities(path, image_ref, &self.timeout).await?;
             sbom.vulnerabilities = vulns;
         }
 
@@ -664,9 +702,10 @@ impl SbomEngine {
 async fn scan_vulnerabilities(
     trivy_path: &str,
     image_ref: &str,
+    timeout: &str,
 ) -> AppResult<Vec<SbomVulnerability>> {
     let output = Command::new(trivy_path)
-        .args(["image", "--format", "json", "--quiet", image_ref])
+        .args(["image", "--format", "json", "--quiet", "--timeout", timeout, image_ref])
         .output()
         .await
         .map_err(|e| AppError::Other(format!("trivy vuln scan failed: {e}")))?;

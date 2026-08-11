@@ -311,6 +311,9 @@ export abstract class BaseRpcProvider {
   securityAudit(): Promise<import('./types/security').AuditReport> {
     return this.rpc('security_audit_run');
   }
+  scannerStatus(): Promise<import('./types/scanner').ScannerStatus> {
+    return this.rpc('scanner_status');
+  }
 
   // ── AI assistant ────────────────────────────────────────────────────
   aiGetConfig(): Promise<import('../lib/ai/types').AiConfigView> {

@@ -286,6 +286,10 @@ pub fn api_router(state: WebState) -> Router {
             "/api/invoke/security_audit_run",
             post(handlers::security_audit_run),
         )
+        .route(
+            "/api/invoke/scanner_status",
+            post(handlers::scanner_status),
+        )
         // AI webhook hooks — external systems (monitoring, CI/CD) can trigger
         // the AI agent via these endpoints. Authenticated via Bearer token.
         .route("/hooks/wake", post(handlers::hook_wake))

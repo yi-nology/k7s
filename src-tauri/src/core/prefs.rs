@@ -39,6 +39,13 @@ pub struct Prefs {
     pub theme: Option<String>,
     /// Container image for the node debug shell; None/empty uses the default (B53).
     pub node_shell_image: Option<String>,
+    // ---- scanner (SBOM / image vulnerability scanning) ----
+    /// Custom path to the trivy binary; None/empty uses auto-detection.
+    pub scanner_trivy_path: Option<String>,
+    /// Custom path to the grype binary; None/empty uses auto-detection.
+    pub scanner_grype_path: Option<String>,
+    /// Timeout for scanner invocations (e.g. "5m", "300s"); None uses the default (5m).
+    pub scanner_timeout: Option<String>,
 }
 
 /// Path to the prefs file under a config directory.

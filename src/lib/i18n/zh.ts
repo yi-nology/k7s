@@ -205,6 +205,26 @@ export const zh: Dictionary = {
         configPath: '~/.cursor/mcp.json(或项目里的 .cursor/mcp.json)',
       },
     },
+    scanner: {
+      statusTitle: '扫描引擎状态',
+      refresh: '刷新',
+      fallbackChain: '降级链路',
+      trivyPath: {
+        label: 'Trivy 路径',
+        hint: '自定义路径;留空则自动探测',
+        placeholder: '(自动探测)',
+      },
+      grypePath: {
+        label: 'Grype 路径',
+        hint: '自定义路径;留空则自动探测',
+        placeholder: '(自动探测)',
+      },
+      timeout: {
+        label: '扫描超时',
+        hint: '如 5m、300s、1h;留空默认 5 分钟',
+        placeholder: '5m',
+      },
+    },
   },
 
   detail: {
@@ -1219,5 +1239,9 @@ export const zh: Dictionary = {
       failed: (error: string) => `导出失败: ${error}`,
     },
     historyLoadFailed: (error: string) => `加载SBOM失败: ${error}`,
+    scanner: {
+      via: '使用',
+      fallback: '降级',
+    },
   },
 };

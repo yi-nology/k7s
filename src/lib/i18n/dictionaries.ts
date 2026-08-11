@@ -198,6 +198,14 @@ export interface Dictionary {
         configPath: string;
       };
     };
+    scanner: {
+      statusTitle: string;
+      refresh: string;
+      fallbackChain: string;
+      trivyPath: { label: string; hint: string; placeholder: string };
+      grypePath: { label: string; hint: string; placeholder: string };
+      timeout: { label: string; hint: string; placeholder: string };
+    };
   };
 
   /** Detail panel — header meta, common buttons. Tab labels use tabLabel(). */
@@ -1040,6 +1048,10 @@ export interface Dictionary {
       failed: (error: string) => string;
     };
     historyLoadFailed: (error: string) => string;
+    scanner: {
+      via: string;
+      fallback: string;
+    };
   };
 
   /** Ingress editor overlay (form-based ingress creation/editing). */

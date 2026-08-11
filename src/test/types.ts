@@ -284,6 +284,9 @@ export function createMockSettings(overrides: MockSettings = {}): Settings {
     theme: 'system',
     language: 'en',
     nodeShellImage: '',
+    scannerTrivyPath: '',
+    scannerGrypePath: '',
+    scannerTimeout: '',
     ...overrides,
   };
 }

@@ -200,6 +200,26 @@ export const en: Dictionary = {
         configPath: '~/.cursor/mcp.json  (or .cursor/mcp.json in a project)',
       },
     },
+    scanner: {
+      statusTitle: 'Scanner Status',
+      refresh: 'Refresh',
+      fallbackChain: 'Fallback chain',
+      trivyPath: {
+        label: 'Trivy binary path',
+        hint: 'Custom path; empty = auto-detect from PATH',
+        placeholder: '(auto-detect)',
+      },
+      grypePath: {
+        label: 'Grype binary path',
+        hint: 'Custom path; empty = auto-detect from PATH',
+        placeholder: '(auto-detect)',
+      },
+      timeout: {
+        label: 'Scan timeout',
+        hint: 'e.g. 5m, 300s, 1h; empty = 5m default',
+        placeholder: '5m',
+      },
+    },
   },
 
   detail: {
@@ -1225,5 +1245,9 @@ export const en: Dictionary = {
       failed: (error: string) => `Export failed: ${error}`,
     },
     historyLoadFailed: (error: string) => `Failed to load SBOM: ${error}`,
+    scanner: {
+      via: 'via',
+      fallback: 'fallback',
+    },
   },
 };

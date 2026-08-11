@@ -536,6 +536,20 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
     };
   }
 
+  // ---- Scanner Status ----
+
+  async scannerStatus(): Promise<import('../types/scanner').ScannerStatus> {
+    return {
+      engines: [
+        { name: 'trivy', available: false, path: null, configurable: true, pathSource: 'auto-detected' },
+        { name: 'grype', available: false, path: null, configurable: true, pathSource: 'auto-detected' },
+        { name: 'native', available: true, path: null, configurable: false, pathSource: 'built-in' },
+      ],
+      activeEngine: 'native',
+      timeout: '5m',
+    };
+  }
+
   // ---- RBAC Security Audit ----
 
   async securityAudit(): Promise<AuditReport> {

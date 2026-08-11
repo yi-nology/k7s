@@ -1,6 +1,7 @@
 //! SBOM commands: generation, history, and export.
 
 use crate::commands::core::require_client;
+use crate::core::prefs::read_prefs;
 use crate::core::CoreState;
 use crate::error::AppResult;
 use crate::kube::sbom::{SbomEngine, SbomFormat, SbomResult, SbomSummary};
@@ -10,6 +11,16 @@ use tauri::State;
 
 fn get_storage(data_dir: &std::path::Path) -> SbomStorage {
     SbomStorage::new(data_dir)
+}
+
+/// Build an SbomEngine from user prefs (custom paths + timeout).
+fn engine_from_prefs(mgr: &CoreState) -> SbomEngine {
+    let prefs = read_prefs(&mgr.data_dir);
+    SbomEngine::with_prefs(
+        prefs.scanner_trivy_path.as_deref(),
+        prefs.scanner_grype_path.as_deref(),
+        prefs.scanner_timeout.as_deref(),
+    )
 }
 
 /// Generate SBOM for a single container image.
@@ -22,7 +33,7 @@ pub async fn sbom_generate_image(
     let fmt = SbomFormat::parse(&format)
         .ok_or_else(|| crate::error::AppError::Other(format!("Unknown format: {format}")))?;
 
-    let engine = SbomEngine::new();
+    let engine = engine_from_prefs(&mgr);
     let sbom = engine.generate_with_vulns(&image_ref, &fmt).await?;
 
     let storage = get_storage(&mgr.data_dir);

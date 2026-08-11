@@ -283,7 +283,14 @@ pub async fn sbom_generate_image(
     let format = crate::kube::sbom::SbomFormat::parse(format_str)
         .unwrap_or(crate::kube::sbom::SbomFormat::CycloneDx);
 
-    let engine = crate::kube::sbom::SbomEngine::new();
+    let engine = {
+        let p = prefs::read_prefs(&state.core.data_dir);
+        crate::kube::sbom::SbomEngine::with_prefs(
+            p.scanner_trivy_path.as_deref(),
+            p.scanner_grype_path.as_deref(),
+            p.scanner_timeout.as_deref(),
+        )
+    };
     let result: AppResult<_> = async {
         let sbom = engine.generate_with_vulns(&image_ref, &format).await?;
         let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
@@ -428,6 +435,57 @@ pub async fn security_audit_run(State(state): State<WebState>) -> axum::response
     }
     .await;
     respond(result)
+}
+
+/// `POST /api/invoke/scanner_status` — Return scanner engine availability.
+pub async fn scanner_status(State(state): State<WebState>) -> axum::response::Response {
+    let prefs = prefs::read_prefs(&state.core.data_dir);
+    let (trivy_path, trivy_source) =
+        crate::commands::scanner::resolve_trivy(prefs.scanner_trivy_path.as_deref());
+    let (grype_path, grype_source) =
+        crate::commands::scanner::resolve_grype(prefs.scanner_grype_path.as_deref());
+
+    let active_engine = if trivy_path.is_some() {
+        "trivy"
+    } else if grype_path.is_some() {
+        "grype"
+    } else {
+        "native"
+    };
+
+    let timeout = prefs
+        .scanner_timeout
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "5m".to_string());
+
+    let status = crate::commands::scanner::ScannerStatus {
+        engines: vec![
+            crate::commands::scanner::ScannerEngineInfo {
+                name: "trivy".to_string(),
+                available: trivy_path.is_some(),
+                path: trivy_path,
+                configurable: true,
+                path_source: trivy_source,
+            },
+            crate::commands::scanner::ScannerEngineInfo {
+                name: "grype".to_string(),
+                available: grype_path.is_some(),
+                path: grype_path,
+                configurable: true,
+                path_source: grype_source,
+            },
+            crate::commands::scanner::ScannerEngineInfo {
+                name: "native".to_string(),
+                available: true,
+                path: None,
+                configurable: false,
+                path_source: "built-in".to_string(),
+            },
+        ],
+        active_engine: active_engine.to_string(),
+        timeout,
+    };
+    respond(Ok(status))
 }
 
 // ---------------------------------------------------------------------------

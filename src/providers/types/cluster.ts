@@ -78,6 +78,10 @@ export interface Prefs {
   nodeShellImage?: string | null;
   /** Pinned context names for the sidebar hotbar. */
   hotbar?: string[] | null;
+  // ---- scanner (SBOM / image vulnerability scanning) ----
+  scannerTrivyPath?: string | null;
+  scannerGrypePath?: string | null;
+  scannerTimeout?: string | null;
 }
 
 /** Identifies a specific object for YAML/events/log commands. */

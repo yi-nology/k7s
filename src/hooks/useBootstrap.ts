@@ -105,6 +105,9 @@ export function useBootstrap(): void {
             theme: prefs.theme ?? undefined,
             language: prefs.language ?? undefined,
             nodeShellImage: prefs.nodeShellImage ?? undefined,
+            scannerTrivyPath: prefs.scannerTrivyPath ?? undefined,
+            scannerGrypePath: prefs.scannerGrypePath ?? undefined,
+            scannerTimeout: prefs.scannerTimeout ?? undefined,
           });
           // Custom kinds aren't in KIND_META and aren't discovered yet at this
           // point, so accept any custom-looking id; if this cluster turns out not
