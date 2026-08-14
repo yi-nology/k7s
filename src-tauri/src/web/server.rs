@@ -270,26 +270,17 @@ pub fn api_router(state: WebState) -> Router {
             "/api/invoke/sbom_list_history",
             post(handlers::sbom_list_history),
         )
-        .route(
-            "/api/invoke/sbom_get",
-            post(handlers::sbom_get_invoke),
-        )
+        .route("/api/invoke/sbom_get", post(handlers::sbom_get_invoke))
         .route(
             "/api/invoke/sbom_generate_cluster",
             post(handlers::sbom_generate_cluster),
         )
-        .route(
-            "/api/invoke/sbom_export",
-            post(handlers::sbom_export),
-        )
+        .route("/api/invoke/sbom_export", post(handlers::sbom_export))
         .route(
             "/api/invoke/security_audit_run",
             post(handlers::security_audit_run),
         )
-        .route(
-            "/api/invoke/scanner_status",
-            post(handlers::scanner_status),
-        )
+        .route("/api/invoke/scanner_status", post(handlers::scanner_status))
         // AI webhook hooks — external systems (monitoring, CI/CD) can trigger
         // the AI agent via these endpoints. Authenticated via Bearer token.
         .route("/hooks/wake", post(handlers::hook_wake))
@@ -308,14 +299,8 @@ pub fn api_router(state: WebState) -> Router {
             "/api/invoke/ai_save_config",
             post(handlers::ai_save_config_handler),
         )
-                        .route(
-            "/api/invoke/ai_chat",
-            post(handlers::ai_chat_handler),
-        )
-        .route(
-            "/api/invoke/ai_cancel",
-            post(handlers::ai_cancel_handler),
-        )
+        .route("/api/invoke/ai_chat", post(handlers::ai_chat_handler))
+        .route("/api/invoke/ai_cancel", post(handlers::ai_cancel_handler))
         .route(
             "/api/invoke/ai_poll_events",
             post(handlers::ai_poll_events_handler),
@@ -522,7 +507,10 @@ pub async fn serve(
     // on non-loopback the operator MUST set `K7S_WEB_TOKEN`, and we warn loudly
     // because a network-reachable cluster control surface is high-risk.
     if !addr.ip().is_loopback() {
-        if std::env::var("K7S_WEB_TOKEN").map(|t| t.trim().is_empty()).unwrap_or(true) {
+        if std::env::var("K7S_WEB_TOKEN")
+            .map(|t| t.trim().is_empty())
+            .unwrap_or(true)
+        {
             tracing::warn!(
                 "⚠️  k7s-web is bound to {addr} (non-loopback) and K7S_WEB_TOKEN is not set. \
                  A random token was generated and written to the data dir, but on a \

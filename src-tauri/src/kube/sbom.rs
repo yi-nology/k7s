@@ -586,10 +586,7 @@ fn cached_grype_path() -> &'static Option<String> {
 
 /// If `custom` is a non-empty string and the path exists on disk, use it;
 /// otherwise fall back to the auto-detected cached value.
-fn resolve_path_or_auto<'a>(
-    custom: Option<&str>,
-    auto: &'static Option<String>,
-) -> Option<String> {
+fn resolve_path_or_auto(custom: Option<&str>, auto: &'static Option<String>) -> Option<String> {
     if let Some(p) = custom {
         let trimmed = p.trim();
         if !trimmed.is_empty() && std::path::Path::new(trimmed).exists() {
@@ -705,7 +702,15 @@ async fn scan_vulnerabilities(
     timeout: &str,
 ) -> AppResult<Vec<SbomVulnerability>> {
     let output = Command::new(trivy_path)
-        .args(["image", "--format", "json", "--quiet", "--timeout", timeout, image_ref])
+        .args([
+            "image",
+            "--format",
+            "json",
+            "--quiet",
+            "--timeout",
+            timeout,
+            image_ref,
+        ])
         .output()
         .await
         .map_err(|e| AppError::Other(format!("trivy vuln scan failed: {e}")))?;
