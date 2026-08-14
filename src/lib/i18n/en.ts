@@ -219,6 +219,11 @@ export const en: Dictionary = {
         hint: 'e.g. 5m, 300s, 1h; empty = 5m default',
         placeholder: '5m',
       },
+      engine: {
+        builtIn: '(built-in)',
+        notFound: 'not found',
+        active: 'active',
+      },
     },
   },
 

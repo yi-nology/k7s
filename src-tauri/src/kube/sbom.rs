@@ -136,6 +136,7 @@ pub async fn generate_via_trivy(
     trivy_path: &str,
     image_ref: &str,
     format: &SbomFormat,
+    timeout: &str,
 ) -> AppResult<SbomResult> {
     let start = std::time::Instant::now();
     let format_flag = match format {
@@ -151,6 +152,8 @@ pub async fn generate_via_trivy(
             "--output",
             "/dev/stdout",
             "--quiet",
+            "--timeout",
+            timeout,
             image_ref,
         ])
         .output()
@@ -589,7 +592,7 @@ fn cached_grype_path() -> &'static Option<String> {
 fn resolve_path_or_auto(custom: Option<&str>, auto: &'static Option<String>) -> Option<String> {
     if let Some(p) = custom {
         let trimmed = p.trim();
-        if !trimmed.is_empty() && std::path::Path::new(trimmed).exists() {
+        if !trimmed.is_empty() && std::path::Path::new(trimmed).is_file() {
             return Some(trimmed.to_string());
         }
     }
@@ -649,7 +652,7 @@ impl SbomEngine {
     ) -> AppResult<SbomResult> {
         // Tier 1: trivy
         if let Some(ref path) = self.trivy_path {
-            match generate_via_trivy(path, image_ref, format).await {
+            match generate_via_trivy(path, image_ref, format, &self.timeout).await {
                 Ok(result) => return Ok(result),
                 Err(e) => tracing::warn!("trivy SBOM generation failed, falling back: {e}"),
             }

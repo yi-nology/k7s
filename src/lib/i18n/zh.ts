@@ -224,6 +224,11 @@ export const zh: Dictionary = {
         hint: '如 5m、300s、1h;留空默认 5 分钟',
         placeholder: '5m',
       },
+      engine: {
+        builtIn: '(内置)',
+        notFound: '未找到',
+        active: '当前',
+      },
     },
   },
 

@@ -1938,7 +1938,12 @@ impl K7sMcpServer {
     ) -> Result<CallToolResult, McpError> {
         let format = crate::kube::sbom::SbomFormat::parse(&p.format)
             .unwrap_or(crate::kube::sbom::SbomFormat::CycloneDx);
-        let engine = crate::kube::sbom::SbomEngine::new();
+        let prefs = crate::core::prefs::read_prefs(&self.core.data_dir);
+        let engine = crate::kube::sbom::SbomEngine::with_prefs(
+            prefs.scanner_trivy_path.as_deref(),
+            prefs.scanner_grype_path.as_deref(),
+            prefs.scanner_timeout.as_deref(),
+        );
         let sbom = engine
             .generate_with_vulns(&p.image_ref, &format)
             .await

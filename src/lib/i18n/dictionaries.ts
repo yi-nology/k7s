@@ -205,6 +205,7 @@ export interface Dictionary {
       trivyPath: { label: string; hint: string; placeholder: string };
       grypePath: { label: string; hint: string; placeholder: string };
       timeout: { label: string; hint: string; placeholder: string };
+      engine: { builtIn: string; notFound: string; active: string };
     };
   };
 

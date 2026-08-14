@@ -213,30 +213,66 @@ pub fn build_image_ref(registry_url: &str, repo: &str, tag: &str) -> String {
 /// either a bare reference like `nginx:1.25` or a full `docker://host/repo:tag`
 /// transport string. Progress lines are streamed to the UI via the event sink.
 pub async fn scan_image(engine: &str, image_ref: &str, sink: EventSink) -> AppResult<ScanResult> {
+    scan_image_with_prefs(engine, image_ref, sink, None, None, None).await
+}
+
+/// Like `scan_image`, but honours user-configured binary paths and timeout.
+/// Any `None` field falls back to auto-detection / default.
+pub async fn scan_image_with_prefs(
+    engine: &str,
+    image_ref: &str,
+    sink: EventSink,
+    custom_trivy_path: Option<&str>,
+    custom_grype_path: Option<&str>,
+    timeout: Option<&str>,
+) -> AppResult<ScanResult> {
+    let timeout = timeout.filter(|s| !s.trim().is_empty()).unwrap_or("5m");
     match engine {
-        "trivy" => scan_with_trivy(image_ref, sink).await,
-        "grype" => scan_with_grype(image_ref, sink).await,
+        "trivy" => {
+            let trivy = resolve_binary(custom_trivy_path, "trivy", which_trivy)?;
+            scan_with_trivy(&trivy, image_ref, sink, timeout).await
+        }
+        "grype" => {
+            let grype = resolve_binary(custom_grype_path, "grype", which_grype)?;
+            scan_with_grype(&grype, image_ref, sink).await
+        }
         other => Err(AppError::Other(format!(
             "unknown scan engine '{other}' — expected 'trivy' or 'grype'"
         ))),
     }
 }
 
+/// Resolve a binary path: custom > auto-detected.
+fn resolve_binary(
+    custom: Option<&str>,
+    name: &str,
+    auto_detect: fn() -> Option<String>,
+) -> AppResult<String> {
+    if let Some(p) = custom {
+        let trimmed = p.trim();
+        if !trimmed.is_empty() && std::path::Path::new(trimmed).is_file() {
+            return Ok(trimmed.to_string());
+        }
+    }
+    auto_detect().ok_or_else(|| {
+        AppError::Other(format!(
+            "{name} CLI not found on PATH — install {name} and retry"
+        ))
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Trivy implementation
 // ---------------------------------------------------------------------------
 
-async fn scan_with_trivy(image_ref: &str, sink: EventSink) -> AppResult<ScanResult> {
-    let trivy = which_trivy().ok_or_else(|| {
-        AppError::Other(
-            "trivy CLI not found on PATH — install trivy \
-             (brew install trivy / apt install trivy) and retry"
-                .into(),
-        )
-    })?;
-
-    let mut cmd = Command::new(&trivy);
-    cmd.args(["image", "--format", "json", "--quiet", "--timeout", "5m"])
+async fn scan_with_trivy(
+    trivy: &str,
+    image_ref: &str,
+    sink: EventSink,
+    timeout: &str,
+) -> AppResult<ScanResult> {
+    let mut cmd = Command::new(trivy);
+    cmd.args(["image", "--format", "json", "--quiet", "--timeout", timeout])
         .arg(image_ref)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -405,16 +441,8 @@ fn parse_trivy_report(image_ref: &str, report: &serde_json::Value) -> AppResult<
 // Grype implementation
 // ---------------------------------------------------------------------------
 
-async fn scan_with_grype(image_ref: &str, sink: EventSink) -> AppResult<ScanResult> {
-    let grype = which_grype().ok_or_else(|| {
-        AppError::Other(
-            "grype CLI not found on PATH — install grype \
-             (brew install grype / apt install grype) and retry"
-                .into(),
-        )
-    })?;
-
-    let mut cmd = Command::new(&grype);
+async fn scan_with_grype(grype: &str, image_ref: &str, sink: EventSink) -> AppResult<ScanResult> {
+    let mut cmd = Command::new(grype);
     cmd.args([image_ref, "-o", "json"])
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

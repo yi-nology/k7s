@@ -10,6 +10,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useStore } from '../../store';
+import { sanitizeSettings } from '../../lib/settings';
 import { getProvider, formatError } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import type { ScannerStatus, ScannerEngineInfo } from '../../providers/types/scanner';
@@ -62,7 +63,7 @@ export function ScannerPanel() {
   }, [fetchStatus]);
 
   const update = (patch: Partial<typeof settings>) =>
-    setSettings({ ...settings, ...patch });
+    setSettings(sanitizeSettings({ ...settings, ...patch }));
 
   return (
     <div style={{ marginTop: 8 }}>
@@ -192,6 +193,7 @@ function EngineRow({
   engine: ScannerEngineInfo;
   isActive: boolean;
 }) {
+  const { t } = useTranslation();
   const icon = engine.available ? '✓' : '✗';
   const iconColor = engine.available
     ? 'var(--status-ok, #22c55e)'
@@ -221,7 +223,7 @@ function EngineRow({
           whiteSpace: 'nowrap',
         }}
       >
-        {engine.path ?? (engine.available ? '(built-in)' : 'not found')}
+        {engine.path ?? (engine.available ? t('settings.scanner.engine.builtIn', '(built-in)') : t('settings.scanner.engine.notFound', 'not found'))}
       </span>
       {engine.pathSource !== 'built-in' && (
         <span
@@ -251,7 +253,7 @@ function EngineRow({
             fontWeight: 600,
           }}
         >
-          active
+          {t('settings.scanner.engine.active', 'active')}
         </span>
       )}
     </div>

@@ -116,8 +116,8 @@ function sanitizeNodeShellImage(raw: string): string {
 function sanitizePath(raw: string): string {
   const trimmed = raw.trim();
   if (trimmed === '') return '';
-  // Block shell metacharacters and obvious injection vectors.
-  if (/[;&|`$(){}!#~<>]/.test(trimmed)) return '';
+  // Block shell metacharacters that enable injection (but allow ~, #, !).
+  if (/[;&|`$(){}<>]/.test(trimmed)) return '';
   // Block relative traversal.
   if (trimmed.includes('..')) return '';
   return trimmed;

@@ -43,7 +43,7 @@ pub fn resolve_trivy(prefs_trivy_path: Option<&str>) -> (Option<String>, String)
     // User-configured path takes priority.
     if let Some(custom) = prefs_trivy_path {
         let trimmed = custom.trim();
-        if !trimmed.is_empty() && std::path::Path::new(trimmed).exists() {
+        if !trimmed.is_empty() && std::path::Path::new(trimmed).is_file() {
             return (Some(trimmed.to_string()), "configured".to_string());
         }
     }
@@ -55,7 +55,7 @@ pub fn resolve_trivy(prefs_trivy_path: Option<&str>) -> (Option<String>, String)
 pub fn resolve_grype(prefs_grype_path: Option<&str>) -> (Option<String>, String) {
     if let Some(custom) = prefs_grype_path {
         let trimmed = custom.trim();
-        if !trimmed.is_empty() && std::path::Path::new(trimmed).exists() {
+        if !trimmed.is_empty() && std::path::Path::new(trimmed).is_file() {
             return (Some(trimmed.to_string()), "configured".to_string());
         }
     }
