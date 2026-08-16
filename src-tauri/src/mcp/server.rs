@@ -25,6 +25,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::core::events::mcp_sink;
+use crate::core::shell_common::validate_apply_yaml;
 use crate::core::CoreState;
 use crate::error::AppError;
 use crate::kube::{
@@ -305,11 +306,14 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
+        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let namespaced = kube_api::kind_is_namespaced(&p.kind, &self.manager()).await;
+        validate_apply_yaml(&obj, &p.kind, &p.name, &p.namespace, namespaced)
+            .map_err(tool_error)?;
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
-            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
         api.replace(&p.name, &PostParams::default(), &obj)
             .await
             .map(|_| ())
@@ -331,11 +335,14 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
+        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let namespaced = kube_api::kind_is_namespaced(&p.kind, &self.manager()).await;
+        validate_apply_yaml(&obj, &p.kind, &p.name, &p.namespace, namespaced)
+            .map_err(tool_error)?;
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
-            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         let mut current = api
             .get(&p.name)

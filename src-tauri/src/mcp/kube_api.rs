@@ -15,7 +15,7 @@
 //! it. Three duplicated helper functions are cheaper than that.
 
 use crate::error::{AppError, AppResult};
-use crate::kube::{client, helm, manager::ClientManager, properties};
+use crate::kube::{client, helm, manager::ClientManager, properties, ResourceKind};
 use k8s_openapi::api::core::v1::{Event, Secret};
 use kube::api::{Api, ApiResource, DynamicObject, ListParams, ObjectList};
 use kube::config::{Config, KubeConfigOptions, Kubeconfig};
@@ -532,6 +532,28 @@ pub async fn dynamic_api(
         },
         false,
     ))
+}
+
+/// Return whether a kind is namespaced, consulting the custom-kind registry
+/// for CRD-backed kinds. Used by validation before apply/dry-run.
+pub async fn kind_is_namespaced(kind: &str, manager: &ClientManager) -> bool {
+    if kind.contains('/') {
+        return manager
+            .custom_kind(kind)
+            .await
+            .map(|ck| ck.namespaced)
+            .unwrap_or(true);
+    }
+    !matches!(
+        kind,
+        "ingressclasses"
+            | "persistentvolumes"
+            | "storageclasses"
+            | "nodes"
+            | "namespaces"
+            | "clusterroles"
+            | "clusterrolebindings"
+    )
 }
 
 fn dummy_ar() -> ApiResource {

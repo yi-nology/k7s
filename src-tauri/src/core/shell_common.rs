@@ -223,6 +223,118 @@ pub fn ensure_writable(kind: &str) -> AppResult<()> {
     Ok(())
 }
 
+/// Map a built-in kind id (e.g. "deployments") to its PascalCase kind name
+/// (e.g. "Deployment"). Returns `None` for unknown or custom (CRD) kinds.
+fn expected_kind_name(kind: &str) -> Option<&'static str> {
+    match kind {
+        "pods" => Some("Pod"),
+        "deployments" => Some("Deployment"),
+        "replicasets" => Some("ReplicaSet"),
+        "statefulsets" => Some("StatefulSet"),
+        "daemonsets" => Some("DaemonSet"),
+        "jobs" => Some("Job"),
+        "cronjobs" => Some("CronJob"),
+        "services" => Some("Service"),
+        "endpoints" => Some("Endpoints"),
+        "ingresses" => Some("Ingress"),
+        "ingressclasses" => Some("IngressClass"),
+        "networkpolicies" => Some("NetworkPolicy"),
+        "configmaps" => Some("ConfigMap"),
+        "secrets" => Some("Secret"),
+        "serviceaccounts" => Some("ServiceAccount"),
+        "persistentvolumeclaims" => Some("PersistentVolumeClaim"),
+        "persistentvolumes" => Some("PersistentVolume"),
+        "storageclasses" => Some("StorageClass"),
+        "nodes" => Some("Node"),
+        "namespaces" => Some("Namespace"),
+        "roles" => Some("Role"),
+        "rolebindings" => Some("RoleBinding"),
+        "clusterroles" => Some("ClusterRole"),
+        "clusterrolebindings" => Some("ClusterRoleBinding"),
+        "horizontalpodautoscalers" => Some("HorizontalPodAutoscaler"),
+        "poddisruptionbudgets" => Some("PodDisruptionBudget"),
+        "resourcequotas" => Some("ResourceQuota"),
+        "limitranges" => Some("LimitRange"),
+        _ => None,
+    }
+}
+
+/// Validate a parsed `DynamicObject` before applying it to the cluster.
+///
+/// Catches common mistakes early with clear error messages instead of
+/// letting the API server return a cryptic 422 or 409:
+/// - Missing apiVersion / kind
+/// - kind mismatch (editing a Deployment but applying as Service)
+/// - name mismatch (accidentally changing the resource name)
+/// - namespace mismatch
+/// - missing resourceVersion (required for PUT / replace)
+pub fn validate_apply_yaml(
+    obj: &DynamicObject,
+    expected_kind: &str,
+    expected_name: &str,
+    expected_namespace: &str,
+    namespaced: bool,
+) -> AppResult<()> {
+    // 1. Check apiVersion and kind are present.
+    let types = obj.types.as_ref().ok_or_else(|| {
+        AppError::Other("YAML is missing apiVersion and kind fields".into())
+    })?;
+
+    if types.api_version.is_empty() {
+        return Err(AppError::Other("YAML has empty apiVersion".into()));
+    }
+    if types.kind.is_empty() {
+        return Err(AppError::Other("YAML has empty kind".into()));
+    }
+
+    // 2. Cross-check kind for built-in resources.
+    //    Custom (CRD) kinds contain '/' in their id — skip the check for those.
+    if !expected_kind.contains('/') {
+        if let Some(expected_pascal) = expected_kind_name(expected_kind) {
+            if types.kind != expected_pascal {
+                return Err(AppError::Other(format!(
+                    "YAML kind '{}' does not match the expected kind '{}' for resource type '{}'",
+                    types.kind, expected_pascal, expected_kind
+                )));
+            }
+        }
+    }
+
+    // 3. Cross-check name.
+    let yaml_name = obj.name_any();
+    if yaml_name.is_empty() {
+        return Err(AppError::Other("YAML is missing metadata.name".into()));
+    }
+    if yaml_name != expected_name {
+        return Err(AppError::Other(format!(
+            "YAML metadata.name '{}' does not match the expected resource name '{}'",
+            yaml_name, expected_name
+        )));
+    }
+
+    // 4. Cross-check namespace (for namespaced resources).
+    if namespaced {
+        let yaml_ns = obj.namespace().unwrap_or_default();
+        if !yaml_ns.is_empty() && yaml_ns != expected_namespace {
+            return Err(AppError::Other(format!(
+                "YAML metadata.namespace '{}' does not match the expected namespace '{}'",
+                yaml_ns, expected_namespace
+            )));
+        }
+    }
+
+    // 5. Check resourceVersion is present (required for replace/PUT).
+    if obj.metadata.resource_version.is_none() {
+        return Err(AppError::Other(
+            "YAML is missing metadata.resourceVersion — this is required for updating resources. \
+             Fetch the latest YAML first, then edit and re-apply."
+                .into(),
+        ));
+    }
+
+    Ok(())
+}
+
 /// Replace `data` values in a Secret with a placeholder so raw values never
 /// leave the backend.
 pub fn redact_secret(obj: &mut DynamicObject) {
@@ -515,6 +627,8 @@ pub async fn dry_run_yaml_core(
 ) -> AppResult<YamlDiff> {
     ensure_writable(kind)?;
     let obj: DynamicObject = serde_yaml::from_str(yaml)?;
+    let (_ar, namespaced) = resource_for(kind, mgr).await?;
+    validate_apply_yaml(&obj, kind, name, namespace, namespaced)?;
     let (api, _is_helm) = dynamic_api(client, kind, namespace, mgr).await?;
 
     let mut current = api.get(name).await?;
@@ -544,6 +658,8 @@ pub async fn apply_yaml_core(
 ) -> AppResult<()> {
     ensure_writable(kind)?;
     let obj: DynamicObject = serde_yaml::from_str(yaml)?;
+    let (_ar, namespaced) = resource_for(kind, mgr).await?;
+    validate_apply_yaml(&obj, kind, name, namespace, namespaced)?;
     let (api, _is_helm) = dynamic_api(client, kind, namespace, mgr).await?;
     api.replace(name, &PostParams::default(), &obj).await?;
     Ok(())
@@ -627,5 +743,177 @@ pub async fn restart_rollout_core(
     let patch = Patch::Merge(crate::kube::restart::restart_patch(&now));
     api.patch(name, &PatchParams::default(), &patch).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Helper: build a minimal valid DynamicObject for testing.
+    fn make_obj(kind: &str, api_version: &str, name: &str, namespace: &str) -> DynamicObject {
+        let yaml = format!(
+            r#"
+apiVersion: {api_version}
+kind: {kind}
+metadata:
+  name: {name}
+  namespace: {namespace}
+  resourceVersion: "12345"
+"#
+        );
+        serde_yaml::from_str(&yaml).unwrap()
+    }
+
+    #[test]
+    fn valid_yaml_passes() {
+        let obj = make_obj("Deployment", "apps/v1", "my-deploy", "default");
+        assert!(validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true).is_ok());
+    }
+
+    #[test]
+    fn missing_types_fails() {
+        let yaml = r#"
+metadata:
+  name: foo
+  resourceVersion: "1"
+"#;
+        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("missing apiVersion and kind"), "got: {err}");
+    }
+
+    #[test]
+    fn empty_api_version_fails() {
+        let yaml = r#"
+apiVersion: ""
+kind: Deployment
+metadata:
+  name: foo
+  namespace: default
+  resourceVersion: "1"
+"#;
+        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("empty apiVersion"), "got: {err}");
+    }
+
+    #[test]
+    fn empty_kind_fails() {
+        let yaml = r#"
+apiVersion: apps/v1
+kind: ""
+metadata:
+  name: foo
+  namespace: default
+  resourceVersion: "1"
+"#;
+        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("empty kind"), "got: {err}");
+    }
+
+    #[test]
+    fn kind_mismatch_fails() {
+        let obj = make_obj("Service", "v1", "my-svc", "default");
+        let err = validate_apply_yaml(&obj, "deployments", "my-svc", "default", true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("kind 'Service' does not match"), "got: {err}");
+    }
+
+    #[test]
+    fn name_mismatch_fails() {
+        let obj = make_obj("Deployment", "apps/v1", "wrong-name", "default");
+        let err = validate_apply_yaml(&obj, "deployments", "expected-name", "default", true)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("metadata.name 'wrong-name' does not match"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn empty_name_fails() {
+        let yaml = r#"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ""
+  namespace: default
+  resourceVersion: "1"
+"#;
+        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let err = validate_apply_yaml(&obj, "deployments", "anything", "default", true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("missing metadata.name"), "got: {err}");
+    }
+
+    #[test]
+    fn namespace_mismatch_fails() {
+        let obj = make_obj("Deployment", "apps/v1", "my-deploy", "wrong-ns");
+        let err = validate_apply_yaml(&obj, "deployments", "my-deploy", "expected-ns", true)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("namespace 'wrong-ns' does not match"),
+            "got: {err}"
+        );
+    }
+
+    #[test]
+    fn missing_resource_version_fails() {
+        let yaml = r#"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deploy
+  namespace: default
+"#;
+        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let err = validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("missing metadata.resourceVersion"), "got: {err}");
+    }
+
+    #[test]
+    fn cluster_scoped_skips_namespace_check() {
+        // Nodes are cluster-scoped — namespace mismatch should be ignored.
+        let obj = make_obj("Node", "v1", "node-1", "some-random-ns");
+        assert!(validate_apply_yaml(&obj, "nodes", "node-1", "", false).is_ok());
+    }
+
+    #[test]
+    fn custom_kind_skips_kind_check() {
+        // CRD kinds contain '/' — the kind name check is skipped.
+        let obj = make_obj("MyCustomResource", "example.com/v1", "my-cr", "default");
+        assert!(
+            validate_apply_yaml(&obj, "example.com/mycustomresources", "my-cr", "default", true)
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn namespaced_resource_with_empty_namespace_passes() {
+        // If the YAML omits namespace entirely, we don't flag it (the server
+        // will default it or the caller provides the right one).
+        let yaml = r#"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deploy
+  resourceVersion: "12345"
+"#;
+        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        assert!(validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true).is_ok());
+    }
 }
 
