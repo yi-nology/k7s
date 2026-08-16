@@ -187,6 +187,10 @@ export interface AppState {
   yamlEditing: boolean;
   yamlDraft: string;
 
+  // ai
+  aiPanelOpen: boolean;
+  aiPendingMessage?: string;
+
   // actions
   setNav: (kind: KindId) => void;
   setNamespace: (ns: string) => void;
@@ -255,4 +259,6 @@ export interface AppState {
     podRef?: { namespace: string; name: string; container: string | null } | null
   ) => void;
   closeOverlay: () => void;
+  setAiPanelOpen: (open: boolean) => void;
+  setAiPendingMessage: (msg: string | undefined) => void;
 }

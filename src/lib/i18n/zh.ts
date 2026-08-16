@@ -442,6 +442,7 @@ export const zh: Dictionary = {
     checking: '检查中…',
     noChanges: '无变更 — 服务端将原样存储此对象。',
     diffNote: '这是服务端经默认值与变更 webhook 处理后实际存储的版本',
+    explain: 'AI 解释',
   },
 
   helm: {

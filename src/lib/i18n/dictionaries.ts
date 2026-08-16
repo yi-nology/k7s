@@ -467,6 +467,7 @@ export interface Dictionary {
     checking: string;
     noChanges: string;
     diffNote: string;
+    explain: string;
   };
 
   /** Feature overlay panels (Phase 1/2/4/5 of KubePi parity). Each panel

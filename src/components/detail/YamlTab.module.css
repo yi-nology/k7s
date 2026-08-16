@@ -38,6 +38,30 @@
   border-color: var(--accent);
 }
 
+/* "Explain in AI" button — subtle ghost style next to the Edit button. */
+.explainBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  background: transparent;
+  font: inherit;
+  line-height: 1.4;
+}
+.explainBtn:hover {
+  color: var(--accent);
+  border-color: var(--border-blue-action);
+  background: var(--bg-edit-hover);
+}
+.explainBtn:focus-visible {
+  border-color: var(--accent);
+}
+
 /* Edit-mode "Cancel" (ghost) + "Apply" (primary). */
 .cancelBtn {
   padding: 4px 12px;

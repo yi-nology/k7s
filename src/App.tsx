@@ -44,7 +44,7 @@ import { PluginPanel } from './components/plugins/PluginPanel';
 import { SBOMPanel } from './components/sbom/SBOMPanel';
 import { AiChat } from './components/ai/AiChat';
 import { usePlugins } from './hooks/usePlugins';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import type { ComponentType } from 'react';
 import type { OverlayKey } from './store';
 
@@ -107,7 +107,8 @@ export default function App() {
 
   // AI assistant panel toggle (the panel is a right-side sidebar, not an
   // overlay — it stays open while the user works the table).
-  const [aiOpen, setAiOpen] = useState(false);
+  const aiOpen = useStore((s) => s.aiPanelOpen);
+  const setAiOpen = useStore((s) => s.setAiPanelOpen);
 
   return (
     <ErrorBoundary>

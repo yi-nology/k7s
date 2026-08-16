@@ -443,6 +443,7 @@ export const en: Dictionary = {
     checking: 'Checking…',
     noChanges: 'No changes — the server would store this object exactly as it is now.',
     diffNote: 'as the server would store it, after defaulting and any mutating webhooks',
+    explain: 'Explain in AI',
   },
 
   helm: {
