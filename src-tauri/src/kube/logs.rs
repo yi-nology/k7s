@@ -243,6 +243,63 @@ fn flush_batch(sink: &EventSink, line_event: &str, batch: &mut Vec<LogLine>) {
     }
 }
 
+/// Fetch logs for export: resolves containers, fetches each, interleaves
+/// headers. Returns the assembled text and total line count. The caller decides
+/// where to write the output (file for Tauri, return-count for web).
+pub async fn fetch_export_logs(
+    client: Client,
+    namespace: &str,
+    pod: &str,
+    containers: Vec<String>,
+    since_seconds: Option<i64>,
+    previous: bool,
+) -> AppResult<(String, usize)> {
+    let api: Api<Pod> = Api::namespaced(client, namespace);
+
+    let opts = LogStreamOptions {
+        tail: None,
+        since_time: None,
+        since_seconds,
+        previous,
+    };
+
+    // An empty container means "all of them" (B7), so the export mirrors what the
+    // view interleaves — one block per container, labelled, rather than a soup of
+    // lines whose origin the file can't show.
+    let containers = if containers.is_empty() {
+        let p = api
+            .get(pod)
+            .await
+            .map_err(|e| AppError::Kube(e.to_string()))?;
+        p.spec
+            .map(|s| s.containers.into_iter().map(|c| c.name).collect::<Vec<_>>())
+            .unwrap_or_default()
+    } else {
+        containers
+    };
+
+    let mut out = String::new();
+    for name in &containers {
+        let mut lp = log_params(name, &opts);
+        // log_params follows unless reading `previous`; an export must always end.
+        lp.follow = false;
+        let text = api
+            .logs(pod, &lp)
+            .await
+            .map_err(|e| AppError::Kube(e.to_string()))?;
+        if containers.len() > 1 {
+            out.push_str(&format!("===== container: {name} =====\n"));
+        }
+        out.push_str(&text);
+        if !text.ends_with('\n') {
+            out.push('\n');
+        }
+    }
+
+    let lines = out.lines().count();
+    Ok((out, lines))
+}
+
 /// Parse one raw log line (with a leading RFC3339 timestamp from `timestamps:true`)
 /// into `{ ts, level, msg }`. Never drops content: an unparseable timestamp leaves
 /// the whole line as the message with an empty ts.

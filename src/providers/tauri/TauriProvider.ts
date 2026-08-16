@@ -37,14 +37,11 @@ import type {
   PodFileEntry,
   PodMetricsMap,
   PodSample,
-  Properties,
   ResourceRef,
-  Revision,
   Row,
   SavedLog,
   ShellHandle,
   Unsub,
-  YamlDiff,
 } from '../types';
 
 /** Wire payload for the `resource-update` event. */
@@ -110,31 +107,9 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
     return { contexts, path: selected };
   }
 
-  getYaml(ref: ResourceRef): Promise<string> {
-    return invoke<string>('get_yaml', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-
-  applyYaml(ref: ResourceRef, text: string): Promise<void> {
-    return invoke<void>('apply_yaml', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-      yaml: text,
-    });
-  }
-
-  dryRunYaml(ref: ResourceRef, text: string): Promise<YamlDiff> {
-    return invoke<YamlDiff>('dry_run_yaml', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-      yaml: text,
-    });
-  }
+  // getYaml, applyYaml, dryRunYaml, getProperties, deleteResource,
+  // scaleResource, restartPod, restartRollout, listRevisions, undoRollout
+  // are now inherited from BaseRpcProvider.
 
   getEvents(ref: ResourceRef): Promise<EventItem[]> {
     return invoke<EventItem[]>('get_events', {
@@ -144,62 +119,8 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
     });
   }
 
-  getProperties(ref: ResourceRef): Promise<Properties> {
-    return invoke<Properties>('get_properties', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-
-  deleteResource(ref: ResourceRef): Promise<void> {
-    return invoke<void>('delete_resource', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-
-  scaleResource(ref: ResourceRef, replicas: number): Promise<void> {
-    return invoke<void>('scale_resource', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-      replicas,
-    });
-  }
-
-  restartPod(ref: ResourceRef): Promise<void> {
-    return invoke<void>('restart_pod', {
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-
-  restartRollout(ref: ResourceRef): Promise<void> {
-    return invoke<void>('restart_rollout', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-
-  listRevisions(ref: ResourceRef): Promise<Revision[]> {
-    return invoke<Revision[]>('list_revisions', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-
-  undoRollout(ref: ResourceRef, toRevision?: number): Promise<void> {
-    return invoke<void>('undo_rollout', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-      toRevision: toRevision ?? null,
-    });
-  }
+  // getProperties, deleteResource, scaleResource, restartPod,
+  // restartRollout, listRevisions, undoRollout inherited from BaseRpcProvider.
 
   async setWindowTheme(theme: 'dark' | 'light'): Promise<void> {
     // Lazy-imported like the dialog plugin, so it isn't pulled into demo bundles.

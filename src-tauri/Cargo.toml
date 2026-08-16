@@ -76,10 +76,6 @@ async-trait = "0.1"
 # Linux secret-service, Windows Credential Manager). Replaces file-based
 # XOR obfuscation with real OS-level secret storage.
 keyring = "4"
-# HMAC + SHA for IM gateway signature verification (WeChat/DingTalk).
-hmac = "0.12"
-sha1 = "0.10"
-sha2 = "0.10"
 # URL encoding for the browser module's web search (DuckDuckGo API).
 urlencoding = "2"
 # Regex for sandbox secret detection patterns.

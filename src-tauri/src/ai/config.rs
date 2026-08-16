@@ -90,25 +90,6 @@ pub struct AiConfigView {
 // Persistence
 // ---------------------------------------------------------------------------
 
-/// Resolve the config file path, creating the dir if needed.
-///
-/// Uses the same platform rule as `metrics_config.rs`: macOS →
-/// `~/Library/Application Support/k7s`, else `~/.config/k7s`. The Tauri shell
-/// overrides this with `app_config_dir()` via [`config_path_in`].
-fn default_config_dir() -> AiResult<PathBuf> {
-    let dir = match std::env::var_os("HOME") {
-        Some(h) => std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
-            "Library/Application Support/k7s"
-        } else {
-            ".config/k7s"
-        }),
-        None => return Err(AiError::Other("no HOME".into())),
-    };
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| AiError::Other(format!("mkdir {}: {e}", dir.display())))?;
-    Ok(dir)
-}
-
 /// Config file inside a specific data dir (used by the Tauri shell, which has a
 /// real `app_config_dir`).
 pub fn config_path_in(data_dir: &std::path::Path) -> PathBuf {
@@ -116,7 +97,7 @@ pub fn config_path_in(data_dir: &std::path::Path) -> PathBuf {
 }
 
 fn config_path() -> AiResult<PathBuf> {
-    Ok(default_config_dir()?.join("ai-config.json"))
+    Ok(crate::ai::default_config_dir()?.join("ai-config.json"))
 }
 
 /// Load config + merge in the api_key indicator (key bytes stay in `secret`).
@@ -157,16 +138,13 @@ pub fn load(data_dir: Option<&std::path::Path>) -> AiResult<AiConfigView> {
 pub fn save(data_dir: Option<&std::path::Path>, config: &AiConfig) -> AiResult<()> {
     let dir = match data_dir {
         Some(d) => d.to_path_buf(),
-        None => default_config_dir()?,
+        None => crate::ai::default_config_dir()?,
     };
     std::fs::create_dir_all(&dir)
         .map_err(|e| AiError::Other(format!("mkdir {}: {e}", dir.display())))?;
     let path = dir.join("ai-config.json");
-    let text = serde_json::to_string_pretty(config)
-        .map_err(|e| AiError::Other(format!("serialise: {e}")))?;
-    let tmp = path.with_extension("json.tmp");
-    std::fs::write(&tmp, text).map_err(|e| AiError::Other(format!("write tmp: {e}")))?;
-    std::fs::rename(&tmp, &path).map_err(|e| AiError::Other(format!("rename: {e}")))?;
+    crate::ai::atomic_write_json(&path, config)
+        .map_err(|e| AiError::Other(format!("write config: {e}")))?;
     Ok(())
 }
 

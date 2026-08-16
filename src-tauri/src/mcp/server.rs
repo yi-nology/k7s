@@ -108,13 +108,9 @@ impl K7sMcpServer {
         Parameters(p): Parameters<ConnectParams>,
     ) -> Result<CallToolResult, McpError> {
         let manager = self.manager();
-        // Always start clean -- switching context must abort every watcher,
-        // log stream, shell, and port-forward tied to the old cluster.
-        manager.reset().await;
 
+        // Resolve context: empty means "use current-context".
         let context = if p.context.is_empty() {
-            // Empty -> use current-context. Probe the kubeconfig directly
-            // because nothing in the manager knows which one is current.
             kube_client::list_contexts()
                 .ok()
                 .and_then(|cs| cs.into_iter().find(|c| c.current).map(|c| c.name))
@@ -128,35 +124,27 @@ impl K7sMcpServer {
             p.context
         };
 
-        // Three ways to build a client for `context` (same as web::handlers):
-        //   1. imported kubeconfig bytes stashed by import_kubeconfig_content
-        //   2. imported kubeconfig file path
-        //   3. default kubeconfig
-        let (kube_client, server) = if let Some(kc) = manager.import_kubeconfig(&context).await {
-            kube_api::build_client_from_kubeconfig(kc, &context).await
-        } else if let Some(path) = manager.import_path(&context).await {
-            kube_client::build_client_from_file(&path, &context).await
-        } else {
-            kube_client::build_client(&context).await
-        }
+        // Shared connection sequence: reset -> build client -> probe version ->
+        // discover CRDs. The MCP shell may have an imported kubeconfig in memory.
+        let imported = manager.import_kubeconfig(&context).await;
+        let import_path = manager.import_path(&context).await;
+        let cr = crate::core::shell_common::connect_core(
+            &manager,
+            imported,
+            import_path,
+            &context,
+        )
+        .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let version = kube_api::probe_version(&kube_client)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        // CRD discovery so custom kinds resolve through `list_resources` /
-        // `get_resource` / `describe_resource` later.
-        let custom = crate::kube::discovery::discover(&kube_client).await;
-        manager.set_custom_kinds(custom).await;
-
+        // MCP has no watchers — just record the connection.
         manager
             .set_connected(
-                kube_client,
+                cr.client,
                 crate::kube::manager::ConnectionInfo {
                     context: context.clone(),
-                    server: server.clone(),
-                    version: version.clone(),
+                    server: cr.server.clone(),
+                    version: cr.version.clone(),
                 },
                 0,
             )
@@ -165,8 +153,8 @@ impl K7sMcpServer {
         let info = kube_client::ClusterInfo {
             context: context.clone(),
             cluster_name: context,
-            server,
-            version,
+            server: cr.server,
+            version: cr.version,
         };
         json_result(&info)
     }

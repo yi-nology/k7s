@@ -6,12 +6,18 @@
  * (same event names, same payload shapes), so the two providers are
  * interchangeable from the UI's point of view.
  *
+ * Most simple RPC methods are inherited from {@link BaseRpcProvider} (ResourceRef
+ * helpers, Helm, image registries, observability, AI, etc.). Only transport-
+ * specific methods (streaming, file dialogs, SSE subscriptions) and intentional
+ * stubs (notImplemented / desktopOnly) are written out below.
+ *
  * What works:
  * - `listContexts` / `connect` (via the k7s-web server, which talks to your
  *   real cluster).
- * - `getYaml` / `getEvents` / `getProperties` / `loadPrefs` / `savePrefs`.
+ * - `getYaml` / `getEvents` / `getProperties` / `loadPrefs` / `savePrefs`
+ *   (inherited from BaseRpcProvider).
  * - All mutations: `applyYaml`, `dryRunYaml`, `deleteResource`, `scaleResource`,
- *   `setCordon`, `restartPod`, `restartRollout`, `drainNode`.
+ *   `setCordon`, `restartPod`, `restartRollout`, `drainNode` (inherited).
  * - Log streaming (`startLogs` / `saveLogs` / `stopLogs`).
  * - Shells (`startShell` / `startNodeShell` / `stopShell`) — exec over SSE,
  *   input/resize as POSTs.
@@ -30,10 +36,8 @@ import type {
   ApplyResult,
   Alert,
   AlertManager,
-  ExportFromRegistryResult,
   ImportImageResult,
   SkopeoAvailability,
-  ImageSyncResult,
   ArchiveInfo,
   AlertManagerUpsert,
   ClusterStatus,
@@ -50,7 +54,6 @@ import type {
   HelmOpResult,
   HelmRepo,
   HelmRepoUpsert,
-  HelmRevisionEntry,
   ImageRegistry,
   ImageRegistryUpsert,
   ImageRepo,
@@ -68,11 +71,9 @@ import type {
   NodeSample,
   NodeShellHandle,
   NodeStatsError,
-  PodFileEntry,
   PodMetricsMap,
   PodSample,
   PromQueryResult,
-  Properties,
   CustomKind,
   ResourceRef,
   Row,
@@ -80,8 +81,6 @@ import type {
   ShellHandle,
   Silence,
   Unsub,
-  Revision,
-  YamlDiff,
 } from './types';
 
 /** All not-bridged methods share this rejection so the UI shows the same message. */
@@ -209,31 +208,9 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     return Promise.resolve([]);
   }
 
-  getYaml(ref: ResourceRef): Promise<string> {
-    return httpInvoke<string>('get_yaml', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-
-  applyYaml(ref: ResourceRef, text: string): Promise<void> {
-    return httpInvoke<void>('apply_yaml', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-      yaml: text,
-    });
-  }
-
-  dryRunYaml(ref: ResourceRef, text: string): Promise<YamlDiff> {
-    return httpInvoke<YamlDiff>('dry_run_yaml', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-      yaml: text,
-    });
-  }
+  // getYaml, applyYaml, dryRunYaml, getProperties, deleteResource,
+  // scaleResource, restartPod, restartRollout, listRevisions, undoRollout
+  // are now inherited from BaseRpcProvider.
 
   getEvents(ref: ResourceRef): Promise<EventItem[]> {
     // The back-end returns a simpler shape than `EventItem`; map it. `ty` is
@@ -264,67 +241,10 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     );
   }
 
-  getProperties(ref: ResourceRef): Promise<Properties> {
-    return httpInvoke<Properties>('get_properties', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-
-  // getSecretData is inherited from BaseRpcProvider (faithful bridge).
-
-  // ---- mutations ----
-
-  deleteResource(ref: ResourceRef): Promise<void> {
-    return httpInvoke<void>('delete_resource', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-  scaleResource(ref: ResourceRef, replicas: number): Promise<void> {
-    return httpInvoke<void>('scale_resource', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-      replicas,
-    });
-  }
-  restartPod(ref: ResourceRef): Promise<void> {
-    return httpInvoke<void>('restart_pod', {
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-  restartRollout(ref: ResourceRef): Promise<void> {
-    return httpInvoke<void>('restart_rollout', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-  listRevisions(ref: ResourceRef): Promise<Revision[]> {
-    return httpInvoke<Revision[]>('list_revisions', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-    });
-  }
-  undoRollout(ref: ResourceRef, toRevision?: number): Promise<void> {
-    return httpInvoke<void>('undo_rollout', {
-      kind: ref.kind,
-      namespace: ref.namespace ?? '',
-      name: ref.name,
-      toRevision: toRevision ?? null,
-    });
-  }
-  // setCordon / drainNode are inherited from BaseRpcProvider (faithful bridges).
-  setWindowTheme(_theme: 'dark' | 'light'): Promise<void> {
-    // No-op in the browser — CSS variables handle dark/light via the
-    // [data-theme] attribute on <html>; nothing to push to a native window.
-    return Promise.resolve();
-  }
+  // getProperties, getSecretData, deleteResource, scaleResource, restartPod,
+  // restartRollout, listRevisions, undoRollout, setCordon, drainNode are
+  // inherited from BaseRpcProvider (faithful bridges).
+  // setWindowTheme is inherited from BaseRpcProvider (no-op default).
 
   // ---- log streams ----
 
@@ -504,13 +424,7 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   unwatchCustomKind(_id: string): Promise<void> {
     return Promise.resolve();
   }
-  watchPodStats(_key: string): Promise<void> {
-    return Promise.resolve();
-  }
-  unwatchPodStats(_key: string): Promise<void> {
-    return Promise.resolve();
-  }
-
+  // watchPodStats / unwatchPodStats are inherited from BaseRpcProvider (no-op defaults).
   // loadPrefs / savePrefs are inherited from BaseRpcProvider (faithful bridges).
 
   // ---- event subscriptions (live SSE) ----
@@ -621,14 +535,10 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   async helmLocalCharts(_repoName: string): Promise<string[]> {
     return [];
   }
-  async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
-    return '';
-  }
+  // helmRenderDefaultValues, helmReleaseHistory are inherited from
+  // BaseRpcProvider (empty defaults).
   async helmRunOp(_op: HelmOp): Promise<HelmOpResult> {
     return notImplemented('helm_run_op');
-  }
-  async helmReleaseHistory(_r: string, _ns: string, _kc?: string): Promise<HelmRevisionEntry[]> {
-    return [];
   }
   onHelmOpLog(_cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub {
     return noopUnsub;
@@ -637,32 +547,8 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     return noopUnsub;
   }
 
-  // ---- Pod files: not proxied yet. ----
-  async podFilesList(_r: ResourceRef, _c: string | null, _p: string): Promise<PodFileEntry[]> {
-    return [];
-  }
-  async podFilesRead(_r: ResourceRef, _c: string | null, _p: string): Promise<string> {
-    return '';
-  }
-  async podFilesWrite(
-    _r: ResourceRef,
-    _c: string | null,
-    _p: string,
-    _content: string
-  ): Promise<void> {
-    // No-op.
-  }
-  async podFilesDownload(_r: ResourceRef, _c: string | null, _p: string): Promise<Uint8Array> {
-    return new Uint8Array();
-  }
-  async podFilesUpload(
-    _r: ResourceRef,
-    _c: string | null,
-    _d: string,
-    _t: Uint8Array
-  ): Promise<void> {
-    // No-op.
-  }
+  // Pod files (podFilesList, podFilesRead, podFilesWrite, podFilesDownload,
+  // podFilesUpload) are inherited from BaseRpcProvider (empty defaults).
 
   // ---- Image registry: not proxied yet. ----
   async imageRegistryList(): Promise<ImageRegistry[]> {
@@ -708,23 +594,7 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   }
 
   // exportFromNode / listNodeImages are inherited from BaseRpcProvider (faithful bridges).
-
-  async exportFromRegistry(): Promise<ExportFromRegistryResult> {
-    return desktopOnly('Registry export');
-  }
-
-  async imageCopy(
-    _source: string,
-    _destRegistry: string,
-    _destRepo: string,
-    _destTag: string,
-    _srcCreds: string | null,
-    _insecureSrc: boolean,
-    _insecureDest: boolean,
-    _onLog: (line: string) => void
-  ): Promise<ImageSyncResult> {
-    return desktopOnly('Image sync');
-  }
+  // exportFromRegistry / imageCopy are inherited from BaseRpcProvider (desktopOnly defaults).
 
   // ---- Endpoints / metrics / grafana / alerting (Phase 1 Tier-2) ----
   // listEndpoints / listEndpointsForService / listEndpointAddresses are
@@ -751,15 +621,7 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     void promql;
     return { resultType: 'matrix', series: [] };
   }
-  async metricsQueryRange(
-    _name: string,
-    _promql: string,
-    _start: number,
-    _end: number,
-    _step: number
-  ): Promise<PromQueryResult> {
-    return { resultType: 'matrix', series: [] };
-  }
+  // metricsQueryRange is inherited from BaseRpcProvider (empty default).
   async grafanaList(): Promise<GrafanaConfig[]> {
     return [];
   }
@@ -824,12 +686,7 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   async auditEvents(_query: import('./types').AuditQuery): Promise<import('./types').AuditEvent[]> {
     return [];
   }
-  async grafanaSearchDashboards(
-    _name: string,
-    _query: string
-  ): Promise<import('./types').GrafanaDashboardSearchResult[]> {
-    return [];
-  }
+  // grafanaSearchDashboards is inherited from BaseRpcProvider (empty default).
 
   // ---- Saved queries (Http shell: not proxied yet) ----
   async savedQueriesList(): Promise<SavedQuery[]> {
@@ -844,13 +701,7 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   async savedQueriesClearCache(): Promise<void> {
     /* no-op */
   }
-  async savedQueriesRun(
-    _query: SavedQuery,
-    _instance: string,
-    _force: boolean
-  ): Promise<PromQueryResult> {
-    return { resultType: 'matrix', series: [] };
-  }
+  // savedQueriesRun is inherited from BaseRpcProvider (empty default).
 
   // ---- Image manifest (Http shell: not proxied yet) ----
   async imageRegistryManifest(_name: string, _repo: string, _tag: string): Promise<ImageManifest> {

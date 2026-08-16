@@ -69,6 +69,18 @@ impl From<serde_yaml::Error> for AppError {
     }
 }
 
+impl From<String> for AppError {
+    fn from(s: String) -> Self {
+        AppError::Other(s)
+    }
+}
+
+impl From<tokio::task::JoinError> for AppError {
+    fn from(e: tokio::task::JoinError) -> Self {
+        AppError::Other(e.to_string())
+    }
+}
+
 impl From<anyhow::Error> for AppError {
     fn from(e: anyhow::Error) -> Self {
         AppError::Other(e.to_string())

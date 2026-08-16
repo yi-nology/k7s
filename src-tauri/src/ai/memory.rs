@@ -107,20 +107,8 @@ impl MemoryStore {
         let dir = data_dir.join("ai-memory").join(safe_name(context));
         let _ = std::fs::create_dir_all(&dir);
         let path = dir.join("memory.json");
-        let mut data = if path.exists() {
-            std::fs::read_to_string(&path)
-                .ok()
-                .and_then(|t| serde_json::from_str(&t).ok())
-                .unwrap_or_else(|| MemoryFile {
-                    context: context.to_string(),
-                    ..Default::default()
-                })
-        } else {
-            MemoryFile {
-                context: context.to_string(),
-                ..Default::default()
-            }
-        };
+        let mut data: MemoryFile = crate::ai::atomic_read_json(&path);
+        data.context = context.to_string();
         // Prune expired short-term memories.
         let ttl_days = 7;
         let cutoff = chrono::Utc::now() - chrono::Duration::days(ttl_days as i64);
@@ -373,11 +361,7 @@ impl MemoryStore {
 
     fn save(&self) {
         let path = self.dir.join("memory.json");
-        if let Ok(text) = serde_json::to_string_pretty(&self.data) {
-            let tmp = path.with_extension("json.tmp");
-            let _ = std::fs::write(&tmp, &text);
-            let _ = std::fs::rename(&tmp, &path);
-        }
+        let _ = crate::ai::atomic_write_json(&path, &self.data);
     }
 }
 

@@ -15,7 +15,8 @@
  * Desktop (Tauri) only — the web shell has no local-disk access. On web the
  * panel shows a notice instead of the form.
  */
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { formatError, getProvider, IS_TAURI } from '../../providers';
 import type {
   ArchiveInfo,
@@ -281,26 +282,20 @@ function ToRegistrySection({ onClose }: { onClose?: () => void }) {
   const [skopeo, setSkopeo] = useState<SkopeoAvailability | null>(null);
   const [registries, setRegistries] = useState<ImageRegistry[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [avail, regs] = await Promise.all([
-          provider.imageSyncStatus(),
-          provider.imageRegistryList(),
-        ]);
-        if (!cancelled) {
-          setSkopeo(avail);
-          setRegistries(regs);
-        }
-      } catch {
-        // Non-fatal: the form still renders, the copy attempt will surface
-        // a real error if skopeo is missing.
+  useAsyncEffect(async (isMounted) => {
+    try {
+      const [avail, regs] = await Promise.all([
+        provider.imageSyncStatus(),
+        provider.imageRegistryList(),
+      ]);
+      if (isMounted()) {
+        setSkopeo(avail);
+        setRegistries(regs);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    } catch {
+      // Non-fatal: the form still renders, the copy attempt will surface
+      // a real error if skopeo is missing.
+    }
   }, [provider]);
 
   const [source, setSource] = useState('');
@@ -796,39 +791,27 @@ function FromRegistrySection({ onClose }: { onClose?: () => void }) {
   const [logLines, setLogLines] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [avail, regs] = await Promise.all([provider.imageSyncStatus(), provider.imageRegistryList()]);
-        if (!cancelled) { setSkopeo(avail); setRegistries(regs); }
-      } catch { /* non-fatal */ }
-    })();
-    return () => { cancelled = true; };
+  useAsyncEffect(async (isMounted) => {
+    try {
+      const [avail, regs] = await Promise.all([provider.imageSyncStatus(), provider.imageRegistryList()]);
+      if (isMounted()) { setSkopeo(avail); setRegistries(regs); }
+    } catch { /* non-fatal */ }
   }, [provider]);
 
-  useEffect(() => {
+  useAsyncEffect(async (isMounted) => {
     if (!selectedRegistry) { setRepos([]); setSelectedRepo(''); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        const r = await provider.imageRegistryRepos(selectedRegistry);
-        if (!cancelled) setRepos(r.map((x) => x.name));
-      } catch { /* non-fatal */ }
-    })();
-    return () => { cancelled = true; };
+    try {
+      const r = await provider.imageRegistryRepos(selectedRegistry);
+      if (isMounted()) setRepos(r.map((x) => x.name));
+    } catch { /* non-fatal */ }
   }, [provider, selectedRegistry]);
 
-  useEffect(() => {
+  useAsyncEffect(async (isMounted) => {
     if (!selectedRegistry || !selectedRepo) { setTags([]); setSelectedTag(''); return; }
-    let cancelled = false;
-    (async () => {
-      try {
-        const tagList = await provider.imageRegistryTags(selectedRegistry, selectedRepo);
-        if (!cancelled) setTags(tagList.map((x) => x.name));
-      } catch { /* non-fatal */ }
-    })();
-    return () => { cancelled = true; };
+    try {
+      const tagList = await provider.imageRegistryTags(selectedRegistry, selectedRepo);
+      if (isMounted()) setTags(tagList.map((x) => x.name));
+    } catch { /* non-fatal */ }
   }, [provider, selectedRegistry, selectedRepo]);
 
   const skopeoMissing = skopeo !== null && !skopeo.available;

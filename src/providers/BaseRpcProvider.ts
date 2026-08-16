@@ -18,7 +18,9 @@ import type {
   ClusterInfo,
   DocDryRun,
   ExportFromNodeResult,
+  ExportFromRegistryResult,
   ImportImageResult,
+  ImageSyncResult,
   SkopeoAvailability,
   ArchiveInfo,
   ContextInfo,
@@ -27,17 +29,23 @@ import type {
   EndpointRow,
   GrafanaConfig,
   GrafanaConfigUpsert,
+  GrafanaDashboardSearchResult,
   HelmChartSummary,
   HelmChartVersionEntry,
   HelmOp,
   HelmOpResult,
   HelmRepo,
   HelmRepoUpsert,
+  HelmRevisionEntry,
   ImageRegistry,
   ImageRegistryUpsert,
   ImageRepo,
   ImageTag,
   ImageManifest,
+  PodFileEntry,
+  Properties,
+  ResourceRef,
+  Revision,
   SavedQuery,
   MetricsConfig,
   MetricsConfigUpsert,
@@ -47,6 +55,7 @@ import type {
   Silence,
   Prefs,
   SecretEntry,
+  YamlDiff,
 } from './types';
 
 export abstract class BaseRpcProvider {
@@ -313,6 +322,197 @@ export abstract class BaseRpcProvider {
   }
   scannerStatus(): Promise<import('./types/scanner').ScannerStatus> {
     return this.rpc('scanner_status');
+  }
+
+  // ── ResourceRef helpers (shared by all transports) ─────────────────
+  //
+  // These accept a ResourceRef, destructure it, and forward to the backend.
+  // Both TauriProvider and HttpProvider had identical copies; they now live
+  // here so there is a single source of truth.
+
+  getYaml(ref: ResourceRef): Promise<string> {
+    return this.rpc<string>('get_yaml', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+    });
+  }
+  applyYaml(ref: ResourceRef, text: string): Promise<void> {
+    return this.rpc<void>('apply_yaml', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+      yaml: text,
+    });
+  }
+  dryRunYaml(ref: ResourceRef, text: string): Promise<YamlDiff> {
+    return this.rpc<YamlDiff>('dry_run_yaml', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+      yaml: text,
+    });
+  }
+  getProperties(ref: ResourceRef): Promise<Properties> {
+    return this.rpc<Properties>('get_properties', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+    });
+  }
+  deleteResource(ref: ResourceRef): Promise<void> {
+    return this.rpc<void>('delete_resource', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+    });
+  }
+  scaleResource(ref: ResourceRef, replicas: number): Promise<void> {
+    return this.rpc<void>('scale_resource', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+      replicas,
+    });
+  }
+  restartPod(ref: ResourceRef): Promise<void> {
+    return this.rpc<void>('restart_pod', {
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+    });
+  }
+  restartRollout(ref: ResourceRef): Promise<void> {
+    return this.rpc<void>('restart_rollout', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+    });
+  }
+  listRevisions(ref: ResourceRef): Promise<Revision[]> {
+    return this.rpc<Revision[]>('list_revisions', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+    });
+  }
+  undoRollout(ref: ResourceRef, toRevision?: number): Promise<void> {
+    return this.rpc<void>('undo_rollout', {
+      kind: ref.kind,
+      namespace: ref.namespace ?? '',
+      name: ref.name,
+      toRevision: toRevision ?? null,
+    });
+  }
+
+  // ── Default stubs for transport-specific methods ───────────────────
+  //
+  // TauriProvider overrides these with real implementations (native
+  // dialogs, streaming subscriptions, base64 conversion, etc.).
+  // HttpProvider inherits the defaults, removing ~15 stub methods.
+
+  /** No-op where there is no native window (browser shell). */
+  setWindowTheme(_theme: 'dark' | 'light'): Promise<void> {
+    return Promise.resolve();
+  }
+
+  /** No-op in transports without a client-side pod-stats fanout. */
+  watchPodStats(_key: string): Promise<void> {
+    return Promise.resolve();
+  }
+  unwatchPodStats(_key: string): Promise<void> {
+    return Promise.resolve();
+  }
+
+  /** Default values.yaml stub (Tauri overrides with `helm show values`). */
+  helmRenderDefaultValues(_chart: string, _version: string, _kubeconfig?: string): Promise<string> {
+    return Promise.resolve('');
+  }
+  /** Release history stub (Tauri overrides with real Helm history). */
+  helmReleaseHistory(
+    _release: string,
+    _namespace: string,
+    _kubeconfig?: string
+  ): Promise<HelmRevisionEntry[]> {
+    return Promise.resolve([]);
+  }
+
+  // ---- Pod file management defaults ----
+  podFilesList(_ref: ResourceRef, _container: string | null, _path: string): Promise<PodFileEntry[]> {
+    return Promise.resolve([]);
+  }
+  podFilesRead(_ref: ResourceRef, _container: string | null, _path: string): Promise<string> {
+    return Promise.resolve('');
+  }
+  podFilesWrite(
+    _ref: ResourceRef,
+    _container: string | null,
+    _path: string,
+    _content: string
+  ): Promise<void> {
+    return Promise.resolve();
+  }
+  podFilesDownload(_ref: ResourceRef, _container: string | null, _path: string): Promise<Uint8Array> {
+    return Promise.resolve(new Uint8Array());
+  }
+  podFilesUpload(
+    _ref: ResourceRef,
+    _container: string | null,
+    _destDir: string,
+    _tarBytes: Uint8Array
+  ): Promise<void> {
+    return Promise.resolve();
+  }
+
+  // ---- Image transfer defaults (desktop-only) ----
+  exportFromRegistry(
+    _registryName: string,
+    _repo: string,
+    _tag: string,
+    _savePath: string,
+    _insecureSrc: boolean,
+    _onLog: (line: string) => void
+  ): Promise<ExportFromRegistryResult> {
+    return Promise.reject(new Error('Registry export is only available in the desktop app'));
+  }
+  imageCopy(
+    _source: string,
+    _destRegistry: string,
+    _destRepo: string,
+    _destTag: string,
+    _srcCreds: string | null,
+    _insecureSrc: boolean,
+    _insecureDest: boolean,
+    _onLog: (line: string) => void
+  ): Promise<ImageSyncResult> {
+    return Promise.reject(new Error('Image sync is only available in the desktop app'));
+  }
+
+  // ---- Metrics range query default ----
+  metricsQueryRange(
+    _name: string,
+    _promql: string,
+    _startMs: number,
+    _endMs: number,
+    _stepSeconds: number
+  ): Promise<PromQueryResult> {
+    return Promise.resolve({ resultType: 'matrix', series: [] });
+  }
+
+  // ---- Grafana dashboard search default ----
+  grafanaSearchDashboards(
+    _name: string,
+    _query: string
+  ): Promise<GrafanaDashboardSearchResult[]> {
+    return Promise.resolve([]);
+  }
+
+  // ---- Saved PromQL queries run default ----
+  savedQueriesRun(
+    _query: SavedQuery,
+    _instance: string,
+    _forceRefresh: boolean
+  ): Promise<PromQueryResult> {
+    return Promise.resolve({ resultType: 'matrix', series: [] });
   }
 
   // ── AI assistant ────────────────────────────────────────────────────

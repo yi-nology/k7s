@@ -29,22 +29,14 @@ pub async fn get_yaml(
 ) -> axum::response::Response {
     let result: AppResult<String> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, is_helm) = shell_common::dynamic_api(
-            client.clone(),
+        shell_common::fetch_object_yaml(
+            client,
             &args.kind,
             &args.namespace,
+            &args.name,
             &state.core.manager,
         )
-        .await?;
-        if is_helm {
-            return shell_common::helm_manifest(client, &args.namespace, &args.name).await;
-        }
-        let mut obj = api.get(&args.name).await?;
-        obj.metadata.managed_fields = None;
-        if args.kind == "secrets" {
-            shell_common::redact_secret(&mut obj);
-        }
-        Ok(serde_yaml::to_string(&obj)?)
+        .await
     })()
     .await;
     respond(result)
@@ -198,17 +190,17 @@ pub async fn apply_yaml(
     State(state): State<WebState>,
     Json(args): Json<ApplyYamlArgs>,
 ) -> axum::response::Response {
-    use kube::api::{DynamicObject, PostParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        shell_common::ensure_writable(&args.kind)?;
-        let obj: DynamicObject = serde_yaml::from_str(&args.yaml)?;
-        let (api, _is_helm) =
-            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
-                .await?;
-        api.replace(&args.name, &PostParams::default(), &obj)
-            .await?;
-        Ok(())
+        shell_common::apply_yaml_core(
+            client,
+            &args.kind,
+            &args.namespace,
+            &args.name,
+            &args.yaml,
+            &state.core.manager,
+        )
+        .await
     })()
     .await;
     respond(result)
@@ -218,26 +210,17 @@ pub async fn dry_run_yaml(
     State(state): State<WebState>,
     Json(args): Json<DryRunYamlArgs>,
 ) -> axum::response::Response {
-    use kube::api::{DynamicObject, PostParams};
     let result: AppResult<shell_common::YamlDiff> = (|| async {
         let client = core_client(&state.core).await?;
-        shell_common::ensure_writable(&args.kind)?;
-        let obj: DynamicObject = serde_yaml::from_str(&args.yaml)?;
-        let (api, _is_helm) =
-            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
-                .await?;
-        let mut current = api.get(&args.name).await?;
-        current.metadata.managed_fields = None;
-        let pp = PostParams {
-            dry_run: true,
-            ..Default::default()
-        };
-        let mut proposed = api.replace(&args.name, &pp, &obj).await?;
-        proposed.metadata.managed_fields = None;
-        Ok(shell_common::YamlDiff {
-            current: serde_yaml::to_string(&current)?,
-            proposed: serde_yaml::to_string(&proposed)?,
-        })
+        shell_common::dry_run_yaml_core(
+            client,
+            &args.kind,
+            &args.namespace,
+            &args.name,
+            &args.yaml,
+            &state.core.manager,
+        )
+        .await
     })()
     .await;
     respond(result)
@@ -261,14 +244,16 @@ pub async fn delete_resource(
     State(state): State<WebState>,
     Json(args): Json<DeleteResourceArgs>,
 ) -> axum::response::Response {
-    use kube::api::DeleteParams;
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) =
-            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
-                .await?;
-        api.delete(&args.name, &DeleteParams::default()).await?;
-        Ok(())
+        shell_common::delete_resource_core(
+            client,
+            &args.kind,
+            &args.namespace,
+            &args.name,
+            &state.core.manager,
+        )
+        .await
     })()
     .await;
     respond(result)
@@ -278,16 +263,17 @@ pub async fn scale_resource(
     State(state): State<WebState>,
     Json(args): Json<ScaleResourceArgs>,
 ) -> axum::response::Response {
-    use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) =
-            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
-                .await?;
-        let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": args.replicas } }));
-        api.patch(&args.name, &PatchParams::default(), &patch)
-            .await?;
-        Ok(())
+        shell_common::scale_resource_core(
+            client,
+            &args.kind,
+            &args.namespace,
+            &args.name,
+            args.replicas,
+            &state.core.manager,
+        )
+        .await
     })()
     .await;
     respond(result)
@@ -297,16 +283,10 @@ pub async fn set_cordon(
     State(state): State<WebState>,
     Json(args): Json<SetCordonArgs>,
 ) -> axum::response::Response {
-    use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) =
-            shell_common::dynamic_api(client, "nodes", "", &state.core.manager).await?;
-        let patch =
-            Patch::Merge(serde_json::json!({ "spec": { "unschedulable": args.unschedulable } }));
-        api.patch(&args.name, &PatchParams::default(), &patch)
-            .await?;
-        Ok(())
+        shell_common::set_cordon_core(client, &args.name, args.unschedulable, &state.core.manager)
+            .await
     })()
     .await;
     respond(result)
@@ -316,19 +296,9 @@ pub async fn restart_pod(
     State(state): State<WebState>,
     Json(args): Json<RestartPodArgs>,
 ) -> axum::response::Response {
-    use kube::api::{Api, DeleteParams};
     let result: AppResult<()> = (|| async {
         let client = core_client(&state.core).await?;
-        let api: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, &args.namespace);
-        let pod = api.get(&args.name).await?;
-        if !crate::kube::restart::has_controller(&pod) {
-            return Err(AppError::Other(format!(
-                "{} has no controller — deleting it would not recreate it. Use Delete instead.",
-                args.name
-            )));
-        }
-        api.delete(&args.name, &DeleteParams::default()).await?;
-        Ok(())
+        shell_common::restart_pod_core(client, &args.namespace, &args.name).await
     })()
     .await;
     respond(result)
@@ -338,23 +308,16 @@ pub async fn restart_rollout(
     State(state): State<WebState>,
     Json(args): Json<RestartRolloutArgs>,
 ) -> axum::response::Response {
-    use kube::api::{Patch, PatchParams};
     let result: AppResult<()> = (|| async {
-        if !crate::kube::restart::is_rollout_kind(&args.kind) {
-            return Err(AppError::Other(format!(
-                "{} cannot be rollout-restarted",
-                args.kind
-            )));
-        }
         let client = core_client(&state.core).await?;
-        let (api, _is_helm) =
-            shell_common::dynamic_api(client, &args.kind, &args.namespace, &state.core.manager)
-                .await?;
-        let now = chrono::Utc::now().to_rfc3339();
-        let patch = Patch::Merge(crate::kube::restart::restart_patch(&now));
-        api.patch(&args.name, &PatchParams::default(), &patch)
-            .await?;
-        Ok(())
+        shell_common::restart_rollout_core(
+            client,
+            &args.kind,
+            &args.namespace,
+            &args.name,
+            &state.core.manager,
+        )
+        .await
     })()
     .await;
     respond(result)
