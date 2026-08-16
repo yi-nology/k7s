@@ -396,6 +396,12 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
       kubeconfig: kubeconfig ?? null,
     });
   }
+  helmManifestRevision(namespace: string, name: string, revision: number): Promise<string> {
+    return invoke<string>('helm_manifest_revision', { namespace, name, revision });
+  }
+  helmValuesRevision(namespace: string, name: string, revision: number): Promise<unknown> {
+    return invoke<unknown>('helm_values_revision', { namespace, name, revision });
+  }
   onHelmOpLog(cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub {
     return subscribe<{ stream: 'stdout' | 'stderr'; line: string }>('helm-op-log', cb);
   }

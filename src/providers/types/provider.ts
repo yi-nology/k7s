@@ -317,6 +317,10 @@ export interface DataProvider {
     namespace: string,
     kubeconfig?: string
   ): Promise<HelmRevisionEntry[]>;
+  /** Rendered manifest for a specific revision of a Helm release. */
+  helmManifestRevision(namespace: string, name: string, revision: number): Promise<string>;
+  /** User-supplied values for a specific revision of a Helm release. */
+  helmValuesRevision(namespace: string, name: string, revision: number): Promise<unknown>;
   onHelmOpLog(cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub;
   onHelmOpDone(cb: (result: HelmOpResult) => void): Unsub;
 

@@ -490,6 +490,15 @@ export const en: Dictionary = {
       done: 'Done',
       invalidNamespace: 'Invalid namespace name',
     },
+    diff: {
+      selectRevA: 'From revision',
+      selectRevB: 'To revision',
+      pickRevision: 'Select revision...',
+      loading: 'Fetching manifests...',
+      identical: 'Manifests are identical',
+      swap: 'Swap',
+      emptyHint: 'Select two revisions to compare their rendered manifests.',
+    },
   },
   podFiles: {
     title: 'Pod Files',

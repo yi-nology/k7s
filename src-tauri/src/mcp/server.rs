@@ -1360,6 +1360,48 @@ impl K7sMcpServer {
     }
 
     #[tool(
+        description = "Fetch the rendered Kubernetes manifest for a specific revision of a Helm release. Unlike get_resource which returns the latest revision, this lets you inspect any historical revision. Returns the raw YAML manifest."
+    )]
+    async fn helm_manifest_revision(
+        &self,
+        Parameters(p): Parameters<HelmManifestRevisionParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let manifest = crate::kube::helm::helm_manifest_revision(
+            client,
+            &p.namespace,
+            &p.name,
+            p.revision,
+        )
+        .await
+        .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(manifest)]))
+    }
+
+    #[tool(
+        description = "Fetch the user-supplied values (config) for a specific revision of a Helm release. Returns the JSON object of value overrides the user provided at install/upgrade time."
+    )]
+    async fn helm_values_revision(
+        &self,
+        Parameters(p): Parameters<HelmValuesRevisionParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let values = crate::kube::helm::helm_values_revision(
+            client,
+            &p.namespace,
+            &p.name,
+            p.revision,
+        )
+        .await
+        .map_err(tool_error)?;
+        json_result(&values)
+    }
+
+    #[tool(
         description = "Render a chart's default values.yaml (helm show values). Useful to prefill the values editor before helm_install/helm_upgrade."
     )]
     async fn helm_show_values(

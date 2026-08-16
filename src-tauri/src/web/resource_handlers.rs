@@ -449,3 +449,33 @@ pub async fn list_endpoint_addresses(
     .await;
     respond(result)
 }
+
+// ---------------------------------------------------------------------------
+// Helm revision diff — manifest / values for a specific revision
+// ---------------------------------------------------------------------------
+
+pub async fn helm_manifest_revision(
+    State(state): State<WebState>,
+    Json(args): Json<HelmManifestRevisionArgs>,
+) -> axum::response::Response {
+    let result: AppResult<String> = (|| async {
+        let client = core_client(&state.core).await?;
+        crate::kube::helm::helm_manifest_revision(client, &args.namespace, &args.name, args.revision)
+            .await
+    })()
+    .await;
+    respond(result)
+}
+
+pub async fn helm_values_revision(
+    State(state): State<WebState>,
+    Json(args): Json<HelmValuesRevisionArgs>,
+) -> axum::response::Response {
+    let result: AppResult<serde_json::Value> = (|| async {
+        let client = core_client(&state.core).await?;
+        crate::kube::helm::helm_values_revision(client, &args.namespace, &args.name, args.revision)
+            .await
+    })()
+    .await;
+    respond(result)
+}

@@ -489,6 +489,15 @@ export const zh: Dictionary = {
       done: '完成',
       invalidNamespace: '无效的命名空间名称',
     },
+    diff: {
+      selectRevA: '起始版本',
+      selectRevB: '目标版本',
+      pickRevision: '选择版本...',
+      loading: '正在获取清单...',
+      identical: '清单完全相同',
+      swap: '交换',
+      emptyHint: '选择两个版本以对比其渲染后的清单。',
+    },
   },
   podFiles: {
     title: 'Pod 文件',

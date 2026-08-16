@@ -215,6 +215,7 @@ const TAB_LABELS_ZH: Record<DetailTabId, string> = {
   events: '事件',
   pods: 'Pod 列表',
   timeline: '时间线',
+  diff: '版本对比',
 };
 
 /**

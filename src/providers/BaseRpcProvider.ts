@@ -438,6 +438,12 @@ export abstract class BaseRpcProvider {
   ): Promise<HelmRevisionEntry[]> {
     return Promise.resolve([]);
   }
+  helmManifestRevision(namespace: string, name: string, revision: number): Promise<string> {
+    return this.rpc<string>('helm_manifest_revision', { namespace, name, revision });
+  }
+  helmValuesRevision(namespace: string, name: string, revision: number): Promise<unknown> {
+    return this.rpc<unknown>('helm_values_revision', { namespace, name, revision });
+  }
 
   // ---- Pod file management defaults ----
   podFilesList(_ref: ResourceRef, _container: string | null, _path: string): Promise<PodFileEntry[]> {

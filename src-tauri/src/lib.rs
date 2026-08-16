@@ -144,6 +144,8 @@ pub fn run() {
             commands::helm_render_default_values,
             commands::helm_run_op,
             commands::helm_release_history,
+            commands::helm_manifest_revision,
+            commands::helm_values_revision,
             // Pod file management (Phase 2 of KubePi parity)
             commands::pod_files_list,
             commands::pod_files_read,

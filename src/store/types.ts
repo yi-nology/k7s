@@ -30,7 +30,8 @@ export type DetailTab =
   | 'yaml'
   | 'events'
   | 'pods'
-  | 'timeline';
+  | 'timeline'
+  | 'diff';
 
 /**
  * Multi-tab entry: one open resource in the detail panel's tab strip.

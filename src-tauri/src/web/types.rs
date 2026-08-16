@@ -342,3 +342,19 @@ pub struct ListEndpointAddressesArgs {
     pub namespace: String,
     pub name: String,
 }
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmManifestRevisionArgs {
+    pub namespace: String,
+    pub name: String,
+    pub revision: i64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmValuesRevisionArgs {
+    pub namespace: String,
+    pub name: String,
+    pub revision: i64,
+}

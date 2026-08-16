@@ -518,6 +518,15 @@ export interface Dictionary {
       done: string;
       invalidNamespace: string;
     };
+    diff: {
+      selectRevA: string;
+      selectRevB: string;
+      pickRevision: string;
+      loading: string;
+      identical: string;
+      swap: string;
+      emptyHint: string;
+    };
   };
   podFiles: { title: string; close: string; noPod: string; placeholder: string };
   files: {

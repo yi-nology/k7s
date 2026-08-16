@@ -31,6 +31,7 @@ import { NodeShellTab } from './NodeShellTab';
 import { YamlTab } from './YamlTab';
 import { EventsTab } from './EventsTab';
 import { CronJobTimeline } from './CronJobTimeline';
+import { HelmDiff } from '../helm/HelmDiff';
 import { ActionsMenu } from './ActionsMenu';
 import { TabStrip } from './TabStrip';
 import type { DrainProgress } from '../../providers/types';
@@ -211,6 +212,10 @@ export function DetailPanel() {
       {activeTab === 'events' && <EventsTab />}
       {/* CronJob timeline — Job execution history for CronJobs. */}
       {activeTab === 'timeline' && nav === 'cronjobs' && <CronJobTimeline />}
+      {/* Helm revision diff — compare two revisions of a release. */}
+      {activeTab === 'diff' && nav === 'helm' && row.namespace && (
+        <HelmDiff namespace={row.namespace} name={row.name} />
+      )}
     </div>
   );
 }

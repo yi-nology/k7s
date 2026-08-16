@@ -172,6 +172,87 @@ pub fn decode_release(secret: &Secret) -> Option<Release> {
     })
 }
 
+/// Fetch the rendered manifest for a specific revision of a Helm release.
+///
+/// Unlike `shell_common::helm_manifest()` which always returns the latest
+/// revision, this queries by revision number. Every revision is its own
+/// Secret (`sh.helm.release.v1.<name>.v<revision>`), so we list by label
+/// and match on `release.revision`.
+pub async fn helm_manifest_revision(
+    client: kube::Client,
+    namespace: &str,
+    name: &str,
+    revision: i64,
+) -> crate::error::AppResult<String> {
+    use kube::api::{Api, ListParams};
+
+    let api: Api<Secret> = if namespace.is_empty() {
+        Api::all(client)
+    } else {
+        Api::namespaced(client, namespace)
+    };
+
+    let lp = ListParams::default()
+        .fields(&format!("type={}", RELEASE_SECRET_TYPE))
+        .labels(&format!("owner=helm,name={name}"));
+    let list = api.list(&lp).await?;
+
+    for secret in &list {
+        if let Some(release) = decode_release(secret) {
+            if release.revision == revision {
+                if release.manifest.trim().is_empty() {
+                    return Err(crate::error::AppError::Other(format!(
+                        "revision {revision} of {name} has no rendered manifest"
+                    )));
+                }
+                return Ok(release.manifest);
+            }
+        }
+    }
+
+    Err(crate::error::AppError::NotFound(format!(
+        "revision {revision} of Helm release {name} not found in {namespace}"
+    )))
+}
+
+/// Fetch the user-supplied values for a specific revision of a Helm release.
+///
+/// Returns the `config` field (Helm's user-supplied value overrides) for the
+/// requested revision, as a JSON value. Sensitive keys are redacted by
+/// `flatten_values` on the caller side, but the raw JSON is returned here so
+/// the caller can choose how to present it.
+pub async fn helm_values_revision(
+    client: kube::Client,
+    namespace: &str,
+    name: &str,
+    revision: i64,
+) -> crate::error::AppResult<serde_json::Value> {
+    use kube::api::{Api, ListParams};
+
+    let api: Api<Secret> = if namespace.is_empty() {
+        Api::all(client)
+    } else {
+        Api::namespaced(client, namespace)
+    };
+
+    let lp = ListParams::default()
+        .fields(&format!("type={}", RELEASE_SECRET_TYPE))
+        .labels(&format!("owner=helm,name={name}"));
+    let list = api.list(&lp).await?;
+
+    for secret in &list {
+        if let Some(release) = decode_release(secret) {
+            if release.revision == revision {
+                return Ok(release.config);
+            }
+        }
+    }
+
+    Err(crate::error::AppError::NotFound(format!(
+        "revision {revision} of Helm release {name} not found in {namespace}"
+    )))
+}
+
 /// Tone for a release status, matching how the statuses actually read:
 /// `deployed` is the healthy resting state, `superseded` is normal history, and
 /// anything failed or stuck mid-operation wants attention.

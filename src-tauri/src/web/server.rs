@@ -148,6 +148,14 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/invoke/connect", post(handlers::connect))
         .route("/api/invoke/get_yaml", post(resource_handlers::get_yaml))
         .route(
+            "/api/invoke/helm_manifest_revision",
+            post(resource_handlers::helm_manifest_revision),
+        )
+        .route(
+            "/api/invoke/helm_values_revision",
+            post(resource_handlers::helm_values_revision),
+        )
+        .route(
             "/api/invoke/get_events",
             post(resource_handlers::get_events),
         )

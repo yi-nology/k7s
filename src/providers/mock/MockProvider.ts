@@ -137,6 +137,8 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
   helmRenderDefaultValues = this.helm.helmRenderDefaultValues.bind(this.helm);
   helmRunOp = this.helm.helmRunOp.bind(this.helm);
   helmReleaseHistory = this.helm.helmReleaseHistory.bind(this.helm);
+  helmManifestRevision = this.helm.helmManifestRevision.bind(this.helm);
+  helmValuesRevision = this.helm.helmValuesRevision.bind(this.helm);
   onHelmOpLog = this.helm.onHelmOpLog.bind(this.helm);
   onHelmOpDone = this.helm.onHelmOpDone.bind(this.helm);
 

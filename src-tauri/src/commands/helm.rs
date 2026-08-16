@@ -134,3 +134,27 @@ pub async fn helm_release_history(
 ) -> AppResult<Vec<helm_ops::RevisionEntry>> {
     helm_ops::release_history(&release, &namespace, kubeconfig.as_deref()).await
 }
+
+/// Fetch the rendered manifest for a specific revision of a Helm release.
+#[tauri::command]
+pub async fn helm_manifest_revision(
+    mgr: State<'_, Arc<CoreState>>,
+    namespace: String,
+    name: String,
+    revision: i64,
+) -> AppResult<String> {
+    let client = crate::commands::core::require_client(&mgr.manager).await?;
+    crate::kube::helm::helm_manifest_revision(client, &namespace, &name, revision).await
+}
+
+/// Fetch the user-supplied values for a specific revision of a Helm release.
+#[tauri::command]
+pub async fn helm_values_revision(
+    mgr: State<'_, Arc<CoreState>>,
+    namespace: String,
+    name: String,
+    revision: i64,
+) -> AppResult<serde_json::Value> {
+    let client = crate::commands::core::require_client(&mgr.manager).await?;
+    crate::kube::helm::helm_values_revision(client, &namespace, &name, revision).await
+}

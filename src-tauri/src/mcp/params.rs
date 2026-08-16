@@ -251,6 +251,22 @@ pub struct HelmShowValuesParams {
     pub version: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmManifestRevisionParams {
+    pub namespace: String,
+    pub name: String,
+    pub revision: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmValuesRevisionParams {
+    pub namespace: String,
+    pub name: String,
+    pub revision: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HelmSearchParams {
