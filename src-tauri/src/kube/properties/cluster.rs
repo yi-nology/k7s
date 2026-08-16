@@ -19,6 +19,30 @@ pub(super) async fn gather_node(client: Client, name: &str) -> AppResult<Propert
     let info = status.node_info.clone();
     let mut props = Properties::default();
 
+    // ---- Health: pressure conditions at a glance ----
+    let conditions = status
+        .conditions
+        .as_ref()
+        .map(|c| c.as_slice())
+        .unwrap_or(&[]);
+    let mut health_fields = Vec::new();
+    for cond in conditions {
+        let (label, is_bad) = match cond.type_.as_str() {
+            "Ready" => ("Ready", cond.status.as_str() != "True"),
+            "MemoryPressure" => ("Memory Pressure", cond.status.as_str() == "True"),
+            "DiskPressure" => ("Disk Pressure", cond.status.as_str() == "True"),
+            "PIDPressure" => ("PID Pressure", cond.status.as_str() == "True"),
+            "NetworkUnavailable" => ("Network", cond.status.as_str() == "True"),
+            _ => continue,
+        };
+        let tone = if is_bad { Tone::Bad } else { Tone::Good };
+        let status_text = if is_bad { "Alert" } else { "OK" };
+        health_fields.push(field_toned(label, status_text, tone));
+    }
+    if !health_fields.is_empty() {
+        props.fields("Health", health_fields);
+    }
+
     let unschedulable = spec.unschedulable.unwrap_or(false);
     props.fields(
         "Overview",
