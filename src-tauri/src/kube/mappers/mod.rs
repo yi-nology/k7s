@@ -15,6 +15,8 @@ mod pod;
 mod rbac;
 mod storage;
 mod workload;
+#[cfg(test)]
+mod test_utils;
 
 // Re-export all public map_* functions so existing call sites (e.g. watchers.rs)
 // continue to work as `mappers::map_pod(...)`.
@@ -149,5 +151,81 @@ pub(super) fn simple_row<K: ResourceExt>(obj: &K, cells: Vec<Cell>) -> Row {
         namespace: obj.namespace(),
         cells,
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn humanize_duration_always_has_unit_suffix(secs in 0i64..1_000_000) {
+            let result = humanize_duration(secs);
+            assert!(
+                result.ends_with('s') || result.ends_with('m')
+                    || result.ends_with('h') || result.ends_with('d'),
+                "unexpected suffix in: {result}"
+            );
+        }
+
+        #[test]
+        fn humanize_duration_negative_clamped(secs in i64::MIN..0i64) {
+            let result = humanize_duration(secs);
+            assert_eq!(result, "0s");
+        }
+
+        #[test]
+        fn humanize_duration_monotonic(a in 0i64..500_000, b in 0i64..500_000) {
+            prop_assume!(a <= b);
+            let sa = parse_duration_secs(&humanize_duration(a));
+            let sb = parse_duration_secs(&humanize_duration(b));
+            assert!(sa <= sb, "not monotonic: humanize({a}) parsed {sa}, humanize({b}) parsed {sb}");
+        }
+
+        #[test]
+        fn status_tone_good_statuses(s in "(Running|Succeeded|Active|Completed|Bound|Ready)") {
+            assert_eq!(status_tone(&s), Tone::Good);
+        }
+
+        #[test]
+        fn status_tone_warn_statuses(s in "(Pending|ContainerCreating|Terminating)") {
+            assert_eq!(status_tone(&s), Tone::Warn);
+        }
+
+        #[test]
+        fn status_tone_unknown_is_bad(s in "[A-Z][a-zA-Z]{3,20}") {
+            // Skip the test if the generated string happens to be a known status.
+            if !matches!(
+                s.as_str(),
+                "Running" | "Succeeded" | "Active" | "Completed" | "Bound" | "Ready"
+                    | "Pending" | "ContainerCreating" | "Terminating"
+            ) {
+                assert_eq!(status_tone(&s), Tone::Bad);
+            }
+        }
+    }
+
+    /// Parse a humanized duration string back into total seconds.
+    fn parse_duration_secs(s: &str) -> i64 {
+        let mut total = 0i64;
+        let mut num = String::new();
+        for c in s.chars() {
+            if c.is_ascii_digit() {
+                num.push(c);
+            } else {
+                let n: i64 = num.parse().unwrap_or(0);
+                total += match c {
+                    's' => n,
+                    'm' => n * 60,
+                    'h' => n * 3600,
+                    'd' => n * 86400,
+                    _ => 0,
+                };
+                num.clear();
+            }
+        }
+        total
     }
 }

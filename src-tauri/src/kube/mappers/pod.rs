@@ -329,4 +329,65 @@ mod tests {
         let labels = map_pod(&pod).labels.expect("labels present");
         assert_eq!(labels.get("app").map(String::as_str), Some("wiki"));
     }
+
+    // ---- property-based tests (proptest) ----
+
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn map_pod_never_panics(
+            name in "[a-z][a-z0-9-]{0,20}",
+            namespace in "[a-z][a-z0-9-]{0,20}",
+            phase in "(Running|Pending|Failed|Succeeded|Unknown)",
+            restarts in 0i32..1000,
+        ) {
+            let pod_json = serde_json::json!({
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "metadata": {
+                    "name": name,
+                    "namespace": namespace,
+                    "uid": "test-uid",
+                    "creationTimestamp": "2025-01-15T10:30:00Z"
+                },
+                "spec": { "nodeName": "node1", "containers": [] },
+                "status": {
+                    "phase": phase,
+                    "containerStatuses": [{
+                        "name": "app",
+                        "ready": phase == "Running",
+                        "restartCount": restarts,
+                        "state": if phase == "Running" {
+                            serde_json::json!({"running": {}})
+                        } else if phase == "Pending" {
+                            serde_json::json!({"waiting": {"reason": "ContainerCreating"}})
+                        } else {
+                            serde_json::json!({"terminated": {"exitCode": 1, "reason": "Error"}})
+                        }
+                    }]
+                }
+            });
+            let pod: Pod = serde_json::from_value(pod_json).unwrap();
+            let row = map_pod(&pod);
+
+            // Universal invariants
+            assert!(!row.uid.is_empty());
+            assert!(!row.name.is_empty());
+            assert!(row.namespace.is_some());
+            assert_eq!(row.cells.len(), 8); // pods always have 8 cells
+            for cell in &row.cells {
+                assert!(!cell.text.is_empty(), "empty cell text in pod row");
+            }
+
+            // First cell is name with Primary tone
+            assert_eq!(row.cells[0].tone, Tone::Primary);
+
+            // PodMeta consistency
+            if let Some(meta) = &row.pod {
+                assert_eq!(meta.status, row.cells[7].text);
+                assert_eq!(meta.restarts, restarts);
+            }
+        }
+    }
 }

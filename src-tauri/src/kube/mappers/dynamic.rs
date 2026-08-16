@@ -316,3 +316,170 @@ pub fn map_limitrange(obj: &DynamicObject) -> Row {
         ..Default::default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        #[test]
+        fn map_dynamic_never_panics(obj in arb_any_dynamic_object()) {
+            let _ = map_dynamic(&obj, true);
+            let _ = map_dynamic(&obj, false);
+        }
+
+        #[test]
+        fn map_dynamic_uid_non_empty(obj in arb_any_dynamic_object()) {
+            let row = map_dynamic(&obj, true);
+            assert!(!row.uid.is_empty());
+            let row = map_dynamic(&obj, false);
+            assert!(!row.uid.is_empty());
+        }
+
+        #[test]
+        fn map_dynamic_name_non_empty(obj in arb_any_dynamic_object()) {
+            let row = map_dynamic(&obj, true);
+            assert!(!row.name.is_empty());
+        }
+
+        #[test]
+        fn map_dynamic_cell_count(namespaced in any::<bool>()) {
+            let obj = make_minimal_dynamic_object("test", "ns");
+            let row = map_dynamic(&obj, namespaced);
+            let expected = if namespaced { 3 } else { 2 };
+            assert_eq!(row.cells.len(), expected);
+        }
+
+        #[test]
+        fn map_dynamic_namespace_cell_present_only_when_namespaced(namespaced in any::<bool>()) {
+            let obj = make_minimal_dynamic_object("test", "ns");
+            let row = map_dynamic(&obj, namespaced);
+            if namespaced {
+                assert_eq!(row.cells.len(), 3);
+                assert_eq!(row.cells[1].tone, Tone::Muted);
+            } else {
+                assert_eq!(row.cells.len(), 2);
+            }
+        }
+
+        #[test]
+        fn map_pdb_never_panics(
+            name in "[a-z][a-z0-9-]{0,20}",
+            namespace in "[a-z][a-z0-9-]{0,20}",
+        ) {
+            let obj = make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({
+                "spec": { "minAvailable": "1", "maxUnavailable": "1" },
+                "status": { "disruptionsAllowed": 1 }
+            }));
+            let row = map_pdb(&obj);
+            assert_eq!(row.cells.len(), 6);
+            assert!(!row.uid.is_empty());
+        }
+
+        #[test]
+        fn map_hpa_never_panics(
+            name in "[a-z][a-z0-9-]{0,20}",
+            namespace in "[a-z][a-z0-9-]{0,20}",
+        ) {
+            let obj = make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({
+                "spec": {
+                    "scaleTargetRef": { "kind": "Deployment", "name": "app" },
+                    "minReplicas": 1,
+                    "maxReplicas": 10
+                },
+                "status": { "currentReplicas": 3 }
+            }));
+            let row = map_hpa(&obj);
+            assert_eq!(row.cells.len(), 7);
+            assert!(!row.uid.is_empty());
+        }
+
+        #[test]
+        fn map_webhook_never_panics(name in "[a-z][a-z0-9-]{0,20}") {
+            let obj = make_dynamic_obj_with_data(&name, "", serde_json::json!({
+                "webhooks": [{ "name": "test" }]
+            }));
+            let row = map_mutating_webhook(&obj);
+            assert_eq!(row.cells.len(), 3);
+            let row = map_validating_webhook(&obj);
+            assert_eq!(row.cells.len(), 3);
+        }
+
+        #[test]
+        fn map_api_service_never_panics(name in "[a-z][a-z0-9-]{0,20}") {
+            let obj = make_dynamic_obj_with_data(&name, "", serde_json::json!({
+                "spec": { "service": { "namespace": "default", "name": "api" } },
+                "status": { "conditions": [{ "type": "Available", "status": "True" }] }
+            }));
+            let row = map_api_service(&obj);
+            assert_eq!(row.cells.len(), 4);
+            assert!(!row.uid.is_empty());
+        }
+
+        #[test]
+        fn map_resourcequota_never_panics(
+            name in "[a-z][a-z0-9-]{0,20}",
+            namespace in "[a-z][a-z0-9-]{0,20}",
+        ) {
+            let obj = make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({
+                "status": { "hard": { "cpu": "4" }, "used": { "cpu": "2" } }
+            }));
+            let row = map_resourcequota(&obj);
+            assert_eq!(row.cells.len(), 5);
+            assert!(!row.uid.is_empty());
+        }
+
+        #[test]
+        fn map_limitrange_never_panics(
+            name in "[a-z][a-z0-9-]{0,20}",
+            namespace in "[a-z][a-z0-9-]{0,20}",
+        ) {
+            let obj = make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({
+                "spec": { "limits": [{ "type": "Container", "default": { "cpu": "100m" } }] }
+            }));
+            let row = map_limitrange(&obj);
+            assert_eq!(row.cells.len(), 4);
+            assert!(!row.uid.is_empty());
+        }
+    }
+
+    // -- helper constructors for tests --
+
+    fn make_dynamic_obj_with_data(
+        name: &str,
+        namespace: &str,
+        data: serde_json::Value,
+    ) -> DynamicObject {
+        let mut metadata = serde_json::json!({
+            "name": name,
+            "uid": format!("uid-{name}"),
+            "creationTimestamp": "2025-01-15T10:30:00Z"
+        });
+        if !namespace.is_empty() {
+            metadata["namespace"] = serde_json::json!(namespace);
+        }
+        serde_json::from_value(serde_json::json!({
+            "apiVersion": "v1",
+            "kind": "ConfigMap",
+            "metadata": metadata,
+            "data": data
+        }))
+        .unwrap()
+    }
+
+    fn make_minimal_dynamic_object(name: &str, namespace: &str) -> DynamicObject {
+        make_dynamic_obj_with_data(name, namespace, serde_json::json!({}))
+    }
+
+    fn arb_any_dynamic_object() -> impl Strategy<Value = DynamicObject> {
+        (
+            "[a-z][a-z0-9-]{0,15}",
+            "[a-z][a-z0-9-]{0,15}",
+            any::<bool>(),
+        )
+            .prop_map(|(name, namespace, _has_data)| {
+                make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({}))
+            })
+    }
+}
