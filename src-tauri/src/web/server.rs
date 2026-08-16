@@ -199,6 +199,10 @@ pub fn api_router(state: WebState) -> Router {
             post(resource_handlers::restart_pod),
         )
         .route(
+            "/api/invoke/diagnose_pod",
+            post(resource_handlers::diagnose_pod),
+        )
+        .route(
             "/api/invoke/restart_rollout",
             post(resource_handlers::restart_rollout),
         )

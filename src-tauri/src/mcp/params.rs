@@ -73,6 +73,15 @@ pub struct NameNamespaceParams {
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct DiagnosePodParams {
+    /// Namespace of the Pod.
+    pub namespace: String,
+    /// Name of the Pod to diagnose.
+    pub pod: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct LogsParams {
     pub namespace: String,
     pub pod: String,

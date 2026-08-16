@@ -455,6 +455,23 @@ pub async fn unwatch_node_stats(node: String, mgr: State<'_, Arc<CoreState>>) ->
     Ok(())
 }
 
+/// Analyze a Pod's termination state and return a structured diagnosis.
+///
+/// Inspects container statuses for well-known failure patterns (OOMKilled,
+/// CrashLoopBackOff, ImagePullBackOff, segfault, etc.) and produces a
+/// human-readable summary with severity.
+#[tauri::command]
+pub async fn diagnose_pod(
+    namespace: String,
+    pod: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<serde_json::Value> {
+    let client = require_client(&mgr.manager).await?;
+    let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, &namespace, &pod).await?;
+    serde_json::to_value(diagnosis)
+        .map_err(|e| AppError::Other(format!("serialize error: {e}")))
+}
+
 /// An event as shown in the detail panel's Events tab.
 #[derive(Serialize)]
 pub struct EventItem {

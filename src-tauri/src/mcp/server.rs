@@ -472,6 +472,23 @@ impl K7sMcpServer {
     }
 
     #[tool(
+        description = "Diagnose why a Pod is unhealthy. Inspects container statuses for common failure patterns (OOMKilled, CrashLoopBackOff, ImagePullBackOff, segfault, etc.) and returns a structured diagnosis with exit codes, reasons, severity, and a human-readable summary. Use this when investigating why a Pod terminated, is stuck, or is restarting."
+    )]
+    async fn diagnose_pod(
+        &self,
+        Parameters(p): Parameters<DiagnosePodParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let diagnosis =
+            crate::kube::pod_diagnosis::diagnose_pod(client, &p.namespace, &p.pod)
+                .await
+                .map_err(tool_error)?;
+        json_result(&diagnosis)
+    }
+
+    #[tool(
         description = "Trigger a rollout restart by patching the workload's pod-template annotation. The controller rolls through its normal update strategy. Works for Deployment, StatefulSet, DaemonSet, ReplicaSet."
     )]
     async fn restart_rollout(

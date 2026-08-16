@@ -381,6 +381,9 @@ export abstract class BaseRpcProvider {
       name: ref.name,
     });
   }
+  diagnosePod(namespace: string, pod: string): Promise<import('./types').PodDiagnosis> {
+    return this.rpc<import('./types').PodDiagnosis>('diagnose_pod', { namespace, pod });
+  }
   restartRollout(ref: ResourceRef): Promise<void> {
     return this.rpc<void>('restart_rollout', {
       kind: ref.kind,

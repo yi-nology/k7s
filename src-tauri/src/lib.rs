@@ -103,6 +103,7 @@ pub fn run() {
             commands::scale_resource,
             commands::set_cordon,
             commands::restart_pod,
+            commands::diagnose_pod,
             commands::restart_rollout,
             commands::list_revisions,
             commands::undo_rollout,

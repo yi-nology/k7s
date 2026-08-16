@@ -398,6 +398,25 @@ pub async fn drain_node(
 // list_endpoints — EndpointSlices for the topology graph.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// diagnose_pod — analyze why a Pod terminated or is unhealthy.
+// ---------------------------------------------------------------------------
+
+pub async fn diagnose_pod(
+    State(state): State<WebState>,
+    Json(args): Json<DiagnosePodArgs>,
+) -> axum::response::Response {
+    let result: AppResult<serde_json::Value> = (|| async {
+        let client = core_client(&state.core).await?;
+        let diagnosis =
+            crate::kube::pod_diagnosis::diagnose_pod(client, &args.namespace, &args.pod).await?;
+        serde_json::to_value(diagnosis)
+            .map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    })()
+    .await;
+    respond(result)
+}
+
 pub async fn list_endpoints(State(state): State<WebState>) -> axum::response::Response {
     let result: AppResult<Vec<crate::kube::endpoints::EndpointRow>> = (|| async {
         let client = core_client(&state.core).await?;

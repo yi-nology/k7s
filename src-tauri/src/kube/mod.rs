@@ -30,6 +30,7 @@ pub mod metrics;
 pub mod metrics_config;
 pub mod nodeshell;
 pub mod nodestats;
+pub mod pod_diagnosis;
 pub mod pod_files;
 pub mod portforward;
 pub mod promql;

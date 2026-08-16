@@ -62,6 +62,36 @@ export interface SecretEntry {
   value: string;
 }
 
+/** Diagnosis for a single container within a Pod. */
+export interface ContainerDiagnosis {
+  name: string;
+  /** "container" or "initContainer". */
+  containerType: string;
+  ready: boolean;
+  restartCount: number;
+  /** "running", "waiting", "terminated", or "unknown". */
+  currentState: string;
+  currentReason?: string;
+  currentMessage?: string;
+  currentExitCode?: number;
+  lastTerminationReason?: string;
+  lastTerminationExitCode?: number;
+}
+
+/** Overall Pod termination diagnosis. */
+export interface PodDiagnosis {
+  pod: string;
+  namespace: string;
+  phase: string;
+  containers: ContainerDiagnosis[];
+  /** Human-readable one-line summary. */
+  summary: string;
+  /** "ok", "warn", or "critical". */
+  severity: string;
+  /** Common pattern if detected (e.g. "oomkilled", "crashloop"). */
+  pattern?: string;
+}
+
 /** One row of a properties field grid: a label, a toned value, and an optional
  * nav target that makes the value a click-through link (B33). */
 export interface Field {
