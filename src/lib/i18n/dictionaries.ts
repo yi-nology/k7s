@@ -253,6 +253,8 @@ export interface Dictionary {
     new: string;
     /** Hover/tooltip for the same button — explains what the icon does. */
     newTitle: string;
+    /** Tooltip for the CSV export button in the table toolbar. */
+    csvExportTitle: string;
     /** aria-label for the resource table. */
     ariaLabel: string;
   };

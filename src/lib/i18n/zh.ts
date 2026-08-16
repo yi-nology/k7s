@@ -256,6 +256,7 @@ export const zh: Dictionary = {
     selected: '已选',
     new: '新建',
     newTitle: '从 YAML 模板创建资源',
+    csvExportTitle: '导出表格为 CSV',
     ariaLabel: '资源表格',
   },
 
