@@ -26,8 +26,6 @@ use kube::api::{Api, DynamicObject, Patch, PatchParams};
 use kube::core::{ApiResource, GroupVersionKind};
 use kube::ResourceExt;
 use serde::Serialize;
-use std::sync::Arc;
-use tauri::State;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct ApplyResult {
@@ -256,5 +254,3 @@ async fn resolve_api_resource(
     )))
 }
 
-#[allow(dead_code)]
-fn _state_marker(_: &State<'_, Arc<()>>) {}

@@ -74,7 +74,7 @@ async fn embedded_fallback(req: axum::extract::Request) -> impl axum::response::
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, mime)
                 .body(axum::body::Body::from(content.data.to_vec()))
-                .unwrap()
+                .expect("Response::builder with hardcoded status and body is infallible")
         }
         None => {
             // SPA fallback: serve index.html for any unmatched path
@@ -83,11 +83,11 @@ async fn embedded_fallback(req: axum::extract::Request) -> impl axum::response::
                     .status(StatusCode::OK)
                     .header(header::CONTENT_TYPE, "text/html")
                     .body(axum::body::Body::from(content.data.to_vec()))
-                    .unwrap(),
+                    .expect("Response::builder with hardcoded status and body is infallible"),
                 None => Response::builder()
                     .status(StatusCode::NOT_FOUND)
                     .body(axum::body::Body::empty())
-                    .unwrap(),
+                    .expect("Response::builder with hardcoded status and body is infallible"),
             }
         }
     }

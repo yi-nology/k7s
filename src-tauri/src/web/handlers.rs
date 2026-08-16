@@ -1067,7 +1067,7 @@ pub async fn web_token(State(state): State<WebState>) -> axum::response::Respons
         return axum::response::Response::builder()
             .status(axum::http::StatusCode::NOT_FOUND)
             .body(axum::body::Body::empty())
-            .unwrap();
+            .expect("Response::builder with hardcoded status and body is infallible");
     }
     Json(serde_json::json!({ "token": *state.web_token })).into_response()
 }
