@@ -20,11 +20,7 @@ pub(super) async fn gather_node(client: Client, name: &str) -> AppResult<Propert
     let mut props = Properties::default();
 
     // ---- Health: pressure conditions at a glance ----
-    let conditions = status
-        .conditions
-        .as_ref()
-        .map(|c| c.as_slice())
-        .unwrap_or(&[]);
+    let conditions = status.conditions.as_deref().unwrap_or(&[]);
     let mut health_fields = Vec::new();
     for cond in conditions {
         let (label, is_bad) = match cond.type_.as_str() {
