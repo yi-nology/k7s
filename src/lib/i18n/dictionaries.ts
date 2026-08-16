@@ -339,6 +339,7 @@ export interface Dictionary {
   /** Tab-specific UI strings (subset that's not already in chrome.*). */
   logs: {
     filterPlaceholder: string;
+    searchPlaceholder: string;
     container: string;
     ts: string;
     previous: string;

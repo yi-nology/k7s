@@ -325,6 +325,7 @@ export const zh: Dictionary = {
 
   logs: {
     filterPlaceholder: '过滤日志…',
+    searchPlaceholder: '搜索日志…',
     container: '容器',
     ts: '时间',
     previous: '↺ 上一个',

@@ -324,6 +324,7 @@ export const en: Dictionary = {
 
   logs: {
     filterPlaceholder: 'filter logs…',
+    searchPlaceholder: 'search logs…',
     container: 'container',
     ts: 'ts',
     previous: '↺ previous',
