@@ -10,7 +10,7 @@
 
 一个深色、类 Lens 风格的 Kubernetes 可视化监控器，使用 **Tauri 2 + Rust + React** 构建，提供三种可互换的运行模式：原生**桌面应用**（`k7s`）、单二进制**网页服务器**（`k7s-web`）、以及 **MCP server**（`k7s-mcp`），将完整功能暴露给 AI 客户端。
 
-支持 **macOS** 和 **Linux**（桌面端），通过 `k7s-web` 可在**任意浏览器**中运行（包括 **Windows 7**），并提供**多架构 Docker 镜像**。灵感来自 [k9s](https://k9scli.io/) 和参考项目 [lyuke/k7s](https://github.com/lyuke/k7s)。
+支持 **macOS** 和 **Linux**（桌面端），通过 `k7s-web` 可在**任意浏览器**中运行，并提供**多架构 Docker 镜像**。灵感来自 [k9s](https://k9scli.io/) 和参考项目 [lyuke/k7s](https://github.com/lyuke/k7s)。
 
 ---
 
@@ -29,7 +29,7 @@
 - [🚀 开发](#-开发)
 - [📦 构建发布包](#-构建发布包)
 - [🐳 Docker / 服务器部署](#-docker--服务器部署)
-- [🪟 Windows 7 / 网页服务器模式](#-windows-7--网页服务器模式)
+- [🪟 Windows / 网页服务器模式](#-windows--网页服务器模式)
 - [🧪 测试](#-测试)
 - [🧩 扩展 k7s](#-扩展-k7s)
 - [🗺 路线图](#-路线图)
@@ -62,7 +62,7 @@ docker run -d --name k7s -p 8080:8080 \
 # → 打开 http://localhost:8080
 ```
 
-**Windows / macOS Intel：** 从 [GitHub Releases](https://github.com/zy84338719/k7s/releases) 下载对应安装包。Windows 7 用户请参阅 [Windows 7 / 网页服务器模式](#-windows-7--网页服务器模式)。
+**Windows / macOS Intel：** 从 [GitHub Releases](https://github.com/zy84338719/k7s/releases) 下载对应安装包。Windows 用户请参阅 [Windows / 网页服务器模式](#-windows--网页服务器模式)。
 
 ---
 
@@ -135,7 +135,7 @@ k7s、[Lens](https://k8slens.dev/)、[KubePi](https://github.com/1Panel-dev/Kube
 | **认证模型** | 你的 kubeconfig（RBAC、exec 插件） | kubeconfig / OIDC | OIDC / SAML / LDAP / MFA / RBAC | OIDC |
 | **打包体积** | ~9 MB | ~300 MB | 数百 MB | ~50 MB |
 | **遥测** | 无 | 崩溃报告 | 登录 + 操作日志写入数据库 | 无 |
-| **平台** | macOS, Linux, **任意浏览器 (含 Windows 7)**, Docker | macOS, Linux, Windows | 任意浏览器 | 任意浏览器 |
+| **平台** | macOS, Linux, **任意浏览器**, Docker | macOS, Linux, Windows | 任意浏览器 | 任意浏览器 |
 
 ### 如何选择
 
@@ -560,7 +560,7 @@ pnpm dev
 
 ### Windows（仅供开发）
 
-Windows 支持通过 `k7s-web` 提供，详见 [Windows 7 / 网页服务器模式](#-windows-7--网页服务器模式)。
+Windows 支持通过 `k7s-web` 提供，详见 [Windows / 网页服务器模式](#-windows--网页服务器模式)。
 
 ---
 
@@ -610,9 +610,9 @@ K7S_PORT=9090 docker compose up -d
 
 ---
 
-## 🪟 Windows 7 / 网页服务器模式
+## 🪟 Windows / 网页服务器模式
 
-Windows 7 及以上版本可以通过 `k7s-web` 使用 k7s：
+Windows 用户可以通过 `k7s-web` 使用 k7s：
 
 ```bash
 # 构建前端
