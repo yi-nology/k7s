@@ -156,6 +156,8 @@ required-features = ["mcp"]
 
 [dev-dependencies]
 proptest = "1"
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
 
 [profile.release]
 # Smaller, faster desktop binary.

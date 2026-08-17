@@ -2552,6 +2552,7 @@ dependencies = [
  "flate2",
  "futures",
  "http",
+ "http-body-util",
  "jiff",
  "k8s-openapi",
  "keyring",
