@@ -193,14 +193,13 @@ describe('[ / ] tab cycling', () => {
     expect(useStore.getState().activeTab).toBe('metrics');
   });
 
-  it("cycles a Helm release's Properties/YAML, never landing on Events", () => {
-    // B35 gave Helm a Properties tab; it still has no Events. Tabs are
-    // [Properties, YAML], so cycling from YAML wraps to Properties, not Events.
+  it("cycles a Helm release's Properties/YAML/Diff, never landing on Events", () => {
+    // Helm tabs are [Properties, YAML, Diff]; no Events tab.
     useStore.setState({ nav: 'helm', selectedRow: row('traefik'), activeTab: 'yaml' });
     press(']');
-    expect(useStore.getState().activeTab).toBe('properties');
+    expect(useStore.getState().activeTab).toBe('diff');
     press(']');
-    expect(useStore.getState().activeTab).toBe('yaml');
+    expect(useStore.getState().activeTab).toBe('properties');
   });
 
   it('wraps around', () => {

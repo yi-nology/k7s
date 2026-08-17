@@ -121,7 +121,7 @@ describe('LogsTab', () => {
       expect(input).not.toBeNull();
     });
 
-    it('filters log lines by search query', () => {
+    it('highlights log lines matching search query', () => {
       const pod = createMockPodRow({
         uid: 'pod-1',
         name: 'nginx',
@@ -129,12 +129,13 @@ describe('LogsTab', () => {
       });
       useStore.setState({ selectedRow: pod, logBuffer: MOCK_LINES, logSearch: 'ERROR' });
       view = render(<LogsTab />);
-      // Only ERROR line should be visible
+      // All lines rendered; match counter shows 1 match
       expect(view.queryByText('Connection refused')).not.toBeNull();
-      expect(view.queryByText('Server started')).toBeNull();
+      expect(view.queryByText('Server started')).not.toBeNull();
+      expect(view.queryByText('1/1')).not.toBeNull();
     });
 
-    it('filters by message content', () => {
+    it('highlights by message content', () => {
       const pod = createMockPodRow({
         uid: 'pod-1',
         name: 'nginx',
@@ -143,7 +144,7 @@ describe('LogsTab', () => {
       useStore.setState({ selectedRow: pod, logBuffer: MOCK_LINES, logSearch: 'memory' });
       view = render(<LogsTab />);
       expect(view.queryByText('High memory usage')).not.toBeNull();
-      expect(view.queryByText('Server started')).toBeNull();
+      expect(view.container.querySelector('mark')).not.toBeNull();
     });
   });
 
