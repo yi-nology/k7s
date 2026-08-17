@@ -6,7 +6,7 @@ use crate::core::shell_common::{self, NodeShellInfo, ShellInfo};
 use crate::core::CoreState;
 use crate::error::AppResult;
 use crate::kube::nodeshell;
-use kube::api::Api;
+use k7s_deps::kube::api::Api;
 use std::sync::Arc;
 use tauri::State;
 
@@ -62,7 +62,7 @@ pub async fn stop_node_shell(
 ) -> AppResult<()> {
     mgr.manager.remove_shell(&stream_id).await;
     if let Some(client) = mgr.manager.client().await {
-        let api: Api<k8s_openapi::api::core::v1::Pod> =
+        let api: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> =
             Api::namespaced(client, nodeshell::DEBUG_NAMESPACE);
         nodeshell::delete_debug_pod(&api, &pod).await;
     }

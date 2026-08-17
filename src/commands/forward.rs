@@ -6,6 +6,8 @@ use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
 use crate::kube::manager::{ClientManager, ForwardDto};
 use crate::kube::portforward;
+use k7s_deps::kube;
+use k7s_deps::tokio;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::State;

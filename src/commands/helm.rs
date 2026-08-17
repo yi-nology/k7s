@@ -4,6 +4,7 @@
 use crate::core::CoreState;
 use crate::error::AppResult;
 use crate::kube::{helm_market, helm_ops};
+use k7s_deps::serde_json;
 use std::sync::Arc;
 use tauri::State;
 

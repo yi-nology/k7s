@@ -12,10 +12,14 @@ use crate::kube::{
     config_snapshots, drain, exporter, ingress_debug, logs, mappers, metrics, nodestats, promql,
     properties, rollout, watchers,
 };
-use k8s_openapi::api::core::v1::{Event, Secret};
-use kube::api::{Api, ListParams};
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
+use k7s_deps::kube;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::ResourceExt;
 use serde::Serialize;
+use k7s_deps::serde_json;
+use k7s_deps::tokio;
+use k7s_deps::tracing;
 use std::sync::Arc;
 use tauri::State;
 
@@ -416,7 +420,7 @@ pub async fn node_history(
     let Some(svc) = promql::discover(&client).await else {
         return Ok(Vec::new());
     };
-    let now = chrono::Utc::now().timestamp();
+    let now = k7s_deps::chrono::Utc::now().timestamp();
     // An hour at 30s is 120 points — enough to open with a populated chart
     // without crowding out the live samples that follow (the series is capped).
     promql::node_history(&client, &svc, &node, now, 3600, 30).await
@@ -483,7 +487,7 @@ pub async fn diagnose_pod(
 ) -> AppResult<serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, &namespace, &pod).await?;
-    serde_json::to_value(diagnosis).map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    k7s_deps::serde_json::to_value(diagnosis).map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// An event as shown in the detail panel's Events tab.
@@ -590,7 +594,7 @@ pub async fn configmap_snapshot_yaml(
 pub async fn dependency_graph(mgr: State<'_, Arc<CoreState>>) -> AppResult<serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let graph = crate::kube::dependency_graph::build_dependency_graph(client).await?;
-    serde_json::to_value(graph).map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    k7s_deps::serde_json::to_value(graph).map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// Debug an Ingress's routing chain: trace rules through Services to endpoint
@@ -761,7 +765,7 @@ pub(crate) async fn require_client(mgr: &ClientManager) -> AppResult<kube::Clien
 }
 
 /// Best "last seen" time for sorting: last_timestamp, else event_time, else epoch.
-fn last_seen(e: &Event) -> k8s_openapi::jiff::Timestamp {
+fn last_seen(e: &Event) -> k7s_deps::k8s_openapi::jiff::Timestamp {
     if let Some(t) = &e.last_timestamp {
         return t.0;
     }
@@ -774,7 +778,7 @@ fn last_seen(e: &Event) -> k8s_openapi::jiff::Timestamp {
 
 /// Humanized age of an event's last occurrence (e.g. "2m").
 fn event_age(e: &Event) -> String {
-    let now = k8s_openapi::jiff::Timestamp::now();
+    let now = k7s_deps::k8s_openapi::jiff::Timestamp::now();
     let seen = last_seen(e);
     let secs = now.duration_since(seen).as_secs().max(0);
     mappers::humanize_duration(secs)

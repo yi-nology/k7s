@@ -20,10 +20,10 @@ use tauri::Manager;
 /// without spawning a real window.
 pub fn run() {
     // Structured logs to stderr; level controlled by RUST_LOG (defaults to info).
-    tracing_subscriber::fmt()
+    k7s_deps::tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            k7s_deps::tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| k7s_deps::tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
 

@@ -7,6 +7,7 @@ use crate::error::{AppError, AppResult};
 use crate::kube::{
     image_archive, image_sync, imageexport, imageimport, imagerepo, pod_files, templates,
 };
+use k7s_deps::base64;
 use std::sync::Arc;
 use tauri::State;
 
@@ -90,7 +91,7 @@ pub async fn pod_files_upload(
     tar_b64: String,
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    use base64::Engine;
+    use k7s_deps::base64::Engine;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(&tar_b64)
         .map_err(|e| AppError::Other(format!("base64 decode: {e}")))?;

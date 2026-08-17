@@ -5,7 +5,7 @@ use crate::commands::core::require_client;
 use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
 use crate::kube::{alerting, audit, endpoints, grafana, metrics_config, saved_queries};
-use kube::api::Api;
+use k7s_deps::kube::api::Api;
 use std::sync::Arc;
 use tauri::State;
 
@@ -63,14 +63,14 @@ pub async fn trigger_cronjob(
     name: String,
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<String> {
-    use k8s_openapi::api::batch::v1::{CronJob, Job};
-    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference};
-    use kube::api::PostParams;
+    use k7s_deps::k8s_openapi::api::batch::v1::{CronJob, Job};
+    use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference};
+    use k7s_deps::kube::api::PostParams;
 
     let client = require_client(&mgr.manager).await?;
     let cj_api: Api<CronJob> = Api::namespaced(client.clone(), &namespace);
     let cj = cj_api.get(&name).await?;
-    let job_name = format!("{name}-manual-{}", chrono::Utc::now().timestamp());
+    let job_name = format!("{name}-manual-{}", k7s_deps::chrono::Utc::now().timestamp());
     let job = Job {
         metadata: ObjectMeta {
             name: Some(job_name.clone()),

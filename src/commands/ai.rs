@@ -16,6 +16,8 @@ use crate::ai::llm::{LlmClient, Message, OpenAiClient};
 use crate::ai::{AgentLoop, ChatRequest, ToolRegistry};
 use crate::core::CoreState;
 use crate::error::AppResult;
+use k7s_deps::tokio;
+use k7s_deps::tracing;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
@@ -72,7 +74,7 @@ impl EventSink for TauriEventSink {
     fn emit(&self, ev: AgentEvent) {
         let _ = self.app.emit(
             AI_EVENT,
-            serde_json::json!({ "runId": self.run_id, "event": ev }),
+            k7s_deps::serde_json::json!({ "runId": self.run_id, "event": ev }),
         );
     }
 
@@ -163,7 +165,7 @@ pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<S
     let cfg = view.config;
     let (base, model, key) = config::resolve(&cfg, Some(&state.data_dir))?;
     let client = OpenAiClient::new(base, model, key, cfg.provider.temperature);
-    use futures::StreamExt;
+    use k7s_deps::futures::StreamExt;
     let mut stream = client.chat_stream(
         &[Message::System {
             content: "Reply with the single word: ok".into(),
@@ -259,7 +261,7 @@ pub async fn ai_chat(
         }
     }
 
-    let run_id = uuid::Uuid::new_v4().to_string();
+    let run_id = k7s_deps::uuid::Uuid::new_v4().to_string();
     let run_id_for_task = run_id.clone();
     let temperature = cfg.provider.temperature;
 
