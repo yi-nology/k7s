@@ -301,3 +301,388 @@ async fn unimplemented_endpoint_returns_ok_false() {
     assert_eq!(json.get("ok").unwrap(), &serde_json::Value::Bool(false));
     assert!(json.get("error").is_some());
 }
+
+// ---------------------------------------------------------------------------
+// Import kubeconfig content
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn import_kubeconfig_parses_valid_yaml() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let kubeconfig = serde_json::json!({
+        "apiVersion": "v1",
+        "kind": "Config",
+        "clusters": [{"name": "test", "cluster": {"server": "https://127.0.0.1:6443"}}],
+        "contexts": [{"name": "test", "context": {"cluster": "test", "user": "test"}}],
+        "users": [{"name": "test", "user": {}}],
+        "current-context": "test"
+    });
+
+    let body = serde_json::json!({
+        "filename": "test.yaml",
+        "contents": serde_yaml::to_string(&kubeconfig).unwrap()
+    });
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/import_kubeconfig_content")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(true)));
+    // Response should contain the parsed context list
+    let data = json.get("data").expect("response should have data field");
+    assert!(data.get("contexts").is_some(), "data should have contexts");
+    assert!(data.get("path").is_some(), "data should have path");
+}
+
+#[tokio::test]
+async fn import_kubeconfig_rejects_invalid_yaml() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let body = serde_json::json!({
+        "filename": "bad.yaml",
+        "contents": "not: valid: yaml: [[[" 
+    });
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/import_kubeconfig_content")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+    assert!(json.get("error").is_some());
+}
+
+// ---------------------------------------------------------------------------
+// Connect without cluster
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn connect_without_kubeconfig_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/connect")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(r#"{"context":"nonexistent-context"}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    // Should fail since the context doesn't exist in the test env
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+    assert!(json.get("error").is_some());
+}
+
+// ---------------------------------------------------------------------------
+// Resource endpoints without connection
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn get_yaml_without_connection_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/get_yaml")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(
+                    r#"{"kind":"pods","namespace":"default","name":"test"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+}
+
+#[tokio::test]
+async fn get_events_without_connection_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/get_events")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(
+                    r#"{"kind":"pods","namespace":"default","name":"test"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+}
+
+#[tokio::test]
+async fn get_properties_without_connection_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/get_properties")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(
+                    r#"{"kind":"pods","namespace":"default","name":"test"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+}
+
+#[tokio::test]
+async fn get_secret_data_without_connection_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/get_secret_data")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(
+                    r#"{"namespace":"default","name":"my-secret"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+}
+
+// ---------------------------------------------------------------------------
+// Mutation endpoints without connection (should fail gracefully)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn apply_yaml_without_connection_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/apply_yaml")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(
+                    r#"{"kind":"configmaps","namespace":"default","name":"test","yaml":"apiVersion: v1\nkind: ConfigMap"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+    assert!(json.get("error").is_some());
+}
+
+#[tokio::test]
+async fn delete_resource_without_connection_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/delete_resource")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(
+                    r#"{"kind":"pods","namespace":"default","name":"test"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+}
+
+#[tokio::test]
+async fn scale_resource_without_connection_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/scale_resource")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from(
+                    r#"{"kind":"deployments","namespace":"default","name":"test","replicas":3}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+}
+
+// ---------------------------------------------------------------------------
+// SSE events endpoint
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn events_endpoint_returns_sse() {
+    let state = make_state();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/events")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let content_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    assert!(
+        content_type.contains("text/event-stream"),
+        "content-type should be SSE: {content_type}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Default kubeconfig path
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn default_kubeconfig_path_returns_value() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/default_kubeconfig_path")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(true)));
+    assert!(json.get("data").is_some(), "should return the default path");
+}
+
+// ---------------------------------------------------------------------------
+// List endpoints without connection
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn list_endpoints_without_connection_returns_error() {
+    let state = make_state();
+    let token = auth_token(&state).to_string();
+    let app = k7s_lib::web::server::api_router(state);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .uri("/api/invoke/list_endpoints")
+                .method("POST")
+                .header("content-type", "application/json")
+                .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let json = body_json(response).await;
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(false)));
+}
