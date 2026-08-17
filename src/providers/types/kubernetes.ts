@@ -298,3 +298,23 @@ export interface NodeStatsError {
 
 /** Unsubscribe function returned by the `on*` event subscriptions. */
 export type Unsub = () => void;
+
+/** A node in a resource dependency graph. */
+export interface GraphNode {
+  kind: string;
+  name: string;
+  namespace?: string;
+}
+
+/** An edge in a resource dependency graph. */
+export interface GraphEdge {
+  from: GraphNode;
+  to: GraphNode;
+  relation: string;
+}
+
+/** A resource dependency graph: nodes and edges representing Kubernetes resource relationships. */
+export interface DependencyGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}

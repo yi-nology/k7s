@@ -16,6 +16,7 @@ import type {
   AlertManagerUpsert,
   ApplyResult,
   ClusterInfo,
+  DependencyGraph,
   DocDryRun,
   ExportFromNodeResult,
   ExportFromRegistryResult,
@@ -71,6 +72,9 @@ export abstract class BaseRpcProvider {
   }
   connect(context: string): Promise<ClusterInfo> {
     return this.rpc<ClusterInfo>('connect', { context });
+  }
+  dependencyGraph(): Promise<DependencyGraph> {
+    return this.rpc<DependencyGraph>('dependency_graph', {});
   }
   restoreImports(paths: string[]): Promise<string[]> {
     return this.rpc<string[]>('restore_imports', { paths });

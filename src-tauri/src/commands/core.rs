@@ -517,6 +517,18 @@ pub async fn get_secret_data(
     Ok(entries)
 }
 
+/// Build a dependency graph of resources: Deployments -> ReplicaSets -> Pods,
+/// Services -> Pods (via selector), Ingresses -> Services (via backend rules).
+#[tauri::command]
+pub async fn dependency_graph(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<serde_json::Value> {
+    let client = require_client(&mgr.manager).await?;
+    let graph = crate::kube::dependency_graph::build_dependency_graph(client).await?;
+    serde_json::to_value(graph)
+        .map_err(|e| AppError::Other(format!("serialize error: {e}")))
+}
+
 /// Gather an object's properties as a generic section document (B13, B18).
 /// Errors for kinds with no gatherer — the frontend only offers the tab for the
 /// kinds that have one.

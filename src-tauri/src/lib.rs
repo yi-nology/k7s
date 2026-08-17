@@ -112,6 +112,7 @@ pub fn run() {
             commands::get_secret_data,
             commands::get_properties,
             commands::watch_custom_kind,
+            commands::dependency_graph,
             commands::node_history,
             commands::watch_node_stats,
             commands::unwatch_node_stats,
