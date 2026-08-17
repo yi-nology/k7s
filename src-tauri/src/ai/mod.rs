@@ -30,6 +30,7 @@ pub mod agent;
 pub mod browser;
 pub mod config;
 pub mod context;
+pub mod context_compress;
 pub mod cron;
 pub mod embedded_models;
 pub mod error;

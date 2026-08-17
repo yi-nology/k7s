@@ -291,7 +291,6 @@ impl AgentLoop {
         let mut messages: Vec<Message> = Vec::with_capacity(req.history.len() + 3);
         messages.push(Message::System { content: sys });
         messages.extend(req.history.iter().cloned());
-        let returnable_start = messages.len();
 
         // Inject selected-resource context (transient).
         if let Some(sel) = &req.context {
@@ -308,6 +307,20 @@ impl AgentLoop {
         messages.push(Message::User {
             content: req.message.clone(),
         });
+
+        // ----------------------------------------------------------------
+        // Compress context if over budget.
+        // ----------------------------------------------------------------
+        messages = crate::ai::context_compress::compress_messages(
+            &messages,
+            crate::ai::context_compress::DEFAULT_CONTEXT_BUDGET,
+        );
+        // Recalculate returnable_start: after system + any summary, before
+        // the recent turns that were kept verbatim.
+        let returnable_start = messages
+            .iter()
+            .position(|m| !matches!(m, Message::System { .. }))
+            .unwrap_or(0);
 
         // ----------------------------------------------------------------
         // Prepare tools (filtered by skill whitelist).
