@@ -9,7 +9,11 @@
  */
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import ShikiHighlighter from 'react-shiki';
+// `react-shiki` (full bundle) ships every TextMate grammar — ~10MB minified,
+// all of it in the boot bundle when AiChat was statically imported. The /web
+// entry lazy-loads only the languages a code block actually names, at an
+// identical API; unknown languages degrade to plain text.
+import ShikiHighlighter from 'react-shiki/web';
 import styles from './AiChat.module.css';
 
 export function MarkdownMessage({ content }: { content: string }) {

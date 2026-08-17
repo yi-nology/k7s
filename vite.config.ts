@@ -16,19 +16,31 @@ export default defineConfig({
       output: {
         // Split heavy vendor libraries into separate chunks so the initial
         // bundle stays small and browsers can cache libs independently.
-        manualChunks: {
-          'vendor-plotly': ['plotly.js-basic-dist-min'],
-          'vendor-xterm': ['@xterm/xterm', '@xterm/addon-fit'],
-          'vendor-codemirror': [
-            'codemirror',
-            '@codemirror/state',
-            '@codemirror/view',
-            '@codemirror/commands',
-            '@codemirror/language',
-            '@codemirror/lang-yaml',
-          ],
-          'vendor-d3': ['d3-force'],
-          'vendor-markdown': ['react-markdown', 'remark-gfm', 'react-shiki'],
+        // Function form is required: Vite 8 builds with rolldown, whose
+        // manualChunks accepts a function (the object form fails the build).
+        manualChunks(id: string): string | undefined {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('plotly.js')) return 'vendor-plotly';
+          if (id.includes('@xterm')) return 'vendor-xterm';
+          if (id.includes('@codemirror') || id.includes('codemirror') || id.includes('@lezer')) {
+            return 'vendor-codemirror';
+          }
+          if (id.includes('d3-force') || id.includes('d3-force-3d')) return 'vendor-d3';
+          // NOTE: shiki is deliberately NOT grouped here. The /web bundle
+          // code-splits every language grammar behind its own dynamic import;
+          // folding them into one chunk would merge that lazy loading away and
+          // ship all grammars whenever the AI panel opens. Leave shiki to
+          // rolldown's default dynamic-import chunking.
+          if (
+            id.includes('react-markdown') ||
+            id.includes('remark-') ||
+            id.includes('micromark') ||
+            id.includes('mdast') ||
+            id.includes('unified')
+          ) {
+            return 'vendor-markdown';
+          }
+          return undefined;
         },
       },
     },

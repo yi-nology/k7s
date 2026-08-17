@@ -47,6 +47,11 @@ export const createNavigationSlice: StateCreator<AppState, [], [], NavigationSli
       tableFilter: '',
       sortCol: null,
       sortDir: 'asc',
+      // Navigating away from an open overlay (Dashboard, Helm Market, …) must
+      // dismiss it — otherwise the table swaps kind *behind* the overlay and
+      // the click looks like it did nothing.
+      overlay: null,
+      overlayPodRef: null,
     }),
   setNamespace: (ns) =>
     set({ namespace: ns, openMenu: null, selectedRow: null, selection: EMPTY_SELECTION }),

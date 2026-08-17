@@ -58,6 +58,10 @@ function jumpPatch(current: { namespace: string }, kind: KindId, row?: Row) {
     sortCol: null,
     sortDir: 'asc' as const,
     paletteOpen: false,
+    // A jump (palette, dashboard tile, event row) targets the table — close
+    // any overlay covering it, or the jump lands invisible behind the panel.
+    overlay: null,
+    overlayPodRef: null,
   };
   if (!row) return { ...base, selectedRow: null, selection: EMPTY_SELECTION };
 
@@ -326,6 +330,8 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
       selection: EMPTY_SELECTION,
       namespace: namespace || s.namespace,
       tableFilter: selector,
+      overlay: null,
+      overlayPodRef: null,
     })),
   setLogSearch: (q) => set({ logSearch: q }),
   cycleContainer: () => set((s) => ({ containerIndex: s.containerIndex + 1, logBuffer: [] })),

@@ -12,7 +12,7 @@
 import { useState, useMemo } from 'react';
 import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { getProvider } from '../../providers';
-import type { EventItem, NavTarget } from '../../providers/types';
+import type { EventItem } from '../../providers/types';
 import { eventWithinSince, parseEventMs, SINCE_OPTIONS, type SinceOption } from '../../lib/events';
 import { useNow } from '../../hooks/useNow';
 import { formatAge } from '../../lib/format';

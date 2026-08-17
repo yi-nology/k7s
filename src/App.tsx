@@ -26,7 +26,10 @@ import { ForwardsBar } from './components/forwards/ForwardsBar';
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { CommandPalette } from './components/palette/CommandPalette';
 import { useStore } from './store';
-import { AiChat } from './components/ai/AiChat';
+// The AI panel drags in react-markdown + shiki (the heaviest dep in the app).
+// It only renders when the user opens it, so it's lazy — non-AI sessions never
+// download those chunks.
+const AiChat = lazy(() => import('./components/ai/AiChat').then((m) => ({ default: m.AiChat })));
 import { usePlugins } from './hooks/usePlugins';
 import { useEffect } from 'react';
 import type { ComponentType } from 'react';
@@ -129,15 +132,27 @@ export default function App() {
             >
               <ResourceTable />
               <DetailPanel />
-              {aiOpen && <AiChat onClose={() => setAiOpen(false)} />}
+              {aiOpen && (
+                <Suspense fallback={null}>
+                  <AiChat onClose={() => setAiOpen(false)} />
+                </Suspense>
+              )}
             </div>
             {(() => {
               if (overlay === null || overlay === 'pod-files') return null;
               const Panel = overlayPanels[overlay];
               if (!Panel) return null;
               return (
-                <div className={styles.overlayBackdrop}>
-                  <div className={styles.overlay}>
+                <div
+                  className={styles.overlayBackdrop}
+                  // Click the scrim (not the panel) → close. The same contract as
+                  // the settings modal and command palette, so every dismissible
+                  // surface in the app behaves identically: Esc, ×, or outside.
+                  onMouseDown={(e) => {
+                    if (e.target === e.currentTarget) closeOverlay();
+                  }}
+                >
+                  <div className={styles.overlay} role="dialog" aria-modal="true">
                     <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
                       <Panel onClose={closeOverlay} />
                     </Suspense>
@@ -146,8 +161,13 @@ export default function App() {
               );
             })()}
             {overlay === 'pod-files' && (
-              <div className={styles.overlayBackdrop}>
-                <div className={styles.overlay}>
+              <div
+                className={styles.overlayBackdrop}
+                onMouseDown={(e) => {
+                  if (e.target === e.currentTarget) closeOverlay();
+                }}
+              >
+                <div className={styles.overlay} role="dialog" aria-modal="true">
                   <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
                     {overlayPodRef ? (
                       <PodFilesPanel
@@ -171,8 +191,10 @@ export default function App() {
             )}
           </div>
           {/* Floating AI toggle — bottom-right of the content area. Hidden while
-              the panel is open (the panel has its own close button). */}
-          {!aiOpen && (
+              the panel is open (the panel has its own close button) and while a
+              feature overlay covers the table — the panel would open invisibly
+              behind it, and the click would look dead. */}
+          {!aiOpen && overlay === null && (
             <button
               type="button"
               className={styles.aiFab}

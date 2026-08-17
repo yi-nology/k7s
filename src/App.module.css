@@ -58,6 +58,20 @@
   background: var(--scrim);
 }
 
+/* Every overlay panel follows the same shape: root div → <header> (title,
+   tabs, Close). Pin that header to the top of the scroll container so the
+   Close button stays visible however deep the user has scrolled — an overlay
+   you can't find the exit from is the #1 usability trap this fixes.
+   `top: -padding` pulls it flush over the overlay's padding gutter. */
+.overlay > * > header {
+  position: sticky;
+  top: calc(-1 * var(--space-4));
+  z-index: 2;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+}
+
 .overlayEmpty {
   align-items: center;
   color: var(--text-muted);
