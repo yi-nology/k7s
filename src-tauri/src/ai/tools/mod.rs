@@ -101,6 +101,7 @@ impl ToolRegistry {
             Box::new(read_tools::HpaStatus),
             Box::new(read_tools::SecurityAudit),
             Box::new(read_tools::SpawnSubAgent),
+            Box::new(read_tools::KubectlGenerator),
             // write
             Box::new(write_tools::ScaleWorkload),
             Box::new(write_tools::RestartWorkload),
@@ -250,6 +251,7 @@ mod tests {
             "delete_resource",
             "apply_manifest",
             "diagnose_unhealthy",
+            "kubectl_generate",
         ];
         for e in expected {
             assert!(names.contains(&e), "missing tool: {e}");

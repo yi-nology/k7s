@@ -10,7 +10,7 @@
 
 use crate::core::shell_common;
 use crate::error::{AppError, AppResult};
-use crate::kube::manager::ClientManager;
+use crate::kube::manager::{ClientManager, ConnectionInfo};
 use kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
 use kube::ResourceExt;
 use std::collections::HashMap;
@@ -786,5 +786,54 @@ pub async fn capacity_report_impl(manager: &ClientManager) -> AppResult<serde_js
         "topPods": pods.iter().take(10).collect::<Vec<_>>(),
         "alerts": alerts,
         "recommendations": recommendations,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// kubectl context helper
+// ---------------------------------------------------------------------------
+
+/// Generate kubectl context information for command construction.
+/// Returns the current cluster context, available namespaces, and common
+/// kubectl command templates. The LLM uses this to build accurate,
+/// context-aware kubectl commands the user can copy-paste.
+pub async fn kubectl_context_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+    let client = manager.client().await.ok_or(AppError::Disconnected)?;
+
+    // Current context and server version from the connection info.
+    let info = manager.connection_info().await.unwrap_or(ConnectionInfo {
+        context: String::new(),
+        server: String::new(),
+        version: String::new(),
+    });
+
+    // List all namespaces.
+    let ns_api: kube::Api<k8s_openapi::api::core::v1::Namespace> = kube::Api::all(client);
+    let ns_list = ns_api.list(&ListParams::default()).await?;
+    let namespaces: Vec<String> = ns_list
+        .items
+        .iter()
+        .filter_map(|ns| ns.metadata.name.clone())
+        .collect();
+
+    Ok(serde_json::json!({
+        "context": info.context,
+        "serverVersion": info.version,
+        "namespaces": namespaces,
+        "templates": {
+            "get": "kubectl get {resource} -n {namespace}",
+            "describe": "kubectl describe {resource} {name} -n {namespace}",
+            "logs": "kubectl logs {pod} -n {namespace} --tail=100",
+            "exec": "kubectl exec -it {pod} -n {namespace} -- {command}",
+            "portForward": "kubectl port-forward {pod} {local}:{remote} -n {namespace}",
+            "scale": "kubectl scale {resource} {name} --replicas={n} -n {namespace}",
+            "rollout": "kubectl rollout restart {resource} {name} -n {namespace}",
+            "delete": "kubectl delete {resource} {name} -n {namespace}",
+            "apply": "kubectl apply -f {file}",
+            "top": "kubectl top {resource} -n {namespace}",
+            "cordon": "kubectl cordon {node}",
+            "drain": "kubectl drain {node} --ignore-daemonsets --delete-emptydir-data",
+            "taint": "kubectl taint nodes {node} {key}={value}:{effect}",
+        }
     }))
 }

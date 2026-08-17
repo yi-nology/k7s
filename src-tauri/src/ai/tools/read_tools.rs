@@ -445,3 +445,30 @@ impl Tool for SpawnSubAgent {
         }))
     }
 }
+
+// kubectl command generator — provides cluster context for building commands.
+pub struct KubectlGenerator;
+#[async_trait]
+impl Tool for KubectlGenerator {
+    fn name(&self) -> &str {
+        "kubectl_generate"
+    }
+    fn description(&self) -> &str {
+        "Get the current cluster context, available namespaces, and kubectl command templates. \
+         Use this to generate accurate kubectl commands for the user. The response includes \
+         the current context name, server version, all namespaces, and common command templates \
+         that you can customize for the user's specific request."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object", "properties": {}, "required": []})
+    }
+    async fn call(
+        &self,
+        ctx: &ToolContext,
+        _args: serde_json::Value,
+    ) -> AiResult<serde_json::Value> {
+        impls::kubectl_context_impl(&ctx.manager)
+            .await
+            .map_err(|e| AiError::Tool(e.to_string()))
+    }
+}
