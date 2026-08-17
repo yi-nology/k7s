@@ -253,4 +253,3 @@ async fn resolve_api_resource(
         gvk.kind
     )))
 }
-

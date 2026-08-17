@@ -95,7 +95,11 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 /// Axum middleware: require a valid `Authorization: Bearer <token>` on every
 /// protected request. Public endpoints (health/status/events, and the
 /// loopback-only token-publish route) are exempted by path.
-pub async fn require_token(State(state): State<WebState>, req: Request<Body>, next: Next) -> Response {
+pub async fn require_token(
+    State(state): State<WebState>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
     let path = req.uri().path();
     // Public, side-effect-free endpoints — no auth required.
     let is_public = matches!(

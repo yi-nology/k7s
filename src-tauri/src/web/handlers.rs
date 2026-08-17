@@ -180,13 +180,7 @@ pub async fn connect(
         // discover CRDs. The web shell may have an imported kubeconfig in memory.
         let imported = core.manager.import_kubeconfig(&context).await;
         let import_path = core.manager.import_path(&context).await;
-        let cr = shell_common::connect_core(
-            &core.manager,
-            imported,
-            import_path,
-            &context,
-        )
-        .await?;
+        let cr = shell_common::connect_core(&core.manager, imported, import_path, &context).await?;
 
         // Watchers for all built-in kinds (B1).
         let watcher_count = watchers::spawn_all(&core.manager, cr.client.clone()).await;
@@ -565,12 +559,16 @@ pub async fn ai_get_config_handler(State(state): State<WebState>) -> axum::respo
     let dir = state.core.data_dir.clone();
     let result = match tokio::time::timeout(
         std::time::Duration::from_secs(3),
-        tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir)))
-    ).await {
+        tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir))),
+    )
+    .await
+    {
         Ok(Ok(Ok(view))) => Ok(view),
         Ok(Ok(Err(e))) => Err(crate::error::AppError::Other(e.to_string())),
         Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
-        Err(_) => Err(crate::error::AppError::Other("config load timed out (keychain may be locked)".into())),
+        Err(_) => Err(crate::error::AppError::Other(
+            "config load timed out (keychain may be locked)".into(),
+        )),
     };
     respond(result)
 }
@@ -678,7 +676,10 @@ pub async fn ai_memory_preferences_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let kube_context = args
+        .get("kubeContext")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
     let prefs: Vec<crate::ai::memory::UserPreference> = store.preferences().to_vec();
     respond(Ok(prefs))
@@ -689,7 +690,10 @@ pub async fn ai_memory_delete_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let kube_context = args
+        .get("kubeContext")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
     let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
     let deleted = store.delete(id);
@@ -701,7 +705,10 @@ pub async fn ai_memory_clear_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let kube_context = args
+        .get("kubeContext")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let tier_str = args.get("tier").and_then(|v| v.as_str());
     let tier = tier_str.and_then(|s| match s {
         "shortTerm" => Some(crate::ai::memory::Tier::ShortTerm),
@@ -719,7 +726,10 @@ pub async fn ai_memory_search_vault_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let kube_context = args.get("kubeContext").and_then(|v| v.as_str()).unwrap_or("default");
+    let kube_context = args
+        .get("kubeContext")
+        .and_then(|v| v.as_str())
+        .unwrap_or("default");
     let query = args.get("query").and_then(|v| v.as_str()).unwrap_or("");
     let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
     let results = store.search_vault(query);
@@ -772,17 +782,27 @@ pub async fn ai_save_config_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let config_input = args.get("configInput").cloned().unwrap_or(serde_json::Value::Null);
+    let config_input = args
+        .get("configInput")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let config: crate::ai::config::AiConfig = match serde_json::from_value(config_input) {
         Ok(c) => c,
-        Err(e) => return respond::<()>(Err(crate::error::AppError::Other(format!("invalid config: {e}")))),
+        Err(e) => {
+            return respond::<()>(Err(crate::error::AppError::Other(format!(
+                "invalid config: {e}"
+            ))))
+        }
     };
     let dir = state.core.data_dir.clone();
-    let result = match tokio::task::spawn_blocking(move || crate::ai::config::save(Some(&dir), &config)).await {
-        Ok(Ok(())) => Ok::<(), crate::error::AppError>(()),
-        Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
-        Err(e) => Err(crate::error::AppError::Other(e.to_string())),
-    };
+    let result =
+        match tokio::task::spawn_blocking(move || crate::ai::config::save(Some(&dir), &config))
+            .await
+        {
+            Ok(Ok(())) => Ok::<(), crate::error::AppError>(()),
+            Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
+            Err(e) => Err(crate::error::AppError::Other(e.to_string())),
+        };
     respond(result)
 }
 
@@ -791,9 +811,17 @@ pub async fn ai_save_api_key_handler(
     State(state): State<WebState>,
     Json(args): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let api_key = args.get("apiKey").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let api_key = args
+        .get("apiKey")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let dir = state.core.data_dir.clone();
-    let result = match tokio::task::spawn_blocking(move || crate::ai::config::save_api_key(Some(&dir), &api_key)).await {
+    let result = match tokio::task::spawn_blocking(move || {
+        crate::ai::config::save_api_key(Some(&dir), &api_key)
+    })
+    .await
+    {
         Ok(Ok(())) => Ok::<(), crate::error::AppError>(()),
         Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
         Err(e) => Err(crate::error::AppError::Other(e.to_string())),
@@ -802,12 +830,11 @@ pub async fn ai_save_api_key_handler(
 }
 
 /// POST /invoke/ai_test_connection
-pub async fn ai_test_connection_handler(
-    State(state): State<WebState>,
-) -> axum::response::Response {
+pub async fn ai_test_connection_handler(State(state): State<WebState>) -> axum::response::Response {
     use crate::ai::llm::LlmClient;
     let dir = state.core.data_dir.clone();
-    let view = match tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir))).await {
+    let view = match tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir))).await
+    {
         Ok(Ok(v)) => v,
         Ok(Err(e)) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
         Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
@@ -820,7 +847,9 @@ pub async fn ai_test_connection_handler(
     let client = crate::ai::llm::OpenAiClient::new(base, model, key, cfg.provider.temperature);
     use futures::StreamExt;
     let mut stream = client.chat_stream(
-        &[crate::ai::llm::Message::System { content: "Reply with the single word: ok".into() }],
+        &[crate::ai::llm::Message::System {
+            content: "Reply with the single word: ok".into(),
+        }],
         &[],
     );
     let mut got = String::new();
@@ -844,13 +873,16 @@ pub async fn ai_test_connection_handler(
 struct WebAiSink {
     event_tx: tokio::sync::broadcast::Sender<crate::core::events::WebEvent>,
     run_id: String,
-    events_store: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<serde_json::Value>>>>,
+    events_store:
+        std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<serde_json::Value>>>>,
     /// Per-call approval senders. `await_approval` inserts one; the
     /// `/api/invoke/ai_approve_tool_call` handler resolves it. If the handler
     /// never runs (or the run is cancelled), the sender is dropped and the
     /// receiver errors — which the agent loop treats as **deny** (the safe
     /// default).
-    pending_approvals: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<bool>>>>,
+    pending_approvals: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<String, tokio::sync::oneshot::Sender<bool>>>,
+    >,
 }
 
 impl crate::ai::agent::EventSink for WebAiSink {
@@ -895,20 +927,23 @@ pub async fn ai_chat_handler(
     Json(body): Json<serde_json::Value>,
 ) -> axum::response::Response {
     // Parse request.
-    let request: crate::ai::agent::ChatRequest =
-        match serde_json::from_value(body.get("request").cloned().unwrap_or(serde_json::Value::Null))
-        {
-            Ok(r) => r,
-            Err(e) => {
-                return respond::<String>(Err(crate::error::AppError::Other(format!(
-                    "invalid request: {e}"
-                ))))
-            }
-        };
+    let request: crate::ai::agent::ChatRequest = match serde_json::from_value(
+        body.get("request")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null),
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            return respond::<String>(Err(crate::error::AppError::Other(format!(
+                "invalid request: {e}"
+            ))))
+        }
+    };
 
     // Load config.
     let dir = state.core.data_dir.clone();
-    let view = match tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir))).await {
+    let view = match tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir))).await
+    {
         Ok(Ok(v)) => v,
         Ok(Err(e)) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
         Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
@@ -949,17 +984,17 @@ pub async fn ai_chat_handler(
             ))
         });
 
-    let agent = crate::ai::agent::AgentLoop::new(crate::ai::tools::ToolRegistry::new(), llm_factory);
+    let agent =
+        crate::ai::agent::AgentLoop::new(crate::ai::tools::ToolRegistry::new(), llm_factory);
     // Store events for polling by the frontend.
     let events_store = state.ai_runs.clone();
 
-    let sink: std::sync::Arc<dyn crate::ai::agent::EventSink> =
-        std::sync::Arc::new(WebAiSink {
-            event_tx: state.event_tx.clone(),
-            run_id: run_id.clone(),
-            events_store: events_store.clone(),
-            pending_approvals: state.pending_approvals.clone(),
-        });
+    let sink: std::sync::Arc<dyn crate::ai::agent::EventSink> = std::sync::Arc::new(WebAiSink {
+        event_tx: state.event_tx.clone(),
+        run_id: run_id.clone(),
+        events_store: events_store.clone(),
+        pending_approvals: state.pending_approvals.clone(),
+    });
     let manager = state.core.manager.clone();
     // SECURITY: web mode forces ReadOnly. Write tools are refused by the
     // permission gate regardless of the saved config (FullAuto /
@@ -977,7 +1012,10 @@ pub async fn ai_chat_handler(
         crate::ai::config::PermissionMode::ReadOnly
     };
     let max_turns = cfg.max_turns;
-    let session_id = body.get("sessionId").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let session_id = body
+        .get("sessionId")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let run_data_dir = data_dir.clone();
 
     // Initialize the run's event store.
@@ -987,7 +1025,15 @@ pub async fn ai_chat_handler(
 
     tokio::spawn(async move {
         agent
-            .run(request, mode, max_turns, manager, sink, run_data_dir, session_id)
+            .run(
+                request,
+                mode,
+                max_turns,
+                manager,
+                sink,
+                run_data_dir,
+                session_id,
+            )
             .await;
     });
 
@@ -995,9 +1041,7 @@ pub async fn ai_chat_handler(
 }
 
 /// POST /invoke/ai_cancel — cancel a running AI chat.
-pub async fn ai_cancel_handler(
-    Json(body): Json<serde_json::Value>,
-) -> axum::response::Response {
+pub async fn ai_cancel_handler(Json(body): Json<serde_json::Value>) -> axum::response::Response {
     // In web mode, cancellation is best-effort. The agent loop checks
     // is_cancelled() between steps. A production implementation would
     // store a CancellationToken per run_id.
@@ -1015,11 +1059,17 @@ pub async fn ai_poll_events_handler(
     let run_id = body.get("runId").and_then(|v| v.as_str()).unwrap_or("");
     let after_index = body.get("afterIndex").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
     if run_id.is_empty() {
-        return respond(Ok::<_, crate::error::AppError>(serde_json::json!({"events": [], "done": true})));
+        return respond(Ok::<_, crate::error::AppError>(
+            serde_json::json!({"events": [], "done": true}),
+        ));
     }
     let store = match state.ai_runs.lock() {
         Ok(s) => s,
-        Err(_) => return respond(Ok::<_, crate::error::AppError>(serde_json::json!({"events": [], "done": true}))),
+        Err(_) => {
+            return respond(Ok::<_, crate::error::AppError>(
+                serde_json::json!({"events": [], "done": true}),
+            ))
+        }
     };
     match store.get(run_id) {
         Some(events) => {
@@ -1029,8 +1079,14 @@ pub async fn ai_poll_events_handler(
             let after_index = after_index.min(events.len());
             let new_events: Vec<_> = events[after_index..].to_vec();
             let done = new_events.iter().any(|e| {
-                e.get("event").and_then(|ev| ev.get("type")).and_then(|t| t.as_str()) == Some("done")
-                    || e.get("event").and_then(|ev| ev.get("type")).and_then(|t| t.as_str()) == Some("error")
+                e.get("event")
+                    .and_then(|ev| ev.get("type"))
+                    .and_then(|t| t.as_str())
+                    == Some("done")
+                    || e.get("event")
+                        .and_then(|ev| ev.get("type"))
+                        .and_then(|t| t.as_str())
+                        == Some("error")
             });
             respond(Ok::<_, crate::error::AppError>(serde_json::json!({
                 "events": new_events,
@@ -1038,7 +1094,9 @@ pub async fn ai_poll_events_handler(
                 "total": events.len()
             })))
         }
-        None => respond(Ok::<_, crate::error::AppError>(serde_json::json!({"events": [], "done": true}))),
+        None => respond(Ok::<_, crate::error::AppError>(
+            serde_json::json!({"events": [], "done": true}),
+        )),
     }
 }
 
@@ -1047,8 +1105,15 @@ pub async fn ai_approve_tool_call_handler(
     State(state): State<WebState>,
     Json(body): Json<serde_json::Value>,
 ) -> axum::response::Response {
-    let call_id = body.get("callId").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let approved = body.get("approved").and_then(|v| v.as_bool()).unwrap_or(false);
+    let call_id = body
+        .get("callId")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let approved = body
+        .get("approved")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     // Resolve the pending approval sender (if any) and deliver the verdict.
     // The agent loop's `await_approval` is awaiting the matching receiver.
     if let Ok(mut map) = state.pending_approvals.lock() {
@@ -1081,4 +1146,3 @@ pub async fn web_token(State(state): State<WebState>) -> axum::response::Respons
     }
     Json(serde_json::json!({ "token": *state.web_token })).into_response()
 }
-

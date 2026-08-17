@@ -11,9 +11,7 @@ use tauri::State;
 // -- Evolution --
 
 #[tauri::command]
-pub async fn ai_evolution_strategies(
-    state: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<Strategy>> {
+pub async fn ai_evolution_strategies(state: State<'_, Arc<CoreState>>) -> AppResult<Vec<Strategy>> {
     let store = EvolutionStore::open(&state.data_dir);
     Ok(store.list_strategies().to_vec())
 }

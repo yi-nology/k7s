@@ -325,7 +325,13 @@ mod tests {
         let mut actions_set = BTreeSet::new();
         let mut grants_raw = Vec::new();
 
-        expand_rules(&[rule], &subject, &source, &mut actions_set, &mut grants_raw);
+        expand_rules(
+            &[rule],
+            &subject,
+            &source,
+            &mut actions_set,
+            &mut grants_raw,
+        );
 
         assert_eq!(grants_raw.len(), 2); // get pods, list pods
         assert_eq!(actions_set.len(), 2);
@@ -352,7 +358,13 @@ mod tests {
         let mut actions_set = BTreeSet::new();
         let mut grants_raw = Vec::new();
 
-        expand_rules(&[rule], &subject, &source, &mut actions_set, &mut grants_raw);
+        expand_rules(
+            &[rule],
+            &subject,
+            &source,
+            &mut actions_set,
+            &mut grants_raw,
+        );
 
         // 8 standard verbs * 1 resource * 1 api_group = 8
         assert_eq!(grants_raw.len(), 8);
@@ -380,7 +392,13 @@ mod tests {
         let mut actions_set = BTreeSet::new();
         let mut grants_raw = Vec::new();
 
-        expand_rules(&[rule], &subject, &source, &mut actions_set, &mut grants_raw);
+        expand_rules(
+            &[rule],
+            &subject,
+            &source,
+            &mut actions_set,
+            &mut grants_raw,
+        );
 
         // Resources wildcard can't be expanded, so stays as "*"
         assert_eq!(grants_raw.len(), 1);

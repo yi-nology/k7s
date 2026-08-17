@@ -5,11 +5,11 @@
  * Refactored into smaller modules for high cohesion and low coupling.
  */
 
-import { useEffect, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { useStore } from '../../store';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from '../../hooks/useI18n';
-import type { TopologyGraphProps } from './types';
+import type { TopologyGraphProps, GraphNode } from './types';
 import {
   KIND_COLORS,
   NODE_RADIUS,
@@ -28,7 +28,7 @@ import { useZoomPan } from './hooks/useZoomPan';
 import { useNodeInteraction } from './hooks/useNodeInteraction';
 import styles from './TopologyGraph.module.css';
 
-export function TopologyGraph({ focusedService, searchQuery, onHealthChange }: TopologyGraphProps) {
+export function TopologyGraph({ focusedService, searchQuery, onHealthChange, onMatchInfoChange, navigateMatch }: TopologyGraphProps) {
   const { t } = useTranslation();
   // The graph only reads services + pods + ingresses (see graphBuilder.ts),
   // so subscribe to those three kinds (shallow-compared) instead of the whole
@@ -100,6 +100,7 @@ export function TopologyGraph({ focusedService, searchQuery, onHealthChange }: T
 
   const {
     viewTransform,
+    setViewTransform,
     containerSize,
     fitToGraph,
     handleWheel,
@@ -134,6 +135,58 @@ export function TopologyGraph({ focusedService, searchQuery, onHealthChange }: T
     handleCanvasContextMenu,
   } = useNodeInteraction(containerRef, simRef, nodeMapRef, viewTransform);
 
+  // Search match tracking.
+  const [matchIndices, setMatchIndices] = useState<GraphNode[]>([]);
+  const [currentMatchIdx, setCurrentMatchIdx] = useState(-1);
+
+  // Zoom to center on a specific node.
+  const focusOnNode = useCallback(
+    (node: GraphNode) => {
+      if (node.x == null || node.y == null) return;
+      const el = containerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const scale = 1.5;
+      setViewTransform({
+        x: cx - node.x * scale,
+        y: cy - node.y * scale,
+        k: scale,
+      });
+    },
+    [setViewTransform]
+  );
+
+  // Navigation between search matches.
+  const goToMatch = useCallback(
+    (idx: number) => {
+      if (matchIndices.length === 0) return;
+      const wrapped =
+        ((idx % matchIndices.length) + matchIndices.length) % matchIndices.length;
+      setCurrentMatchIdx(wrapped);
+      const node = matchIndices[wrapped];
+      focusOnNode(node);
+      setSelected(node.id);
+      onMatchInfoChange?.(matchIndices.length, wrapped);
+    },
+    [matchIndices, focusOnNode, setSelected, onMatchInfoChange]
+  );
+
+  // Expose navigation to parent via ref.
+  useEffect(() => {
+    if (navigateMatch) {
+      navigateMatch.current = (dir: 'next' | 'prev') => {
+        if (matchIndices.length === 0) return;
+        const delta = dir === 'next' ? 1 : -1;
+        goToMatch(currentMatchIdx + delta);
+      };
+    }
+    return () => {
+      if (navigateMatch) navigateMatch.current = null;
+    };
+  }, [navigateMatch, goToMatch, currentMatchIdx, matchIndices.length]);
+
   // Sync focusedService.
   useEffect(() => {
     if (!focusedService) return;
@@ -148,7 +201,7 @@ export function TopologyGraph({ focusedService, searchQuery, onHealthChange }: T
     // Future: center view on the node using setViewTransform
   }, [focusedService, nodeMapRef, nodesRef, setSelected]);
 
-  // Apply search filter.
+  // Apply search filter with broader matching (label, namespace, kind, meta).
   useEffect(() => {
     const sim = simRef.current;
     if (!sim) return;
@@ -156,19 +209,30 @@ export function TopologyGraph({ focusedService, searchQuery, onHealthChange }: T
       for (const n of nodesRef.current) {
         n._dimmed = false;
       }
+      setMatchIndices([]);
+      setCurrentMatchIdx(-1);
+      onMatchInfoChange?.(0, -1);
       return;
     }
-    const q = searchQuery.toLowerCase();
-    let anyMatch = false;
+    const q = searchQuery.trim().toLowerCase();
+    const matches: GraphNode[] = [];
     for (const n of nodesRef.current) {
-      const match = n.label.toLowerCase().includes(q);
+      const match =
+        n.label.toLowerCase().includes(q) ||
+        n.namespace.toLowerCase().includes(q) ||
+        n.kind.toLowerCase().includes(q) ||
+        n.meta.some((m) => m.toLowerCase().includes(q));
       n._dimmed = !match;
-      if (match) anyMatch = true;
+      if (match) matches.push(n);
     }
-    if (anyMatch) {
+    setMatchIndices(matches);
+    const newIdx = matches.length > 0 ? 0 : -1;
+    setCurrentMatchIdx(newIdx);
+    onMatchInfoChange?.(matches.length, newIdx);
+    if (matches.length > 0) {
       sim.alpha(0.3).restart();
     }
-  }, [searchQuery, simRef, nodesRef]);
+  }, [searchQuery, simRef, nodesRef, onMatchInfoChange]);
 
   // Auto-fit.
   useEffect(() => {

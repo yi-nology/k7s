@@ -63,10 +63,7 @@ pub async fn ai_session_create(
 }
 
 #[tauri::command]
-pub async fn ai_session_delete(
-    id: String,
-    state: State<'_, Arc<CoreState>>,
-) -> AppResult<bool> {
+pub async fn ai_session_delete(id: String, state: State<'_, Arc<CoreState>>) -> AppResult<bool> {
     Ok(session_mgr(&state).delete(&id).await)
 }
 

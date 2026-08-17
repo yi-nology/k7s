@@ -53,7 +53,6 @@ pub enum CronRunStatus {
     Failed,
 }
 
-
 /// Result of a cron task run.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

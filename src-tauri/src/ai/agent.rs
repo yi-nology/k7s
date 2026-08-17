@@ -493,7 +493,12 @@ impl AgentLoop {
                     }
                 }
             }
-            tracing::info!(turns, text_len = assistant_text.len(), tool_calls = tool_calls.len(), "LLM turn complete");
+            tracing::info!(
+                turns,
+                text_len = assistant_text.len(),
+                tool_calls = tool_calls.len(),
+                "LLM turn complete"
+            );
 
             // Fire AfterLlm.
             plugins.fire(&crate::ai::plugins::PluginEvent::AfterLlm {
@@ -522,7 +527,10 @@ impl AgentLoop {
                     content: some_content(&assistant_text),
                     tool_calls: None,
                 });
-                tracing::info!(final_text_len = final_text.as_ref().map_or(0, |s| s.len()), "emitting Done event");
+                tracing::info!(
+                    final_text_len = final_text.as_ref().map_or(0, |s| s.len()),
+                    "emitting Done event"
+                );
                 sink.emit(AgentEvent::Done {
                     final_message: final_text,
                     history: messages[returnable_start..].to_vec(),
@@ -797,7 +805,10 @@ fn summarize_tool_results(messages: &[Message]) -> String {
     for msg in messages {
         if let Message::Tool { content, .. } = msg {
             tool_count += 1;
-            tracing::debug!(content_len = content.len(), "processing tool result for summary");
+            tracing::debug!(
+                content_len = content.len(),
+                "processing tool result for summary"
+            );
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(content) {
                 if let Some(arr) = val.as_array() {
                     // Array of resources — show count + first few names.
@@ -829,17 +840,24 @@ fn summarize_tool_results(messages: &[Message]) -> String {
                         summaries.push(format!("Found {} problems.", problems.len()));
                     }
                 } else if let Some(b) = val.get("scaled").and_then(|v| v.as_bool()) {
-                    if b { summaries.push("Resource scaled successfully.".into()); }
+                    if b {
+                        summaries.push("Resource scaled successfully.".into());
+                    }
                 } else if let Some(b) = val.get("applied").and_then(|v| v.as_bool()) {
-                    if b { summaries.push("Manifest applied successfully.".into()); }
+                    if b {
+                        summaries.push("Manifest applied successfully.".into());
+                    }
                 } else if let Some(b) = val.get("deleted").and_then(|v| v.as_bool()) {
-                    if b { summaries.push("Resource deleted.".into()); }
+                    if b {
+                        summaries.push("Resource deleted.".into());
+                    }
                 } else if let Some(b) = val.get("restarted").and_then(|v| v.as_bool()) {
-                    if b { summaries.push("Workload restarted.".into()); }
+                    if b {
+                        summaries.push("Workload restarted.".into());
+                    }
                 } else {
                     // Generic: show a compact representation of the result.
-                    let compact = serde_json::to_string(&val)
-                        .unwrap_or_default();
+                    let compact = serde_json::to_string(&val).unwrap_or_default();
                     if compact.len() <= 500 {
                         summaries.push(compact);
                     } else {
@@ -858,7 +876,11 @@ fn summarize_tool_results(messages: &[Message]) -> String {
         tracing::warn!(tool_count, "no summaries generated from tool results");
         "AI did not produce a response. Please try again.".to_string()
     } else {
-        tracing::info!(tool_count, summary_count = summaries.len(), "tool result summaries generated");
+        tracing::info!(
+            tool_count,
+            summary_count = summaries.len(),
+            "tool result summaries generated"
+        );
         summaries.join("\n\n")
     }
 }

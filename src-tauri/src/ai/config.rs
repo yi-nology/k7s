@@ -24,7 +24,6 @@ pub enum PermissionMode {
     FullAuto,
 }
 
-
 /// Non-secret LLM provider config. The secret `api_key` lives in [`secret`].
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -14,9 +14,9 @@ mod network;
 mod pod;
 mod rbac;
 mod storage;
-mod workload;
 #[cfg(test)]
 mod test_utils;
+mod workload;
 
 // Re-export all public map_* functions so existing call sites (e.g. watchers.rs)
 // continue to work as `mappers::map_pod(...)`.

@@ -140,7 +140,10 @@ fn summarize_old_turns(messages: &[Message]) -> String {
                 let preview = truncate(content, 100);
                 summary_parts.push(format!("User: {preview}"));
             }
-            Message::Assistant { content: Some(text), .. } if !text.is_empty() => {
+            Message::Assistant {
+                content: Some(text),
+                ..
+            } if !text.is_empty() => {
                 let preview = truncate(text, 100);
                 summary_parts.push(format!("Assistant: {preview}"));
             }
@@ -206,7 +209,9 @@ mod tests {
         // Under budget, should return unchanged
         let result = compress_messages(&messages, 100_000);
         assert_eq!(result.len(), 3);
-        assert!(matches!(&result[0], Message::System { content } if content == "You are a helpful assistant."));
+        assert!(
+            matches!(&result[0], Message::System { content } if content == "You are a helpful assistant.")
+        );
     }
 
     #[test]
@@ -287,7 +292,10 @@ mod tests {
             Message::System { content } => content.contains("[Previous conversation summary]"),
             _ => false,
         });
-        assert!(has_summary, "Expected a summary message in compressed output");
+        assert!(
+            has_summary,
+            "Expected a summary message in compressed output"
+        );
     }
 
     #[test]

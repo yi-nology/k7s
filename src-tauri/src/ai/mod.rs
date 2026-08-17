@@ -84,8 +84,7 @@ pub fn atomic_write_json<T: serde::Serialize + ?Sized>(
     path: &std::path::Path,
     value: &T,
 ) -> std::io::Result<()> {
-    let text = serde_json::to_string_pretty(value)
-        .map_err(std::io::Error::other)?;
+    let text = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, &text)?;
     std::fs::rename(&tmp, path)

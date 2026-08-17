@@ -2,7 +2,7 @@
  * TopologyPanel -- wraps the d3 force-directed graph with a slim sidebar
  * (the Service list), a search box, a header, and a health summary bar.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { cx } from '../../lib/cx';
@@ -38,6 +38,36 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
     unhealthy: 0,
     unknown: 0,
   });
+  const [matchTotal, setMatchTotal] = useState(0);
+  const [matchCurrent, setMatchCurrent] = useState(-1);
+  const navigateMatchRef = useRef<((dir: 'next' | 'prev') => void) | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMatchInfoChange = useCallback((total: number, current: number) => {
+    setMatchTotal(total);
+    setMatchCurrent(current);
+  }, []);
+
+  const nextMatch = useCallback(() => navigateMatchRef.current?.('next'), []);
+  const prevMatch = useCallback(() => navigateMatchRef.current?.('prev'), []);
+
+  // Focus search input on "/" key.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (
+        e.key === '/' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        (document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA')
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Only services + pods are read here — subscribe to those two kinds,
   // shallow-compared, instead of the whole rows map.
@@ -180,12 +210,44 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
           {/* Search box */}
           <div className={styles.searchWrap}>
             <input
+              ref={searchInputRef}
               className={styles.searchInput}
               type="text"
-              placeholder={t('topology.search.placeholder', 'Filter services...')}
+              placeholder={t('topology.search.placeholder', 'Search nodes...')}
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.shiftKey ? prevMatch() : nextMatch();
+                if (e.key === 'Escape') {
+                  setSearchQuery('');
+                  searchInputRef.current?.blur();
+                }
+              }}
             />
+            {searchQuery && matchTotal > 0 && (
+              <>
+                <span className={styles.matchCount}>
+                  {matchCurrent + 1}/{matchTotal}
+                </span>
+                <button
+                  className={styles.navBtn}
+                  onClick={prevMatch}
+                  title={t('topology.search.prev', 'Previous match')}
+                >
+                  &#x2191;
+                </button>
+                <button
+                  className={styles.navBtn}
+                  onClick={nextMatch}
+                  title={t('topology.search.next', 'Next match')}
+                >
+                  &#x2193;
+                </button>
+              </>
+            )}
+            {searchQuery && matchTotal === 0 && (
+              <span className={styles.matchCount}>0</span>
+            )}
             {searchQuery && (
               <button
                 className={styles.searchClear}
@@ -228,6 +290,8 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
             focusedService={focusedService}
             searchQuery={searchQuery}
             onHealthChange={handleHealthChange}
+            onMatchInfoChange={handleMatchInfoChange}
+            navigateMatch={navigateMatchRef}
           />
         </main>
       </div>

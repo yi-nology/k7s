@@ -43,6 +43,9 @@
 .searchWrap {
   margin-bottom: var(--space-2);
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }
 
 .searchInput {
@@ -50,12 +53,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-1);
   color: var(--text-primary);
+  flex: 1 1 0;
+  min-width: 0;
   font: inherit;
   font-size: var(--text-sm);
   outline: none;
   padding: var(--space-1) var(--space-2);
-  padding-right: 28px;
-  width: 100%;
   box-sizing: border-box;
 }
 
@@ -83,6 +86,31 @@
 
 .searchClear:hover {
   color: var(--text-primary);
+}
+
+.matchCount {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.navBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+.navBtn:hover {
+  background: var(--bg-hover, var(--bg-control));
 }
 
 /* ------------------------------------------------------------------ */

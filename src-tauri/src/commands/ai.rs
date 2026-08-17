@@ -143,19 +143,14 @@ pub async fn ai_save_config(
     state: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
     let dir = state.data_dir.clone();
-    tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input))
-        .await??;
+    tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input)).await??;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn ai_save_api_key(
-    api_key: String,
-    state: State<'_, Arc<CoreState>>,
-) -> AppResult<()> {
+pub async fn ai_save_api_key(api_key: String, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
     let dir = state.data_dir.clone();
-    tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key))
-        .await??;
+    tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key)).await??;
     Ok(())
 }
 
@@ -346,10 +341,7 @@ pub async fn ai_approve_tool_call(
 
 /// Cancel the active run.
 #[tauri::command]
-pub async fn ai_cancel(
-    run_id: String,
-    runtime: State<'_, Arc<AiRuntime>>,
-) -> AppResult<()> {
+pub async fn ai_cancel(run_id: String, runtime: State<'_, Arc<AiRuntime>>) -> AppResult<()> {
     let mut map = runtime.inner.lock().await;
     if let Some(run) = map.get_mut(&run_id) {
         run.cancelled = true;

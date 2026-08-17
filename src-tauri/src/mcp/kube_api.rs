@@ -516,7 +516,12 @@ pub async fn dynamic_api(
         "roles" => ("rbac.authorization.k8s.io", "v1", "Role", true),
         "rolebindings" => ("rbac.authorization.k8s.io", "v1", "RoleBinding", true),
         "clusterroles" => ("rbac.authorization.k8s.io", "v1", "ClusterRole", false),
-        "clusterrolebindings" => ("rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", false),
+        "clusterrolebindings" => (
+            "rbac.authorization.k8s.io",
+            "v1",
+            "ClusterRoleBinding",
+            false,
+        ),
         "horizontalpodautoscalers" => ("autoscaling", "v2", "HorizontalPodAutoscaler", true),
         "poddisruptionbudgets" => ("policy", "v1", "PodDisruptionBudget", true),
         "resourcequotas" => ("", "v1", "ResourceQuota", true),

@@ -139,8 +139,7 @@ pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
     // change takes effect on the next connection rather than restarting live
     // pollers for a value measured in seconds.
     let pi = prefs::poll_intervals(&prefs::read_prefs(&mgr.data_dir));
-    let (metrics_task, status_task) =
-        metrics::spawn_pollers(manager.sink(), cr.client.clone(), pi);
+    let (metrics_task, status_task) = metrics::spawn_pollers(manager.sink(), cr.client.clone(), pi);
     manager.push_task(metrics_task).await;
     manager.push_task(status_task).await;
 
@@ -469,8 +468,7 @@ pub async fn diagnose_pod(
 ) -> AppResult<serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, &namespace, &pod).await?;
-    serde_json::to_value(diagnosis)
-        .map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    serde_json::to_value(diagnosis).map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// An event as shown in the detail panel's Events tab.
@@ -574,13 +572,10 @@ pub async fn configmap_snapshot_yaml(
 /// Build a dependency graph of resources: Deployments -> ReplicaSets -> Pods,
 /// Services -> Pods (via selector), Ingresses -> Services (via backend rules).
 #[tauri::command]
-pub async fn dependency_graph(
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<serde_json::Value> {
+pub async fn dependency_graph(mgr: State<'_, Arc<CoreState>>) -> AppResult<serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let graph = crate::kube::dependency_graph::build_dependency_graph(client).await?;
-    serde_json::to_value(graph)
-        .map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    serde_json::to_value(graph).map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// Debug an Ingress's routing chain: trace rules through Services to endpoint
@@ -660,15 +655,7 @@ pub async fn start_log_stream(
         since_seconds,
         previous,
     };
-    Ok(shell_common::spawn_log_stream(
-        &mgr.manager,
-        client,
-        namespace,
-        pod,
-        container,
-        opts,
-    )
-    .await)
+    Ok(shell_common::spawn_log_stream(&mgr.manager, client, namespace, pod, container, opts).await)
 }
 
 /// Write a pod's full logs to `path` (B29).
@@ -698,9 +685,15 @@ pub async fn export_logs(
     } else {
         vec![container]
     };
-    let (out, lines) =
-        logs::fetch_export_logs(client, &namespace, &pod, containers, since_seconds, previous)
-            .await?;
+    let (out, lines) = logs::fetch_export_logs(
+        client,
+        &namespace,
+        &pod,
+        containers,
+        since_seconds,
+        previous,
+    )
+    .await?;
     std::fs::write(&path, out)
         .map_err(|e| AppError::Other(format!("could not write {path}: {e}")))?;
     Ok(lines)
@@ -733,9 +726,7 @@ fn last_seen(e: &Event) -> k8s_openapi::jiff::Timestamp {
         return t.0;
     }
     // Fall back to creation time or the epoch.
-    e.creation_timestamp()
-        .map(|t| t.0)
-        .unwrap_or_default()
+    e.creation_timestamp().map(|t| t.0).unwrap_or_default()
 }
 
 /// Humanized age of an event's last occurrence (e.g. "2m").

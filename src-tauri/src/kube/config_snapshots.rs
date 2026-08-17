@@ -238,7 +238,11 @@ mod tests {
             .record("configmaps:ns/cm".into(), make_snapshot("100"))
             .await;
         let list = store.list("configmaps:ns/cm").await;
-        assert_eq!(list.len(), 1, "duplicate resource_version should be deduped");
+        assert_eq!(
+            list.len(),
+            1,
+            "duplicate resource_version should be deduped"
+        );
     }
 
     #[tokio::test]

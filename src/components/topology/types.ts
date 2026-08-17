@@ -2,6 +2,7 @@
  * Type definitions for the topology graph.
  */
 
+import type React from 'react';
 import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force';
 
 /** The four node types rendered in the topology graph. */
@@ -35,7 +36,7 @@ export interface ClusterGraph {
 export interface TopologyGraphProps {
   /** Service id ("svc:ns/name") to highlight and center. */
   focusedService?: string | null;
-  /** Substring filter for node names. */
+  /** Substring filter for node names, namespaces, kinds, and meta. */
   searchQuery?: string;
   /** Called when health counts change. */
   onHealthChange?: (h: {
@@ -44,4 +45,8 @@ export interface TopologyGraphProps {
     unhealthy: number;
     unknown: number;
   }) => void;
+  /** Called when search match results change. */
+  onMatchInfoChange?: (total: number, current: number) => void;
+  /** Ref populated with a function to navigate search matches. */
+  navigateMatch?: React.MutableRefObject<((dir: 'next' | 'prev') => void) | null>;
 }

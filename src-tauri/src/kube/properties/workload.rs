@@ -723,15 +723,23 @@ pub async fn gather_daemonset(
             field_toned(
                 "unavailable",
                 unavailable.to_string(),
-                if unavailable > 0 { Tone::Warn } else { Tone::Secondary },
+                if unavailable > 0 {
+                    Tone::Warn
+                } else {
+                    Tone::Secondary
+                },
             ),
             field(
                 "selector",
                 selector_text(spec.selector.match_labels.as_ref()),
             ),
-            field("update strategy", spec.update_strategy.as_ref().map(|s| {
-                s.type_.clone().unwrap_or_else(|| "RollingUpdate".into())
-            }).unwrap_or_else(|| DASH.into())),
+            field(
+                "update strategy",
+                spec.update_strategy
+                    .as_ref()
+                    .map(|s| s.type_.clone().unwrap_or_else(|| "RollingUpdate".into()))
+                    .unwrap_or_else(|| DASH.into()),
+            ),
         ],
     );
 
@@ -785,7 +793,10 @@ pub async fn gather_replicaset(
                 ready_tone(ready, desired),
             ),
             field("available", available.to_string()),
-            field("fully labeled", status.fully_labeled_replicas.unwrap_or(0).to_string()),
+            field(
+                "fully labeled",
+                status.fully_labeled_replicas.unwrap_or(0).to_string(),
+            ),
             field(
                 "selector",
                 selector_text(spec.selector.match_labels.as_ref()),
@@ -798,11 +809,7 @@ pub async fn gather_replicaset(
         .metadata
         .owner_references
         .as_ref()
-        .map(|refs| {
-            refs.iter()
-                .map(|r| vec![c(&r.kind), c(&r.name)])
-                .collect()
-        })
+        .map(|refs| refs.iter().map(|r| vec![c(&r.kind), c(&r.name)]).collect())
         .unwrap_or_default();
     if !owners.is_empty() {
         props.push_table("Owner References", None, &["KIND", "NAME"], owners);

@@ -100,11 +100,7 @@ pub async fn debug_ingress(
     let spec = ing.spec.clone().unwrap_or_default();
 
     let ing_class = spec.ingress_class_name.clone();
-    let has_tls = spec
-        .tls
-        .as_ref()
-        .map(|t| !t.is_empty())
-        .unwrap_or(false);
+    let has_tls = spec.tls.as_ref().map(|t| !t.is_empty()).unwrap_or(false);
 
     let svc_api: Api<Service> = Api::namespaced(client.clone(), &ing_ns);
     let ep_api: Api<EndpointSlice> = Api::namespaced(client.clone(), &ing_ns);

@@ -129,14 +129,9 @@ impl K7sMcpServer {
         // discover CRDs. The MCP shell may have an imported kubeconfig in memory.
         let imported = manager.import_kubeconfig(&context).await;
         let import_path = manager.import_path(&context).await;
-        let cr = crate::core::shell_common::connect_core(
-            &manager,
-            imported,
-            import_path,
-            &context,
-        )
-        .await
-        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let cr = crate::core::shell_common::connect_core(&manager, imported, import_path, &context)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         // MCP has no watchers — just record the connection.
         manager
@@ -488,10 +483,9 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let diagnosis =
-            crate::kube::pod_diagnosis::diagnose_pod(client, &p.namespace, &p.pod)
-                .await
-                .map_err(tool_error)?;
+        let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, &p.namespace, &p.pod)
+            .await
+            .map_err(tool_error)?;
         json_result(&diagnosis)
     }
 
@@ -1376,14 +1370,10 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let manifest = crate::kube::helm::helm_manifest_revision(
-            client,
-            &p.namespace,
-            &p.name,
-            p.revision,
-        )
-        .await
-        .map_err(tool_error)?;
+        let manifest =
+            crate::kube::helm::helm_manifest_revision(client, &p.namespace, &p.name, p.revision)
+                .await
+                .map_err(tool_error)?;
         Ok(CallToolResult::success(vec![ContentBlock::text(manifest)]))
     }
 
@@ -1397,14 +1387,10 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let values = crate::kube::helm::helm_values_revision(
-            client,
-            &p.namespace,
-            &p.name,
-            p.revision,
-        )
-        .await
-        .map_err(tool_error)?;
+        let values =
+            crate::kube::helm::helm_values_revision(client, &p.namespace, &p.name, p.revision)
+                .await
+                .map_err(tool_error)?;
         json_result(&values)
     }
 

@@ -460,8 +460,13 @@ pub async fn helm_manifest_revision(
 ) -> axum::response::Response {
     let result: AppResult<String> = (|| async {
         let client = core_client(&state.core).await?;
-        crate::kube::helm::helm_manifest_revision(client, &args.namespace, &args.name, args.revision)
-            .await
+        crate::kube::helm::helm_manifest_revision(
+            client,
+            &args.namespace,
+            &args.name,
+            args.revision,
+        )
+        .await
     })()
     .await;
     respond(result)

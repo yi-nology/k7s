@@ -42,9 +42,8 @@ function highlightMatches(text: string, query: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
   let last = 0;
   let i = 0;
-  while (true) {
-    const pos = lower.indexOf(ql, last);
-    if (pos === -1) break;
+  let pos = lower.indexOf(ql, last);
+  while (pos !== -1) {
     if (pos > last) parts.push(text.slice(last, pos));
     parts.push(
       <mark key={i++} className={styles.highlight}>
@@ -52,6 +51,7 @@ function highlightMatches(text: string, query: string): React.ReactNode {
       </mark>
     );
     last = pos + q.length;
+    pos = lower.indexOf(ql, last);
   }
   if (last < text.length) parts.push(text.slice(last));
   return parts.length > 0 ? parts : text;

@@ -158,7 +158,9 @@ pub fn map_job(j: &Job) -> Row {
     // Duration = completion - start (if both known), else "—".
     let duration = match j.status.as_ref() {
         Some(st) => match (&st.start_time, &st.completion_time) {
-            (Some(start), Some(end)) => humanize_duration(end.0.duration_since(start.0).as_secs().max(0)),
+            (Some(start), Some(end)) => {
+                humanize_duration(end.0.duration_since(start.0).as_secs().max(0))
+            }
             _ => "—".to_string(),
         },
         None => "—".to_string(),

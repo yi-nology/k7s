@@ -158,9 +158,7 @@ fn event_last_seen(e: &k8s_openapi::api::core::v1::Event) -> k8s_openapi::jiff::
     if let Some(t) = &e.event_time {
         return t.0;
     }
-    e.creation_timestamp()
-        .map(|t| t.0)
-        .unwrap_or_default()
+    e.creation_timestamp().map(|t| t.0).unwrap_or_default()
 }
 
 /// Order the events feed: Warnings first, then most-recent first, capped.

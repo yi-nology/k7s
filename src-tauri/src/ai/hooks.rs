@@ -88,7 +88,6 @@ pub struct HookConfig {
     pub allowed_ips: Vec<String>,
 }
 
-
 /// Verify a hook request's authentication.
 ///
 /// Security default: **deny when no token is configured**. The previous

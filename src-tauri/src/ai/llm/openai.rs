@@ -291,7 +291,10 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
                             if data == "[DONE]" {
                                 let calls = finalize_tool_calls(&mut tool_acc);
                                 let _ = tx
-                                    .send(Ok(StreamEvent::Done { tool_calls: calls, finish_reason }))
+                                    .send(Ok(StreamEvent::Done {
+                                        tool_calls: calls,
+                                        finish_reason,
+                                    }))
                                     .await;
                                 return;
                             }
@@ -301,7 +304,9 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
                             };
                             for choice in chunk.choices {
                                 if let Some(reason) = choice.finish_reason {
-                                    if !reason.is_empty() { finish_reason = reason; }
+                                    if !reason.is_empty() {
+                                        finish_reason = reason;
+                                    }
                                 }
                                 if let Some(text) = choice.delta.content {
                                     if !text.is_empty() {
@@ -310,16 +315,24 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
                                 }
                                 if let Some(text) = choice.delta.reasoning_content {
                                     if !text.is_empty() {
-                                        let _ = tx.send(Ok(StreamEvent::ReasoningDelta(text))).await;
+                                        let _ =
+                                            tx.send(Ok(StreamEvent::ReasoningDelta(text))).await;
                                     }
                                 }
                                 for tc in choice.delta.tool_calls {
-                                    let entry = tool_acc.entry(tc.index)
-                                        .or_insert_with(|| (String::new(), String::new(), String::new()));
-                                    if let Some(id) = tc.id { entry.0 = id; }
+                                    let entry = tool_acc.entry(tc.index).or_insert_with(|| {
+                                        (String::new(), String::new(), String::new())
+                                    });
+                                    if let Some(id) = tc.id {
+                                        entry.0 = id;
+                                    }
                                     if let Some(f) = tc.function {
-                                        if let Some(n) = f.name { entry.1 = n; }
-                                        if let Some(a) = f.arguments { entry.2.push_str(&a); }
+                                        if let Some(n) = f.name {
+                                            entry.1 = n;
+                                        }
+                                        if let Some(a) = f.arguments {
+                                            entry.2.push_str(&a);
+                                        }
                                     }
                                 }
                             }

@@ -849,7 +849,7 @@ export interface Dictionary {
     action: { logs: string; navigate: string; shell: string; yaml: string };
     ctx: { copy: string; logs: string; navigate: string; shell: string; yaml: string };
     health: { healthy: string; unhealthy: string; unknown: string; total: string };
-    search: { placeholder: string; clear: string };
+    search: { placeholder: string; clear: string; prev: string; next: string };
     zoom: { fit: string; in: string; out: string };
   };
   dashboard: {

@@ -163,7 +163,12 @@ pub async fn resource_for(kind: &str, mgr: &ClientManager) -> AppResult<(ApiReso
         "roles" => ("rbac.authorization.k8s.io", "v1", "Role", true),
         "rolebindings" => ("rbac.authorization.k8s.io", "v1", "RoleBinding", true),
         "clusterroles" => ("rbac.authorization.k8s.io", "v1", "ClusterRole", false),
-        "clusterrolebindings" => ("rbac.authorization.k8s.io", "v1", "ClusterRoleBinding", false),
+        "clusterrolebindings" => (
+            "rbac.authorization.k8s.io",
+            "v1",
+            "ClusterRoleBinding",
+            false,
+        ),
         "horizontalpodautoscalers" => ("autoscaling", "v2", "HorizontalPodAutoscaler", true),
         "poddisruptionbudgets" => ("policy", "v1", "PodDisruptionBudget", true),
         "resourcequotas" => ("", "v1", "ResourceQuota", true),
@@ -276,9 +281,10 @@ pub fn validate_apply_yaml(
     namespaced: bool,
 ) -> AppResult<()> {
     // 1. Check apiVersion and kind are present.
-    let types = obj.types.as_ref().ok_or_else(|| {
-        AppError::Other("YAML is missing apiVersion and kind fields".into())
-    })?;
+    let types = obj
+        .types
+        .as_ref()
+        .ok_or_else(|| AppError::Other("YAML is missing apiVersion and kind fields".into()))?;
 
     if types.api_version.is_empty() {
         return Err(AppError::Other("YAML has empty apiVersion".into()));
@@ -560,24 +566,11 @@ pub async fn spawn_log_stream(
     container: String,
     opts: LogStreamOptions,
 ) -> String {
-    let stream_id = format!(
-        "{}-{}",
-        pod,
-        STREAM_SEQ.fetch_add(1, Ordering::Relaxed)
-    );
+    let stream_id = format!("{}-{}", pod, STREAM_SEQ.fetch_add(1, Ordering::Relaxed));
     let sink = manager.sink();
     let id_for_task = stream_id.clone();
     let handle: JoinHandle<()> = tokio::spawn(async move {
-        logs::run_log_stream(
-            client,
-            sink,
-            id_for_task,
-            namespace,
-            pod,
-            container,
-            opts,
-        )
-        .await;
+        logs::run_log_stream(client, sink, id_for_task, namespace, pod, container, opts).await;
     });
     manager.add_log(stream_id.clone(), handle).await;
     stream_id
@@ -708,11 +701,7 @@ pub async fn set_cordon_core(
 
 /// Restart a pod by deleting it so its controller recreates a fresh one.
 /// Refuses a pod with no controlling owner.
-pub async fn restart_pod_core(
-    client: kube::Client,
-    namespace: &str,
-    name: &str,
-) -> AppResult<()> {
+pub async fn restart_pod_core(client: kube::Client, namespace: &str, name: &str) -> AppResult<()> {
     let api: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, namespace);
     let pod = api.get(name).await?;
     if !crate::kube::restart::has_controller(&pod) {
@@ -881,7 +870,10 @@ metadata:
         let err = validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true)
             .unwrap_err()
             .to_string();
-        assert!(err.contains("missing metadata.resourceVersion"), "got: {err}");
+        assert!(
+            err.contains("missing metadata.resourceVersion"),
+            "got: {err}"
+        );
     }
 
     #[test]
@@ -895,10 +887,14 @@ metadata:
     fn custom_kind_skips_kind_check() {
         // CRD kinds contain '/' — the kind name check is skipped.
         let obj = make_obj("MyCustomResource", "example.com/v1", "my-cr", "default");
-        assert!(
-            validate_apply_yaml(&obj, "example.com/mycustomresources", "my-cr", "default", true)
-                .is_ok()
-        );
+        assert!(validate_apply_yaml(
+            &obj,
+            "example.com/mycustomresources",
+            "my-cr",
+            "default",
+            true
+        )
+        .is_ok());
     }
 
     #[test]
@@ -916,4 +912,3 @@ metadata:
         assert!(validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true).is_ok());
     }
 }
-

@@ -379,7 +379,10 @@ pub(super) async fn gather_networkpolicy(
     // selector is empty (matchLabels: {}), the policy selects ALL pods in the
     // namespace — listing them is the most useful thing the panel can do.
     let pod_api: Api<Pod> = Api::namespaced(client.clone(), namespace);
-    let selector_match = spec.pod_selector.as_ref().and_then(|s| s.match_labels.as_ref());
+    let selector_match = spec
+        .pod_selector
+        .as_ref()
+        .and_then(|s| s.match_labels.as_ref());
     let lp = match selector_match {
         Some(m) if !m.is_empty() => {
             let label_str = m
