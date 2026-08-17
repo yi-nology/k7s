@@ -4,6 +4,9 @@ members = [
     "crates/k7s-core",
     "src-tauri",
 ]
+exclude = [
+    "crates/k7s-deps",
+]
 
 [profile.release]
 codegen-units = 1
