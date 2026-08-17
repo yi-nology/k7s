@@ -687,3 +687,7 @@ pub struct ListKindsParams {
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SecurityAuditParams {}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct RbacPermissionMatrixParams {}

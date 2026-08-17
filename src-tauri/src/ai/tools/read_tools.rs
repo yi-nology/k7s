@@ -381,6 +381,33 @@ impl Tool for SecurityAudit {
     }
 }
 
+// RBAC permission matrix
+pub struct RbacPermissionMatrix;
+#[async_trait]
+impl Tool for RbacPermissionMatrix {
+    fn name(&self) -> &str {
+        "rbac_permission_matrix"
+    }
+    fn description(&self) -> &str {
+        "Build the RBAC permission matrix showing which subjects (users, groups, \
+         service accounts) can perform which actions (verb+resource) on which resources. \
+         Use this when the user asks 'who can do what', wants to see RBAC permissions, \
+         or needs a cross-tabulation of subjects vs actions."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type":"object","properties":{}})
+    }
+    async fn call(
+        &self,
+        ctx: &ToolContext,
+        _args: serde_json::Value,
+    ) -> AiResult<serde_json::Value> {
+        impls::rbac_permission_matrix_impl(&ctx.manager)
+            .await
+            .map_err(|e| AiError::Tool(e.to_string()))
+    }
+}
+
 // Swarm tool — spawn a sub-agent for parallel work.
 pub struct SpawnSubAgent;
 #[async_trait]

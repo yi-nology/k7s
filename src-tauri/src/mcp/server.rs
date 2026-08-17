@@ -2287,6 +2287,22 @@ impl K7sMcpServer {
         json_result(&report)
     }
 
+    #[tool(
+        description = "Build the RBAC permission matrix showing which subjects (users, groups, service accounts) can perform which actions (verb+resource) on which resources. Returns a sparse cross-tabulation of subjects vs actions with grant sources."
+    )]
+    async fn rbac_permission_matrix(
+        &self,
+        Parameters(_p): Parameters<RbacPermissionMatrixParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let matrix = crate::kube::rbac_matrix::build_rbac_matrix(client)
+            .await
+            .map_err(tool_error)?;
+        json_result(&matrix)
+    }
+
     // === Consolidated tools (replace multiple single-purpose tools) ===
 
     #[tool(

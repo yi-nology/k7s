@@ -229,6 +229,7 @@ pub fn run() {
             commands::sbom_export,
             // RBAC Security Audit
             commands::security_audit_run,
+            commands::rbac_permission_matrix,
             // Scanner status (trivy/grype availability)
             commands::scanner_status,
             // Built-in AI assistant (runtime-toggled). See commands::ai.

@@ -43,6 +43,7 @@ pub mod rollout;
 pub mod saved_queries;
 pub mod sbom;
 pub mod sbom_storage;
+pub mod rbac_matrix;
 pub mod security_audit;
 pub mod templates;
 pub mod watchers;

@@ -159,6 +159,11 @@ proptest = "1"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 
+# Patch glib 0.18.5 to fix RUSTSEC-2024-0429 (VariantStrIter soundness).
+# Can be removed once Tauri upgrades to gtk-rs-core 0.20+.
+[patch.crates-io]
+glib = { path = "/tmp/glib-patch/gtk-rs-core/glib" }
+
 [profile.release]
 # Smaller, faster desktop binary.
 codegen-units = 1

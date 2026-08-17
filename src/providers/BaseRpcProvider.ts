@@ -354,6 +354,9 @@ export abstract class BaseRpcProvider {
   securityAudit(): Promise<import('./types/security').AuditReport> {
     return this.rpc('security_audit_run');
   }
+  rbacPermissionMatrix(): Promise<import('./types/security').PermissionMatrix> {
+    return this.rpc('rbac_permission_matrix');
+  }
   scannerStatus(): Promise<import('./types/scanner').ScannerStatus> {
     return this.rpc('scanner_status');
   }

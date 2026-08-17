@@ -504,6 +504,13 @@ pub async fn security_audit_impl(manager: &ClientManager) -> AppResult<serde_jso
     serde_json::to_value(report).map_err(|e| AppError::Other(e.to_string()))
 }
 
+/// Build the RBAC permission matrix and return it.
+pub async fn rbac_permission_matrix_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+    let client = manager.client().await.ok_or(AppError::Disconnected)?;
+    let matrix = crate::kube::rbac_matrix::build_rbac_matrix(client).await?;
+    serde_json::to_value(matrix).map_err(|e| AppError::Other(e.to_string()))
+}
+
 // ---------------------------------------------------------------------------
 // Capacity planning (metrics.k8s.io wire types)
 // ---------------------------------------------------------------------------

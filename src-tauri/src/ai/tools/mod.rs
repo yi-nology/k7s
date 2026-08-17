@@ -100,6 +100,7 @@ impl ToolRegistry {
             Box::new(read_tools::DiffResources),
             Box::new(read_tools::HpaStatus),
             Box::new(read_tools::SecurityAudit),
+            Box::new(read_tools::RbacPermissionMatrix),
             Box::new(read_tools::SpawnSubAgent),
             Box::new(read_tools::KubectlGenerator),
             // write
@@ -246,6 +247,7 @@ mod tests {
             "top_pods",
             "capacity_report",
             "security_audit",
+            "rbac_permission_matrix",
             "scale_workload",
             "restart_workload",
             "delete_resource",

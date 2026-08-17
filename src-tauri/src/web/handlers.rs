@@ -373,6 +373,16 @@ pub async fn security_audit_run(State(state): State<WebState>) -> axum::response
     respond(result)
 }
 
+/// `POST /api/invoke/rbac_permission_matrix` — Build the RBAC permission matrix.
+pub async fn rbac_permission_matrix(State(state): State<WebState>) -> axum::response::Response {
+    let result: AppResult<_> = async {
+        let client = core_client(&state.core).await?;
+        crate::kube::rbac_matrix::build_rbac_matrix(client).await
+    }
+    .await;
+    respond(result)
+}
+
 /// `POST /api/invoke/scanner_status` — Return scanner engine availability.
 pub async fn scanner_status(State(state): State<WebState>) -> axum::response::Response {
     let prefs = prefs::read_prefs(&state.core.data_dir);
