@@ -59,6 +59,7 @@ import type {
   Prefs,
   SecretEntry,
   YamlDiff,
+  SimulationResult,
 } from './types';
 
 export abstract class BaseRpcProvider {
@@ -77,6 +78,23 @@ export abstract class BaseRpcProvider {
   }
   dependencyGraph(): Promise<DependencyGraph> {
     return this.rpc<DependencyGraph>('dependency_graph', {});
+  }
+  simulateConnectivity(
+    srcNamespace: string,
+    srcPod: string,
+    dstNamespace: string,
+    dstPod: string,
+    port?: number,
+    protocol?: string
+  ): Promise<SimulationResult> {
+    return this.rpc<SimulationResult>('simulate_connectivity', {
+      srcNamespace,
+      srcPod,
+      dstNamespace,
+      dstPod,
+      port: port ?? null,
+      protocol: protocol ?? null,
+    });
   }
   debugIngress(namespace: string, name: string): Promise<IngressDebugResult> {
     return this.rpc<IngressDebugResult>('debug_ingress', { namespace, name });

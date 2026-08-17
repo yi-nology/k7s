@@ -296,6 +296,26 @@ export interface NodeStatsError {
   message: string;
 }
 
+/** A policy that matched during network simulation. */
+export interface MatchedPolicy {
+  name: string;
+  namespace: string;
+  /** "ingress" or "egress". */
+  direction: string;
+  /** "allows" or "denies". */
+  effect: string;
+}
+
+/** Result of a network policy connectivity simulation. */
+export interface SimulationResult {
+  allowed: boolean;
+  ingressAllowed: boolean;
+  egressAllowed: boolean;
+  ingressReason: string;
+  egressReason: string;
+  matchingPolicies: MatchedPolicy[];
+}
+
 /** Unsubscribe function returned by the `on*` event subscriptions. */
 export type Unsub = () => void;
 

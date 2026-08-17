@@ -590,6 +590,34 @@ pub async fn debug_ingress(
     ingress_debug::debug_ingress(client, &namespace, &name).await
 }
 
+/// Simulate connectivity between two pods based on NetworkPolicies.
+///
+/// Answers "can pod A in namespace X talk to pod B in namespace Y on port Z?"
+/// by evaluating all applicable NetworkPolicies for both egress and ingress.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn simulate_connectivity(
+    src_namespace: String,
+    src_pod: String,
+    dst_namespace: String,
+    dst_pod: String,
+    port: Option<i32>,
+    protocol: Option<String>,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<crate::kube::netpol_sim::SimulationResult> {
+    let client = require_client(&mgr.manager).await?;
+    crate::kube::netpol_sim::simulate_connectivity(
+        client,
+        &src_namespace,
+        &src_pod,
+        &dst_namespace,
+        &dst_pod,
+        port,
+        protocol,
+    )
+    .await
+}
+
 /// Gather an object's properties as a generic section document (B13, B18).
 /// Errors for kinds with no gatherer — the frontend only offers the tab for the
 /// kinds that have one.

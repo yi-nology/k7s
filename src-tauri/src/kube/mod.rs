@@ -30,6 +30,7 @@ pub mod logs;
 pub mod manager;
 pub mod mappers;
 pub mod metrics;
+pub mod netpol_sim;
 pub mod metrics_config;
 pub mod nodeshell;
 pub mod nodestats;
