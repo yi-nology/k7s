@@ -67,6 +67,7 @@ export const zh: Dictionary = {
       searchPlaceholder: '搜索任何内容…',
       nsDisabledOverlay: '工具面板打开时命名空间筛选不可用',
       nsDisabledScope: '命名空间筛选不适用于集群级资源',
+      themeToggle: '切换主题',
     },
     statusbar: {
       // zh statusbar labels — `cpu` / `mem` / `api` / `kubectl 上下文:` are

@@ -87,6 +87,8 @@ export interface Dictionary {
       nsDisabledOverlay: string;
       /** Tooltip when the ns filter is disabled on a cluster-scoped kind. */
       nsDisabledScope: string;
+      /** Tooltip for the dark/light theme toggle button. */
+      themeToggle: string;
     };
     /** Status bar (Design §5) — every fact is "label value" pair; the value is
      *  rendered in a stronger colour by the StatusBar component. Keys here are

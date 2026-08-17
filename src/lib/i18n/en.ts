@@ -67,6 +67,7 @@ export const en: Dictionary = {
       searchPlaceholder: 'Search anything…',
       nsDisabledOverlay: 'Namespace filter is hidden while a tool panel is open',
       nsDisabledScope: 'Namespace filter does not apply to cluster-scoped resources',
+      themeToggle: 'Toggle theme',
     },
     statusbar: {
       api: 'api',

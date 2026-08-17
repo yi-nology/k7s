@@ -45,6 +45,16 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Theme transition animation — applied temporarily during theme switches so
+   colors crossfade instead of snapping. The class is added/removed by
+   applyTheme in src/lib/theme.ts. */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
+}
+
 #root {
   width: 100vw;
   height: 100vh;
