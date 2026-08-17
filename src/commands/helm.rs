@@ -154,7 +154,7 @@ pub async fn helm_values_revision(
     namespace: String,
     name: String,
     revision: i64,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = crate::commands::core::require_client(&mgr.manager).await?;
     crate::kube::helm::helm_values_revision(client, &namespace, &name, revision).await
 }

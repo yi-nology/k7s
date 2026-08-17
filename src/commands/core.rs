@@ -12,9 +12,9 @@ use crate::kube::{
     config_snapshots, drain, exporter, ingress_debug, logs, mappers, metrics, nodestats, promql,
     properties, rollout, watchers,
 };
-use k8s_openapi::api::core::v1::{Event, Secret};
-use kube::api::{Api, ListParams};
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::ResourceExt;
 use serde::Serialize;
 use std::sync::Arc;
 use tauri::State;
@@ -79,7 +79,7 @@ pub async fn restore_imports(
                 }
                 alive.push(path);
             }
-            Err(e) => tracing::warn!("dropping imported kubeconfig {path}: {e}"),
+            Err(e) => k7s_deps::tracing::warn!("dropping imported kubeconfig {path}: {e}"),
         }
     }
     Ok(alive)
@@ -167,7 +167,7 @@ pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
     let sync_manager = manager.clone();
     let sync_data_dir = mgr.data_dir.clone();
     let sync_context = context.clone();
-    tokio::spawn(async move {
+    k7s_deps::tokio::spawn(async move {
         match crate::ai::knowledge_sync::sync_from_cluster(
             &sync_manager,
             &sync_data_dir,
@@ -177,7 +177,7 @@ pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
         {
             Ok(report) => {
                 if report.config_maps + report.pod_annotations + report.deploy_annotations > 0 {
-                    tracing::info!(
+                    k7s_deps::tracing::info!(
                         cm = report.config_maps,
                         pods = report.pod_annotations,
                         deps = report.deploy_annotations,
@@ -185,7 +185,7 @@ pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
                     );
                 }
             }
-            Err(e) => tracing::debug!("knowledge sync skipped: {e}"),
+            Err(e) => k7s_deps::tracing::debug!("knowledge sync skipped: {e}"),
         }
     });
 
@@ -382,7 +382,7 @@ pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -
 ///
 /// Cordoning happens inline so an RBAC/not-found failure surfaces as a rejected
 /// command rather than a silent no-op. The eviction pass then runs as a
-/// connection-scoped task reporting via [`kube::events::DRAIN_PROGRESS`] — it can
+/// connection-scoped task reporting via [`k7s_deps::kube::events::DRAIN_PROGRESS`] — it can
 /// take minutes, so blocking the command on it would freeze the UI.
 #[tauri::command]
 pub async fn drain_node(name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
@@ -393,7 +393,7 @@ pub async fn drain_node(name: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
     drain::cordon(client.clone(), &name).await?;
 
     let app = manager.sink();
-    let task = tokio::spawn(async move {
+    let task = k7s_deps::tokio::spawn(async move {
         drain::run_drain(client, app, name).await;
     });
     manager.push_task(task).await;
@@ -416,7 +416,7 @@ pub async fn node_history(
     let Some(svc) = promql::discover(&client).await else {
         return Ok(Vec::new());
     };
-    let now = chrono::Utc::now().timestamp();
+    let now = k7s_deps::chrono::Utc::now().timestamp();
     // An hour at 30s is 120 points — enough to open with a populated chart
     // without crowding out the live samples that follow (the series is capped).
     promql::node_history(&client, &svc, &node, now, 3600, 30).await
@@ -455,7 +455,7 @@ pub async fn watch_node_stats(node: String, mgr: State<'_, Arc<CoreState>>) -> A
     // for the plots to march to a different drum than the table's CPU column.
     let every = prefs::poll_intervals(&prefs::read_prefs(&mgr.data_dir)).metrics;
     let n = node.clone();
-    let task = tokio::spawn(async move {
+    let task = k7s_deps::tokio::spawn(async move {
         nodestats::run_node_stats(client, app, n, every).await;
     });
     manager.add_node_scraper(node, task).await;
@@ -480,10 +480,10 @@ pub async fn diagnose_pod(
     namespace: String,
     pod: String,
     mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, &namespace, &pod).await?;
-    serde_json::to_value(diagnosis).map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    k7s_deps::serde_json::to_value(diagnosis).map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// An event as shown in the detail panel's Events tab.
@@ -587,10 +587,10 @@ pub async fn configmap_snapshot_yaml(
 /// Build a dependency graph of resources: Deployments -> ReplicaSets -> Pods,
 /// Services -> Pods (via selector), Ingresses -> Services (via backend rules).
 #[tauri::command]
-pub async fn dependency_graph(mgr: State<'_, Arc<CoreState>>) -> AppResult<serde_json::Value> {
+pub async fn dependency_graph(mgr: State<'_, Arc<CoreState>>) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let graph = crate::kube::dependency_graph::build_dependency_graph(client).await?;
-    serde_json::to_value(graph).map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    k7s_deps::serde_json::to_value(graph).map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// Debug an Ingress's routing chain: trace rules through Services to endpoint
@@ -754,14 +754,14 @@ pub async fn stop_log_stream(stream_id: String, mgr: State<'_, Arc<CoreState>>) 
 // ---------------------------------------------------------------------------
 
 /// Get the active client or a friendly "not connected" error.
-pub(crate) async fn require_client(mgr: &ClientManager) -> AppResult<kube::Client> {
+pub(crate) async fn require_client(mgr: &ClientManager) -> AppResult<k7s_deps::kube::Client> {
     mgr.client()
         .await
         .ok_or_else(|| AppError::NotFound("not connected to a cluster".into()))
 }
 
 /// Best "last seen" time for sorting: last_timestamp, else event_time, else epoch.
-fn last_seen(e: &Event) -> k8s_openapi::jiff::Timestamp {
+fn last_seen(e: &Event) -> k7s_deps::k8s_openapi::jiff::Timestamp {
     if let Some(t) = &e.last_timestamp {
         return t.0;
     }
@@ -774,7 +774,7 @@ fn last_seen(e: &Event) -> k8s_openapi::jiff::Timestamp {
 
 /// Humanized age of an event's last occurrence (e.g. "2m").
 fn event_age(e: &Event) -> String {
-    let now = k8s_openapi::jiff::Timestamp::now();
+    let now = k7s_deps::k8s_openapi::jiff::Timestamp::now();
     let seen = last_seen(e);
     let secs = now.duration_since(seen).as_secs().max(0);
     mappers::humanize_duration(secs)

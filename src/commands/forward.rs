@@ -9,7 +9,7 @@ use crate::kube::portforward;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::State;
-use tokio::sync::{mpsc, oneshot};
+use k7s_deps::tokio::sync::{mpsc, oneshot};
 
 /// Start forwarding a pod port to a local TCP port; returns the forward (with the
 /// chosen local port). Errors if the pod doesn't exist or the listener can't bind.
@@ -63,7 +63,7 @@ pub async fn start_service_port_forward(
 /// pod forward.
 async fn spawn_forward(
     manager: Arc<ClientManager>,
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     namespace: String,
     pod: String,
     // For a Service forward: its name and the port the user asked for.
@@ -77,7 +77,7 @@ async fn spawn_forward(
 
     let ns = namespace.clone();
     let p = pod.clone();
-    let task = tokio::spawn(async move {
+    let task = k7s_deps::tokio::spawn(async move {
         portforward::run_port_forward(client, ns, p, remote_port, ready_tx, err_tx).await;
     });
 
@@ -113,7 +113,7 @@ async fn spawn_forward(
     // Relay per-connection failures onto the forward for the UI. Ends on its own
     // when the forward task is aborted and drops the sender.
     let relay_mgr = manager.clone();
-    let relay = tokio::spawn(async move {
+    let relay = k7s_deps::tokio::spawn(async move {
         while let Some(e) = err_rx.recv().await {
             relay_mgr.set_forward_error(&id, e).await;
         }

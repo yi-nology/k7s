@@ -19,7 +19,7 @@ use crate::error::AppResult;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
-use tokio::sync::{oneshot, Mutex};
+use k7s_deps::tokio::sync::{oneshot, Mutex};
 
 /// The Tauri event name the frontend listens on for [`AgentEvent`]s.
 pub const AI_EVENT: &str = "ai_event";
@@ -72,7 +72,7 @@ impl EventSink for TauriEventSink {
     fn emit(&self, ev: AgentEvent) {
         let _ = self.app.emit(
             AI_EVENT,
-            serde_json::json!({ "runId": self.run_id, "event": ev }),
+            k7s_deps::serde_json::json!({ "runId": self.run_id, "event": ev }),
         );
     }
 
@@ -95,7 +95,7 @@ impl EventSink for TauriEventSink {
             // `inner` is no longer borrowed here (lock_result held a guard only
             // in the Ok arm, which returned), so we can move it into the task.
             drop(lock_result);
-            tokio::spawn(async move {
+            k7s_deps::tokio::spawn(async move {
                 let mut map = inner.lock().await;
                 if let Some(run) = map.get_mut(&run_id) {
                     run.approvals.insert(call_id, tx);
@@ -134,7 +134,7 @@ pub async fn ai_get_config(state: State<'_, Arc<CoreState>>) -> AppResult<AiConf
     // config::load is synchronous (std::fs); wrap in spawn_blocking so the
     // Tauri command runtime doesn't block the async executor on disk I/O.
     let dir = state.data_dir.clone();
-    Ok(tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??)
+    Ok(k7s_deps::tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??)
 }
 
 #[tauri::command]
@@ -143,14 +143,14 @@ pub async fn ai_save_config(
     state: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
     let dir = state.data_dir.clone();
-    tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input)).await??;
+    k7s_deps::tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input)).await??;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn ai_save_api_key(api_key: String, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
     let dir = state.data_dir.clone();
-    tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key)).await??;
+    k7s_deps::tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key)).await??;
     Ok(())
 }
 
@@ -159,11 +159,11 @@ pub async fn ai_save_api_key(api_key: String, state: State<'_, Arc<CoreState>>) 
 #[tauri::command]
 pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
     let dir = state.data_dir.clone();
-    let view = tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??;
+    let view = k7s_deps::tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??;
     let cfg = view.config;
     let (base, model, key) = config::resolve(&cfg, Some(&state.data_dir))?;
     let client = OpenAiClient::new(base, model, key, cfg.provider.temperature);
-    use futures::StreamExt;
+    use k7s_deps::futures::StreamExt;
     let mut stream = client.chat_stream(
         &[Message::System {
             content: "Reply with the single word: ok".into(),
@@ -199,7 +199,7 @@ pub async fn ai_chat(
     runtime: State<'_, Arc<AiRuntime>>,
 ) -> AppResult<String> {
     let dir = state.data_dir.clone();
-    let view = tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??;
+    let view = k7s_deps::tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??;
     let cfg = view.config;
 
     // Resolve LLM provider. If config::resolve fails (no API key), try
@@ -211,7 +211,7 @@ pub async fn ai_chat(
             match crate::ai::embedded_models::discover_ollama(None).await {
                 Some(models) if !models.is_empty() => {
                     let m = &models[0];
-                    tracing::info!(
+                    k7s_deps::tracing::info!(
                         "no API key configured, using local Ollama model: {}",
                         m.name
                     );
@@ -259,7 +259,7 @@ pub async fn ai_chat(
         }
     }
 
-    let run_id = uuid::Uuid::new_v4().to_string();
+    let run_id = k7s_deps::uuid::Uuid::new_v4().to_string();
     let run_id_for_task = run_id.clone();
     let temperature = cfg.provider.temperature;
 
@@ -293,7 +293,7 @@ pub async fn ai_chat(
     let run_data_dir = state.data_dir.clone();
     let run_session_id = session_id.clone();
 
-    tokio::spawn(async move {
+    k7s_deps::tokio::spawn(async move {
         agent
             .run(
                 request,
