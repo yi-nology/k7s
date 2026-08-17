@@ -8,7 +8,7 @@ pub use reqwest;
 // 序列化
 pub use serde;
 pub use serde_json;
-pub use serde_yaml;
+pub use yaml_serde;
 
 // 异步运行时
 pub use tokio;
