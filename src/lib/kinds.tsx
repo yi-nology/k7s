@@ -456,7 +456,9 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
       case 'events':
         return kind !== 'helm';
       case 'timeline':
-        return kind === 'cronjobs';
+        // All resources have Kubernetes events for a change timeline.
+        // Helm releases are excluded (they have no events of their own).
+        return kind !== 'helm';
       case 'diff':
         return kind === 'helm';
       default:

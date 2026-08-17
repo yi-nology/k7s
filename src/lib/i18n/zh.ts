@@ -355,6 +355,7 @@ export const zh: Dictionary = {
     loading: '事件加载中…',
     hint: '查看 Cluster → Events 获取实时事件流',
     empty: '无最近事件 — 事件约 1 小时后过期',
+    noEvents: '无事件',
     sinceAll: '全部',
     sinceLast: (s) => `最近 ${s}`,
     howFarBack: '时间范围',

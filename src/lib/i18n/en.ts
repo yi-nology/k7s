@@ -354,6 +354,7 @@ export const en: Dictionary = {
     loading: 'loading events…',
     hint: 'see Cluster → Events for the live feed',
     empty: 'no recent events — events expire after ~1h',
+    noEvents: 'no events',
     sinceAll: 'all',
     sinceLast: (s) => `last ${s}`,
     howFarBack: 'how far back to show',

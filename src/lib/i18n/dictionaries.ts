@@ -372,6 +372,7 @@ export interface Dictionary {
     loading: string;
     hint: string;
     empty: string;
+    noEvents: string;
     sinceAll: string;
     sinceLast: (s: string) => string;
     howFarBack: string;

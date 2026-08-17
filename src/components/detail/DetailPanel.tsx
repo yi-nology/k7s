@@ -31,6 +31,7 @@ import { NodeShellTab } from './NodeShellTab';
 import { YamlTab } from './YamlTab';
 import { EventsTab } from './EventsTab';
 import { CronJobTimeline } from './CronJobTimeline';
+import { ResourceChangeTimeline } from './ResourceChangeTimeline';
 import { HelmDiff } from '../helm/HelmDiff';
 import { ActionsMenu } from './ActionsMenu';
 import { TabStrip } from './TabStrip';
@@ -212,6 +213,14 @@ export function DetailPanel() {
       {activeTab === 'events' && <EventsTab />}
       {/* CronJob timeline — Job execution history for CronJobs. */}
       {activeTab === 'timeline' && nav === 'cronjobs' && <CronJobTimeline />}
+      {/* Resource change timeline — Kubernetes Events for all resource kinds. */}
+      {activeTab === 'timeline' && nav !== 'cronjobs' && row && (
+        <ResourceChangeTimeline
+          kind={nav}
+          namespace={row.namespace ?? ''}
+          name={row.name}
+        />
+      )}
       {/* Helm revision diff — compare two revisions of a release. */}
       {activeTab === 'diff' && nav === 'helm' && row.namespace && (
         <HelmDiff namespace={row.namespace} name={row.name} />
