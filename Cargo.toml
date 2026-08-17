@@ -1,0 +1,61 @@
+[package]
+name = "k7s-android"
+version = "0.3.6"
+description = "k7s — Kubernetes visual monitor for Android"
+authors = ["k7s"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "k7s_android_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+k7s-core = { git = "https://github.com/yi-nology/k7s-core.git", features = ["tauri"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "sync", "time"] }
+futures = "0.3"
+kube = { version = "4", features = ["client", "config", "runtime", "ws"] }
+k8s-openapi = { version = "0.28", features = ["latest"] }
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }
+jiff = "0.2"
+uuid = { version = "1", features = ["v4"] }
+async-trait = "0.1"
+keyring = "4"
+urlencoding = "2"
+regex = "1"
+rand = "0.10"
+tokio-stream = { version = "0.1", features = ["sync"] }
+dirs = "5"
+dunce = "1"
+http = "1"
+base64 = "0.23"
+flate2 = "1"
+async-stream = "0.3"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
+[[bin]]
+name = "k7s-android"
+path = "src/main.rs"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
