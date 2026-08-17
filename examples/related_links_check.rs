@@ -8,15 +8,15 @@
 //! points at an object that actually exists, resolving each one against the API.
 //! A link to a 404 would be worse than the plain text it replaced.
 
-use k7s_lib::kube::dto::NavTarget;
-use k7s_lib::kube::mappers::{map_replicaset, map_storageclass};
-use k7s_lib::kube::properties::{gather, Body};
-use k8s_openapi::api::apps::v1::ReplicaSet;
-use k8s_openapi::api::core::v1::Pod;
-use k8s_openapi::api::storage::v1::StorageClass;
-use kube::api::{Api, ApiResource, DynamicObject, ListParams};
-use kube::core::GroupVersionKind;
-use kube::{Client, ResourceExt};
+use k7s_ios_lib::kube::dto::NavTarget;
+use k7s_ios_lib::kube::mappers::{map_replicaset, map_storageclass};
+use k7s_ios_lib::kube::properties::{gather, Body};
+use k7s_deps::k8s_openapi::api::apps::v1::ReplicaSet;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::k8s_openapi::api::storage::v1::StorageClass;
+use k7s_deps::kube::api::{Api, ApiResource, DynamicObject, ListParams};
+use k7s_deps::kube::core::GroupVersionKind;
+use k7s_deps::kube::{Client, ResourceExt};
 
 /// The GVK behind each nav id we can emit, for resolving a target back to a real
 /// object. Mirrors `resource_for` in commands.rs.
@@ -53,7 +53,7 @@ async fn resolves(client: &Client, t: &NavTarget) -> bool {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     // ---- the two new tables ----
@@ -122,7 +122,7 @@ async fn main() -> anyhow::Result<()> {
     // Every gatherer that emits links, not just the pod panel: the Service and
     // StatefulSet tables were wired later and are easy to leave behind.
     let mut panels: Vec<(&str, String, String)> = vec![("pods", ns.clone(), target.name_any())];
-    if let Some(s) = Api::<k8s_openapi::api::core::v1::Service>::all(client.clone())
+    if let Some(s) = Api::<k7s_deps::k8s_openapi::api::core::v1::Service>::all(client.clone())
         .list(&ListParams::default())
         .await?
         .items
@@ -139,7 +139,7 @@ async fn main() -> anyhow::Result<()> {
     // Prefer a StatefulSet that actually declares storage — its claim/volume/class
     // links are the ones worth checking, and a StatefulSet without templates
     // exercises none of them.
-    let stss = Api::<k8s_openapi::api::apps::v1::StatefulSet>::all(client.clone())
+    let stss = Api::<k7s_deps::k8s_openapi::api::apps::v1::StatefulSet>::all(client.clone())
         .list(&ListParams::default())
         .await?
         .items;
@@ -156,7 +156,7 @@ async fn main() -> anyhow::Result<()> {
             s.name_any(),
         ));
     }
-    if let Some(i) = Api::<k8s_openapi::api::networking::v1::Ingress>::all(client.clone())
+    if let Some(i) = Api::<k7s_deps::k8s_openapi::api::networking::v1::Ingress>::all(client.clone())
         .list(&ListParams::default())
         .await?
         .items

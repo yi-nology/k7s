@@ -27,6 +27,11 @@ serde = { version = "1", features = ["derive"] }
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 
+[dev-dependencies]
+# tokio: #[tokio::main] / #[tokio::test] in examples generate code that
+# references tokio by absolute path — the k7s_deps re-export can't satisfy it.
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
 [[bin]]
 name = "k7s-ios"
 path = "src/main.rs"

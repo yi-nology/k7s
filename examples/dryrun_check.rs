@@ -7,12 +7,12 @@
 //! the admission chain, the server's answer differs from the text we sent where
 //! defaulting applies, and the live object is byte-identical afterwards.
 
-use k8s_openapi::api::core::v1::ConfigMap;
-use kube::api::{Api, ListParams, PostParams};
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::ConfigMap;
+use k7s_deps::kube::api::{Api, ListParams, PostParams};
+use k7s_deps::kube::{Client, ResourceExt};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     // A ConfigMap is the safest possible subject: no controller acts on it, so

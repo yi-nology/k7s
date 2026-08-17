@@ -6,16 +6,16 @@
 //!
 //! Confirms the column contract, the Warnings-first/newest ordering, and the cap.
 
-use k7s_lib::kube::mappers;
-use k8s_openapi::api::core::v1::Event;
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_ios_lib::kube::mappers;
+use k7s_deps::k8s_openapi::api::core::v1::Event;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 
 /// Same cap the watcher applies (see watchers::EVENTS_CAP).
 const CAP: usize = 500;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
     let api: Api<Event> = Api::all(client);
     let list = api.list(&ListParams::default()).await?;

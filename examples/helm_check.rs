@@ -7,13 +7,13 @@
 //! storage format makes easy to get wrong: one row per release (not per revision
 //! Secret), and no Secret values leaking through a rendered manifest.
 
-use k7s_lib::kube::helm;
-use k8s_openapi::api::core::v1::Secret;
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_ios_lib::kube::helm;
+use k7s_deps::k8s_openapi::api::core::v1::Secret;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
     let api: Api<Secret> = Api::all(client);
     let lp = ListParams::default().fields(&format!("type={}", helm::RELEASE_SECRET_TYPE));
