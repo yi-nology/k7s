@@ -356,7 +356,7 @@ async fn import_kubeconfig_rejects_invalid_yaml() {
 
     let body = serde_json::json!({
         "filename": "bad.yaml",
-        "contents": "not: valid: yaml: [[[" 
+        "contents": "not: valid: yaml: [[["
     });
 
     let response = app
@@ -503,9 +503,7 @@ async fn get_secret_data_without_connection_returns_error() {
                 .method("POST")
                 .header("content-type", "application/json")
                 .header(header::AUTHORIZATION, format!("Bearer {token}"))
-                .body(Body::from(
-                    r#"{"namespace":"default","name":"my-secret"}"#,
-                ))
+                .body(Body::from(r#"{"namespace":"default","name":"my-secret"}"#))
                 .unwrap(),
         )
         .await
