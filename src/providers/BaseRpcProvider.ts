@@ -18,6 +18,7 @@ import type {
   ClusterInfo,
   DependencyGraph,
   DocDryRun,
+  IngressDebugResult,
   ExportFromNodeResult,
   ExportFromRegistryResult,
   ImportImageResult,
@@ -75,6 +76,9 @@ export abstract class BaseRpcProvider {
   }
   dependencyGraph(): Promise<DependencyGraph> {
     return this.rpc<DependencyGraph>('dependency_graph', {});
+  }
+  debugIngress(namespace: string, name: string): Promise<IngressDebugResult> {
+    return this.rpc<IngressDebugResult>('debug_ingress', { namespace, name });
   }
   restoreImports(paths: string[]): Promise<string[]> {
     return this.rpc<string[]>('restore_imports', { paths });

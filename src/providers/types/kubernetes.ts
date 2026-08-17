@@ -318,3 +318,32 @@ export interface DependencyGraph {
   nodes: GraphNode[];
   edges: GraphEdge[];
 }
+
+/** One hop in an Ingress routing chain. */
+export interface RouteHop {
+  kind: string;
+  name: string;
+  namespace: string;
+  /** "ok", "warning", or "error". */
+  status: string;
+  detail: string;
+}
+
+/** A single Ingress rule path with its full routing chain. */
+export interface IngressRoute {
+  host: string;
+  path: string;
+  pathType: string;
+  hops: RouteHop[];
+  /** Worst status across all hops. */
+  overallStatus: string;
+}
+
+/** Full debug result for an Ingress resource. */
+export interface IngressDebugResult {
+  ingress: string;
+  namespace: string;
+  ingressClass?: string;
+  tls: boolean;
+  routes: IngressRoute[];
+}

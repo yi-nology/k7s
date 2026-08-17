@@ -19,6 +19,7 @@ pub mod helm;
 pub mod helm_market;
 pub mod helm_ops;
 pub mod image_archive;
+pub mod ingress_debug;
 pub mod image_scan;
 pub mod image_sync;
 pub mod imageexport;

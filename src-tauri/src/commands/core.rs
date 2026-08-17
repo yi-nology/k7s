@@ -9,7 +9,8 @@ use crate::error::{AppError, AppResult};
 use crate::kube::client::{self, ClusterInfo, ContextInfo};
 use crate::kube::manager::{ClientManager, ImportedContext};
 use crate::kube::{
-    drain, exporter, logs, mappers, metrics, nodestats, promql, properties, rollout, watchers,
+    drain, exporter, ingress_debug, logs, mappers, metrics, nodestats, promql, properties,
+    rollout, watchers,
 };
 use k8s_openapi::api::core::v1::{Event, Secret};
 use kube::api::{Api, ListParams};
@@ -527,6 +528,18 @@ pub async fn dependency_graph(
     let graph = crate::kube::dependency_graph::build_dependency_graph(client).await?;
     serde_json::to_value(graph)
         .map_err(|e| AppError::Other(format!("serialize error: {e}")))
+}
+
+/// Debug an Ingress's routing chain: trace rules through Services to endpoint
+/// Pods and report the health of each hop.
+#[tauri::command]
+pub async fn debug_ingress(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<ingress_debug::IngressDebugResult> {
+    let client = require_client(&mgr.manager).await?;
+    ingress_debug::debug_ingress(client, &namespace, &name).await
 }
 
 /// Gather an object's properties as a generic section document (B13, B18).
