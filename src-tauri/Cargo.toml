@@ -5,13 +5,8 @@ description = "k7s — a Lens-style Kubernetes visual monitor"
 authors = ["k7s"]
 edition = "2021"
 default-run = "k7s"
-# 1.77.2 is what our dependency set actually needs (tauri-plugin-window-state
-# 2.x declares it). Leaving this at 1.77 silently resolved that plugin to a
-# v0.1.1 built for Tauri v1 — cargo downgrades rather than complains.
 rust-version = "1.77.2"
 
-# The library crate holds all app logic (commands, kube plumbing) so it can be
-# unit-tested with `cargo test`; main.rs is a thin binary that calls into it.
 [lib]
 name = "k7s_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -20,126 +15,62 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# --- k7s core (transport-agnostic business logic) ---
+# Provides: kube, serde, tokio, reqwest, chrono, uuid, tracing, thiserror,
+# anyhow, keyring, dirs, and all K8s/AI/core logic.
+k7s-core = { path = "../crates/k7s-core", features = ["tauri"] }
+
 # --- Tauri shell ---
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
-# Native file-open dialog for the "Import kubeconfig" action.
 tauri-plugin-dialog = "2"
-# Remembers window size/position/monitor across launches (B22).
 tauri-plugin-window-state = "2"
 
-# HTTP client for scraping node-exporter over a port-forward (B27). Already in
-# the tree via kube, so this adds no build time; default features off because the
-# forward is plaintext on localhost and needs no TLS stack of its own.
-# `stream` powers the AI assistant's LLM SSE streaming (chat completions).
-# `rustls` brings in TLS for the LLM provider (https://api.deepseek.com etc.);
-# kube already uses a rustls backend so this stays consistent.
-reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
-# Direct dependency so integration tests (tests/) can install the crypto
-# provider without going through Tauri's startup. Same version kube+reqwest
-# pull transitively.
-rustls = { version = "0.23", features = ["aws-lc-rs"] }
-
-# --- Serialization ---
+# --- Shell-specific dependencies (not in k7s-core) ---
+# tokio "signal" feature: SIGTERM handler for window-state save on dev/run.sh kill.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "signal", "sync", "time"] }
+# tracing-subscriber: used by lib.rs::run() to init structured logging.
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# Crates used directly by commands/web/mcp modules (via `use kube::*`, etc.)
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
-
-# --- Async runtime & stream helpers ---
-# "signal" powers the SIGTERM handler that saves window state (B22): dev/run.sh
-# stops the app with SIGTERM, which Tauri does not hook.
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "signal", "sync", "time"] }
-futures = "0.3"
-
-# --- Kubernetes ---
-# `kube` gives us the typed client, config parsing, and the watcher/reflector runtime.
 kube = { version = "4", features = ["client", "config", "runtime", "ws"] }
-# `k8s-openapi` provides the typed resource structs. The feature gate pins the API
-# surface; `latest` tracks the newest Kubernetes release supported by the crate.
 k8s-openapi = { version = "0.28", features = ["latest"] }
-
-# --- Error handling & logging ---
-thiserror = "2"
-anyhow = "1"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-# --- Time formatting for log timestamps ---
+anyhow = "1"
+thiserror = "2"
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
 chrono = { version = "0.4", features = ["serde"] }
-jiff = "0.2"
 uuid = { version = "1", features = ["v4"] }
-# `async-trait` lets the AI module's `Tool` trait have async fns while staying
-# usable as `dyn Tool` (object-safe). Without it the `Box<dyn Tool>` registry
-# wouldn't compile (async fn in traits is not yet dyn-compatible).
 async-trait = "0.1"
-# OS keychain for the AI assistant's api_key storage (macOS Keychain,
-# Linux secret-service, Windows Credential Manager). Replaces file-based
-# XOR obfuscation with real OS-level secret storage.
 keyring = "4"
-# URL encoding for the browser module's web search (DuckDuckGo API).
-urlencoding = "2"
-# Regex for sandbox secret detection patterns.
-regex = "1"
-# Random jitter for retry backoff in timeouts module.
-rand = "0.10"
-tokio-stream = { version = "0.1", features = ["sync"] }
-# Cross-platform directory paths (home dir, temp dir, etc.)
 dirs = "5"
-# Canonicalize paths without UNC prefix on Windows
-dunce = "1"
-
-# --- Raw HTTP requests to metrics.k8s.io (via kube::Client::request) ---
 http = "1"
 base64 = "0.23"
-flate2 = "1"
+futures = "0.3"
+rand = "0.10"
+tokio-stream = { version = "0.1", features = ["sync"] }
 
-# --- Web mode (Phase 1+ of "browser-only" feature) ---
-# A standalone axum server exposing the same command surface as Tauri, so the
-# React app can run in a plain browser tab against a real cluster. Only pulled
-# in when the `web` feature is on — the desktop build is unaffected.
+# --- Web mode (axum HTTP server, k7s-web binary) ---
 axum = { version = "0.8", optional = true }
 tower = { version = "0.5", optional = true }
 tower-http = { version = "0.6", features = ["cors", "trace", "fs"], optional = true }
-# `eventsource-stream` parses the SSE bytes the server sends into typed events
-# on the client side, but for the server we only need axum's `Sse` response type
-# from `axum::response::sse` which is part of axum proper.
-# NOTE: `async-stream` is non-optional — the AI assistant module uses the
-# `try_stream!` macro to assemble the LLM SSE parser in the desktop build too.
 async-stream = "0.3"
-# Embeds the built React app (dist/) into the k7s-web binary so it can be
-# distributed as a single .exe with no external files needed.
 rust-embed = { version = "8", optional = true }
-# Opens URLs in the default browser — cross-platform, works on Windows 7+.
 open = { version = "5", optional = true }
-# MIME type guesser for embedded asset serving.
 mime_guess = { version = "2", optional = true }
 
-# --- MCP mode ---
-# `k7s-mcp` is a stdio MCP server that exposes the same kube plumbing to AI
-# clients (Claude Desktop, Cursor, Claude Code, …). Pulls the official Rust
-# MCP SDK, which re-exports its own `schemars` version — we depend on
-# `schemars` directly so the derives can name the trait (`rmcp` only
-# re-exports the symbol, but the path through the re-export isn't usable
-# from a derive macro that needs to resolve the trait in the local crate).
-# `transport-streamable-http-server` powers the `/mcp` route on k7s-web so
-# remote AI clients (not running on the same host as the server) can reach
-# the same tools over HTTP.
+# --- MCP mode (stdio MCP server, k7s-mcp binary) ---
 rmcp = { version = "3", optional = true, features = ["server", "transport-io", "transport-streamable-http-server", "macros"] }
 schemars = { version = "1.0", features = ["chrono04"], optional = true }
 
 [features]
-# Reserved for future custom-protocol tweaks; kept so tauri.conf can reference it.
 custom-protocol = ["tauri/custom-protocol"]
-# Browser mode: enables axum + SSE so `cargo build --features web --bin k7s-web`
-# produces a standalone HTTP server that fronts the same kube plumbing.
-web = ["dep:axum", "dep:tower", "dep:tower-http", "tower-http/fs", "dep:rmcp", "dep:schemars", "rmcp/transport-streamable-http-server", "dep:rust-embed", "dep:open", "dep:mime_guess"]
-# MCP mode: enables the `k7s-mcp` stdio binary. Pulls the MCP SDK.
-# Independent of `web` — the MCP server stands on its own.
-mcp = ["dep:rmcp", "dep:schemars"]
+web = ["dep:axum", "dep:tower", "dep:tower-http", "tower-http/fs", "dep:rmcp", "dep:schemars", "rmcp/transport-streamable-http-server", "dep:rust-embed", "dep:open", "dep:mime_guess", "k7s-core/mcp"]
+mcp = ["dep:rmcp", "dep:schemars", "k7s-core/mcp"]
 
-# Default-deps branch: the lib crate still pulls in the same things; the only
-# flip is which binary gets built. `cargo build` → tauri app, `cargo build
-# --features web --bin k7s-web` → axum server.
 [[bin]]
 name = "k7s"
 path = "src/main.rs"
@@ -159,9 +90,4 @@ proptest = "1"
 tower = { version = "0.5", features = ["util"] }
 http-body-util = "0.1"
 
-[profile.release]
-# Smaller, faster desktop binary.
-codegen-units = 1
-lto = true
-opt-level = "s"
-strip = true
+# Release profile is defined in the workspace root Cargo.toml.
