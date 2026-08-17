@@ -272,7 +272,7 @@ pub fn api_router(state: WebState) -> Router {
         // SBOM endpoints (REST-style).
         .route("/api/sbom/image", post(handlers::sbom_generate_image))
         .route("/api/sbom/history", get(handlers::sbom_list_history))
-        .route("/api/sbom/:id", get(handlers::sbom_get))
+        .route("/api/sbom/{id}", get(handlers::sbom_get))
         // SBOM invoke bridges — the frontend calls POST /api/invoke/sbom_*.
         .route(
             "/api/invoke/sbom_generate_image",
@@ -386,7 +386,7 @@ pub fn api_router(state: WebState) -> Router {
             post(handlers::ai_cron_delete_handler),
         )
         // Stubs for everything else.
-        .route("/api/invoke/:cmd", post(handlers::not_implemented))
+        .route("/api/invoke/{cmd}", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client
         // can't accidentally trigger a state change by retrying.
         .route("/api/status", get(handlers::status))

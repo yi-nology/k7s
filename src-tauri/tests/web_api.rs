@@ -214,10 +214,12 @@ async fn status_returns_disconnected_when_no_cluster() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
+    // Response is wrapped in {ok, data} envelope
+    assert_eq!(json.get("ok"), Some(&serde_json::Value::Bool(true)));
+    let data = json.get("data").expect("response should have data field");
     // Should indicate disconnected state (no cluster in test env)
-    assert!(json.get("connected").is_some());
     assert_eq!(
-        json.get("connected").unwrap(),
+        data.get("connected").unwrap(),
         &serde_json::Value::Bool(false)
     );
 }
