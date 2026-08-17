@@ -205,7 +205,8 @@ describe('[ / ] tab cycling', () => {
   it('wraps around', () => {
     useStore.setState({ nav: 'pods', selectedRow: row('p', true), activeTab: 'logs' });
     press('[');
-    expect(useStore.getState().activeTab).toBe('events');
+    // Timeline is the last tab for pods (after events).
+    expect(useStore.getState().activeTab).toBe('timeline');
   });
 
   it('does nothing with no selection', () => {

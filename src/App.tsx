@@ -6,6 +6,7 @@
  * placeholder so the shell (sidebar, top bar, status bar) can be verified.
  */
 
+import { lazy, Suspense } from 'react';
 import styles from './App.module.css';
 import { useBootstrap } from './hooks/useBootstrap';
 import { useCustomKindWatch } from './hooks/useCustomKindWatch';
@@ -25,28 +26,31 @@ import { ForwardsBar } from './components/forwards/ForwardsBar';
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { CommandPalette } from './components/palette/CommandPalette';
 import { useStore } from './store';
-import { HelmMarket } from './components/helm/HelmMarket';
-import { PodFilesPanel } from './components/podfiles/PodFilesPanel';
-import { ImageRepoPanel } from './components/imagerepo/ImageRepoPanel';
-import { ImageTransferPanel } from './components/imagetransfer/ImageTransferPanel';
-import { TemplatePicker } from './components/templates/TemplatePicker';
-import { Dashboard } from './components/dashboard/Dashboard';
-import { MetricsExplorer } from './components/metrics/MetricsExplorer';
-import { GrafanaPanel } from './components/grafana/GrafanaPanel';
-import { EndpointsPanel } from './components/endpoints/EndpointsPanel';
-import { TopologyPanel } from './components/topology/TopologyPanel';
-import { IngressRouteTopology } from './components/topology/IngressRouteTopology';
-import { AlertsPanel } from './components/alerting/AlertsPanel';
-import { AuditPanel } from './components/audit/AuditPanel';
-import { IngressEditor } from './components/ingress/IngressEditor';
-import { ResourceDiff } from './components/diff/ResourceDiff';
-import { PluginPanel } from './components/plugins/PluginPanel';
-import { SBOMPanel } from './components/sbom/SBOMPanel';
 import { AiChat } from './components/ai/AiChat';
 import { usePlugins } from './hooks/usePlugins';
 import { useEffect } from 'react';
 import type { ComponentType } from 'react';
 import type { OverlayKey } from './store';
+
+// Lazy-load overlay panels — these are heavy and only one is visible at a time.
+// This keeps the initial bundle focused on the shell + table + detail panel.
+const HelmMarket = lazy(() => import('./components/helm/HelmMarket').then((m) => ({ default: m.HelmMarket })));
+const PodFilesPanel = lazy(() => import('./components/podfiles/PodFilesPanel').then((m) => ({ default: m.PodFilesPanel })));
+const ImageRepoPanel = lazy(() => import('./components/imagerepo/ImageRepoPanel').then((m) => ({ default: m.ImageRepoPanel })));
+const ImageTransferPanel = lazy(() => import('./components/imagetransfer/ImageTransferPanel').then((m) => ({ default: m.ImageTransferPanel })));
+const TemplatePicker = lazy(() => import('./components/templates/TemplatePicker').then((m) => ({ default: m.TemplatePicker })));
+const Dashboard = lazy(() => import('./components/dashboard/Dashboard').then((m) => ({ default: m.Dashboard })));
+const MetricsExplorer = lazy(() => import('./components/metrics/MetricsExplorer').then((m) => ({ default: m.MetricsExplorer })));
+const GrafanaPanel = lazy(() => import('./components/grafana/GrafanaPanel').then((m) => ({ default: m.GrafanaPanel })));
+const EndpointsPanel = lazy(() => import('./components/endpoints/EndpointsPanel').then((m) => ({ default: m.EndpointsPanel })));
+const TopologyPanel = lazy(() => import('./components/topology/TopologyPanel').then((m) => ({ default: m.TopologyPanel })));
+const IngressRouteTopology = lazy(() => import('./components/topology/IngressRouteTopology').then((m) => ({ default: m.IngressRouteTopology })));
+const AlertsPanel = lazy(() => import('./components/alerting/AlertsPanel').then((m) => ({ default: m.AlertsPanel })));
+const AuditPanel = lazy(() => import('./components/audit/AuditPanel').then((m) => ({ default: m.AuditPanel })));
+const IngressEditor = lazy(() => import('./components/ingress/IngressEditor').then((m) => ({ default: m.IngressEditor })));
+const ResourceDiff = lazy(() => import('./components/diff/ResourceDiff').then((m) => ({ default: m.ResourceDiff })));
+const PluginPanel = lazy(() => import('./components/plugins/PluginPanel').then((m) => ({ default: m.PluginPanel })));
+const SBOMPanel = lazy(() => import('./components/sbom/SBOMPanel').then((m) => ({ default: m.SBOMPanel })));
 
 /**
  * Overlays whose panel takes only `{ onClose }` — the overwhelming majority.
@@ -134,7 +138,9 @@ export default function App() {
               return (
                 <div className={styles.overlayBackdrop}>
                   <div className={styles.overlay}>
-                    <Panel onClose={closeOverlay} />
+                    <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
+                      <Panel onClose={closeOverlay} />
+                    </Suspense>
                   </div>
                 </div>
               );
@@ -142,22 +148,24 @@ export default function App() {
             {overlay === 'pod-files' && (
               <div className={styles.overlayBackdrop}>
                 <div className={styles.overlay}>
-                  {overlayPodRef ? (
-                    <PodFilesPanel
-                      ref={{
-                        kind: 'pods',
-                        namespace: overlayPodRef.namespace,
-                        name: overlayPodRef.name,
-                      }}
-                      container={overlayPodRef.container}
-                      onClose={closeOverlay}
-                    />
-                  ) : (
-                    // No pod picked yet — show a friendly empty state.
-                    <div className={styles.overlayEmpty}>
-                      {t('podFiles.noPod', "Open Pod Files from a Pod's row context menu.")}
-                    </div>
-                  )}
+                  <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
+                    {overlayPodRef ? (
+                      <PodFilesPanel
+                        ref={{
+                          kind: 'pods',
+                          namespace: overlayPodRef.namespace,
+                          name: overlayPodRef.name,
+                        }}
+                        container={overlayPodRef.container}
+                        onClose={closeOverlay}
+                      />
+                    ) : (
+                      // No pod picked yet — show a friendly empty state.
+                      <div className={styles.overlayEmpty}>
+                        {t('podFiles.noPod', "Open Pod Files from a Pod's row context menu.")}
+                      </div>
+                    )}
+                  </Suspense>
                 </div>
               </div>
             )}

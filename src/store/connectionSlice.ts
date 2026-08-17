@@ -8,9 +8,19 @@ import type { AppState, ConnectionState, OverlayKey, RowMap } from './types';
 import { KIND_ORDER } from '../lib/kinds';
 import { EMPTY_SELECTION } from '../lib/selection';
 
+/**
+ * Pre-built empty row map: every built-in kind present with an empty array.
+ * Frozen and shared — callers that need a fresh map for mutation create one
+ * via the `emptyRows()` accessor, but reads (selectors, comparisons) can use
+ * the constant directly.
+ */
+const EMPTY_ROWS_MAP: RowMap = Object.freeze(
+  Object.fromEntries(KIND_ORDER.map((k) => [k, [] as Row[]]))
+) as RowMap;
+
 /** Empty row map: every built-in kind present with an empty array. */
 function emptyRows(): RowMap {
-  return Object.fromEntries(KIND_ORDER.map((k) => [k, [] as Row[]]));
+  return { ...EMPTY_ROWS_MAP };
 }
 
 export interface ConnectionSlice {

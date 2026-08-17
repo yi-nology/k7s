@@ -13,18 +13,26 @@ import type { SinceOption } from '../lib/logview';
  * The eight log/YAML-related fields that reset to defaults whenever the detail
  * context changes (new selection, tab switch, close). Centralised so the reset
  * stays consistent instead of being re-typed at every call site.
+ *
+ * Frozen constant — every reset returns the same object reference, so zustand's
+ * shallow equality check can skip the re-render when the patch is merged into
+ * state that already has these values. The `logBuffer` empty array is shared
+ * across all resets; zustand will replace the old buffer with this reference,
+ * and components that diff by reference see no change.
  */
+const LOG_RESET_PATCH = Object.freeze({
+  yamlEditing: false,
+  yamlDraft: '',
+  logBuffer: [] as LogLine[],
+  logSearch: '',
+  containerIndex: 0,
+  following: true,
+  logPrevious: false,
+  logSince: 'all' as SinceOption,
+});
+
 function logResetPatch() {
-  return {
-    yamlEditing: false,
-    yamlDraft: '',
-    logBuffer: [] as LogLine[],
-    logSearch: '',
-    containerIndex: 0,
-    following: true,
-    logPrevious: false,
-    logSince: 'all' as SinceOption,
-  };
+  return LOG_RESET_PATCH;
 }
 
 /**
@@ -330,8 +338,24 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
   appendLogs: (lines) =>
     set((s) => {
       const cap = s.settings.logBufferCap;
-      const next = s.logBuffer.concat(lines);
-      return { logBuffer: next.length > cap ? next.slice(-cap) : next };
+      const buf = s.logBuffer;
+      // Fast path: buffer has room — single concat, no second allocation.
+      if (buf.length + lines.length <= cap) {
+        return { logBuffer: buf.concat(lines) };
+      }
+      // Over capacity: keep only the last `cap` items from the combined stream.
+      // Build the result in one pass, skipping older items that won't fit.
+      const total = buf.length + lines.length;
+      const skip = total - cap;
+      const combined = new Array<LogLine>(cap);
+      let idx = 0;
+      // Skip tail of the existing buffer if the overflow is entirely in `buf`.
+      const bufSkip = Math.min(skip, buf.length);
+      for (let i = bufSkip; i < buf.length; i++) combined[idx++] = buf[i];
+      // Fill remaining slots from `lines`, starting past any overflow there.
+      const linesSkip = Math.max(0, skip - buf.length);
+      for (let i = linesSkip; i < lines.length; i++) combined[idx++] = lines[i];
+      return { logBuffer: combined };
     }),
   clearLogs: () => set({ logBuffer: [] }),
   startYamlEdit: (initial) => set({ yamlEditing: true, yamlDraft: initial }),

@@ -11,6 +11,29 @@ export default defineConfig({
   // screen so Rust compiler output stays visible in the same terminal.
   clearScreen: false,
 
+  build: {
+    rollupOptions: {
+      output: {
+        // Split heavy vendor libraries into separate chunks so the initial
+        // bundle stays small and browsers can cache libs independently.
+        manualChunks: {
+          'vendor-plotly': ['plotly.js-basic-dist-min'],
+          'vendor-xterm': ['@xterm/xterm', '@xterm/addon-fit'],
+          'vendor-codemirror': [
+            'codemirror',
+            '@codemirror/state',
+            '@codemirror/view',
+            '@codemirror/commands',
+            '@codemirror/language',
+            '@codemirror/lang-yaml',
+          ],
+          'vendor-d3': ['d3-force'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm', 'react-shiki'],
+        },
+      },
+    },
+  },
+
   server: {
     // Fixed port so `tauri.conf.json > build.devUrl` can point at it.
     port: 1420,

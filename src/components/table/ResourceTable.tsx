@@ -33,6 +33,12 @@ import {
 } from '../../lib/selection';
 import { RowContextMenu, type ContextMenuAt } from '../actions/RowContextMenu';
 
+/** Stable empty objects — used when a kind doesn't need metrics/podRows, so the
+ *  selector returns the same reference every time and skips the rows recompute. */
+const EMPTY_POD_METRICS: PodMetricsMap = {};
+const EMPTY_NODE_METRICS: NodeMetricsMap = {};
+const EMPTY_POD_ROWS: Row[] = [];
+
 export function ResourceTable() {
   const nav = useStore((s) => s.nav);
   const namespace = useStore((s) => s.namespace);
@@ -44,10 +50,18 @@ export function ResourceTable() {
   const sortDir = useStore((s) => s.sortDir);
   const toggleSort = useStore((s) => s.toggleSort);
   const allRows = useStore((s) => rowsFor(s.rows, nav));
-  const podMetrics = useStore((s) => s.podMetrics);
-  const nodeMetrics = useStore((s) => s.nodeMetrics);
-  // The full pods list, used to derive per-namespace pod counts (B12).
-  const podRows = useStore((s) => s.rows.pods);
+  // Only subscribe to the metrics that the current nav kind actually uses.
+  // podMetrics/nodeMetrics change every ~15s (metrics poll); skipping the
+  // subscription for kinds that don't overlay metrics avoids a full table
+  // re-render on every tick.
+  const needsPodMetrics = nav === 'pods' || isRolloutKind(nav);
+  const needsNodeMetrics = nav === 'nodes';
+  const podMetrics = useStore((s) => (needsPodMetrics ? s.podMetrics : EMPTY_POD_METRICS));
+  const nodeMetrics = useStore((s) => (needsNodeMetrics ? s.nodeMetrics : EMPTY_NODE_METRICS));
+  // The full pods list, used to derive per-namespace pod counts (B12) and
+  // workload aggregated metrics. Only subscribe when the current kind needs it.
+  const needsPodRows = nav === 'namespaces' || isRolloutKind(nav);
+  const podRows = useStore((s) => (needsPodRows ? s.rows.pods : EMPTY_POD_ROWS));
   const selectedUid = useStore((s) => s.selectedRow?.uid ?? null);
   const selectRow = useStore((s) => s.selectRow);
   const selection = useStore((s) => s.selection);
