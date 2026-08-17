@@ -140,13 +140,9 @@ fn summarize_old_turns(messages: &[Message]) -> String {
                 let preview = truncate(content, 100);
                 summary_parts.push(format!("User: {preview}"));
             }
-            Message::Assistant { content, .. } => {
-                if let Some(text) = content {
-                    if !text.is_empty() {
-                        let preview = truncate(text, 100);
-                        summary_parts.push(format!("Assistant: {preview}"));
-                    }
-                }
+            Message::Assistant { content: Some(text), .. } if !text.is_empty() => {
+                let preview = truncate(text, 100);
+                summary_parts.push(format!("Assistant: {preview}"));
             }
             _ => {} // Skip tool messages and system messages in summary
         }
