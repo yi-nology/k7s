@@ -5,7 +5,7 @@
 
 .panel {
   width: 48%;
-  min-width: 540px;
+  min-width: 560px;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -22,7 +22,7 @@
 
 .header {
   flex: none;
-  padding: 16px 20px 0;
+  padding: 20px 24px 0;
   position: relative;
 }
 /* The header's bottom edge gets a soft gradient hairline, fading out at the
@@ -31,15 +31,15 @@
 .header::after {
   content: '';
   position: absolute;
-  left: 20px;
-  right: 20px;
+  left: 24px;
+  right: 24px;
   bottom: 0;
   height: 1px;
   background: linear-gradient(
     90deg,
     transparent,
-    var(--border-default) 30%,
-    var(--border-default) 70%,
+    var(--border-default) 20%,
+    var(--border-default) 80%,
     transparent
   );
 }
@@ -47,7 +47,7 @@
 .titleRow {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 .statusDot {
   width: 10px;
@@ -88,22 +88,22 @@
   letter-spacing: -0.01em;
 }
 .close {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--text-muted);
   font-size: var(--text-xl);
   background: transparent;
   border: 1px solid transparent;
   transition:
-    background 0.12s ease,
-    color 0.12s ease,
-    border-color 0.12s ease;
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
   /* Native <button> reset: a <button> otherwise carries user-agent font /
      padding / 2px outset border that the .close class above doesn't cover
      and the design doesn't want. */
@@ -129,12 +129,12 @@
   flex: none;
 }
 .actionsButton {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--text-muted);
   font-size: var(--text-xl);
@@ -142,9 +142,9 @@
   background: transparent;
   border: 1px solid transparent;
   transition:
-    background 0.12s ease,
-    color 0.12s ease,
-    border-color 0.12s ease;
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
   /* Native <button> reset — see .close above. */
   font: inherit;
   padding: 0;
@@ -192,9 +192,9 @@
 .meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
-  margin: 9px 0 12px;
-  padding-left: 22px;
+  gap: 8px 16px;
+  margin: 12px 0 14px;
+  padding-left: 24px;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-muted);
@@ -219,14 +219,14 @@
 .tabs {
   display: flex;
   gap: 4px;
-  padding: 0 14px;
+  padding: 0 18px;
   border-bottom: 1px solid var(--border-default);
 }
 .tab {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 10px 14px;
+  padding: 11px 16px;
   cursor: pointer;
   font-size: var(--text-md);
   font-weight: 500;
@@ -234,8 +234,8 @@
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition:
-    color 0.12s ease,
-    border-color 0.12s ease;
+    color 0.15s ease,
+    border-color 0.15s ease;
   position: relative;
   /* Native <button> reset — the .tab class is now on a real <button
      role="tab"> so it gets keyboard focus, Enter/Space activation, and the

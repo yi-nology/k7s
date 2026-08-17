@@ -217,7 +217,7 @@ export function TopologyPanel({ onClose }: { onClose?: () => void }) {
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') e.shiftKey ? prevMatch() : nextMatch();
+                if (e.key === 'Enter') { if (e.shiftKey) prevMatch(); else nextMatch(); }
                 if (e.key === 'Escape') {
                   setSearchQuery('');
                   searchInputRef.current?.blur();

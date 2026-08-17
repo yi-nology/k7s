@@ -454,7 +454,7 @@ const OverlayItem = React.memo(function OverlayItem({
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          active ? closeOverlay() : openOverlay(item.key);
+          if (active) closeOverlay(); else openOverlay(item.key);
         }
       }}
       title={active ? titleClose : item.label}

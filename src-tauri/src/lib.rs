@@ -119,6 +119,7 @@ pub fn run() {
             commands::debug_ingress,
             commands::simulate_connectivity,
             commands::node_history,
+            commands::pod_history,
             commands::watch_node_stats,
             commands::unwatch_node_stats,
             commands::unwatch_custom_kind,

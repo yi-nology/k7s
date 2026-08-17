@@ -34,7 +34,9 @@ body {
   background: var(--bg-app);
   color: var(--text-body);
   font-family: var(--font-ui);
-  font-size: 13.5px;
+  font-size: var(--text-base);
+  /* Slightly increased line-height for enterprise readability. */
+  line-height: 1.5;
   /* The app is a fixed single-window shell; internal regions scroll, not the page. */
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
@@ -43,6 +45,8 @@ body {
   /* Tabular numerals for any mono text in the app — a small typographic
      improvement that costs nothing. */
   font-variant-numeric: tabular-nums;
+  /* Improved letter spacing for enterprise-grade legibility. */
+  letter-spacing: 0.01em;
 }
 
 /* Theme transition animation — applied temporarily during theme switches so
@@ -102,27 +106,27 @@ button:disabled {
   opacity: 0.5;
 }
 
-/* Custom scrollbars matching the prototype: thin, track-transparent, thumb the
-   control-border color, brighter on hover. v2 — slightly larger hit area (10→12
-   inner) and a 3px gutter inset so the thumb never sits flush against content. */
+/* Custom scrollbars: refined enterprise-grade styling with smooth transitions.
+   Thin track, rounded thumb with generous padding, subtle hover brightening. */
 ::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
+  margin: 4px 0;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-control);
-  border-radius: 6px;
-  border: 3px solid transparent;
+  border-radius: 8px;
+  border: 2px solid transparent;
   background-clip: padding-box;
-  transition: background 0.12s ease;
+  transition: background 0.2s ease;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-linenum);
   background-clip: padding-box;
-  border: 3px solid transparent;
+  border: 2px solid transparent;
 }
 ::-webkit-scrollbar-corner {
   background: transparent;

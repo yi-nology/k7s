@@ -7,32 +7,33 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 20px;
-  height: 30px;
-  padding: 0 18px;
+  gap: 24px;
+  height: 36px;
+  padding: 0 20px;
   border-top: 1px solid var(--border-default);
   background: var(--bg-panel);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-muted);
+  letter-spacing: 0.02em;
 }
 
 /* The leading "● <cluster>" indicator (green connected / red otherwise). */
 .cluster {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: 600;
   min-width: 0;
 }
 .clusterDot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex: none;
   background: var(--status-ok);
-  box-shadow: 0 0 0 2px var(--status-ok-soft);
+  box-shadow: 0 0 0 3px var(--status-ok-soft);
 }
 
 /* Separator dot between facts. */

@@ -53,6 +53,20 @@ impl Default for PollIntervals {
 struct PodUsage {
     cpu_millis: i64,
     mem_bytes: i64,
+    /// Epoch milliseconds when this sample was taken.
+    ts: i64,
+}
+
+/// One point in a pod's CPU/memory history, returned by Prometheus backfill.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PodSample {
+    /// Epoch milliseconds — the x axis.
+    pub ts: i64,
+    /// CPU usage in millicores.
+    pub cpu_millis: i64,
+    /// Working-set memory in bytes.
+    pub mem_bytes: i64,
 }
 
 /// Per-node usage percentages keyed by node name.
@@ -186,6 +200,7 @@ async fn fetch_pod_metrics(client: &Client) -> Result<HashMap<String, PodUsage>,
         .map_err(|e| kube::Error::Service(Box::new(e)))?;
     let list: MetricsList<PodMetric> = client.request(req).await?;
 
+    let now_ms = chrono::Utc::now().timestamp_millis();
     let mut map = HashMap::new();
     for pm in list.items {
         let cpu: i64 = pm
@@ -204,6 +219,7 @@ async fn fetch_pod_metrics(client: &Client) -> Result<HashMap<String, PodUsage>,
             PodUsage {
                 cpu_millis: cpu,
                 mem_bytes: mem,
+                ts: now_ms,
             },
         );
     }

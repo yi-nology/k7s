@@ -16,6 +16,7 @@
 //! metrics pollers use, so it needs no port-forward and no route to the pod.
 
 use super::exporter::NodeSample;
+use super::metrics::PodSample;
 use crate::error::AppResult;
 use k8s_openapi::api::core::v1::Service;
 use kube::api::{Api, ListParams};
@@ -272,6 +273,74 @@ pub async fn node_history(
         series.push((name, points));
     }
     Ok(assemble(series))
+}
+
+// ---------------------------------------------------------------------------
+// Pod history
+// ---------------------------------------------------------------------------
+
+/// The PromQL behind each series of a pod's charts.
+///
+/// CPU is a rate over 5m (wider than the scrape interval so a missed scrape
+/// doesn't punch a hole) converted to millicores. Memory is the working-set
+/// bytes, summed across containers.
+fn pod_queries(namespace: &str, pod: &str) -> [(&'static str, String); 2] {
+    let sel = format!("pod=\"{pod}\",namespace=\"{namespace}\"");
+    [
+        (
+            "cpu_millis",
+            format!("sum(rate(container_cpu_usage_seconds_total{{{sel}}}[5m])) * 1000"),
+        ),
+        (
+            "mem_bytes",
+            format!("sum(container_memory_working_set_bytes{{{sel}}})"),
+        ),
+    ]
+}
+
+/// Backfill a pod's CPU/memory charts from Prometheus: the last `duration_secs`,
+/// sampled every 30s.
+///
+/// Returns an empty vec when the cluster has no Prometheus or the pod has no
+/// container metrics — the live metrics poller carries on as before.
+pub async fn pod_history(
+    client: &Client,
+    namespace: &str,
+    pod: &str,
+    duration_secs: i64,
+) -> AppResult<Vec<PodSample>> {
+    let Some(svc) = discover(client).await else {
+        return Ok(Vec::new());
+    };
+    let now = chrono::Utc::now().timestamp();
+    let start = now - duration_secs;
+    let step = 30i64;
+
+    let mut series = Vec::new();
+    for (name, q) in pod_queries(namespace, pod) {
+        let points = range(client, &svc, &q, start, now, step)
+            .await
+            .unwrap_or_default();
+        series.push((name, points));
+    }
+
+    // Assemble per-timestamp samples, keyed by timestamp like node_history.
+    let mut by_ts: BTreeMap<i64, PodSample> = BTreeMap::new();
+    for (name, points) in series {
+        for (ts, v) in points {
+            let s = by_ts.entry(ts).or_insert_with(|| PodSample {
+                ts,
+                cpu_millis: 0,
+                mem_bytes: 0,
+            });
+            match name {
+                "cpu_millis" => s.cpu_millis = v.round() as i64,
+                "mem_bytes" => s.mem_bytes = v.round() as i64,
+                _ => {}
+            }
+        }
+    }
+    Ok(by_ts.into_values().collect())
 }
 
 #[cfg(test)]

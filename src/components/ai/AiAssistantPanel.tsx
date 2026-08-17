@@ -75,26 +75,6 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [rows]);
 
-  // Subscribe to ai_event while a run is active.
-  useEffect(() => {
-    if (!runId) return;
-    let unlisten: UnlistenFn | null = null;
-    let cancelled = false;
-    void listen<{ runId: string; event: AgentEvent }>('ai_event', (e) => {
-      const { runId: evRun, event: ev } = e.payload;
-      if (evRun !== runId) return; // another run's event
-      handleEvent(ev);
-    }).then((fn) => {
-      if (cancelled) fn();
-      else unlisten = fn;
-    });
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runId]);
-
   function pushRow(r: Row) {
     setRows((prev) => [...prev, r]);
   }
@@ -105,6 +85,12 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
         row.kind === 'tool' && row.callId === callId ? { ...row, ...patch } : row
       )
     );
+  }
+
+  /** Commit any accumulated assistant text into the transcript + history. */
+  function flushPendingAssistant() {
+    if (!pendingText.current) return;
+    pendingText.current = '';
   }
 
   function handleEvent(ev: AgentEvent) {
@@ -163,11 +149,25 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
     }
   }
 
-  /** Commit any accumulated assistant text into the transcript + history. */
-  function flushPendingAssistant() {
-    if (!pendingText.current) return;
-    pendingText.current = '';
-  }
+  // Subscribe to ai_event while a run is active.
+  useEffect(() => {
+    if (!runId) return;
+    let unlisten: UnlistenFn | null = null;
+    let cancelled = false;
+    void listen<{ runId: string; event: AgentEvent }>('ai_event', (e) => {
+      const { runId: evRun, event: ev } = e.payload;
+      if (evRun !== runId) return; // another run's event
+      handleEvent(ev);
+    }).then((fn) => {
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runId]);
 
   async function send() {
     const text = input.trim();

@@ -422,6 +422,21 @@ pub async fn node_history(
     promql::node_history(&client, &svc, &node, now, 3600, 30).await
 }
 
+/// Backfill a pod's CPU/memory charts from Prometheus, or an empty list when
+/// the cluster has no Prometheus we recognise.
+///
+/// Like `node_history`, empty is normal — the live metrics poller is the
+/// primary source and this just pre-populates the trend chart.
+#[tauri::command]
+pub async fn pod_history(
+    namespace: String,
+    pod: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<metrics::PodSample>> {
+    let client = require_client(&mgr.manager).await?;
+    promql::pod_history(&client, &namespace, &pod, 3600).await
+}
+
 /// Start scraping a node's node-exporter for plots (B27), if not already running.
 ///
 /// Called when a node's Metrics tab opens. Lazy for the same reason CRD watchers

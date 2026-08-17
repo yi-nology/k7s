@@ -53,6 +53,7 @@ import type {
   MetricsConfig,
   MetricsConfigUpsert,
   NodeSample,
+  PodSample,
   ForwardInfo,
   PromQueryResult,
   Silence,

@@ -16,22 +16,22 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 18px;
+  gap: 10px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border-row);
 }
 .search {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: min(320px, 100%);
+  gap: 10px;
+  width: min(340px, 100%);
   background: var(--bg-control);
   border: 1px solid var(--border-control);
-  border-radius: var(--radius-md);
-  padding: 6px 12px;
+  border-radius: var(--radius-lg);
+  padding: 7px 14px;
   transition:
-    border-color 0.12s ease,
-    box-shadow 0.12s ease;
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .search:focus-within {
   border-color: var(--accent);
@@ -121,8 +121,8 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
+  gap: 7px;
+  padding: 6px 14px;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -130,12 +130,13 @@
   color: var(--accent);
   background: transparent;
   border: 1px solid var(--accent-soft);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   cursor: pointer;
   white-space: nowrap;
   transition:
-    background 0.1s ease,
-    border-color 0.1s ease;
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .newBtn:hover {
   background: var(--accent-softer);
@@ -173,17 +174,17 @@
   z-index: var(--z-sticky);
   background: var(--bg-chrome);
   text-align: left;
-  padding: 11px 18px;
+  padding: 12px 20px;
   font-size: var(--text-xs);
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: var(--text-faint);
   border-bottom: 1px solid var(--border-default);
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
   text-transform: uppercase;
-  transition: color 0.1s ease;
+  transition: color 0.15s ease;
 }
 .th:hover {
   color: var(--text-secondary);
@@ -208,7 +209,7 @@
 
 .row {
   background: transparent;
-  transition: background 0.1s ease;
+  transition: background 0.15s ease;
 }
 
 /* Windowed rows are pinned to exactly the height the spacer math assumes — a row
@@ -243,7 +244,7 @@
 }
 
 .td {
-  padding: 8px 18px;
+  padding: 9px 20px;
   border-bottom: 1px solid var(--border-row);
   white-space: nowrap;
 }

@@ -7,15 +7,15 @@
   flex: none;
   display: flex;
   align-items: center;
-  gap: 14px;
-  height: 56px;
-  padding: 0 18px;
+  gap: 16px;
+  height: 60px;
+  padding: 0 20px;
   border-bottom: 1px solid var(--border-default);
   /* Translucent over --bg-app, blurred+saturated. Light mode overrides the
      background below — the blur+saturate parts are identical. */
   background: var(--bg-topbar-glass);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   position: relative;
   z-index: var(--z-topbar);
 }
@@ -56,20 +56,20 @@
 .cmdBar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 260px;
-  padding: 6px 10px 6px 12px;
+  gap: 10px;
+  width: 280px;
+  padding: 7px 12px 7px 14px;
   background: var(--bg-control);
   border: 1px solid var(--border-control);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   transition:
-    border-color 0.12s ease,
-    background 0.12s ease,
-    box-shadow 0.12s ease;
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
   user-select: none;
 }
 .cmdBar:hover {
@@ -115,17 +115,18 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   background: var(--bg-control);
   border: 1px solid var(--border-control);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-secondary);
   transition:
-    background 0.12s ease,
-    border-color 0.12s ease;
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .nsButton:hover:not(:disabled) {
   border-color: var(--border-hover);
@@ -202,15 +203,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 5px;
+  padding: 6px;
   background: none;
   border: none;
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   cursor: pointer;
   transition:
-    background 0.12s ease,
-    color 0.12s ease;
+    background 0.15s ease,
+    color 0.15s ease;
 }
 .themeToggle:hover {
   background: var(--bg-hover);
@@ -229,19 +230,20 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  padding: 6px 12px;
   background: var(--bg-control);
   border: 1px solid var(--border-control);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   color: var(--text-secondary);
-  min-width: 40px;
+  min-width: 44px;
   justify-content: center;
   transition:
-    background 0.12s ease,
-    border-color 0.12s ease;
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .langButton:hover {
   border-color: var(--border-hover);

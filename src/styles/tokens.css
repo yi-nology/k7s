@@ -180,13 +180,13 @@
   --bg-topbar-glass-light: rgba(10, 10, 15, 0.72);
 
   /* ================ Elevation ================ */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.5);
-  --shadow-panel: -16px 0 32px rgba(0, 0, 0, 0.45); /* detail panel lift */
-  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5); /* dropdown menus */
-  --shadow-glow: 0 0 0 3px rgba(123, 133, 245, 0.3); /* focus ring (literal so light/dark differ) */
-}
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45), 0 6px 16px rgba(0, 0, 0, 0.3);
+  --shadow-panel: -20px 0 40px rgba(0, 0, 0, 0.4), -4px 0 12px rgba(0, 0, 0, 0.25); /* detail panel lift */
+  --shadow-menu: 0 10px 32px rgba(0, 0, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3); /* dropdown menus */
+  --shadow-glow: 0 0 0 3px rgba(123, 133, 245, 0.25), 0 0 12px rgba(123, 133, 245, 0.1); /* focus ring */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.15); /* cards, chips */
 
 /*
  * Light palette (B52). Same names, same roles, inverted surfaces.
@@ -281,12 +281,13 @@
   --grad-bg: radial-gradient(at 0% 0%, rgba(94, 106, 210, 0.04) 0px, transparent 50%);
 
   /* ---- Elevation: a dark-theme shadow reads as soot on white. ---- */
-  --shadow-sm: 0 1px 2px rgba(20, 20, 50, 0.04);
-  --shadow-md: 0 4px 16px rgba(20, 20, 50, 0.06);
-  --shadow-lg: 0 12px 36px rgba(20, 20, 50, 0.1);
-  --shadow-panel: -16px 0 32px rgba(20, 20, 50, 0.08);
-  --shadow-menu: 0 8px 24px rgba(20, 20, 50, 0.14);
-  --shadow-glow: 0 0 0 3px var(--accent-soft);
+  --shadow-sm: 0 1px 3px rgba(20, 20, 50, 0.05), 0 1px 2px rgba(20, 20, 50, 0.03);
+  --shadow-md: 0 4px 16px rgba(20, 20, 50, 0.07), 0 2px 6px rgba(20, 20, 50, 0.04);
+  --shadow-lg: 0 16px 48px rgba(20, 20, 50, 0.1), 0 6px 16px rgba(20, 20, 50, 0.06);
+  --shadow-panel: -20px 0 40px rgba(20, 20, 50, 0.08), -4px 0 12px rgba(20, 20, 50, 0.04);
+  --shadow-menu: 0 10px 32px rgba(20, 20, 50, 0.12), 0 4px 10px rgba(20, 20, 50, 0.08);
+  --shadow-glow: 0 0 0 3px var(--accent-soft), 0 0 12px rgba(94, 106, 210, 0.06);
+  --shadow-card: 0 2px 8px rgba(20, 20, 50, 0.06), 0 1px 3px rgba(20, 20, 50, 0.04);
 
   --gradient-badge: linear-gradient(135deg, #e8e8f0 0%, #d8d8e2 100%);
   --glow-ok: rgba(56, 161, 136, 0.35);
@@ -375,12 +376,13 @@
   --bg-edit-hover: #1b2a4a;
   --grad-bg: radial-gradient(at 0% 0%, rgba(123, 133, 245, 0.04) 0px, transparent 50%);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 12px 36px rgba(0, 0, 0, 0.5);
-  --shadow-panel: -16px 0 32px rgba(0, 0, 0, 0.45);
-  --shadow-menu: 0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 0 3px var(--accent-soft);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45), 0 6px 16px rgba(0, 0, 0, 0.3);
+  --shadow-panel: -20px 0 40px rgba(0, 0, 0, 0.4), -4px 0 12px rgba(0, 0, 0, 0.25);
+  --shadow-menu: 0 10px 32px rgba(0, 0, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 0 3px var(--accent-soft), 0 0 12px rgba(123, 133, 245, 0.1);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.15);
 
   --gradient-badge: linear-gradient(135deg, #3a3a48 0%, #26262f 100%);
   --glow-ok: rgba(78, 201, 176, 0.35);

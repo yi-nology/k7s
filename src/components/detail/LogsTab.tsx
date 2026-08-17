@@ -181,7 +181,7 @@ export function LogsTab() {
               value={logSearch}
               onChange={(e) => setLogSearch(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') e.shiftKey ? prevMatch() : nextMatch();
+                if (e.key === 'Enter') { if (e.shiftKey) prevMatch(); else nextMatch(); }
                 if (e.key === 'Escape') setLogSearch('');
               }}
               placeholder={t('logs.searchPlaceholder')}

@@ -27,6 +27,9 @@ export default tseslint.config(
       // v7 new rules: warn for now, fix incrementally
       'react-hooks/refs': 'warn',
       'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/purity': 'warn',
+      'react-hooks/no-deriving-state-in-effects': 'warn',
+      'react-hooks/immutability': 'warn',
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },
