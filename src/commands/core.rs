@@ -165,34 +165,6 @@ pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
         )
         .await;
 
-    // Auto-sync knowledge from the cluster (ConfigMaps, pod annotations)
-    // in the background. Non-blocking — the connect response returns
-    // immediately while sync runs behind the scenes.
-    let sync_manager = manager.clone();
-    let sync_data_dir = mgr.data_dir.clone();
-    let sync_context = context.clone();
-    tokio::spawn(async move {
-        match crate::ai::knowledge_sync::sync_from_cluster(
-            &sync_manager,
-            &sync_data_dir,
-            &sync_context,
-        )
-        .await
-        {
-            Ok(report) => {
-                if report.config_maps + report.pod_annotations + report.deploy_annotations > 0 {
-                    tracing::info!(
-                        cm = report.config_maps,
-                        pods = report.pod_annotations,
-                        deps = report.deploy_annotations,
-                        "knowledge sync completed"
-                    );
-                }
-            }
-            Err(e) => tracing::debug!("knowledge sync skipped: {e}"),
-        }
-    });
-
     Ok(ClusterInfo {
         context: context.clone(),
         cluster_name: context,

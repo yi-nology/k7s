@@ -6,7 +6,7 @@
 
 mod commands;
 
-pub use k7s_core::{error, kube, ai, core};
+pub use k7s_core::{error, kube, core};
 
 use k7s_core::core::CoreState;
 use k7s_core::kube::ClientManager;
@@ -48,12 +48,10 @@ pub fn run() {
                 .map_err(|e| format!("no config dir: {e}"))?;
             let state = CoreState::new(manager, data_dir);
             app.manage(state);
-            // The AI assistant runtime holds in-flight run bookkeeping
-            // (approvals + cancellation). It's cheap and self-contained.
-            app.manage(Arc::new(commands::ai::AiRuntime::new()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            // ── Cluster & kubeconfig ──────────────────────────────────
             commands::list_contexts,
             commands::default_kubeconfig_path,
             commands::import_kubeconfig,
@@ -61,6 +59,7 @@ pub fn run() {
             commands::load_prefs,
             commands::save_prefs,
             commands::connect,
+            // ── Resource CRUD ─────────────────────────────────────────
             commands::get_yaml,
             commands::apply_yaml,
             commands::dry_run_yaml,
@@ -80,6 +79,7 @@ pub fn run() {
             commands::configmap_snapshot_yaml,
             commands::get_properties,
             commands::watch_custom_kind,
+            commands::unwatch_custom_kind,
             commands::dependency_graph,
             commands::debug_ingress,
             commands::simulate_connectivity,
@@ -87,7 +87,7 @@ pub fn run() {
             commands::pod_history,
             commands::watch_node_stats,
             commands::unwatch_node_stats,
-            commands::unwatch_custom_kind,
+            // ── Logs & Shell ──────────────────────────────────────────
             commands::start_log_stream,
             commands::export_logs,
             commands::stop_log_stream,
@@ -97,74 +97,28 @@ pub fn run() {
             commands::stop_shell,
             commands::start_node_shell,
             commands::stop_node_shell,
+            // ── Port forwarding ───────────────────────────────────────
             commands::start_port_forward,
             commands::start_service_port_forward,
             commands::stop_port_forward,
             commands::list_port_forwards,
-            // Helm marketplace (Phase 1 of KubePi parity)
-            commands::helm_seed_repos,
-            commands::helm_list_repos,
-            commands::helm_add_repo,
-            commands::helm_remove_repo,
-            commands::helm_update_repo,
-            commands::helm_update_all_repos,
-            commands::helm_search_charts,
-            commands::helm_chart_versions,
-            commands::helm_export_chart,
-            commands::helm_import_chart,
-            commands::helm_local_charts,
-            commands::helm_render_default_values,
-            commands::helm_run_op,
-            commands::helm_release_history,
-            commands::helm_manifest_revision,
-            commands::helm_values_revision,
-            // Pod file management (Phase 2 of KubePi parity)
-            commands::pod_files_list,
-            commands::pod_files_read,
-            commands::pod_files_write,
-            commands::pod_files_download,
-            commands::pod_files_upload,
-            // Image registry management (Phase 5)
-            commands::image_registry_list,
-            commands::image_registry_upsert,
-            commands::image_registry_remove,
-            commands::image_registry_test,
-            commands::image_registry_repos,
-            commands::image_registry_tags,
-            // Multi-document YAML apply (Phase 4 — templates)
-            commands::apply_yaml_bundle,
-            commands::dry_run_yaml_bundle,
-            // Image import (air-gapped clusters)
-            commands::import_image_to_node,
-            commands::image_sync_status,
-            commands::image_copy,
-            commands::image_inspect_archive,
-            // Image export (node → tar, registry → tar)
-            commands::export_from_node,
-            commands::list_node_images,
-            commands::export_from_registry,
-            // Endpoints (Phase 1 Tier-2 of KubePi parity)
+            // ── Endpoints ─────────────────────────────────────────────
             commands::list_endpoints,
             commands::list_endpoints_for_service,
             commands::list_endpoint_addresses,
-            // CronJob manual trigger
+            // ── CronJob ───────────────────────────────────────────────
             commands::trigger_cronjob,
-            // Metrics / Prometheus multi-instance
+            // ── Multi-document YAML (templates) ───────────────────────
+            commands::apply_yaml_bundle,
+            commands::dry_run_yaml_bundle,
+            // ── Metrics / Prometheus ──────────────────────────────────
             commands::metrics_list,
             commands::metrics_upsert,
             commands::metrics_remove,
             commands::metrics_test,
             commands::metrics_query,
             commands::metrics_query_range,
-            // Grafana
-            commands::grafana_list,
-            commands::grafana_upsert,
-            commands::grafana_remove,
-            commands::grafana_test,
-            commands::grafana_presets,
-            commands::grafana_dashboard_url,
-            commands::grafana_search_dashboards,
-            // AlertManager
+            // ── AlertManager ──────────────────────────────────────────
             commands::alertmanager_list,
             commands::alertmanager_upsert,
             commands::alertmanager_remove,
@@ -174,80 +128,27 @@ pub fn run() {
             commands::alertmanager_create_silence,
             commands::alertmanager_delete_silence,
             commands::prometheus_rules,
-            // Loki / K8s Audit log
+            // ── Loki / K8s Audit log ─────────────────────────────────
             commands::loki_list,
             commands::loki_upsert,
             commands::loki_remove,
             commands::loki_test,
             commands::audit_events,
-            // Saved PromQL queries + cache
+            // ── Saved PromQL queries ──────────────────────────────────
             commands::saved_queries_list,
             commands::saved_queries_upsert,
             commands::saved_queries_remove,
             commands::saved_queries_clear_cache,
             commands::saved_queries_run,
-            // Image manifest drill-down
-            commands::image_registry_manifest,
-            // SBOM generation, history, and export
-            commands::sbom_generate_image,
-            commands::sbom_generate_cluster,
-            commands::sbom_list_history,
-            commands::sbom_get,
-            commands::sbom_export,
-            // RBAC Security Audit
-            commands::security_audit_run,
-            commands::rbac_permission_matrix,
-            // Scanner status (trivy/grype availability)
-            commands::scanner_status,
-            // Built-in AI assistant (runtime-toggled). See commands::ai.
-            commands::ai_get_context,
-            commands::ai_get_config,
-            commands::ai_save_config,
-            commands::ai_save_api_key,
-            commands::ai_test_connection,
-            commands::ai_chat,
-            commands::ai_approve_tool_call,
-            commands::ai_cancel,
-            // Skill market (Phase 2).
-            commands::ai_list_skills,
-            // Cluster memory / knowledge base (four-tier).
-            commands::ai_memory_list,
-            commands::ai_memory_search,
-            commands::ai_memory_search_vault,
-            commands::ai_memory_add,
-            commands::ai_memory_delete,
-            commands::ai_memory_clear,
-            commands::ai_memory_add_runbook,
-            commands::ai_memory_preferences,
-            // Cron scheduler (scheduled AI tasks).
-            commands::ai_cron_list,
-            commands::ai_cron_presets,
-            commands::ai_cron_add,
-            commands::ai_cron_update,
-            commands::ai_cron_delete,
-            commands::ai_cron_toggle,
-            commands::ai_cron_history,
-            // Embedded / local models.
-            commands::ai_discover_local_models,
-            commands::ai_local_model_presets,
-            commands::ai_check_local_model,
-            // Browser tools.
-            commands::ai_fetch_url,
-            commands::ai_web_search,
-            // Sessions.
-            commands::ai_session_list,
-            commands::ai_session_create,
-            commands::ai_session_delete,
-            commands::ai_session_queue_size,
-            // Evolution (self-improving strategies).
-            commands::ai_evolution_strategies,
-            commands::ai_evolution_record_run,
-            commands::ai_evolution_delete_strategy,
-            // Sandbox security presets.
-            commands::ai_sandbox_presets,
-            // Knowledge sync (cluster docs, annotations, file import).
-            commands::ai_knowledge_sync,
-            commands::ai_knowledge_import,
+            // ── Removed from iPadOS build: ────────────────────────────
+            // Helm marketplace (heavy wizard, poor touch ergonomics)
+            // Pod file management (upload/download limited on iPad)
+            // Image registry / transfer / export (desktop toolchain)
+            // SBOM generation (heavy background task)
+            // RBAC security audit (report-oriented)
+            // Scanner status (trivy/grype not available on iOS)
+            // Grafana embed (iframe, poor iPad experience)
+            // AI assistant (ReAct loop, keyboard-intensive)
         ])
         .run(tauri::generate_context!())
         .expect("error while running k7s application");
