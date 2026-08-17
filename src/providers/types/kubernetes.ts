@@ -21,6 +21,8 @@ export interface LogLine {
 export interface PodMetrics {
   cpuMillis: number;
   memBytes: number;
+  /** Epoch milliseconds when this sample was taken. */
+  ts: number;
 }
 export type PodMetricsMap = Record<string, PodMetrics>;
 

@@ -196,6 +196,8 @@ export interface DataProvider {
    * normal no-history case, not a failure, and the live scraper covers it.
    */
   nodeHistory(node: string): Promise<NodeSample[]>;
+  /** Backfill a pod's CPU/memory charts from Prometheus (last hour). */
+  podHistory(namespace: string, pod: string): Promise<PodSample[]>;
   watchNodeStats(node: string): Promise<void>;
   /** Stop scraping a node (idempotent). */
   unwatchNodeStats(node: string): Promise<void>;

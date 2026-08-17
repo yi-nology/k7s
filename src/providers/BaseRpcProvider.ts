@@ -140,6 +140,9 @@ export abstract class BaseRpcProvider {
   nodeHistory(node: string): Promise<NodeSample[]> {
     return this.rpc<NodeSample[]>('node_history', { node });
   }
+  podHistory(namespace: string, pod: string): Promise<PodSample[]> {
+    return this.rpc<PodSample[]>('pod_history', { namespace, pod });
+  }
   watchNodeStats(node: string): Promise<void> {
     return this.rpc<void>('watch_node_stats', { node });
   }

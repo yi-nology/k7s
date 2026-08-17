@@ -10,7 +10,7 @@
 
 A dark, Lens-style Kubernetes visual monitor built with **Tauri 2 + Rust + React**, plus three interchangeable shells from one codebase: a native **desktop app** (`k7s`), a single-binary **web server** (`k7s-web`), and a **MCP server** (`k7s-mcp`) that exposes the full surface to AI clients.
 
-Targets **macOS** and **Linux** (desktop), runs in **any browser** via `k7s-web` (incl. **Windows 7**), and ships a **multi-arch Docker image**. Inspired by [k9s](https://k9scli.io/) and the [lyuke/k7s](https://github.com/lyuke/k7s) reference project.
+Targets **macOS** and **Linux** (desktop), runs in **any browser** via `k7s-web`, and ships a **multi-arch Docker image**. Inspired by [k9s](https://k9scli.io/) and the [lyuke/k7s](https://github.com/lyuke/k7s) reference project.
 
 ---
 
@@ -29,7 +29,7 @@ Targets **macOS** and **Linux** (desktop), runs in **any browser** via `k7s-web`
 - [🚀 Develop](#-develop)
 - [📦 Build a release](#-build-a-release)
 - [🐳 Docker / server deployment](#-docker--server-deployment)
-- [🪟 Windows 7 / web server mode](#-windows-7--web-server-mode)
+- [🪟 Windows / web server mode](#-windows--web-server-mode)
 - [🧪 Testing](#-testing)
 - [🧩 Extending k7s](#-extending-k7s)
 - [🗺 Roadmap](#-roadmap)
@@ -63,7 +63,7 @@ docker run -d --name k7s -p 8080:8080 \
 # → open http://localhost:8080
 ```
 
-**Windows / macOS Intel:** grab the installer from [GitHub Releases](https://github.com/zy84338719/k7s/releases). Windows 7 users: see [Windows 7 / web server mode](#-windows-7--web-server-mode).
+**Windows / macOS Intel:** grab the installer from [GitHub Releases](https://github.com/zy84338719/k7s/releases). Windows users: see [Windows / web server mode](#-windows--web-server-mode).
 
 ---
 
@@ -136,7 +136,7 @@ k7s, [Lens](https://k8slens.dev/), [KubePi](https://github.com/1Panel-dev/KubePi
 | **Auth model** | your kubeconfig (RBAC, exec plugins) | kubeconfig / OIDC | OIDC / SAML / LDAP / MFA / RBAC | OIDC |
 | **Bundle size** | ~9 MB | ~300 MB | hundreds of MB | ~50 MB |
 | **Telemetry** | none | crash reports | login + op log to DB | none |
-| **Platforms** | macOS, Linux, **any browser (incl. Windows 7)**, Docker | macOS, Linux, Windows | any browser | any browser |
+| **Platforms** | macOS, Linux, **any browser**, Docker | macOS, Linux, Windows | any browser | any browser |
 
 ### Who should pick what
 
@@ -462,7 +462,7 @@ k7s is one codebase in three shapes. The **desktop** build calls into Rust direc
 | **Transport** | Tauri IPC | HTTP `/api/*` + SSE | MCP |
 | **Live data** | Tauri emits | SSE `GET /api/events` | tool results |
 | **Bundle** | ~9 MB | ~10 MB | ~7 MB |
-| **Best for** | daily-driver SRE laptop | server / Windows 7 / shared box | AI-driven cluster ops |
+| **Best for** | daily-driver SRE laptop | server / shared box | AI-driven cluster ops |
 
 ---
 
@@ -756,9 +756,9 @@ docker compose up -d           # → http://localhost:8080
 
 ---
 
-## 🪟 Windows 7 / web server mode
+## 🪟 Windows / web server mode
 
-The k7s desktop app is built on Tauri 2 (WebView2), which needs **Windows 10+**. Windows 7 users can use the **`k7s-web`** standalone server instead — the full k7s feature set, accessed through any browser.
+The k7s desktop app is built on Tauri 2 (WebView2), which needs **Windows 10+**. Windows users can also use the **`k7s-web`** standalone server — the full k7s feature set, accessed through any browser.
 
 1. Download `k7s-web-windows-x64.exe` from [Releases](https://github.com/zy84338719/k7s/releases).
 2. Double-click to run.

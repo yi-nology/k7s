@@ -116,7 +116,7 @@ describe('NodePodsTab', () => {
       useStore.setState({
         selectedRow: node,
         rows: { ...useStore.getState().rows, pods: [pod] },
-        podMetrics: { 'default/nginx': { cpuMillis: 250, memBytes: 128 * 1024 * 1024 } },
+        podMetrics: { 'default/nginx': { cpuMillis: 250, memBytes: 128 * 1024 * 1024, ts: Date.now() } },
       });
       view = render(<NodePodsTab />);
       // Should show formatted CPU (250m)

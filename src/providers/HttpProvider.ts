@@ -412,6 +412,9 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   nodeHistory(_node: string): Promise<NodeSample[]> {
     return Promise.resolve([]);
   }
+  podHistory(_namespace: string, _pod: string): Promise<import('./types').PodSample[]> {
+    return Promise.resolve([]);
+  }
   watchNodeStats(_node: string): Promise<void> {
     return Promise.resolve();
   }

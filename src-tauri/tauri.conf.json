@@ -29,7 +29,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["app", "dmg", "deb", "rpm", "appimage", "msi"],
     "category": "DeveloperTool",
     "shortDescription": "Lens-style Kubernetes visual monitor",
     "icon": [

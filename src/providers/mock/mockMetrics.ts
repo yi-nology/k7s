@@ -110,6 +110,21 @@ export class MockMetricsMixin {
     return out;
   }
 
+  async podHistory(_namespace: string, _pod: string): Promise<PodSample[]> {
+    const step = 30_000;
+    const points = 120;
+    const now = Date.now();
+    let cpu = 150;
+    let mem = 256 * 1024 * 1024;
+    const out: PodSample[] = [];
+    for (let i = points; i > 0; i--) {
+      cpu = Math.max(10, cpu + (Math.random() - 0.5) * 80);
+      mem = Math.max(64 * 1024 * 1024, mem + (Math.random() - 0.5) * 32 * 1024 * 1024);
+      out.push({ ts: now - i * step, cpuMillis: Math.round(cpu), memBytes: Math.round(mem) });
+    }
+    return out;
+  }
+
   async watchNodeStats(node: string): Promise<void> {
     if (this.nodeTimers.has(node)) return;
 

@@ -117,6 +117,7 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
   onNodeStats = this.metrics.onNodeStats.bind(this.metrics);
   onNodeStatsError = this.metrics.onNodeStatsError.bind(this.metrics);
   nodeHistory = this.metrics.nodeHistory.bind(this.metrics);
+  podHistory = this.metrics.podHistory.bind(this.metrics);
   watchNodeStats = this.metrics.watchNodeStats.bind(this.metrics);
   unwatchNodeStats = this.metrics.unwatchNodeStats.bind(this.metrics);
   onPodStats = this.metrics.onPodStats.bind(this.metrics);

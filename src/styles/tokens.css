@@ -187,6 +187,7 @@
   --shadow-menu: 0 10px 32px rgba(0, 0, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3); /* dropdown menus */
   --shadow-glow: 0 0 0 3px rgba(123, 133, 245, 0.25), 0 0 12px rgba(123, 133, 245, 0.1); /* focus ring */
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.15); /* cards, chips */
+}
 
 /*
  * Light palette (B52). Same names, same roles, inverted surfaces.
