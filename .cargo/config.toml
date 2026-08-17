@@ -1,8 +1,9 @@
 # Cargo build optimization configuration
 
-# Use parallel compilation
+# Use parallel compilation and sccache for caching
 [build]
 jobs = 8
+rustc-wrapper = "sccache"
 
 # Optimize for Apple Silicon
 [target.aarch64-apple-darwin]
