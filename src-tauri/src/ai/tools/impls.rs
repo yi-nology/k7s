@@ -491,3 +491,14 @@ pub async fn hpa_status_impl(
         .collect();
     Ok(serde_json::json!({ "hpas": rows }))
 }
+
+// ---------------------------------------------------------------------------
+// Security audit
+// ---------------------------------------------------------------------------
+
+/// Run the RBAC security audit and return findings.
+pub async fn security_audit_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+    let client = manager.client().await.ok_or(AppError::Disconnected)?;
+    let report = crate::kube::security_audit::run_audit(client).await?;
+    serde_json::to_value(report).map_err(|e| AppError::Other(e.to_string()))
+}

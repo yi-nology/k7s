@@ -97,6 +97,7 @@ impl ToolRegistry {
             Box::new(read_tools::BatchGet),
             Box::new(read_tools::DiffResources),
             Box::new(read_tools::HpaStatus),
+            Box::new(read_tools::SecurityAudit),
             Box::new(read_tools::SpawnSubAgent),
             // write
             Box::new(write_tools::ScaleWorkload),
@@ -239,6 +240,7 @@ mod tests {
             "get_pod_logs",
             "get_cluster_health",
             "top_nodes",
+            "security_audit",
             "scale_workload",
             "restart_workload",
             "delete_resource",

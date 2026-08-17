@@ -310,6 +310,33 @@ impl Tool for HpaStatus {
     }
 }
 
+// Security audit
+pub struct SecurityAudit;
+#[async_trait]
+impl Tool for SecurityAudit {
+    fn name(&self) -> &str {
+        "security_audit"
+    }
+    fn description(&self) -> &str {
+        "Run a comprehensive RBAC security audit of the cluster. \
+         Identifies over-privileged roles, wildcard permissions, secret access, \
+         pod exec capabilities, anonymous bindings, and other security risks. \
+         Use this when the user asks about cluster security, RBAC risks, or wants a security report."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type":"object","properties":{}})
+    }
+    async fn call(
+        &self,
+        ctx: &ToolContext,
+        _args: serde_json::Value,
+    ) -> AiResult<serde_json::Value> {
+        impls::security_audit_impl(&ctx.manager)
+            .await
+            .map_err(|e| AiError::Tool(e.to_string()))
+    }
+}
+
 // Swarm tool — spawn a sub-agent for parallel work.
 pub struct SpawnSubAgent;
 #[async_trait]

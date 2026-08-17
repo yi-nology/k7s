@@ -2271,6 +2271,22 @@ impl K7sMcpServer {
         }))
     }
 
+    #[tool(
+        description = "Run a comprehensive RBAC security audit of the cluster. Identifies over-privileged roles, wildcard permissions, secret access, pod exec capabilities, anonymous bindings, and other security risks. Returns an AuditReport with findings sorted by severity."
+    )]
+    async fn security_audit(
+        &self,
+        Parameters(_p): Parameters<SecurityAuditParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let report = crate::kube::security_audit::run_audit(client)
+            .await
+            .map_err(tool_error)?;
+        json_result(&report)
+    }
+
     // === Consolidated tools (replace multiple single-purpose tools) ===
 
     #[tool(

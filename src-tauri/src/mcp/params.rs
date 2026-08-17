@@ -679,3 +679,11 @@ pub struct SilenceUnifiedParams {
 pub struct ListKindsParams {
     pub scope: String,
 }
+
+// ---------------------------------------------------------------------------
+// Security audit parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SecurityAuditParams {}
