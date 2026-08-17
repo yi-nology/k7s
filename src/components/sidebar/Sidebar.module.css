@@ -404,6 +404,10 @@
   text-overflow: ellipsis;
 }
 
+.navGroupLabelActive {
+  color: var(--accent);
+}
+
 /* A kind nested under its API group — indented to sit under the group's label,
    and iconless (the group row carries the visual anchor). */
 .navItemNested {

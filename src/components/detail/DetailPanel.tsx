@@ -69,34 +69,9 @@ export function DetailPanel() {
     closeDetail();
   }, [kindRows, row, closeDetail, hasMultiTabs]);
 
-  // Panel is closed when nothing is selected (single-panel or multi-tab).
-  if (!row) return null;
-
-  // Drain progress for this node, if one has run this session (B20).
-  const drain = nav === 'nodes' ? drains[row.name] : undefined;
-
-  const meta = row.pod; // present only for pods
-  const isPod = !!meta;
-  // Which tabs this kind gets — shared with the `[`/`]` cycle keys, so the strip
-  // and the keyboard can't disagree about what exists (see lib/kinds.ts).
-  const tabIds = tabsFor(nav, isPod);
-  const tabs = DETAIL_TABS.filter((t) => tabIds.includes(t.id));
-  const statusColor = meta ? toneColor(meta.statusTone) : 'var(--text-muted)';
-  // Status dot: tone-driven halo + (for err) a slow pulse so the eye lands on
-  // the failing pod at a glance. The base .statusDot is the green/ok version.
-  const statusDotCls =
-    meta?.statusTone === 'err'
-      ? `${styles.statusDot} ${styles.statusDotFailed}`
-      : meta?.statusTone === 'warn'
-        ? `${styles.statusDot} ${styles.statusDotPending}`
-        : styles.statusDot;
-  // Custom kinds resolve their label from discovery, so this is a runtime lookup.
-  // Localised through `kindLabelFor` so a Chinese UI reads "Deployment" /
-  // "节点" / "ConfigMap" rather than the raw English KIND_META label.
-  const kindLabel =
-    kindLabelFor(nav, customKinds, locale) ?? kindMeta(nav, customKinds)?.label ?? nav;
-
   // Drag-to-resize: left edge handle, persists width to settings.
+  // Declared above the `if (!row) return null` early return — hooks must run
+  // unconditionally (see note there).
   const detailWidthPct = useStore((s) => s.settings.detailWidthPct);
   const setSettings = useStore((s) => s.setSettings);
   const dragRef = useRef<HTMLDivElement>(null);
@@ -131,6 +106,36 @@ export function DetailPanel() {
   const handleDoubleClick = useCallback(() => {
     setSettings({ detailWidthPct: 48 });
   }, [setSettings]);
+
+  // Panel is closed when nothing is selected (single-panel or multi-tab).
+  // NOTE: every hook must run before this early return — React requires a
+  // stable hook count across renders, and closing the panel (row → null) is
+  // exactly the re-render that used to skip the drag-resize hooks above.
+  if (!row) return null;
+
+  // Drain progress for this node, if one has run this session (B20).
+  const drain = nav === 'nodes' ? drains[row.name] : undefined;
+
+  const meta = row.pod; // present only for pods
+  const isPod = !!meta;
+  // Which tabs this kind gets — shared with the `[`/`]` cycle keys, so the strip
+  // and the keyboard can't disagree about what exists (see lib/kinds.ts).
+  const tabIds = tabsFor(nav, isPod);
+  const tabs = DETAIL_TABS.filter((t) => tabIds.includes(t.id));
+  const statusColor = meta ? toneColor(meta.statusTone) : 'var(--text-muted)';
+  // Status dot: tone-driven halo + (for err) a slow pulse so the eye lands on
+  // the failing pod at a glance. The base .statusDot is the green/ok version.
+  const statusDotCls =
+    meta?.statusTone === 'err'
+      ? `${styles.statusDot} ${styles.statusDotFailed}`
+      : meta?.statusTone === 'warn'
+        ? `${styles.statusDot} ${styles.statusDotPending}`
+        : styles.statusDot;
+  // Custom kinds resolve their label from discovery, so this is a runtime lookup.
+  // Localised through `kindLabelFor` so a Chinese UI reads "Deployment" /
+  // "节点" / "ConfigMap" rather than the raw English KIND_META label.
+  const kindLabel =
+    kindLabelFor(nav, customKinds, locale) ?? kindMeta(nav, customKinds)?.label ?? nav;
 
   // data-surface="panel": in light mode the inspector is dark chrome (tokens.css).
   return (

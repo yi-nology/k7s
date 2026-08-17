@@ -163,11 +163,12 @@ const GROUP_LABELS_ZH: Record<NavGroup, string> = {
   network: '网络',
   storage: '存储',
   config: '配置',
-  access: '访问控制',
+  access: 'RBAC',
   images: '镜像',
   helm: 'Helm',
   cluster: '集群',
   custom: '自定义',
+  tools: '工具',
 };
 
 const KIND_LABELS_ZH: Record<ResourceKind, string> = {

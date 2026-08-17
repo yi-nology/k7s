@@ -463,6 +463,8 @@ describe('yamlDraft lifecycle (pass-24)', () => {
       selectedRow: null,
       yamlEditing: false,
       yamlDraft: '',
+      yamlBase: '',
+      pendingDetail: null,
     });
   });
 
@@ -475,21 +477,22 @@ describe('yamlDraft lifecycle (pass-24)', () => {
   });
 
   /**
-   * selectRow closes any in-progress edit (yamlEditing → false) and now also
-   * clears the draft. Without the clear, switching rows leaves the old draft in
-   * the store, where the next Edit click on the new row overwrites it with the
-   * fresh fetch — the user's work vanishes with no warning.
+   * selectRow closes any in-progress edit (yamlEditing → false) and also clears
+   * the draft when it is NOT dirty (draft === base — e.g. the editor was left
+   * open with no keystrokes). A dirty draft is guarded instead: the navigation
+   * is intercepted into `pendingDetail` and the EditGuardDialog asks the user
+   * (covered in the dirty-guard describe below).
    *
-   * (The "click the same row" case is also covered by this: selectRow resets
-   * yamlEditing to false unconditionally, so the user has already lost the edit
-   * by the time selectRow returns. Carrying a draft that the editor no longer
-   * shows is dead state.)
+   * Without the clear, switching rows leaves the old draft in the store, where
+   * the next Edit click on the new row overwrites it with the fresh fetch —
+   * the user's work vanishes with no warning.
    */
   it('selectRow clears the stale yamlDraft', () => {
-    useStore.setState({ yamlEditing: true, yamlDraft: 'edited content' });
+    useStore.setState({ yamlEditing: true, yamlDraft: 'edited content', yamlBase: 'edited content' });
     useStore.getState().selectRow(row('B'));
     expect(useStore.getState().yamlEditing).toBe(false);
     expect(useStore.getState().yamlDraft).toBe('');
+    expect(useStore.getState().pendingDetail).toBeNull();
   });
 
   /**
@@ -506,14 +509,16 @@ describe('yamlDraft lifecycle (pass-24)', () => {
 
   /**
    * Switching tabs closes the edit session the same way Cancel does: the editor
-   * is read-only, the user is now looking at a different surface. Leaving the
-   * draft behind invites the same silent-overwrite bug as Cancel.
+   * is read-only, the user is now looking at a different surface. As with
+   * selectRow, an unmodified draft is cleared immediately; a dirty one goes
+   * through the guard dialog (see below).
    */
   it('setActiveTab clears the yamlDraft', () => {
-    useStore.setState({ yamlEditing: true, yamlDraft: 'edited content' });
+    useStore.setState({ yamlEditing: true, yamlDraft: 'edited content', yamlBase: 'edited content' });
     useStore.getState().setActiveTab('logs');
     expect(useStore.getState().yamlEditing).toBe(false);
     expect(useStore.getState().yamlDraft).toBe('');
+    expect(useStore.getState().pendingDetail).toBeNull();
   });
 
   /**
@@ -529,6 +534,74 @@ describe('yamlDraft lifecycle (pass-24)', () => {
     expect(useStore.getState().yamlDraft).toBe('original: 2');
     useStore.getState().startYamlEdit('fresh fetch');
     expect(useStore.getState().yamlDraft).toBe('fresh fetch');
+  });
+});
+
+/**
+ * When the draft is DIRTY (differs from the fetched baseline), navigation is
+ * intercepted instead of silently discarding the user's keystrokes: the action
+ * parks a `pendingDetail` intent, the EditGuardDialog asks, and only
+ * confirm/cancel resolves it. The pass-24 tests above cover the non-dirty
+ * fast path; these lock down the guard.
+ */
+describe('yaml dirty-guard (EditGuardDialog flow)', () => {
+  beforeEach(() => {
+    useStore.setState({
+      selectedRow: null,
+      yamlEditing: false,
+      yamlDraft: '',
+      yamlBase: '',
+      pendingDetail: null,
+    });
+  });
+
+  const dirty = () =>
+    useStore.setState({ yamlEditing: true, yamlDraft: 'user edits', yamlBase: 'original' });
+
+  /** A non-pod row — same shape as the pass-24 block's helper. */
+  const row = (name: string): Row => ({
+    uid: `cronjobs:prod/${name}`,
+    name,
+    namespace: 'prod',
+    cells: [],
+  });
+
+  it('selectRow while dirty is intercepted, not applied', () => {
+    dirty();
+    useStore.getState().selectRow(row('B'));
+    const s = useStore.getState();
+    expect(s.pendingDetail).toEqual({ type: 'select', row: row('B') });
+    expect(s.yamlEditing).toBe(true); // edit session preserved until the user answers
+    expect(s.selectedRow).toBeNull(); // navigation did NOT happen
+  });
+
+  it('confirm applies the pending navigation and discards the draft', () => {
+    dirty();
+    useStore.getState().selectRow(row('B'));
+    useStore.getState().confirmPendingDetail();
+    const s = useStore.getState();
+    expect(s.pendingDetail).toBeNull();
+    expect(s.selectedRow).toEqual(row('B'));
+    expect(s.yamlEditing).toBe(false);
+    expect(s.yamlDraft).toBe('');
+  });
+
+  it('cancel keeps the edit session and drops the intent', () => {
+    dirty();
+    useStore.getState().selectRow(row('B'));
+    useStore.getState().cancelPendingDetail();
+    const s = useStore.getState();
+    expect(s.pendingDetail).toBeNull();
+    expect(s.yamlEditing).toBe(true);
+    expect(s.yamlDraft).toBe('user edits');
+  });
+
+  it('setActiveTab while dirty is intercepted as a tab intent', () => {
+    dirty();
+    useStore.getState().setActiveTab('logs');
+    const s = useStore.getState();
+    expect(s.pendingDetail).toEqual({ type: 'tab', tab: 'logs' });
+    expect(s.yamlEditing).toBe(true);
   });
 });
 

@@ -28,9 +28,11 @@ vi.mock('../../providers', async (importOriginal) => {
   };
 });
 
-// Mock CodeEditor to avoid CodeMirror/lit dependencies.
-vi.mock('./CodeEditor', () => ({
-  CodeEditor: ({
+// Mock EditorCore (the shared CodeMirror wrapper YamlTab renders) to avoid
+// CodeMirror/lit dependencies in jsdom. Exposes the same testids the old
+// CodeEditor mock did, so the assertions below are unchanged.
+vi.mock('../editor/EditorCore', () => ({
+  EditorCore: ({
     value,
     editable,
     onChange,
