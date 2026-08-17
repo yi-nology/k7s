@@ -17,11 +17,11 @@ use crate::ai::{AgentLoop, ChatRequest, ToolRegistry};
 use crate::core::CoreState;
 use crate::error::AppResult;
 use k7s_deps::tokio;
+use k7s_deps::tokio::sync::{oneshot, Mutex};
 use k7s_deps::tracing;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
-use tokio::sync::{oneshot, Mutex};
 
 /// The Tauri event name the frontend listens on for [`AgentEvent`]s.
 pub const AI_EVENT: &str = "ai_event";

@@ -8,10 +8,10 @@ use crate::kube::manager::{ClientManager, ForwardDto};
 use crate::kube::portforward;
 use k7s_deps::kube;
 use k7s_deps::tokio;
+use k7s_deps::tokio::sync::{mpsc, oneshot};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::State;
-use tokio::sync::{mpsc, oneshot};
 
 /// Start forwarding a pod port to a local TCP port; returns the forward (with the
 /// chosen local port). Errors if the pod doesn't exist or the listener can't bind.
@@ -80,7 +80,7 @@ async fn spawn_forward(
     let ns = namespace.clone();
     let p = pod.clone();
     let task = tokio::spawn(async move {
-        portforward::run_port_forward(client, ns, p, remote_port, ready_tx, err_tx).await;
+        portforward::run_port_forward(client, ns, p, remote_port, 0, ready_tx, err_tx).await;
     });
 
     // Wait for the listener to bind (or report the bind error).
