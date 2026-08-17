@@ -338,3 +338,20 @@
 .panel {
   position: relative;
 }
+
+/* ============== iPadOS fullscreen detail panel ============== */
+
+/* On iPadOS the detail panel takes full width instead of sharing space
+   with the resource table. The table is hidden while the panel is open. */
+@media (pointer: coarse) {
+  .panel {
+    width: 100% !important;
+    min-width: 0;
+    border-left: none;
+    border-radius: 0;
+  }
+  /* Hide the drag handle on touch devices — no resize by dragging. */
+  .dragHandle {
+    display: none;
+  }
+}

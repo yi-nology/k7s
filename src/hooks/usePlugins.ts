@@ -9,12 +9,16 @@
 import { useEffect } from 'react';
 import { pluginManager } from '../lib/plugins/manager';
 import { BUILTIN_PLUGINS } from '../lib/plugins/builtin';
+import { IS_IPADOS } from '../providers/transport';
 
 /** Plugin ids that are enabled by default on first launch. */
 const DEFAULT_ENABLED = ['gpu-monitor', 'netpol-viewer'];
 
 export function usePlugins(): void {
   useEffect(() => {
+    // Plugins are disabled on iPadOS — they add complexity and the GPU/network
+    // policy views are desktop-oriented.
+    if (IS_IPADOS) return;
     // Register every built-in plugin.
     for (const plugin of BUILTIN_PLUGINS) {
       pluginManager.register(plugin);

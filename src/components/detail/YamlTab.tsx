@@ -25,6 +25,7 @@ import { useTranslation } from '../../hooks/useI18n';
 import { EditorCore } from '../editor/EditorCore';
 import { diffLines, diffStat, hasChanges, hunks } from '../../lib/diff';
 import type { ResourceRef, YamlDiff } from '../../providers/types';
+import { YAML_EDITOR_ENABLED, AI_ENABLED } from '../../lib/platform';
 
 /** Debounce helper. */
 function useDebounce<T>(value: T, delay: number): T {
@@ -289,6 +290,7 @@ export function YamlTab() {
           )
         ) : (
           <>
+            {AI_ENABLED && (
             <button
               type="button"
               className={styles.explainBtn}
@@ -298,7 +300,8 @@ export function YamlTab() {
               <Sparkles size={14} />
               {t('yaml.explain')}
             </button>
-            {editable && (
+            )}
+            {editable && YAML_EDITOR_ENABLED && (
               <button
                 type="button"
                 className={styles.editBtn}

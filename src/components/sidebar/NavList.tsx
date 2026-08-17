@@ -55,17 +55,19 @@ import {
   kindMeta,
   type NavGroup,
   type ResourceKind,
+  type KindId,
 } from '../../lib/kinds';
 import { cx } from '../../lib/cx';
 import { groupLabel, kindLabelFor } from '../../lib/i18n';
+import { IPADOS_HIDDEN_OVERLAYS } from '../../lib/platform';
 import { useTranslation } from '../../hooks/useI18n';
 import type { CustomKind } from '../../providers/types';
 
-export function NavList() {
+export function NavList({ onNavigate }: { onNavigate?: () => void } = {}) {
   const nav = useStore((s) => s.nav);
   // The sidebar only shows per-kind counts, so subscribe to a derived counts
   // map (shallow-compared) instead of the whole rows map — otherwise every
-  // pod-metric tick cluster-wide re-renders the entire sidebar.
+  // pod-metric tick cluster-wide re-rendered the entire sidebar.
   const counts = useStore(useShallow((s) => selectKindCounts(s.rows)));
   const setNav = useStore((s) => s.setNav);
   const customKinds = useStore((s) => s.customKinds);
@@ -74,6 +76,22 @@ export function NavList() {
   const openOverlay = useStore((s) => s.openOverlay);
   const closeOverlay = useStore((s) => s.closeOverlay);
   const { locale, t } = useTranslation();
+
+  // Wrap setNav/closeOverlay to also close the sidebar drawer on iPadOS.
+  const handleNav = useCallback(
+    (kind: string) => {
+      setNav(kind as KindId);
+      onNavigate?.();
+    },
+    [setNav, onNavigate],
+  );
+  const handleOverlay = useCallback(
+    (key: OverlayKey) => {
+      openOverlay(key);
+      onNavigate?.();
+    },
+    [openOverlay, onNavigate],
+  );
 
   return (
     <div className={styles.nav} role="navigation" aria-label="Resource navigation">
@@ -85,7 +103,7 @@ export function NavList() {
           icon: <LayoutDashboard size={14} />,
         }}
         overlay={overlay}
-        openOverlay={openOverlay}
+        openOverlay={handleOverlay}
         closeOverlay={closeOverlay}
         titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
       />
@@ -118,17 +136,17 @@ export function NavList() {
               const label = kindLabelFor(kind, customKinds, locale) ?? meta?.label ?? kind;
               return (
                 <div
-                  key={kind}
-                  className={cx(styles.navItem, active && styles.navItemActive)}
-                  onClick={() => setNav(kind)}
-                  role="link"
+                    key={kind}
+                    className={cx(styles.navItem, active && styles.navItemActive)}
+                    onClick={() => handleNav(kind)}
+                    role="link"
                   aria-current={active ? 'page' : undefined}
                   aria-label={label}
                   tabIndex={0}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      setNav(kind);
+                      handleNav(kind);
                     }
                   }}
                 >
@@ -148,7 +166,7 @@ export function NavList() {
               );
             })}
             {/* Workloads extras: Pod Files (belongs with Pod resources). */}
-            {group === 'workloads' && (
+            {group === 'workloads' && !IPADOS_HIDDEN_OVERLAYS.has('pod-files') && (
               <>
                 <div className={styles.sectionDivider} />
                 <OverlayItem
@@ -158,7 +176,7 @@ export function NavList() {
                     icon: <FolderOpen size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
@@ -176,10 +194,11 @@ export function NavList() {
                     icon: <Zap size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
+                {!IPADOS_HIDDEN_OVERLAYS.has('topology') && (
                 <OverlayItem
                   item={{
                     key: 'topology',
@@ -187,10 +206,11 @@ export function NavList() {
                     icon: <CircleDot size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
+                )}
                 <OverlayItem
                   item={{
                     key: 'ingress-routes',
@@ -198,14 +218,14 @@ export function NavList() {
                     icon: <ArrowRightFromLine size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
               </>
             )}
             {/* Config extras: Templates (belongs with ConfigMap/Secret resources). */}
-            {group === 'config' && (
+            {group === 'config' && !IPADOS_HIDDEN_OVERLAYS.has('templates') && (
               <>
                 <div className={styles.sectionDivider} />
                 <OverlayItem
@@ -215,14 +235,14 @@ export function NavList() {
                     icon: <PlusSquare size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
               </>
             )}
             {/* Access extras: Audit (belongs with RBAC/ServiceAccount resources). */}
-            {group === 'access' && (
+            {group === 'access' && !IPADOS_HIDDEN_OVERLAYS.has('audit') && (
               <>
                 <div className={styles.sectionDivider} />
                 <OverlayItem
@@ -232,7 +252,7 @@ export function NavList() {
                     icon: <ClipboardList size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
@@ -241,6 +261,7 @@ export function NavList() {
             {/* Images group: Image Registries, Image Transfer, SBOM */}
             {group === 'images' && (
               <>
+                {!IPADOS_HIDDEN_OVERLAYS.has('image-repos') && (
                 <OverlayItem
                   item={{
                     key: 'image-repos',
@@ -248,10 +269,12 @@ export function NavList() {
                     icon: <Container size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
+                )}
+                {!IPADOS_HIDDEN_OVERLAYS.has('image-transfer') && (
                 <OverlayItem
                   item={{
                     key: 'image-transfer',
@@ -259,10 +282,12 @@ export function NavList() {
                     icon: <ArrowLeftRight size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
+                )}
+                {!IPADOS_HIDDEN_OVERLAYS.has('sbom') && (
                 <OverlayItem
                   item={{
                     key: 'sbom',
@@ -270,15 +295,16 @@ export function NavList() {
                     icon: <FileText size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
+                )}
               </>
             )}
             {/* Helm extras: Helm Market (action wizard that belongs with
                 the Helm releases resource). */}
-            {group === 'helm' && (
+            {group === 'helm' && !IPADOS_HIDDEN_OVERLAYS.has('helm-market') && (
               <OverlayItem
                 item={{
                   key: 'helm-market',
@@ -286,7 +312,7 @@ export function NavList() {
                   icon: <Package size={14} />,
                 }}
                 overlay={overlay}
-                openOverlay={openOverlay}
+                openOverlay={handleOverlay}
                 closeOverlay={closeOverlay}
                 titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
               />
@@ -308,17 +334,20 @@ export function NavList() {
                       label: t('chrome.sidebar.tools.alerting', 'Alerting'),
                       icon: <Bell size={14} />,
                     },
-                    {
-                      key: 'grafana',
-                      label: t('chrome.sidebar.tools.grafana', 'Grafana'),
-                      icon: <LineChart size={14} />,
-                    },
+                    ...(!IPADOS_HIDDEN_OVERLAYS.has('grafana')
+                      ? [{
+                          key: 'grafana' as const,
+                          label: t('chrome.sidebar.tools.grafana', 'Grafana'),
+                          icon: <LineChart size={14} />,
+                        }]
+                      : []),
                   ]}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
+                {!IPADOS_HIDDEN_OVERLAYS.has('diff') && (
                 <OverlayItem
                   item={{
                     key: 'diff',
@@ -326,10 +355,12 @@ export function NavList() {
                     icon: <GitCompareArrows size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
+                )}
+                {!IPADOS_HIDDEN_OVERLAYS.has('plugins') && (
                 <OverlayItem
                   item={{
                     key: 'plugins',
@@ -337,10 +368,11 @@ export function NavList() {
                     icon: <Plug size={14} />,
                   }}
                   overlay={overlay}
-                  openOverlay={openOverlay}
+                  openOverlay={handleOverlay}
                   closeOverlay={closeOverlay}
                   titleClose={t('chrome.sidebar.tools.close', 'Click to close')}
                 />
+                )}
               </>
             )}
           </ResourceGroupSection>

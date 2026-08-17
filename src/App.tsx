@@ -35,6 +35,8 @@ import { usePlugins } from './hooks/usePlugins';
 import { useEffect } from 'react';
 import type { ComponentType } from 'react';
 import type { OverlayKey } from './store';
+import { AI_ENABLED, IPADOS_HIDDEN_OVERLAYS } from './lib/platform';
+import { useSidebarToggle } from './hooks/useSidebarToggle';
 
 // Lazy-load overlay panels — these are heavy and only one is visible at a time.
 // This keeps the initial bundle focused on the shell + table + detail panel.
@@ -100,6 +102,8 @@ export default function App() {
   // Error toast system — registers the global error reporter on mount so
   // provider-level errors automatically show as toasts.
   const { toasts, showError, dismissToast } = useErrorToast();
+  // Sidebar drawer toggle (iPadOS only — desktop sidebar is always visible).
+  const sidebar = useSidebarToggle();
   // Register the reporter as an effect (not during render) — `showError` is a
   // stable useCallback identity, so this runs once; running it during render
   // is a side-effect-in-render React violation.
@@ -121,9 +125,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div className={styles.app}>
-        <Sidebar />
+        {/* iPadOS: scrim behind the sidebar drawer; click to close. */}
+        {sidebar.isMobile && sidebar.open && (
+          <div className={styles.sidebarScrim} onClick={sidebar.close} />
+        )}
+        <Sidebar open={sidebar.open} onClose={sidebar.close} onToggle={sidebar.toggle} />
         <div className={styles.main}>
-          <TopBar />
+          <TopBar onMenuToggle={sidebar.toggle} />
           <div className={styles.content}>
             {/* Keep the table + detail panel mounted when an overlay opens —
                 scroll position, sort state, and selections survive the round-trip. */}
@@ -133,7 +141,7 @@ export default function App() {
             >
               <ResourceTable />
               <DetailPanel />
-              {aiOpen && (
+              {aiOpen && AI_ENABLED && (
                 <Suspense fallback={null}>
                   <AiChat onClose={() => setAiOpen(false)} />
                 </Suspense>
@@ -141,6 +149,7 @@ export default function App() {
             </div>
             {(() => {
               if (overlay === null || overlay === 'pod-files') return null;
+              if (IPADOS_HIDDEN_OVERLAYS.has(overlay)) return null;
               const Panel = overlayPanels[overlay];
               if (!Panel) return null;
               return (
@@ -161,7 +170,7 @@ export default function App() {
                 </div>
               );
             })()}
-            {overlay === 'pod-files' && (
+            {overlay === 'pod-files' && !IPADOS_HIDDEN_OVERLAYS.has('pod-files') && (
               <div
                 className={styles.overlayBackdrop}
                 onMouseDown={(e) => {
@@ -195,7 +204,7 @@ export default function App() {
               the panel is open (the panel has its own close button) and while a
               feature overlay covers the table — the panel would open invisibly
               behind it, and the click would look dead. */}
-          {!aiOpen && overlay === null && (
+          {!aiOpen && overlay === null && AI_ENABLED && (
             <button
               type="button"
               className={styles.aiFab}

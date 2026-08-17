@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useMemo, useRef } from 'react';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Menu } from 'lucide-react';
 import styles from './TopBar.module.css';
 import { useStore, type OverlayKey } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
@@ -19,6 +19,7 @@ import { useResolvedTheme } from '../../hooks/useTheme';
 import { isClusterScoped, kindMeta, type KindId } from '../../lib/kinds';
 import { cx } from '../../lib/cx';
 import { groupLabel, kindLabelFor, LOCALES, LOCALE_LABELS, type Locale } from '../../lib/i18n';
+import { IS_IPADOS } from '../../providers/transport';
 
 /** Human-readable labels for each overlay key, used in the breadcrumb when an
  *  overlay is active.  Keys not listed here fall back to a title-cased version
@@ -50,7 +51,7 @@ function overlayLabel(key: OverlayKey, t: ReturnType<typeof useTranslation>['t']
   return labels[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
 }
 
-export function TopBar() {
+export function TopBar({ onMenuToggle }: { onMenuToggle?: () => void } = {}) {
   const nav = useStore((s) => s.nav);
   const overlay = useStore((s) => s.overlay);
   const namespace = useStore((s) => s.namespace);
@@ -111,6 +112,17 @@ export function TopBar() {
 
   return (
     <div className={styles.topbar}>
+      {IS_IPADOS && (
+        <button
+          type="button"
+          className={styles.menuToggle}
+          onClick={onMenuToggle}
+          aria-label="Toggle sidebar"
+          title="Toggle sidebar"
+        >
+          <Menu size={20} />
+        </button>
+      )}
       <div className={styles.breadcrumb}>
         {overlay !== null ? (
           <>

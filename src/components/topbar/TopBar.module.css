@@ -290,3 +290,26 @@
   flex: none;
   text-align: center;
 }
+
+/* ============== iPadOS hamburger menu toggle ============== */
+
+.menuToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.menuToggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

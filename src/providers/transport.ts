@@ -23,6 +23,19 @@ export const IS_TAURI =
 export const IS_DEMO = import.meta.env.VITE_DEMO === '1';
 
 /**
+ * True when the app is running on iPadOS / iOS inside the Tauri mobile webview.
+ * Detected via the user-agent string set by WKWebView — the Tauri mobile shell
+ * sets a custom user-agent that includes "k7s-ios" (see tauri.conf.json), but
+ * we also fall back to the standard iPad/iPhone UA tokens for robustness.
+ */
+export const IS_IPADOS =
+  IS_TAURI &&
+  typeof navigator !== 'undefined' &&
+  (/iPad|iPhone/.test(navigator.userAgent) ||
+    // iPadOS 13+ reports as "Macintosh" in the UA but has touch support.
+    ('ontouchend' in document && navigator.maxTouchPoints > 0 && /Macintosh/.test(navigator.userAgent)));
+
+/**
  * One-shot RPC: call a named command with JSON-serialisable args, get a
  * JSON value back (or a rejected promise with the error message).
  */
