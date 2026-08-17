@@ -176,9 +176,10 @@ fn evaluate_egress(
                 // Port check.
                 if let Some(target_port) = port {
                     if let Some(ports) = &rule.ports {
-                        if !ports.iter().any(|p| {
-                            port_matches(p, target_port, protocol.unwrap_or("TCP"))
-                        }) {
+                        if !ports
+                            .iter()
+                            .any(|p| port_matches(p, target_port, protocol.unwrap_or("TCP")))
+                        {
                             continue;
                         }
                     }
@@ -261,9 +262,10 @@ fn evaluate_ingress(
             for rule in rules {
                 if let Some(target_port) = port {
                     if let Some(ports) = &rule.ports {
-                        if !ports.iter().any(|p| {
-                            port_matches(p, target_port, protocol.unwrap_or("TCP"))
-                        }) {
+                        if !ports
+                            .iter()
+                            .any(|p| port_matches(p, target_port, protocol.unwrap_or("TCP")))
+                        {
                             continue;
                         }
                     }
@@ -320,7 +322,9 @@ fn port_matches(
         return false;
     }
     match &port_entry.port {
-        Some(k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::Int(n)) => *n == target_port,
+        Some(k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::Int(n)) => {
+            *n == target_port
+        }
         // Named ports cannot be resolved without the pod spec; treat as no match.
         Some(k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::String(_)) => false,
         // No port specified = all ports.
@@ -512,7 +516,10 @@ mod tests {
     #[test]
     fn test_pod_matches_selector_matching() {
         use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
-        let labels = BTreeMap::from([("app".into(), "web".into()), ("tier".into(), "frontend".into())]);
+        let labels = BTreeMap::from([
+            ("app".into(), "web".into()),
+            ("tier".into(), "frontend".into()),
+        ]);
         let sel = LabelSelector {
             match_labels: Some(BTreeMap::from([("app".into(), "web".into())])),
             match_expressions: None,
