@@ -16,6 +16,7 @@ import type {
   AlertManagerUpsert,
   ApplyResult,
   ClusterInfo,
+  ConfigSnapshot,
   DependencyGraph,
   DocDryRun,
   IngressDebugResult,
@@ -85,6 +86,31 @@ export abstract class BaseRpcProvider {
   }
   getSecretData(namespace: string, name: string): Promise<SecretEntry[]> {
     return this.rpc<SecretEntry[]>('get_secret_data', { namespace, name });
+  }
+
+  /** Snapshot a ConfigMap's current state and return all available snapshots. */
+  configmapSnapshots(namespace: string, name: string): Promise<ConfigSnapshot[]> {
+    return this.rpc<ConfigSnapshot[]>('configmap_snapshots', { namespace, name });
+  }
+
+  /** Snapshot a Secret's current state and return all available snapshots. */
+  secretSnapshots(namespace: string, name: string): Promise<ConfigSnapshot[]> {
+    return this.rpc<ConfigSnapshot[]>('secret_snapshots', { namespace, name });
+  }
+
+  /** Get a specific snapshot's YAML by kind, resource name, and version. */
+  configmapSnapshotYaml(
+    kind: string,
+    namespace: string,
+    name: string,
+    resourceVersion: string
+  ): Promise<string | null> {
+    return this.rpc<string | null>('configmap_snapshot_yaml', {
+      kind,
+      namespace,
+      name,
+      resourceVersion,
+    });
   }
   setCordon(node: string, unschedulable: boolean): Promise<void> {
     return this.rpc<void>('set_cordon', { name: node, unschedulable });

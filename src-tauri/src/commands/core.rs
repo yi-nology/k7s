@@ -9,8 +9,8 @@ use crate::error::{AppError, AppResult};
 use crate::kube::client::{self, ClusterInfo, ContextInfo};
 use crate::kube::manager::{ClientManager, ImportedContext};
 use crate::kube::{
-    drain, exporter, ingress_debug, logs, mappers, metrics, nodestats, promql, properties,
-    rollout, watchers,
+    config_snapshots, drain, exporter, ingress_debug, logs, mappers, metrics, nodestats, promql,
+    properties, rollout, watchers,
 };
 use k8s_openapi::api::core::v1::{Event, Secret};
 use kube::api::{Api, ListParams};
@@ -516,6 +516,59 @@ pub async fn get_secret_data(
         }
     }
     Ok(entries)
+}
+
+/// Snapshot a ConfigMap's current state and return all available snapshots.
+///
+/// Each call captures the current `resourceVersion` into a ring buffer (max 20).
+/// Deduplicates by version: calling this twice without the ConfigMap changing
+/// returns the same list. The `yaml` field in each snapshot is ready for diffing
+/// (managedFields stripped, same serializer as `get_yaml`).
+#[tauri::command]
+pub async fn configmap_snapshots(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
+    let client = require_client(&mgr.manager).await?;
+    config_snapshots::snapshot_configmap(mgr.manager.snapshot_store(), client, &namespace, &name)
+        .await
+}
+
+/// Snapshot a Secret's current state and return all available snapshots.
+///
+/// Like `configmap_snapshots` but for Secrets. Values are redacted in the YAML
+/// field (same as `get_yaml`), so this is safe to display in the UI.
+#[tauri::command]
+pub async fn secret_snapshots(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
+    let client = require_client(&mgr.manager).await?;
+    config_snapshots::snapshot_secret(mgr.manager.snapshot_store(), client, &namespace, &name).await
+}
+
+/// Get a specific snapshot's YAML by resource version.
+///
+/// Returns the stored YAML for a previously-captured snapshot, or None if the
+/// version is unknown or has been evicted from the ring buffer. Useful for
+/// showing the "old" side of a diff without re-fetching from the cluster.
+#[tauri::command]
+pub async fn configmap_snapshot_yaml(
+    kind: String,
+    namespace: String,
+    name: String,
+    resource_version: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Option<String>> {
+    let key = format!("{kind}:{namespace}/{name}");
+    Ok(mgr
+        .manager
+        .snapshot_store()
+        .get(&key, &resource_version)
+        .await
+        .map(|s| s.yaml))
 }
 
 /// Build a dependency graph of resources: Deployments -> ReplicaSets -> Pods,

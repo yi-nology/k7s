@@ -347,3 +347,21 @@ export interface IngressDebugResult {
   tls: boolean;
   routes: IngressRoute[];
 }
+
+/**
+ * A point-in-time snapshot of a ConfigMap or Secret's data.
+ *
+ * Since Kubernetes does not store historical versions, the backend captures
+ * these into a ring buffer whenever the user views a resource. Users can
+ * compare any two snapshots to see what changed.
+ */
+export interface ConfigSnapshot {
+  /** Kubernetes resourceVersion — the cluster's monotonic revision counter. */
+  resourceVersion: string;
+  /** RFC3339 timestamp when this snapshot was taken. */
+  timestamp: string;
+  /** Sorted list of data keys at this version. */
+  dataKeys: string[];
+  /** Serialized YAML of the resource (secrets are redacted). */
+  yaml: string;
+}

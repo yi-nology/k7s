@@ -7,6 +7,7 @@
 pub mod alerting;
 pub mod audit;
 pub mod client;
+pub mod config_snapshots;
 pub mod dependency_graph;
 pub mod discovery;
 pub mod drain;
