@@ -1,0 +1,456 @@
+/* =========================================================================
+ * TopologyGraph.module.css — styles for the interactive d3-force topology.
+ * ========================================================================= */
+
+/* ----------------------------------------------------------------------- */
+/* Root wrapper                                                             */
+/* ----------------------------------------------------------------------- */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Canvas (holds SVG + all overlays)                                        */
+/* ----------------------------------------------------------------------- */
+
+.canvas {
+  background: var(--bg-app, #0f172a);
+  border: 1px solid var(--border, #1e293b);
+  border-radius: var(--radius-1, 4px);
+  flex: 1 1 auto;
+  min-height: 400px;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas svg {
+  display: block;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Zoom controls                                                            */
+/* ----------------------------------------------------------------------- */
+
+.zoomControls {
+  position: absolute;
+  top: var(--space-2, 8px);
+  right: var(--space-2, 8px);
+  display: flex;
+  gap: 2px;
+  z-index: var(--z-sticky, 10);
+}
+
+.zoomBtn {
+  background: var(--bg-panel, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: var(--radius-1, 4px);
+  color: var(--text-primary, #e2e8f0);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm, 12px);
+  font-weight: 500;
+  height: 28px;
+  line-height: 1;
+  min-width: 28px;
+  padding: 0 var(--space-2, 8px);
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.zoomBtn:hover {
+  background: var(--bg-control, #334155);
+  border-color: var(--accent, #6366f1);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Node base                                                                */
+/* ----------------------------------------------------------------------- */
+
+.node {
+  cursor: pointer;
+}
+
+.node:hover {
+  filter: brightness(1.15);
+}
+
+.nodeShadow {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3));
+}
+
+/* ----------------------------------------------------------------------- */
+/* Node label (foreignObject)                                               */
+/* ----------------------------------------------------------------------- */
+
+.nodeLabel {
+  color: var(--text-primary, #e2e8f0);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 20px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Focus glow animation                                                     */
+/* ----------------------------------------------------------------------- */
+
+.focusGlow {
+  animation: focusPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes focusPulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* ----------------------------------------------------------------------- */
+/* Node entrance animation                                                  */
+/* ----------------------------------------------------------------------- */
+
+.nodeEnter {
+  animation: nodeAppear 0.35s ease-out both;
+}
+
+@keyframes nodeAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ----------------------------------------------------------------------- */
+/* Minimap                                                                  */
+/* ----------------------------------------------------------------------- */
+
+.minimap {
+  position: absolute;
+  bottom: var(--space-2, 8px);
+  right: var(--space-2, 8px);
+  border: 1px solid var(--border, #334155);
+  border-radius: var(--radius-1, 4px);
+  background: var(--bg-app, #0f172a);
+  opacity: 0.85;
+  cursor: pointer;
+  z-index: var(--z-sticky, 10);
+  transition: opacity 0.2s ease;
+}
+
+.minimap:hover {
+  opacity: 1;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Tooltip                                                                  */
+/* ----------------------------------------------------------------------- */
+
+.tooltip {
+  position: absolute;
+  z-index: calc(var(--z-table-header, 20) + 1);
+  background: var(--bg-panel, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: var(--radius-1, 4px);
+  padding: var(--space-2, 8px);
+  font-size: var(--text-xs, 11px);
+  max-width: 280px;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  animation: tooltipIn 0.15s ease-out;
+}
+
+@keyframes tooltipIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tooltipName {
+  color: var(--text-primary, #e2e8f0);
+  font-weight: 600;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tooltipMeta {
+  color: var(--text-muted, #64748b);
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.tooltipRow {
+  color: var(--text-secondary, #94a3b8);
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Context menu                                                             */
+/* ----------------------------------------------------------------------- */
+
+.contextMenu {
+  position: absolute;
+  z-index: calc(var(--z-table-header, 20) + 2);
+  background: var(--bg-panel, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: var(--radius-1, 4px);
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  animation: contextIn 0.12s ease-out;
+}
+
+@keyframes contextIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.contextItem {
+  color: var(--text-primary, #e2e8f0);
+  cursor: pointer;
+  font-size: var(--text-sm, 12px);
+  padding: 6px 12px;
+  transition: background 0.1s;
+}
+
+.contextItem:hover {
+  background: var(--bg-control, #334155);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Legend                                                                    */
+/* ----------------------------------------------------------------------- */
+
+.legend {
+  position: absolute;
+  bottom: var(--space-2, 8px);
+  left: var(--space-2, 8px);
+  display: flex;
+  gap: var(--space-3, 12px);
+  z-index: var(--z-sticky, 10);
+  background: var(--bg-app, #0f172a);
+  padding: 4px 8px;
+  border-radius: var(--radius-1, 4px);
+  border: 1px solid var(--border, #334155);
+  opacity: 0.9;
+}
+
+.legendItem {
+  align-items: center;
+  color: var(--text-muted, #64748b);
+  display: flex;
+  font-size: var(--text-xs, 11px);
+  gap: 4px;
+}
+
+.dot {
+  border-radius: 50%;
+  display: inline-block;
+  height: 8px;
+  width: 8px;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Inspector panel                                                          */
+/* ----------------------------------------------------------------------- */
+
+.inspector {
+  position: absolute;
+  top: var(--space-3, 12px);
+  right: var(--space-3, 12px);
+  z-index: calc(var(--z-table-header, 20) + 1);
+  background: var(--bg-panel, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: var(--radius-2, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  font-size: var(--text-sm, 12px);
+  max-width: 300px;
+  min-width: 220px;
+  padding: var(--space-3, 12px);
+  animation: inspectorIn 0.2s ease-out;
+}
+
+@keyframes inspectorIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.inspectorHeader {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1, 4px);
+  margin-bottom: 4px;
+}
+
+.inspectorTitle {
+  color: var(--text-primary, #e2e8f0);
+  font-weight: 600;
+  font-size: var(--text-sm, 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusDot {
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  height: 8px;
+  width: 8px;
+}
+
+.inspectorMeta {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1, 4px);
+  margin-bottom: var(--space-2, 8px);
+}
+
+.inspectorKind {
+  background: var(--bg-control, #334155);
+  border-radius: 3px;
+  color: var(--text-muted, #64748b);
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  text-transform: uppercase;
+}
+
+.inspectorNs {
+  color: var(--text-muted, #64748b);
+  font-size: 10px;
+}
+
+.inspectorDivider {
+  border-top: 1px solid var(--border, #334155);
+  margin: var(--space-1, 4px) 0 var(--space-2, 8px);
+}
+
+.inspectorRow {
+  color: var(--text-secondary, #94a3b8);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.inspectorLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-2, 8px);
+  padding-top: var(--space-1, 4px);
+  border-top: 1px solid var(--border, #334155);
+}
+
+.inspectorLink {
+  color: var(--accent, #6366f1);
+  cursor: pointer;
+  font-size: 11px;
+  transition: color 0.15s;
+}
+
+.inspectorLink:hover {
+  color: var(--text-primary, #e2e8f0);
+  text-decoration: underline;
+}
+
+.inspectorActions {
+  display: flex;
+  gap: var(--space-1, 4px);
+  flex-wrap: wrap;
+  margin-top: var(--space-2, 8px);
+  padding-top: var(--space-1, 4px);
+  border-top: 1px solid var(--border, #334155);
+}
+
+.actionBtn {
+  background: var(--bg-control, #334155);
+  border: 1px solid var(--border, #334155);
+  border-radius: var(--radius-1, 4px);
+  color: var(--text-primary, #e2e8f0);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.actionBtn:hover {
+  background: var(--accent, #6366f1);
+  border-color: var(--accent, #6366f1);
+}
+
+.inspectorClose {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.inspectorClose:hover {
+  color: var(--text-primary, #e2e8f0);
+}
+
+/* ----------------------------------------------------------------------- */
+/* Error banner                                                             */
+/* ----------------------------------------------------------------------- */
+
+.error {
+  background: var(--status-warn-soft, rgba(251, 191, 36, 0.1));
+  border: 1px solid var(--status-err, #ef4444);
+  border-radius: var(--radius-1, 4px);
+  color: var(--status-err, #ef4444);
+  font-size: var(--text-sm, 12px);
+  padding: var(--space-2, 8px);
+  margin-bottom: var(--space-2, 8px);
+}

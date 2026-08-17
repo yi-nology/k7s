@@ -1,0 +1,255 @@
+/**
+ * YAML tab (Design §4-YAML). Fetches the pod's YAML, shows it read-only with
+ * syntax highlighting, and supports Edit → Apply (PUT to the cluster) with inline
+ * API-error reporting. Cancel discards the draft.
+ */
+
+import React, { useState } from 'react';
+import { Sparkles } from 'lucide-react';
+import type { EditorView } from '@codemirror/view';
+import styles from './YamlTab.module.css';
+import { useStore } from '../../store';
+import { formatError, getProvider } from '../../providers';
+import { useAsyncEffect } from '../../hooks/useAsyncEffect';
+import { useTranslation } from '../../hooks/useI18n';
+import { CodeEditor } from './CodeEditor';
+import { diffLines, diffStat, hasChanges, hunks } from '../../lib/diff';
+import type { ResourceRef, YamlDiff } from '../../providers/types';
+
+/**
+ * What the server says this edit would do (B36) — the live object against the
+ * object that would be stored, so defaulting and mutating webhooks are visible
+ * before anything is written.
+ *
+ * Only changed regions are shown. A manifest is mostly unchanged, and rendering
+ * the whole file would bury the one line that matters. Memoized: the diff
+ * object is stable between renders.
+ */
+const DiffView = React.memo(function DiffView({ diff }: { diff: YamlDiff }) {
+  const { t } = useTranslation();
+  const lines = diffLines(diff.current, diff.proposed);
+  const groups = hunks(lines);
+  const { added, removed } = diffStat(lines);
+
+  if (!hasChanges(lines)) {
+    return (
+      <div className={styles.diffWrap}>
+        <div className={styles.diffEmpty}>{t('yaml.noChanges')}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.diffWrap}>
+      <div className={styles.diffStat}>
+        <span className={styles.diffAdded}>+{added}</span>{' '}
+        <span className={styles.diffRemoved}>−{removed}</span>{' '}
+        <span className={styles.diffNote}>{t('yaml.diffNote')}</span>
+      </div>
+      {groups.map((g, i) => (
+        <div className={styles.diffHunk} key={i}>
+          {g.map((l, j) => (
+            <div
+              key={j}
+              className={[
+                styles.diffLine,
+                l.op === 'add' ? styles.diffLineAdd : '',
+                l.op === 'del' ? styles.diffLineDel : '',
+              ].join(' ')}
+            >
+              <span className={styles.diffGutter}>{l.before ?? l.after ?? ''}</span>
+              <span className={styles.diffSign}>
+                {l.op === 'add' ? '+' : l.op === 'del' ? '−' : ' '}
+              </span>
+              <span className={styles.diffText}>{l.text || ' '}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+});
+
+export function YamlTab() {
+  const row = useStore((s) => s.selectedRow);
+  // The selected row's kind is the current nav kind (selection clears on nav change).
+  const kind = useStore((s) => s.nav);
+  const yamlEditing = useStore((s) => s.yamlEditing);
+  const yamlDraft = useStore((s) => s.yamlDraft);
+  const startYamlEdit = useStore((s) => s.startYamlEdit);
+  const cancelYaml = useStore((s) => s.cancelYaml);
+  const setYamlDraft = useStore((s) => s.setYamlDraft);
+  const setAiPendingMessage = useStore((s) => s.setAiPendingMessage);
+  const setAiPanelOpen = useStore((s) => s.setAiPanelOpen);
+  const { t } = useTranslation();
+
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
+
+  const [yamlText, setYamlText] = useState('');
+  // Bumped after each fetch so the read-only editor remounts with fresh content.
+  const [nonce, setNonce] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  // The server's answer to "what would this actually do" (B36). Non-null puts
+  // the tab in review mode: the real apply is only reachable from here.
+  const [review, setReview] = useState<YamlDiff | null>(null);
+
+  const ref: ResourceRef | null = row ? { kind, namespace: row.namespace, name: row.name } : null;
+
+  /** Grab the selection (or full doc) and send it to the AI chat panel. */
+  const onExplainYaml = () => {
+    if (!editorView) return;
+    const sel = editorView.state.sliceDoc(
+      editorView.state.selection.main.from,
+      editorView.state.selection.main.to,
+    );
+    const text = sel || editorView.state.doc.toString();
+    if (!text) return;
+    setAiPendingMessage(`Explain this YAML:\n\`\`\`yaml\n${text}\n\`\`\``);
+    setAiPanelOpen(true);
+  };
+
+  // Fetch YAML on selection change (and on first open of this tab).
+  useAsyncEffect(async (isMounted) => {
+    if (!ref) return;
+    try {
+      const text = await getProvider().getYaml(ref);
+      if (!isMounted()) return;
+      setYamlText(text);
+      setNonce((n) => n + 1);
+      setError(null);
+    } catch (e) {
+      if (isMounted()) setError(formatError(e));
+    }
+  }, [row?.uid, row?.namespace, row?.name]);
+
+  if (!row || !ref) return null;
+
+  // Secret values are redacted server-side, so editing is disabled for them.
+  const editable = kind !== 'secrets';
+  // Namespaced → "kind/ns/name.yaml"; cluster-scoped → "kind/name.yaml".
+  const path = row.namespace
+    ? `${kind}/${row.namespace}/${row.name}.yaml`
+    : `${kind}/${row.name}.yaml`;
+
+  /**
+   * Step one of applying (B36): ask the server what the edit would do, without
+   * writing. A rejection here is the admission chain refusing the manifest —
+   * shown inline, draft kept, cluster untouched.
+   */
+  const onPreview = async () => {
+    setApplying(true);
+    try {
+      setReview(await getProvider().dryRunYaml(ref, yamlDraft));
+      setError(null);
+    } catch (e) {
+      setError(formatError(e));
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  const onApply = async () => {
+    setApplying(true);
+    try {
+      await getProvider().applyYaml(ref, yamlDraft);
+      setReview(null);
+      cancelYaml(); // leave edit mode
+      // Refetch to reflect the server's canonical version.
+      const text = await getProvider().getYaml(ref);
+      setYamlText(text);
+      setNonce((n) => n + 1);
+      setError(null);
+    } catch (e) {
+      // Keep the draft and surface the API error inline (Story 5.4).
+      setError(formatError(e));
+    } finally {
+      setApplying(false);
+    }
+  };
+
+  return (
+    <>
+      <div className={styles.toolbar}>
+        <span className={styles.path}>{path}</span>
+        <span className={styles.spacer} />
+        {yamlEditing ? (
+          review ? (
+            <>
+              <button type="button" className={styles.cancelBtn} onClick={() => setReview(null)}>
+                {t('yaml.backToEditing')}
+              </button>
+              <button
+                type="button"
+                className={styles.applyBtn}
+                disabled={applying}
+                onClick={() => void onApply()}
+              >
+                {t('yaml.applyForReal')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={styles.cancelBtn}
+                onClick={() => {
+                  setReview(null);
+                  cancelYaml();
+                }}
+              >
+                {t('yaml.cancel')}
+              </button>
+              <button
+                type="button"
+                className={styles.applyBtn}
+                disabled={applying}
+                onClick={() => void onPreview()}
+              >
+                {applying ? t('yaml.checking') : t('yaml.preview')}
+              </button>
+            </>
+          )
+        ) : (
+          <>
+            <button
+              type="button"
+              className={styles.explainBtn}
+              onClick={onExplainYaml}
+              title={t('yaml.explain')}
+            >
+              <Sparkles size={14} />
+              {t('yaml.explain')}
+            </button>
+            {editable && (
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={() => {
+                  setError(null);
+                  startYamlEdit(yamlText);
+                }}
+              >
+                {t('yaml.edit')}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {error && <div className={styles.error}>{error}</div>}
+
+      {yamlEditing && review ? (
+        <DiffView diff={review} />
+      ) : yamlEditing ? (
+        <div className={`${styles.editorWrap} ${styles.editing}`}>
+          <CodeEditor key={`edit:${row.uid}`} value={yamlText} editable onChange={setYamlDraft} onViewReady={setEditorView} />
+        </div>
+      ) : (
+        <div className={styles.editorWrap}>
+          <CodeEditor key={`read:${row.uid}:${nonce}`} value={yamlText} editable={false} onViewReady={setEditorView} />
+        </div>
+      )}
+    </>
+  );
+}

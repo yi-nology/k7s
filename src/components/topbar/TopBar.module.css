@@ -1,0 +1,292 @@
+/* Top bar (Design §2): 56px, glassy backdrop-blur, breadcrumb left, search
+   affordance + namespace dropdown + language switcher on the right. The glass
+   is anchored to the surface tone so the area below still shows through; the
+   blur radius + saturation are the Linear/Notion sweet spot. */
+
+.topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 60px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border-default);
+  /* Translucent over --bg-app, blurred+saturated. Light mode overrides the
+     background below — the blur+saturate parts are identical. */
+  background: var(--bg-topbar-glass);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  position: relative;
+  z-index: var(--z-topbar);
+}
+[data-theme='light'] .topbar {
+  background: var(--bg-topbar-glass-light);
+}
+
+/* ============== Breadcrumb ============== */
+
+.breadcrumb {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.sep {
+  color: var(--separator);
+  opacity: 0.6;
+}
+.kind {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============== Quick-search bar (click → open command palette) ============== */
+
+.cmdBar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 280px;
+  padding: 7px 12px 7px 14px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+  user-select: none;
+}
+.cmdBar:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+.cmdBar:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+}
+.cmdIcon {
+  color: var(--text-faint);
+  font-size: var(--text-md);
+  flex: none;
+}
+.cmdPlaceholder {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmdKbd {
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: var(--bg-app);
+  border: 1px solid var(--border-control);
+  border-radius: 4px;
+  line-height: 1.4;
+  flex: none;
+}
+
+/* ============== Namespace dropdown ============== */
+
+.nsWrap {
+  position: relative;
+}
+.nsButton {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.nsButton:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+/* Disabled when the ns filter doesn't apply: a tool panel is open, or the
+   active kind is cluster-scoped. Matches the disabled pattern used across the
+   app (opacity + pointer-events + cursor) so the affordance reads the same. */
+.nsButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.nsPrefix {
+  color: var(--text-faint);
+}
+.nsValue {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nsChevron {
+  color: var(--text-faint);
+  font-size: var(--text-2xs);
+}
+
+.nsMenu {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  z-index: var(--z-menu);
+  min-width: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-menu);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 4px 0;
+}
+.nsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  transition: background 0.1s ease;
+}
+.nsRow:hover {
+  background: var(--bg-hover);
+}
+.nsRowSelected {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+/* Fixed-width check column so labels align whether or not a row is selected. */
+.nsCheck {
+  width: 12px;
+  color: var(--accent);
+  flex: none;
+  text-align: center;
+}
+
+/* ============== Theme toggle ============== */
+
+.themeToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.themeToggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ============== Language switcher ============== */
+
+/* Mirror of the namespace button: same height, same chrome, just narrower. The
+   glyph is short ("EN" / "中") so the button earns its place without competing
+   with the namespace label. */
+.langWrap {
+  position: relative;
+}
+.langButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  min-width: 44px;
+  justify-content: center;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.langButton:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+.langGlyph {
+  color: var(--text-primary);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.langMenu {
+  position: absolute;
+  right: 0;
+  top: 36px;
+  z-index: var(--z-menu);
+  min-width: 150px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-menu);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 4px 0;
+}
+.langRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  transition: background 0.1s ease;
+}
+.langRow:hover {
+  background: var(--bg-hover);
+}
+.langRowSelected {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+.langCheck {
+  width: 12px;
+  color: var(--accent);
+  flex: none;
+  text-align: center;
+}

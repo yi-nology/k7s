@@ -1,0 +1,102 @@
+/* App shell layout: sidebar | (top bar / content / status bar). */
+
+.app {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The region between the top bar and status bar: table (+ detail panel). */
+.content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* Wrapper for table + detail panel — stays mounted when an overlay opens so
+   scroll position and selections survive. display: flex/none toggled inline. */
+.tableArea {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+
+/* Feature overlay — Phase 1/2/4/5 entry points fill the content area. */
+.overlay {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  overflow: auto;
+  background: var(--bg-app);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-xl);
+  margin: var(--space-3);
+  position: relative;
+  z-index: 1;
+  /* Subtle inner highlight for enterprise glass effect. */
+  border: 1px solid var(--border);
+}
+
+.overlayBackdrop {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  background: var(--scrim);
+}
+
+.overlayEmpty {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  flex: 1;
+  font-size: var(--text-sm);
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+/* Floating AI-assistant toggle button — bottom-right of the content area. */
+.aiFab {
+  position: fixed;
+  bottom: 60px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent-grad);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.aiFab:hover {
+  transform: scale(1.08);
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 24px rgba(123, 133, 245, 0.3);
+}

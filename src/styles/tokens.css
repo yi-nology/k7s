@@ -1,0 +1,394 @@
+/*
+ * k7s design tokens — the single source of truth for color, typography, radius,
+ * and border values.
+ *
+ * Two palettes (B52). `:root` is dark, `[data-theme="light"]` overrides it, and
+ * every token is redefined in both — a token defined only in `:root` would silently
+ * keep its dark value in light mode, which is exactly the bug that's hard to spot.
+ * The attribute is set on <html> by src/lib/theme.ts.
+ *
+ * Design system (v2 — Linear/Vercel direction):
+ *   - Cool near-black surfaces with a slight purple/blue tint
+ *   - Linear-style indigo accent (#7B85F5) with gradient stops
+ *   - Teal-green status-ok (less "matrix") + amber/red sentinels
+ *   - Heavier use of soft color stops (--*-soft) for halos and glows
+ *   - Three radii (6/8/10/14) for layered depth
+ *   - Shadow tokens for menu / panel / glow / focus
+ *
+ * Token *names* describe role, not brightness, so both palettes can use the same
+ * set. Two names are historical and now mildly misleading, worth knowing before
+ * you re-value them:
+ *   --text-linenum is also the scrollbar thumb hover background (global.css)
+ *   --bg-terminal is the *deepest* surface in dark, and the *brightest* in the
+ *     light content area; light-mode side panels re-darken it via data-surface.
+ */
+
+:root {
+  /* ================ Surfaces ================ */
+  --bg-app: #0a0a0f; /* app root / window background */
+  --bg-panel: #0f0f14; /* sidebar, detail event cards, status bar */
+  --bg-chrome: #0c0c11; /* top bar, table header, detail panel body */
+  --bg-elevated: #14141a; /* dropdowns, popovers, menu */
+  --bg-control: #16161c; /* buttons, menus, cluster switcher, ns button */
+  --bg-terminal: #08080c; /* log area, YAML view, log search field */
+  --bg-hover: #1a1a22; /* generic hover / active menu row */
+  --bg-hover-strong: #20202a; /* stronger hover (menu rows, close button) */
+  --bg-selected-row: #1b2742; /* selected pod row */
+  --bg-nav-active: #1a2440; /* active nav item background */
+  --bg-log-hover: #13131a; /* hovered log/yaml line */
+
+  /* ================ Borders ================ */
+  --border-default: #23232c; /* default separators, panel borders */
+  --border-strong: #2e2e3a; /* stronger separator (e.g. section divider) */
+  --border-control: #2a2a35; /* control (button) borders */
+  --border-menu: #363645; /* dropdown menu borders */
+  --border-hover: #5c5c7a; /* border on hover */
+  --border-blue-action: #2a4a75; /* outline of the ghost "Edit" button */
+  --border-row: #1b1b23; /* table row bottom border, toolbar dividers */
+  --border-ring: rgba(123, 133, 245, 0.2); /* subtle inner ring on active */
+  /* --border is the short alias used by ~30 components (panel/card/btn
+   * borders, table separators, inspector outlines). Without it, every
+   * `border: 1px solid var(--border)` becomes `border: 1px solid <empty>`
+   * which the browser drops, so panels, table rows, and buttons render
+   * without their separator lines. Default to --border-default; switch
+   * the alias to a heavier role if a specific surface needs a stronger
+   * line. */
+  --border: var(--border-default);
+
+  /* ================ Text ================ */
+  --text-primary: #f2f2f8; /* names, active labels, headings */
+  --text-body: #d6d6e0; /* default body text, inputs, yaml values */
+  --text-secondary: #a6a6b8; /* metrics, secondary values, log messages */
+  --text-muted: #6e6e80; /* namespace/age cells, muted metadata */
+  --text-faint: #56566a; /* section headers, faint labels, empty state */
+  --text-linenum: #34343c; /* yaml line numbers (also scrollbar hover) */
+  --text-log-ts: #5c5c66; /* log timestamp column */
+  --text-nav-inactive: #9595a6; /* inactive nav item label */
+
+  /* ================ Accent (Linear-style indigo) ================ */
+  --accent: #7b85f5;
+  --accent-hover: #9aa3ff;
+  --accent-soft: rgba(123, 133, 245, 0.18);
+  --accent-softer: rgba(123, 133, 245, 0.08);
+  --accent-grad: linear-gradient(135deg, #7b85f5 0%, #5e6ad2 100%);
+  --accent-glow: 0 0 0 3px rgba(123, 133, 245, 0.3);
+  --accent-shadow: 0 0 24px rgba(123, 133, 245, 0.35);
+
+  /* ================ Semantic status colors ================ */
+  --status-ok: #4ec9b0; /* Running / Ready / Active / Normal event */
+  --status-warn: #e0af68; /* Pending / degraded ready / restarts / Warning */
+  --status-err: #f76e8e; /* CrashLoopBackOff / Failed / Warning event */
+  --status-warn-msg: #d8c39a; /* soft tint for WARN log message text */
+  --status-err-msg: #f2a5b3; /* soft tint for ERROR log message text */
+  /* Soft halos for status dots (used in tables, sidebar, status bar) */
+  --status-ok-soft: rgba(78, 201, 176, 0.18);
+  --status-warn-soft: rgba(224, 175, 104, 0.18);
+  --status-err-soft: rgba(247, 118, 142, 0.2);
+
+  /* ================ Misc specific shades ================ */
+  --badge-bg: #2a2a38; /* cluster initials badge background */
+  --dot-inactive: #57575f; /* inactive context/status dot */
+  --dot-watch: #8e8e98; /* pulsing "watch: N streams" dot */
+  --separator: #3a3a4a; /* breadcrumb "/" separators */
+
+  /* ================ Follow / pause button (logs toolbar) ================ */
+  --follow-green-border: #3a8a6f;
+  --follow-green-bg: #11261f;
+  --follow-amber-border: #8a6a2a;
+  --follow-amber-bg: #2a1f10;
+
+  /* ================ Terminal / editor surfaces (read at runtime by theme.ts) ================
+   * xterm and CodeMirror need literal colors, so these exist as tokens rather
+   * than as hex buried in a TS object. ANSI black is the terminal background in
+   * dark (the usual convention) but real ink in light, where using the
+   * background would render black text invisible. */
+  --ansi-black: #08080c;
+  --ansi-magenta: #bb9af7;
+  --ansi-cyan: #7dcfff;
+  --editor-selection: #23324a; /* xterm + CodeMirror selection */
+
+  /* ================ Overlays ================ */
+  --scrim: rgba(0, 0, 0, 0.55); /* modal backdrop (settings, palette) */
+  --bg-edit-hover: #1b2a4a; /* ghost "Edit" button hover */
+  --grad-bg: radial-gradient(at 0% 0%, rgba(123, 133, 245, 0.04) 0px, transparent 50%);
+
+  /* ================ Typography ================ */
+  --font-ui: 'IBM Plex Sans', system-ui, sans-serif; /* general UI */
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace; /* data, code, logs */
+
+  /* ================ Radius ================ */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+
+  /* ================ Spacing (theme-independent) ================ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* ================ Font size (theme-independent) ================ */
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-base: 14px;
+  --text-lg: 15px;
+  --text-xl: 17px;
+  --text-2xl: 22px;
+  --text-3xl: 30px;
+
+  /* ================ Radius aliases (theme-independent) ================ */
+  --radius-1: var(--radius-sm);
+  --radius-2: var(--radius-md);
+
+  /* ================ Surface aliases (theme-independent) ================ */
+  --surface-0: var(--bg-app);
+  --surface-1: var(--bg-panel);
+  --surface-2: var(--bg-control);
+  --surface-3: var(--bg-hover);
+  --surface-warn: var(--status-warn-soft);
+
+  /* ================ Z-index scale ================ */
+  --z-wash: 0;
+  --z-table-header: 1;
+  --z-sticky: 2;
+  --z-topbar: 5;
+  --z-dropdown: 50;
+  --z-menu: 60;
+  --z-modal: 100;
+  --z-palette: 200;
+
+  /* ================ Gradient tokens ================ */
+  --gradient-badge: linear-gradient(135deg, #3a3a48 0%, #26262f 100%);
+
+  /* ================ Glow tokens for status dots ================ */
+  --glow-ok: rgba(78, 201, 176, 0.35);
+  --glow-warn: rgba(224, 175, 104, 0.35);
+  --glow-err: rgba(247, 118, 142, 0.4);
+
+  /* ================ Misc surface tokens ================ */
+  --bg-footer: rgba(0, 0, 0, 0.15);
+
+  /* ================ TopBar glass ================ */
+  --bg-topbar-glass: rgba(10, 10, 15, 0.72);
+  --bg-topbar-glass-light: rgba(10, 10, 15, 0.72);
+
+  /* ================ Elevation ================ */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45), 0 6px 16px rgba(0, 0, 0, 0.3);
+  --shadow-panel: -20px 0 40px rgba(0, 0, 0, 0.4), -4px 0 12px rgba(0, 0, 0, 0.25); /* detail panel lift */
+  --shadow-menu: 0 10px 32px rgba(0, 0, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3); /* dropdown menus */
+  --shadow-glow: 0 0 0 3px rgba(123, 133, 245, 0.25), 0 0 12px rgba(123, 133, 245, 0.1); /* focus ring */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.15); /* cards, chips */
+}
+
+/*
+ * Light palette (B52). Same names, same roles, inverted surfaces.
+ *
+ * Two things that are not a mechanical inversion, because a straight invert
+ * looks wrong:
+ *
+ * 1. The accent and status hues are *darkened*, not lightened. #7B85F5 on white
+ *    is roughly 2.6:1 — unreadable as text — and the status colors are worse.
+ *    These carry meaning (a red cell is the whole point of the cell), so they're
+ *    re-picked for contrast on a light background rather than reused.
+ * 2. The main content area (table, top bar, status bar) stays light. Side panels
+ *    (sidebar + detail) opt into a dark chrome surface via [data-surface="panel"]
+ *    below — very dark grey with light text, so the white work area stays the
+ *    brightest thing without the inspector washing out into the same grey.
+ */
+[data-theme='light'] {
+  /* ---- Surfaces ---- */
+  --bg-app: #fafafb;
+  --bg-panel: #ffffff;
+  --bg-chrome: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-control: #ffffff;
+  --bg-terminal: #f6f6f9;
+  --bg-hover: #f0f0f4;
+  --bg-hover-strong: #e6e6ec;
+  --bg-selected-row: #eaf0ff;
+  --bg-nav-active: #eef1ff;
+  --bg-log-hover: #f2f2f6;
+
+  /* ---- Borders ---- */
+  --border-default: #e5e5ec;
+  --border-strong: #d5d5e0;
+  --border-control: #ddddd4;
+  --border-menu: #d0d0da;
+  --border-hover: #a8a8b6;
+  --border-blue-action: #9dc3f0;
+  --border-row: #ececf1;
+  --border-ring: rgba(94, 106, 210, 0.18);
+  --border: var(--border-default);
+
+  /* ---- Text ---- */
+  --text-primary: #0e0e1a;
+  --text-body: #2a2a38;
+  --text-secondary: #58586c;
+  --text-muted: #77778a;
+  --text-faint: #a0a0b0;
+  --text-linenum: #b4b4bd;
+  --text-log-ts: #9696a0;
+  --text-nav-inactive: #6e6e80;
+
+  /* ---- Accent ---- */
+  --accent: #5e6ad2;
+  --accent-hover: #4a55c0;
+  --accent-soft: rgba(94, 106, 210, 0.1);
+  --accent-softer: rgba(94, 106, 210, 0.05);
+  --accent-grad: linear-gradient(135deg, #5e6ad2 0%, #4a55c0 100%);
+  --accent-glow: 0 0 0 3px rgba(94, 106, 210, 0.2);
+  --accent-shadow: 0 0 24px rgba(94, 106, 210, 0.18);
+
+  /* ---- Semantic status ---- */
+  --status-ok: #1f8b70;
+  --status-warn: #b47a0e;
+  --status-err: #c42e4e;
+  --status-warn-msg: #8a5a00;
+  --status-err-msg: #9c1f33;
+  --status-ok-soft: rgba(31, 139, 112, 0.1);
+  --status-warn-soft: rgba(180, 122, 14, 0.1);
+  --status-err-soft: rgba(196, 46, 78, 0.12);
+
+  /* ---- Misc ---- */
+  --badge-bg: #e8e8ee;
+  --dot-inactive: #b2b2bb;
+  --dot-watch: #71717b;
+  --separator: #d5d5dd;
+
+  /* ---- Follow / pause button ---- */
+  --follow-green-border: #a3ce9f;
+  --follow-green-bg: #e9f6e9;
+  --follow-amber-border: #ddc189;
+  --follow-amber-bg: #fdf3e2;
+
+  /* ---- Terminal / editor surfaces ---- */
+  --ansi-black: #15151a;
+  --ansi-magenta: #7c3aed;
+  --ansi-cyan: #0e7490;
+  --editor-selection: #cfe1ff;
+
+  /* ---- Overlays ---- */
+  --scrim: rgba(20, 20, 50, 0.25);
+  --bg-edit-hover: #dbe9ff;
+  --grad-bg: radial-gradient(at 0% 0%, rgba(94, 106, 210, 0.04) 0px, transparent 50%);
+
+  /* ---- Elevation: a dark-theme shadow reads as soot on white. ---- */
+  --shadow-sm: 0 1px 3px rgba(20, 20, 50, 0.05), 0 1px 2px rgba(20, 20, 50, 0.03);
+  --shadow-md: 0 4px 16px rgba(20, 20, 50, 0.07), 0 2px 6px rgba(20, 20, 50, 0.04);
+  --shadow-lg: 0 16px 48px rgba(20, 20, 50, 0.1), 0 6px 16px rgba(20, 20, 50, 0.06);
+  --shadow-panel: -20px 0 40px rgba(20, 20, 50, 0.08), -4px 0 12px rgba(20, 20, 50, 0.04);
+  --shadow-menu: 0 10px 32px rgba(20, 20, 50, 0.12), 0 4px 10px rgba(20, 20, 50, 0.08);
+  --shadow-glow: 0 0 0 3px var(--accent-soft), 0 0 12px rgba(94, 106, 210, 0.06);
+  --shadow-card: 0 2px 8px rgba(20, 20, 50, 0.06), 0 1px 3px rgba(20, 20, 50, 0.04);
+
+  --gradient-badge: linear-gradient(135deg, #e8e8f0 0%, #d8d8e2 100%);
+  --glow-ok: rgba(56, 161, 136, 0.35);
+  --glow-warn: rgba(184, 135, 64, 0.35);
+  --glow-err: rgba(207, 78, 102, 0.4);
+  --bg-footer: rgba(0, 0, 0, 0.06);
+  --bg-topbar-glass-light: rgba(255, 255, 255, 0.72);
+}
+
+/*
+ * Light-mode dark panels. Sidebar and detail panel set data-surface="panel";
+ * CSS variables inherit, so every child (tabs, logs, menus, editors using
+ * var(--…)) picks up dark surfaces + light text without per-component forks.
+ *
+ * Accents/status use the *dark* palette values — they need to read on near-black,
+ * not on white. xterm/plotly can't see inherited vars from <html>, so they resolve
+ * colours from a host element inside the panel (see lib/theme.ts).
+ */
+[data-theme='light'] [data-surface='panel'] {
+  color-scheme: dark;
+
+  --bg-app: #0a0a0f;
+  --bg-panel: #14141a;
+  --bg-chrome: #101014;
+  --bg-elevated: #18181f;
+  --bg-control: #1a1a22;
+  --bg-terminal: #08080c;
+  --bg-hover: #1b1b22;
+  --bg-hover-strong: #22222a;
+  --bg-selected-row: #1b2742;
+  --bg-nav-active: #1a2440;
+  --bg-log-hover: #13131a;
+
+  --border-default: #262630;
+  --border-strong: #2f2f3a;
+  --border-control: #2f2f3a;
+  --border-menu: #3a3a48;
+  --border-hover: #5c5c7a;
+  --border-blue-action: #2a4a75;
+  --border-row: #1b1b23;
+  --border-ring: rgba(123, 133, 245, 0.2);
+  --border: var(--border-default);
+
+  --text-primary: #f2f2f8;
+  --text-body: #d6d6e0;
+  --text-secondary: #a6a6b8;
+  --text-muted: #77778a;
+  --text-faint: #56566a;
+  --text-linenum: #4a4a54;
+  --text-log-ts: #5c5c66;
+  --text-nav-inactive: #9a9aa4;
+
+  --accent: #7b85f5;
+  --accent-hover: #9aa3ff;
+  --accent-soft: rgba(123, 133, 245, 0.18);
+  --accent-softer: rgba(123, 133, 245, 0.08);
+  --accent-grad: linear-gradient(135deg, #7b85f5 0%, #5e6ad2 100%);
+  --accent-glow: 0 0 0 3px rgba(123, 133, 245, 0.3);
+  --accent-shadow: 0 0 24px rgba(123, 133, 245, 0.35);
+
+  --status-ok: #4ec9b0;
+  --status-warn: #e0af68;
+  --status-err: #f76e8e;
+  --status-warn-msg: #d8c39a;
+  --status-err-msg: #f2a5b3;
+  --status-ok-soft: rgba(78, 201, 176, 0.18);
+  --status-warn-soft: rgba(224, 175, 104, 0.18);
+  --status-err-soft: rgba(247, 118, 142, 0.2);
+
+  --badge-bg: #2a2a38;
+  --dot-inactive: #57575f;
+  --dot-watch: #8e8e98;
+  --separator: #3a3a4a;
+
+  --follow-green-border: #3a8a6f;
+  --follow-green-bg: #11261f;
+  --follow-amber-border: #8a6a2a;
+  --follow-amber-bg: #2a1f10;
+
+  --ansi-black: #08080c;
+  --ansi-magenta: #bb9af7;
+  --ansi-cyan: #7dcfff;
+  --editor-selection: #23324a;
+
+  --scrim: rgba(0, 0, 0, 0.55);
+  --bg-edit-hover: #1b2a4a;
+  --grad-bg: radial-gradient(at 0% 0%, rgba(123, 133, 245, 0.04) 0px, transparent 50%);
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.45), 0 6px 16px rgba(0, 0, 0, 0.3);
+  --shadow-panel: -20px 0 40px rgba(0, 0, 0, 0.4), -4px 0 12px rgba(0, 0, 0, 0.25);
+  --shadow-menu: 0 10px 32px rgba(0, 0, 0, 0.45), 0 4px 10px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 0 3px var(--accent-soft), 0 0 12px rgba(123, 133, 245, 0.1);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.15);
+
+  --gradient-badge: linear-gradient(135deg, #3a3a48 0%, #26262f 100%);
+  --glow-ok: rgba(78, 201, 176, 0.35);
+  --glow-warn: rgba(224, 175, 104, 0.35);
+  --glow-err: rgba(247, 118, 142, 0.4);
+  --bg-topbar-glass-light: rgba(10, 10, 15, 0.72);
+  --bg-footer: rgba(0, 0, 0, 0.15);
+}
