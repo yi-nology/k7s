@@ -779,7 +779,7 @@ export const zh: Dictionary = {
       yaml: '查看 YAML',
     },
     health: { healthy: '健康', unhealthy: '不健康', unknown: '未知', total: '总计' },
-    search: { placeholder: '过滤服务...', clear: '清除' },
+    search: { placeholder: '搜索节点...', clear: '清除', prev: '上一个匹配', next: '下一个匹配' },
     zoom: { fit: '适应', in: '放大', out: '缩小' },
   },
   dashboard: {

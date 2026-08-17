@@ -783,7 +783,7 @@ export const en: Dictionary = {
       yaml: 'View YAML',
     },
     health: { healthy: 'Healthy', unhealthy: 'Unhealthy', unknown: 'Unknown', total: 'Total' },
-    search: { placeholder: 'Filter services...', clear: 'Clear' },
+    search: { placeholder: 'Search nodes...', clear: 'Clear', prev: 'Previous match', next: 'Next match' },
     zoom: { fit: 'Fit', in: 'Zoom in', out: 'Zoom out' },
   },
   dashboard: {
