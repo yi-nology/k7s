@@ -11,12 +11,12 @@
 //!   - a real Event carries its involvedObject kind/name/namespace (event
 //!     click-through).
 
-use k7s_lib::kube::mappers::{map_deployment, map_event, map_pod};
-use k7s_lib::kube::properties::resolve_owner;
-use k8s_openapi::api::apps::v1::Deployment;
-use k8s_openapi::api::core::v1::{Event, Pod};
-use kube::api::{Api, ListParams};
-use kube::{Client, ResourceExt};
+use k7s_android_lib::kube::mappers::{map_deployment, map_event, map_pod};
+use k7s_android_lib::kube::properties::resolve_owner;
+use k7s_deps::k8s_openapi::api::apps::v1::Deployment;
+use k7s_deps::k8s_openapi::api::core::v1::{Event, Pod};
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::{Client, ResourceExt};
 
 /// Render a selector map as the `k=v,k2=v2` filter string the UI drops into the box.
 fn selector_filter(sel: &std::collections::BTreeMap<String, String>) -> String {
@@ -29,7 +29,7 @@ fn selector_filter(sel: &std::collections::BTreeMap<String, String>) -> String {
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     // ---- workload → pods: a Deployment's selector matches its pods' labels ----

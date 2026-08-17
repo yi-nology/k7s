@@ -12,20 +12,20 @@
 //!   KUBECONFIG=~/.kube/k7s-dev.kubeconfig \
 //!     cargo test --test ai_e2e_real_llm -- --nocapture --ignored
 
-use k7s_lib::ai::agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};
-use k7s_lib::ai::config::PermissionMode;
-use k7s_lib::ai::llm::OpenAiClient;
-use k7s_lib::ai::tools::ToolRegistry;
-use k7s_lib::ai::LlmClient;
-use k7s_lib::core::events::mcp_sink;
-use k7s_lib::kube::manager::ClientManager;
+use k7s_android_lib::ai::agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};
+use k7s_android_lib::ai::config::PermissionMode;
+use k7s_android_lib::ai::llm::OpenAiClient;
+use k7s_android_lib::ai::tools::ToolRegistry;
+use k7s_android_lib::ai::LlmClient;
+use k7s_android_lib::core::events::mcp_sink;
+use k7s_android_lib::kube::manager::ClientManager;
 use std::sync::{Arc, Mutex, Once};
-use tokio::sync::oneshot;
+use k7s_deps::tokio::sync::oneshot;
 
 static CRYPTO_INIT: Once = Once::new();
 fn ensure_crypto() {
     CRYPTO_INIT.call_once(|| {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
     });
 }
 
@@ -85,13 +85,13 @@ impl EventSink for CollectorSink {
 /// Build a connected manager for the kind cluster.
 async fn make_manager() -> Arc<ClientManager> {
     let manager = Arc::new(ClientManager::new(mcp_sink()));
-    let (client, ctx) = k7s_lib::kube::client::build_client("kind-k7s-dev")
+    let (client, ctx) = k7s_android_lib::kube::client::build_client("kind-k7s-dev")
         .await
         .expect("build client");
     manager
         .set_connected(
             client,
-            k7s_lib::kube::manager::ConnectionInfo {
+            k7s_android_lib::kube::manager::ConnectionInfo {
                 context: ctx,
                 server: String::new(),
                 version: String::new(),
@@ -114,11 +114,11 @@ fn make_llm() -> OpenAiClient {
 /// Run a single agent conversation and return the events.
 async fn run_agent(
     message: &str,
-    context: Option<k7s_lib::ai::context::SelectedContext>,
+    context: Option<k7s_android_lib::ai::context::SelectedContext>,
 ) -> Arc<CollectorSink> {
     ensure_crypto();
     let manager = make_manager().await;
-    let llm_factory: Arc<dyn Fn() -> Box<dyn k7s_lib::ai::llm::LlmClient> + Send + Sync> =
+    let llm_factory: Arc<dyn Fn() -> Box<dyn k7s_android_lib::ai::llm::LlmClient> + Send + Sync> =
         Arc::new(|| Box::new(make_llm()));
     let agent = AgentLoop::new(ToolRegistry::new(), llm_factory);
     let sink = Arc::new(CollectorSink::new());
@@ -196,7 +196,7 @@ async fn e2e_cluster_health() {
 #[ignore = "needs real LLM + cluster"]
 async fn e2e_deploy_nginx() {
     // First, delete any existing nginx-e2e deployment.
-    let _ = k7s_lib::kube::client::build_client("kind-k7s-dev").await;
+    let _ = k7s_android_lib::kube::client::build_client("kind-k7s-dev").await;
 
     let sink = run_agent(
         "Create a new deployment called 'nginx-e2e' in the 'default' namespace using the image 'nginx:1.27-alpine' with 1 replica. Use apply_manifest with this YAML:\n\
@@ -257,7 +257,7 @@ async fn e2e_create_nodeport() {
 #[tokio::test]
 #[ignore = "needs real LLM + cluster"]
 async fn e2e_diagnose_deployment() {
-    let ctx = k7s_lib::ai::context::SelectedContext {
+    let ctx = k7s_android_lib::ai::context::SelectedContext {
         kind: Some("deployments".to_string()),
         namespace: Some("default".to_string()),
         name: Some("nginx-test".to_string()),
@@ -289,7 +289,7 @@ async fn e2e_diagnose_deployment() {
 async fn e2e_multi_turn() {
     ensure_crypto();
     let manager = make_manager().await;
-    let llm_factory: Arc<dyn Fn() -> Box<dyn k7s_lib::ai::llm::LlmClient> + Send + Sync> =
+    let llm_factory: Arc<dyn Fn() -> Box<dyn k7s_android_lib::ai::llm::LlmClient> + Send + Sync> =
         Arc::new(|| Box::new(make_llm()));
     let agent = AgentLoop::new(ToolRegistry::new(), llm_factory);
     let data_dir = std::env::temp_dir().join("k7s-ai-e2e-multi");
@@ -364,11 +364,11 @@ async fn e2e_streaming_produces_text() {
     ensure_crypto();
     let api_key = std::env::var("XIAOMI_TOKEN_PLAN_API_KEY")
         .unwrap_or_else(|_| "tp-cjo7bh4wjx1gnvpimjqi2i391nkoo3slp6u1z0timf07ywcp".to_string());
-    let client = reqwest::Client::new();
+    let client = k7s_deps::reqwest::Client::new();
     let resp = client
         .post("https://token-plan-cn.xiaomimimo.com/v1/chat/completions")
         .bearer_auth(&api_key)
-        .json(&serde_json::json!({
+        .json(&k7s_deps::serde_json::json!({
             "model": "mimo-v2.5-pro",
             "messages": [{"role": "user", "content": "Say hi"}],
             "max_tokens": 200,
@@ -378,7 +378,7 @@ async fn e2e_streaming_produces_text() {
         .await
         .expect("request should succeed");
     assert!(resp.status().is_success(), "status: {}", resp.status());
-    use futures::StreamExt;
+    use k7s_deps::futures::StreamExt;
     let mut stream = resp.bytes_stream();
     let mut total_bytes = 0;
     let mut chunk_count = 0;
@@ -398,11 +398,11 @@ async fn e2e_chat_stream_debug() {
     ensure_crypto();
     let api_key = std::env::var("XIAOMI_TOKEN_PLAN_API_KEY")
         .unwrap_or_else(|_| "tp-cjo7bh4wjx1gnvpimjqi2i391nkoo3slp6u1z0timf07ywcp".to_string());
-    let client = reqwest::Client::new();
+    let client = k7s_deps::reqwest::Client::new();
     let resp = client
         .post("https://token-plan-cn.xiaomimimo.com/v1/chat/completions")
         .bearer_auth(&api_key)
-        .json(&serde_json::json!({
+        .json(&k7s_deps::serde_json::json!({
             "model": "mimo-v2.5-pro",
             "messages": [{"role": "user", "content": "Say hi"}],
             "max_tokens": 200,

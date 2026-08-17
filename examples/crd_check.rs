@@ -7,16 +7,16 @@
 //! DynamicObject API the lazy watchers use, then drives a real reflector-backed
 //! watcher for one kind and prints the rows exactly as the table would show them.
 
-use futures::StreamExt;
-use k7s_lib::kube::{discovery, mappers};
-use kube::api::{Api, ListParams};
-use kube::core::DynamicObject;
-use kube::runtime::{reflector, watcher, WatchStreamExt};
-use kube::Client;
+use k7s_deps::futures::StreamExt;
+use k7s_android_lib::kube::{discovery, mappers};
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::core::DynamicObject;
+use k7s_deps::kube::runtime::{reflector, watcher, WatchStreamExt};
+use k7s_deps::kube::Client;
 use std::time::Duration;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     let kinds = discovery::discover(&client).await;
@@ -78,9 +78,9 @@ async fn main() -> anyhow::Result<()> {
         .boxed();
 
     // Pump until the initial list has been applied to the store.
-    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
-    while tokio::time::Instant::now() < deadline {
-        match tokio::time::timeout_at(deadline, stream.next()).await {
+    let deadline = k7s_deps::tokio::time::Instant::now() + Duration::from_secs(10);
+    while k7s_deps::tokio::time::Instant::now() < deadline {
+        match k7s_deps::tokio::time::timeout_at(deadline, stream.next()).await {
             Ok(Some(Ok(_))) => {
                 if !reader.state().is_empty() {
                     break;

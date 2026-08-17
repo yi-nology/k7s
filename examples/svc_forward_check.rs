@@ -12,13 +12,13 @@
 //! tunnel — proving a Service forward carries real traffic without the caller
 //! naming a pod.
 
-use k7s_lib::kube::portforward;
-use kube::Client;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::{mpsc, oneshot};
+use k7s_android_lib::kube::portforward;
+use k7s_deps::kube::Client;
+use k7s_deps::tokio::io::{AsyncReadExt, AsyncWriteExt};
+use k7s_deps::tokio::sync::{mpsc, oneshot};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     // ---- resolution ----
@@ -54,19 +54,20 @@ async fn main() -> anyhow::Result<()> {
     println!("\n--- forwarding csearch-redis via {pod}:{port} ---");
     let (ready_tx, ready_rx) = oneshot::channel();
     let (err_tx, mut err_rx) = mpsc::channel::<String>(8);
-    let task = tokio::spawn(portforward::run_port_forward(
+    let task = k7s_deps::tokio::spawn(portforward::run_port_forward(
         client,
         "default".to_string(),
         pod.clone(),
         port,
+        0,
         ready_tx,
         err_tx,
     ));
 
-    let local = ready_rx.await?.map_err(anyhow::Error::msg)?;
+    let local = ready_rx.await?.map_err(k7s_deps::anyhow::Error::msg)?;
     println!("listening on localhost:{local}");
 
-    let mut sock = tokio::net::TcpStream::connect(("127.0.0.1", local)).await?;
+    let mut sock = k7s_deps::tokio::net::TcpStream::connect(("127.0.0.1", local)).await?;
     sock.write_all(b"PING\r\n").await?;
     let mut buf = [0u8; 64];
     let n = sock.read(&mut buf).await?;

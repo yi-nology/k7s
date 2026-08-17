@@ -7,13 +7,13 @@
 //! Picks the argocd-redis pod, runs `echo` in it (exec), then opens a portforward
 //! to 6379 and sends a Redis PING (port-forward).
 
-use k8s_openapi::api::core::v1::{Event, Pod};
-use kube::api::{Api, AttachParams, ListParams};
-use kube::Client;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use k7s_deps::k8s_openapi::api::core::v1::{Event, Pod};
+use k7s_deps::kube::api::{Api, AttachParams, ListParams};
+use k7s_deps::kube::Client;
+use k7s_deps::tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     // ---- events (B1 path): find a pod with events, query the same way get_events does ----
@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
         .items
         .into_iter()
         .find_map(|p| p.metadata.name)
-        .ok_or_else(|| anyhow::anyhow!("no argocd-redis pod found"))?;
+        .ok_or_else(|| k7s_deps::anyhow::anyhow!("no argocd-redis pod found"))?;
     println!("target pod: {pod}");
 
     // ---- exec (B4 path: Api::exec + AttachedProcess::stdout) ----
@@ -63,7 +63,7 @@ async fn main() -> anyhow::Result<()> {
     stdout.read_to_string(&mut out).await?;
     let out = out.trim();
     println!("exec stdout: {out:?}");
-    anyhow::ensure!(out.contains("k7s-exec-ok"), "exec output mismatch");
+    k7s_deps::anyhow::ensure!(out.contains("k7s-exec-ok"), "exec output mismatch");
     println!("exec OK");
 
     // ---- port-forward (B6 path: Api::portforward + take_stream) ----
@@ -77,7 +77,7 @@ async fn main() -> anyhow::Result<()> {
     println!("redis replied: {resp:?}");
     // Any RESP reply (+PONG, or -NOAUTH when the server requires auth) proves the
     // tunnel carried bytes both ways.
-    anyhow::ensure!(
+    k7s_deps::anyhow::ensure!(
         resp.starts_with('+') || resp.starts_with('-'),
         "no Redis reply through the tunnel"
     );

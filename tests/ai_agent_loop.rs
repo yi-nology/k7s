@@ -7,21 +7,21 @@
 //!   KUBECONFIG=~/.kube/k7s-dev.kubeconfig \
 //!     cargo test --test ai_agent_loop -- --nocapture --ignored
 
-use k7s_lib::ai::agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};
-use k7s_lib::ai::config::PermissionMode;
-use k7s_lib::ai::llm::{
+use k7s_android_lib::ai::agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};
+use k7s_android_lib::ai::config::PermissionMode;
+use k7s_android_lib::ai::llm::{
     ChatStream, FunctionDef, LlmClient, Message, OutgoingToolCall, StreamEvent,
 };
-use k7s_lib::ai::tools::ToolRegistry;
-use k7s_lib::core::events::mcp_sink;
-use k7s_lib::kube::manager::ClientManager;
+use k7s_android_lib::ai::tools::ToolRegistry;
+use k7s_android_lib::core::events::mcp_sink;
+use k7s_android_lib::kube::manager::ClientManager;
 use std::sync::{Arc, Mutex, Once};
-use tokio::sync::oneshot;
+use k7s_deps::tokio::sync::oneshot;
 
 static CRYPTO_INIT: Once = Once::new();
 fn ensure_crypto() {
     CRYPTO_INIT.call_once(|| {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
     });
 }
 
@@ -88,11 +88,11 @@ impl LlmClient for MockLlm {
             }
         };
 
-        Box::pin(futures::stream::iter(events))
+        Box::pin(k7s_deps::futures::stream::iter(events))
     }
 }
 
-type StreamItem = Result<StreamEvent, k7s_lib::ai::AiError>;
+type StreamItem = Result<StreamEvent, k7s_android_lib::ai::AiError>;
 
 // ---------------------------------------------------------------------------
 // Mock EventSink — records all events for assertions
@@ -145,10 +145,10 @@ async fn agent_loop_full_cycle() {
     ensure_crypto();
     let manager = std::sync::Arc::new(ClientManager::new(mcp_sink()));
     // Connect to the cluster.
-    let (client, ctx_name) = k7s_lib::kube::client::build_client("kind-k7s-dev")
+    let (client, ctx_name) = k7s_android_lib::kube::client::build_client("kind-k7s-dev")
         .await
         .expect("build client");
-    let info = k7s_lib::kube::manager::ConnectionInfo {
+    let info = k7s_android_lib::kube::manager::ConnectionInfo {
         context: ctx_name.clone(),
         server: String::new(),
         version: String::new(),
@@ -189,7 +189,7 @@ async fn agent_loop_full_cycle() {
     for (i, ev) in events.iter().enumerate() {
         eprintln!(
             "  [{i}] {:?}",
-            serde_json::to_string(ev).unwrap_or_default()
+            k7s_deps::serde_json::to_string(ev).unwrap_or_default()
         );
     }
 
@@ -233,10 +233,10 @@ async fn agent_loop_full_cycle() {
 async fn agent_loop_write_approval() {
     ensure_crypto();
     let manager = std::sync::Arc::new(ClientManager::new(mcp_sink()));
-    let (client, ctx_name) = k7s_lib::kube::client::build_client("kind-k7s-dev")
+    let (client, ctx_name) = k7s_android_lib::kube::client::build_client("kind-k7s-dev")
         .await
         .expect("build client");
-    let info = k7s_lib::kube::manager::ConnectionInfo {
+    let info = k7s_android_lib::kube::manager::ConnectionInfo {
         context: ctx_name.clone(),
         server: String::new(),
         version: String::new(),
@@ -247,8 +247,8 @@ async fn agent_loop_write_approval() {
     struct ScaleLlm;
     impl LlmClient for ScaleLlm {
         fn chat_stream(&self, _messages: &[Message], _tools: &[FunctionDef]) -> ChatStream {
-            Box::pin(futures::stream::iter(vec![
-                Ok::<StreamEvent, k7s_lib::ai::AiError>(StreamEvent::TextDelta(
+            Box::pin(k7s_deps::futures::stream::iter(vec![
+                Ok::<StreamEvent, k7s_android_lib::ai::AiError>(StreamEvent::TextDelta(
                     "I'll scale the nginx deployment to 3 replicas.".into(),
                 )),
                 Ok(StreamEvent::Done {
@@ -297,7 +297,7 @@ async fn agent_loop_write_approval() {
     for (i, ev) in events.iter().enumerate() {
         eprintln!(
             "  [{i}] {:?}",
-            serde_json::to_string(ev).unwrap_or_default()
+            k7s_deps::serde_json::to_string(ev).unwrap_or_default()
         );
     }
 
@@ -322,10 +322,10 @@ async fn agent_loop_write_approval() {
 async fn agent_loop_readonly_denies_writes() {
     ensure_crypto();
     let manager = std::sync::Arc::new(ClientManager::new(mcp_sink()));
-    let (client, ctx_name) = k7s_lib::kube::client::build_client("kind-k7s-dev")
+    let (client, ctx_name) = k7s_android_lib::kube::client::build_client("kind-k7s-dev")
         .await
         .expect("build client");
-    let info = k7s_lib::kube::manager::ConnectionInfo {
+    let info = k7s_android_lib::kube::manager::ConnectionInfo {
         context: ctx_name.clone(),
         server: String::new(),
         version: String::new(),
@@ -338,8 +338,8 @@ async fn agent_loop_readonly_denies_writes() {
             // Only try to scale if the tool is available (it won't be in ReadOnly).
             let has_scale = tools.iter().any(|t| t.name == "scale_workload");
             if has_scale {
-                Box::pin(futures::stream::iter(vec![
-                    Ok::<StreamEvent, k7s_lib::ai::AiError>(StreamEvent::Done {
+                Box::pin(k7s_deps::futures::stream::iter(vec![
+                    Ok::<StreamEvent, k7s_android_lib::ai::AiError>(StreamEvent::Done {
                         tool_calls: vec![OutgoingToolCall {
                             id: "call1".into(),
                             name: "scale_workload".into(),
@@ -350,8 +350,8 @@ async fn agent_loop_readonly_denies_writes() {
                 ]))
             } else {
                 // In ReadOnly, scale isn't available, so we just answer.
-                Box::pin(futures::stream::iter(vec![
-                    Ok::<StreamEvent, k7s_lib::ai::AiError>(StreamEvent::TextDelta(
+                Box::pin(k7s_deps::futures::stream::iter(vec![
+                    Ok::<StreamEvent, k7s_android_lib::ai::AiError>(StreamEvent::TextDelta(
                         "I cannot scale because I'm in read-only mode.".into(),
                     )),
                     Ok(StreamEvent::Done {
@@ -397,7 +397,7 @@ async fn agent_loop_readonly_denies_writes() {
     for (i, ev) in events.iter().enumerate() {
         eprintln!(
             "  [{i}] {:?}",
-            serde_json::to_string(ev).unwrap_or_default()
+            k7s_deps::serde_json::to_string(ev).unwrap_or_default()
         );
     }
 

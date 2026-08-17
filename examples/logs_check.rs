@@ -7,10 +7,10 @@
 //! claims that matter: that a `previous` read *terminates* (rather than hanging
 //! on a dead container), and that a `since` window actually bounds the output.
 
-use k7s_lib::kube::logs::{log_params, LogStreamOptions};
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, ListParams};
-use kube::{Client, ResourceExt};
+use k7s_android_lib::kube::logs::{log_params, LogStreamOptions};
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::{Client, ResourceExt};
 use std::time::Duration;
 
 /// Read a bounded log with the given options, non-following.
@@ -19,14 +19,14 @@ async fn read(
     pod: &str,
     container: &str,
     opts: LogStreamOptions,
-) -> anyhow::Result<String> {
+) -> k7s_deps::anyhow::Result<String> {
     let mut lp = log_params(container, &opts);
     lp.follow = false;
-    Ok(tokio::time::timeout(Duration::from_secs(20), api.logs(pod, &lp)).await??)
+    Ok(k7s_deps::tokio::time::timeout(Duration::from_secs(20), api.logs(pod, &lp)).await??)
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
     let api: Api<Pod> = Api::namespaced(client.clone(), "wiki");
 

@@ -11,14 +11,14 @@
 //!     **dry run**, which validates the exact patch shape against a real workload
 //!     but persists nothing, so no pods actually roll.
 
-use k7s_lib::kube::restart::{has_controller, is_rollout_kind, restart_patch};
-use k8s_openapi::api::apps::v1::Deployment;
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, ApiResource, DynamicObject, ListParams, Patch, PatchParams};
-use kube::{Client, ResourceExt};
+use k7s_android_lib::kube::restart::{has_controller, is_rollout_kind, restart_patch};
+use k7s_deps::k8s_openapi::api::apps::v1::Deployment;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::{Api, ApiResource, DynamicObject, ListParams, Patch, PatchParams};
+use k7s_deps::kube::{Client, ResourceExt};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     // ---- has_controller across every pod in the cluster ----
