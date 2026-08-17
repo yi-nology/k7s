@@ -105,7 +105,7 @@ pub async fn get_events(
                     .map(|t| t.0)
                     .or_else(|| e.event_time.as_ref().map(|t| t.0))
                     .or_else(|| e.creation_timestamp().map(|t| t.0))
-                    .map(|dt| dt.to_rfc3339());
+                    .map(|dt| dt.to_string());
                 WireEvent {
                     ty: e.type_.unwrap_or_else(|| "Normal".into()),
                     reason: e.reason.unwrap_or_default(),

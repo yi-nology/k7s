@@ -2157,8 +2157,8 @@ impl K7sMcpServer {
                 .as_ref()
                 .map(|s| &s.pod_selector)
                 .map(|ps| {
-                    ps.match_labels
-                        .as_ref()
+                    ps.as_ref()
+                        .and_then(|s| s.match_labels.as_ref())
                         .map(|m| {
                             m.iter()
                                 .map(|(k, v)| format!("{k}={v}"))

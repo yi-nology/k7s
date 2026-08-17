@@ -186,8 +186,9 @@ fn summarise_object(obj: &DynamicObject) -> String {
 /// Compact "5m" / "3h" / "2d" age string from any k8s timestamp. Mirrors
 /// `kube::mappers::humanize_duration` so the AI sees the same string the
 /// UI does — duplicated here to keep the MCP module free of Tauri deps.
-fn humanize_age_dt(t: &chrono::DateTime<chrono::Utc>) -> String {
-    let secs = (chrono::Utc::now() - *t).num_seconds().max(0);
+fn humanize_age_dt(t: &k8s_openapi::jiff::Timestamp) -> String {
+    let now = k8s_openapi::jiff::Timestamp::now().as_second();
+    let secs = (now - t.as_second()).max(0);
     humanize_duration(secs)
 }
 
@@ -1051,7 +1052,7 @@ pub async fn trigger_cronjob(client: &Client, namespace: &str, name: &str) -> Ap
             }]),
             ..Default::default()
         },
-        spec: cj.spec.and_then(|s| s.job_template.spec),
+        spec: cj.spec.job_template.spec,
         ..Default::default()
     };
     let job_api: Api<Job> = Api::namespaced(client.clone(), namespace);
