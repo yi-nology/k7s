@@ -90,7 +90,7 @@ dunce = "1"
 
 # --- Raw HTTP requests to metrics.k8s.io (via kube::Client::request) ---
 http = "1"
-base64 = "0.22"
+base64 = "0.23"
 flate2 = "1"
 
 # --- Web mode (Phase 1+ of "browser-only" feature) ---
