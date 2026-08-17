@@ -84,7 +84,7 @@ regex = "1"
 rand = "0.10"
 tokio-stream = { version = "0.1", features = ["sync"] }
 # Cross-platform directory paths (home dir, temp dir, etc.)
-dirs = "5"
+dirs = "6"
 # Canonicalize paths without UNC prefix on Windows
 dunce = "1"
 
