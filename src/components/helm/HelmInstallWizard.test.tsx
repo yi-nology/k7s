@@ -6,10 +6,27 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import React from 'react';
 import { useStore } from '../../store';
 import { HelmInstallWizard } from './HelmInstallWizard';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 import { createMockSettings } from '../../test/types';
+
+// The values step renders the shared CodeMirror wrapper; mock it down to a
+// plain textarea so jsdom can assert on it without CodeMirror/lit.
+vi.mock('../editor/EditorCore', () => ({
+  EditorCore: ({
+    value,
+    onChange,
+  }: {
+    value?: string;
+    onChange?: (text: string) => void;
+  }) =>
+    React.createElement('textarea', {
+      value,
+      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => onChange?.(e.target.value),
+    }),
+}));
 
 // Mock the provider.
 vi.mock('../../providers', async (importOriginal) => {

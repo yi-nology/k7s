@@ -114,14 +114,15 @@ describe('NavList', () => {
       expect(view.queryByText('Dashboard')).not.toBeNull();
     });
 
-    it('renders Templates overlay entry under the Config group', () => {
-      // Templates now lives under the Config group (merged from the old
-      // standalone Tools section). It should be visible directly under Config
-      // without needing to expand a collapsible group.
+    it('renders Templates in the Tools ▸ Deployment sub-group', () => {
+      // Two-zone layout: overlay tools no longer live inside resource groups.
+      // Templates is in the Tools section, under the Deployment sub-group —
+      // which starts folded and must be clicked to reveal its items.
       view = render(<NavList />);
-      // Config group header is present.
-      expect(view.queryByText('Config')).not.toBeNull();
-      // Templates is directly visible (not nested in a collapsible group).
+      expect(view.queryByText('Tools')).not.toBeNull();
+      expect(view.queryByText('Deployment')).not.toBeNull();
+      expect(view.queryByText('Templates')).toBeNull(); // sub-group folded
+      view.click(view.getByText('Deployment'));
       expect(view.queryByText('Templates')).not.toBeNull();
     });
 
@@ -194,29 +195,33 @@ describe('NavList', () => {
   });
 
   describe('Network extras', () => {
-    it('renders Endpoints overlay entry under Network', () => {
+    it('renders Endpoints in the Tools ▸ Inspection sub-group', () => {
+      // Endpoints moved from the Network resource group to Tools ▸ Inspection.
       view = render(<NavList />);
+      view.click(view.getByText('Inspection'));
       expect(view.queryByText('Endpoints')).not.toBeNull();
     });
 
-    it('renders Service Topology overlay entry under Network', () => {
+    it('renders Service Topology in the Tools ▸ Inspection sub-group', () => {
       view = render(<NavList />);
+      view.click(view.getByText('Inspection'));
       expect(view.queryByText('Service Topology')).not.toBeNull();
     });
   });
 
   describe('collapsible groups', () => {
     it('folds low-frequency groups (Cluster) by default, expands on click', () => {
-      // Cluster is a low-frequency group — it starts collapsed so its tools
-      // (Metrics, Plugins, etc.) are hidden until the user opens it. The group
-      // header is still rendered (it's the expand trigger).
+      // Cluster is a low-frequency resource group — it starts collapsed (not
+      // in DEFAULT_OPEN_GROUPS) so its kinds (Nodes, Namespaces, …) are hidden
+      // until the user opens it. The group header is still rendered (it's the
+      // expand trigger).
       view = render(<NavList />);
       expect(view.queryByText('Cluster')).not.toBeNull();
-      // Diff lives inside Cluster; it must be hidden while folded.
-      expect(view.queryByText('Diff')).toBeNull();
+      // Nodes lives inside Cluster; it must be hidden while folded.
+      expect(view.queryByText('Nodes')).toBeNull();
       // Click the Cluster header to expand it.
       view.click(view.getByText('Cluster'));
-      expect(view.queryByText('Diff')).not.toBeNull();
+      expect(view.queryByText('Nodes')).not.toBeNull();
     });
 
     it('auto-expands a group when one of its overlays becomes active', () => {
