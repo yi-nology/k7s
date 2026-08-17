@@ -145,22 +145,10 @@ impl SessionManager {
 }
 
 fn load_sessions(data_dir: &std::path::Path) -> Vec<Session> {
-    let path = data_dir.join("ai-sessions.json");
-    if path.exists() {
-        std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default()
-    } else {
-        Vec::new()
-    }
+    crate::ai::atomic_read_json(&data_dir.join("ai-sessions.json"))
 }
 
 fn save_sessions(data_dir: &std::path::Path, sessions: &[Session]) {
     let path = data_dir.join("ai-sessions.json");
-    if let Ok(text) = serde_json::to_string_pretty(sessions) {
-        let tmp = path.with_extension("json.tmp");
-        let _ = std::fs::write(&tmp, &text);
-        let _ = std::fs::rename(&tmp, &path);
-    }
+    let _ = crate::ai::atomic_write_json(&path, sessions);
 }

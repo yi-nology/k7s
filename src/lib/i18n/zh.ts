@@ -67,6 +67,7 @@ export const zh: Dictionary = {
       searchPlaceholder: '搜索任何内容…',
       nsDisabledOverlay: '工具面板打开时命名空间筛选不可用',
       nsDisabledScope: '命名空间筛选不适用于集群级资源',
+      themeToggle: '切换主题',
     },
     statusbar: {
       // zh statusbar labels — `cpu` / `mem` / `api` / `kubectl 上下文:` are
@@ -256,6 +257,7 @@ export const zh: Dictionary = {
     selected: '已选',
     new: '新建',
     newTitle: '从 YAML 模板创建资源',
+    csvExportTitle: '导出表格为 CSV',
     ariaLabel: '资源表格',
   },
 
@@ -324,6 +326,7 @@ export const zh: Dictionary = {
 
   logs: {
     filterPlaceholder: '过滤日志…',
+    searchPlaceholder: '搜索日志…',
     container: '容器',
     ts: '时间',
     previous: '↺ 上一个',
@@ -441,6 +444,7 @@ export const zh: Dictionary = {
     checking: '检查中…',
     noChanges: '无变更 — 服务端将原样存储此对象。',
     diffNote: '这是服务端经默认值与变更 webhook 处理后实际存储的版本',
+    explain: 'AI 解释',
   },
 
   helm: {
@@ -486,6 +490,15 @@ export const zh: Dictionary = {
       install: '安装',
       done: '完成',
       invalidNamespace: '无效的命名空间名称',
+    },
+    diff: {
+      selectRevA: '起始版本',
+      selectRevB: '目标版本',
+      pickRevision: '选择版本...',
+      loading: '正在获取清单...',
+      identical: '清单完全相同',
+      swap: '交换',
+      emptyHint: '选择两个版本以对比其渲染后的清单。',
     },
   },
   podFiles: {

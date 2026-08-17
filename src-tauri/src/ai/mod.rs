@@ -35,27 +35,67 @@ pub mod embedded_models;
 pub mod error;
 pub mod evolution;
 pub mod hooks;
-pub mod im;
 pub mod knowledge_sync;
 pub mod llm;
 pub mod memory;
 pub mod permission;
-pub mod planner;
 pub mod plugins;
 pub mod prompt_builder;
 pub mod sandbox;
 pub mod secret;
 pub mod session;
 pub mod skills;
-pub mod swarm;
 pub mod timeouts;
 pub mod tools;
 
 pub use agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};
 pub use config::{AiConfig, AiConfigView, LlmProviderConfig, PermissionMode};
 pub use error::{AiError, AiResult};
-pub use im::{ImGatewayConfig, ImMessage, ImReply};
 pub use llm::{FunctionDef, LlmClient, Message, OpenAiClient};
 pub use memory::{MemoryEntry, MemorySource, MemoryStore};
 pub use skills::{Skill, SkillExample, SkillRegistry};
 pub use tools::{ToolContext, ToolRegistry};
+
+/// Resolve the platform-specific default config directory.
+///
+/// Uses the same platform rule as `metrics_config.rs`: macOS →
+/// `~/Library/Application Support/k7s`, else `~/.config/k7s`. The Tauri shell
+/// overrides this with `app_config_dir()` via callers that pass `data_dir`.
+pub fn default_config_dir() -> error::AiResult<std::path::PathBuf> {
+    let dir = match std::env::var_os("HOME") {
+        Some(h) => std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
+            "Library/Application Support/k7s"
+        } else {
+            ".config/k7s"
+        }),
+        None => return Err(error::AiError::Other("no HOME".into())),
+    };
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| error::AiError::Other(format!("mkdir {}: {e}", dir.display())))?;
+    Ok(dir)
+}
+
+/// Atomically write a JSON-serialisable value to `path`.
+///
+/// Writes to a `.json.tmp` sibling first, then renames — so a crash mid-write
+/// never leaves a half-written file on disk.
+pub fn atomic_write_json<T: serde::Serialize + ?Sized>(
+    path: &std::path::Path,
+    value: &T,
+) -> std::io::Result<()> {
+    let text = serde_json::to_string_pretty(value)
+        .map_err(std::io::Error::other)?;
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, &text)?;
+    std::fs::rename(&tmp, path)
+}
+
+/// Read a JSON file and deserialize it, returning `T::default()` if the file
+/// is missing, empty, or contains invalid JSON.
+pub fn atomic_read_json<T: serde::de::DeserializeOwned + Default>(path: &std::path::Path) -> T {
+    std::fs::read_to_string(path)
+        .ok()
+        .filter(|s| !s.trim().is_empty())
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_default()
+}

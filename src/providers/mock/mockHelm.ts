@@ -151,6 +151,14 @@ export class MockHelmMixin {
     return [];
   }
 
+  async helmManifestRevision(_namespace: string, _name: string, _revision: number): Promise<string> {
+    return '';
+  }
+
+  async helmValuesRevision(_namespace: string, _name: string, _revision: number): Promise<unknown> {
+    return {};
+  }
+
   onHelmOpLog(_cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub {
     return () => {};
   }

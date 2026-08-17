@@ -15,6 +15,7 @@ use crate::ai::config::{self, AiConfig, AiConfigView};
 use crate::ai::llm::{LlmClient, Message, OpenAiClient};
 use crate::ai::{AgentLoop, ChatRequest, ToolRegistry};
 use crate::core::CoreState;
+use crate::error::AppResult;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
@@ -119,7 +120,7 @@ impl EventSink for TauriEventSink {
 
 /// Get the current kubeconfig context name (for memory/session scoping).
 #[tauri::command]
-pub async fn ai_get_context(state: State<'_, Arc<CoreState>>) -> Result<String, String> {
+pub async fn ai_get_context(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
     Ok(state
         .manager
         .connection_info()
@@ -129,52 +130,43 @@ pub async fn ai_get_context(state: State<'_, Arc<CoreState>>) -> Result<String, 
 }
 
 #[tauri::command]
-pub async fn ai_get_config(state: State<'_, Arc<CoreState>>) -> Result<AiConfigView, String> {
+pub async fn ai_get_config(state: State<'_, Arc<CoreState>>) -> AppResult<AiConfigView> {
     // config::load is synchronous (std::fs); wrap in spawn_blocking so the
     // Tauri command runtime doesn't block the async executor on disk I/O.
     let dir = state.data_dir.clone();
-    tokio::task::spawn_blocking(move || config::load(Some(&dir)))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+    Ok(tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??)
 }
 
 #[tauri::command]
 pub async fn ai_save_config(
     config_input: AiConfig,
     state: State<'_, Arc<CoreState>>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let dir = state.data_dir.clone();
     tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .await??;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn ai_save_api_key(
     api_key: String,
     state: State<'_, Arc<CoreState>>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let dir = state.data_dir.clone();
     tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())
+        .await??;
+    Ok(())
 }
 
 /// Probe the configured provider with a minimal request. Returns Ok with a
 /// short status string, or Err with the failure message.
 #[tauri::command]
-pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> Result<String, String> {
+pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
     let dir = state.data_dir.clone();
-    let view = tokio::task::spawn_blocking(move || config::load(Some(&dir)))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
+    let view = tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??;
     let cfg = view.config;
-    let (base, model, key) =
-        config::resolve(&cfg, Some(&state.data_dir)).map_err(|e| e.to_string())?;
+    let (base, model, key) = config::resolve(&cfg, Some(&state.data_dir))?;
     let client = OpenAiClient::new(base, model, key, cfg.provider.temperature);
     use futures::StreamExt;
     let mut stream = client.chat_stream(
@@ -189,7 +181,7 @@ pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> Result<Stri
             Ok(crate::ai::llm::StreamEvent::TextDelta(t))
             | Ok(crate::ai::llm::StreamEvent::ReasoningDelta(t)) => got.push_str(&t),
             Ok(crate::ai::llm::StreamEvent::Done { .. }) => break,
-            Err(e) => return Err(e.to_string()),
+            Err(e) => return Err(crate::ai::AiError::Llm(e.to_string()).into()),
         }
     }
     Ok(format!("connected (model replied: {:?})", got.trim()))
@@ -210,12 +202,9 @@ pub async fn ai_chat(
     state: State<'_, Arc<CoreState>>,
     app: AppHandle,
     runtime: State<'_, Arc<AiRuntime>>,
-) -> Result<String, String> {
+) -> AppResult<String> {
     let dir = state.data_dir.clone();
-    let view = tokio::task::spawn_blocking(move || config::load(Some(&dir)))
-        .await
-        .map_err(|e| e.to_string())?
-        .map_err(|e| e.to_string())?;
+    let view = tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??;
     let cfg = view.config;
 
     // Resolve LLM provider. If config::resolve fails (no API key), try
@@ -238,11 +227,11 @@ pub async fn ai_chat(
                     )
                 }
                 _ => {
-                    return Err(
-                        "No LLM configured. Set an API key in Settings → AI Assistant, \
+                    return Err(crate::error::AppError::Other(
+                        "No LLM configured. Set an API key in Settings \u{2192} AI Assistant, \
                          or install Ollama (ollama.com) for local inference."
                             .to_string(),
-                    );
+                    ));
                 }
             }
         }
@@ -342,7 +331,7 @@ pub async fn ai_approve_tool_call(
     call_id: String,
     approved: bool,
     runtime: State<'_, Arc<AiRuntime>>,
-) -> Result<(), String> {
+) -> AppResult<()> {
     let mut map = runtime.inner.lock().await;
     if let Some(run) = map.get_mut(&run_id) {
         if let Some(tx) = run.approvals.remove(&call_id) {
@@ -350,12 +339,17 @@ pub async fn ai_approve_tool_call(
             return Ok(());
         }
     }
-    Err("no pending approval for that call".into())
+    Err(crate::error::AppError::Other(
+        "no pending approval for that call".into(),
+    ))
 }
 
 /// Cancel the active run.
 #[tauri::command]
-pub async fn ai_cancel(run_id: String, runtime: State<'_, Arc<AiRuntime>>) -> Result<(), String> {
+pub async fn ai_cancel(
+    run_id: String,
+    runtime: State<'_, Arc<AiRuntime>>,
+) -> AppResult<()> {
     let mut map = runtime.inner.lock().await;
     if let Some(run) = map.get_mut(&run_id) {
         run.cancelled = true;

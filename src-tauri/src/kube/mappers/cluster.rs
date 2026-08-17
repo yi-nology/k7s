@@ -8,16 +8,30 @@ use kube::ResourceExt;
 /// Nodes: NAME, STATUS, ROLES, CPU, MEMORY, VERSION. (No namespace column.)
 /// CPU/MEMORY are "—" placeholders overlaid from the node metrics feed.
 pub fn map_node(node: &Node) -> Row {
-    let ready = node
+    let conditions = node
         .status
         .as_ref()
         .and_then(|s| s.conditions.as_ref())
-        .map(|cs| cs.iter().any(|c| c.type_ == "Ready" && c.status == "True"))
-        .unwrap_or(false);
-    let (status_text, status_tone) = if ready {
-        ("Ready", Tone::Good)
-    } else {
+        .map(|cs| cs.as_slice())
+        .unwrap_or(&[]);
+    let is_ready = conditions
+        .iter()
+        .any(|c| c.type_ == "Ready" && c.status == "True");
+    let has_pressure = conditions.iter().any(|c| {
+        matches!(
+            (c.type_.as_str(), c.status.as_str()),
+            (
+                "MemoryPressure" | "DiskPressure" | "PIDPressure" | "NetworkUnavailable",
+                "True"
+            )
+        )
+    });
+    let (status_text, status_tone) = if !is_ready {
         ("NotReady", Tone::Bad)
+    } else if has_pressure {
+        ("Ready \u{26a0}", Tone::Warn)
+    } else {
+        ("Ready", Tone::Good)
     };
 
     // Roles come from "node-role.kubernetes.io/<role>" labels.
@@ -281,6 +295,74 @@ mod tests {
         let sorted = sort_events(rows, 1);
         assert_eq!(sorted.len(), 1);
         assert_eq!(sorted[0].cells[1].text, "Keep");
+    }
+
+    /// A node with MemoryPressure=True shows a warning status.
+    #[test]
+    fn node_memory_pressure_warns() {
+        let node: Node = serde_json::from_value(json!({
+            "metadata": { "name": "n1", "uid": "nn1" },
+            "status": {
+                "conditions": [
+                    { "type": "Ready", "status": "True" },
+                    { "type": "MemoryPressure", "status": "True" }
+                ],
+                "nodeInfo": { "kubeletVersion": "v1.31.2",
+                    "machineID":"","systemUUID":"","bootID":"","kernelVersion":"",
+                    "osImage":"","containerRuntimeVersion":"","kubeProxyVersion":"",
+                    "operatingSystem":"linux","architecture":"arm64" }
+            }
+        }))
+        .unwrap();
+        let row = map_node(&node);
+        assert_eq!(row.cells[1].text, "Ready \u{26a0}");
+        assert_eq!(row.cells[1].tone, Tone::Warn);
+    }
+
+    /// A node with no pressures and Ready=True shows green status.
+    #[test]
+    fn node_healthy_shows_ready() {
+        let node: Node = serde_json::from_value(json!({
+            "metadata": { "name": "n1", "uid": "nn1" },
+            "status": {
+                "conditions": [
+                    { "type": "Ready", "status": "True" },
+                    { "type": "MemoryPressure", "status": "False" },
+                    { "type": "DiskPressure", "status": "False" },
+                    { "type": "PIDPressure", "status": "False" }
+                ],
+                "nodeInfo": { "kubeletVersion": "v1.31.2",
+                    "machineID":"","systemUUID":"","bootID":"","kernelVersion":"",
+                    "osImage":"","containerRuntimeVersion":"","kubeProxyVersion":"",
+                    "operatingSystem":"linux","architecture":"arm64" }
+            }
+        }))
+        .unwrap();
+        let row = map_node(&node);
+        assert_eq!(row.cells[1].text, "Ready");
+        assert_eq!(row.cells[1].tone, Tone::Good);
+    }
+
+    /// A node that is NotReady shows red regardless of pressure conditions.
+    #[test]
+    fn node_notready_overrides_pressure() {
+        let node: Node = serde_json::from_value(json!({
+            "metadata": { "name": "n1", "uid": "nn1" },
+            "status": {
+                "conditions": [
+                    { "type": "Ready", "status": "False" },
+                    { "type": "MemoryPressure", "status": "True" }
+                ],
+                "nodeInfo": { "kubeletVersion": "v1.31.2",
+                    "machineID":"","systemUUID":"","bootID":"","kernelVersion":"",
+                    "osImage":"","containerRuntimeVersion":"","kubeProxyVersion":"",
+                    "operatingSystem":"linux","architecture":"arm64" }
+            }
+        }))
+        .unwrap();
+        let row = map_node(&node);
+        assert_eq!(row.cells[1].text, "NotReady");
+        assert_eq!(row.cells[1].tone, Tone::Bad);
     }
 
     /// lastTimestamp is preferred, but events that only carry eventTime still sort.

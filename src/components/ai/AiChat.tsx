@@ -100,6 +100,19 @@ export function AiChat({ selectedContext, onClose }: Props) {
     });
   }, [rows]);
 
+  // Consume a pending message set by another component (e.g. "Explain YAML").
+  const aiPendingMessage = useStore((s) => s.aiPendingMessage);
+  const setAiPendingMessage = useStore((s) => s.setAiPendingMessage);
+  useEffect(() => {
+    if (aiPendingMessage && !busy) {
+      const msg = aiPendingMessage;
+      setAiPendingMessage(undefined);
+      void send(msg);
+    }
+    // Only fire when the pending message changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiPendingMessage]);
+
   // Active run tracking.
   const activeRunId = useRef<string | null>(null);
   const processEventRef = useRef(processEvent);

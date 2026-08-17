@@ -94,10 +94,14 @@ impl ToolRegistry {
             Box::new(read_tools::GetPodLogs),
             Box::new(read_tools::GetClusterHealth),
             Box::new(read_tools::TopNodes),
+            Box::new(read_tools::TopPods),
+            Box::new(read_tools::CapacityReport),
             Box::new(read_tools::BatchGet),
             Box::new(read_tools::DiffResources),
             Box::new(read_tools::HpaStatus),
+            Box::new(read_tools::SecurityAudit),
             Box::new(read_tools::SpawnSubAgent),
+            Box::new(read_tools::KubectlGenerator),
             // write
             Box::new(write_tools::ScaleWorkload),
             Box::new(write_tools::RestartWorkload),
@@ -239,11 +243,15 @@ mod tests {
             "get_pod_logs",
             "get_cluster_health",
             "top_nodes",
+            "top_pods",
+            "capacity_report",
+            "security_audit",
             "scale_workload",
             "restart_workload",
             "delete_resource",
             "apply_manifest",
             "diagnose_unhealthy",
+            "kubectl_generate",
         ];
         for e in expected {
             assert!(names.contains(&e), "missing tool: {e}");

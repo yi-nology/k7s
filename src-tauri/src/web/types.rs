@@ -192,6 +192,13 @@ pub struct RestartPodArgs {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct DiagnosePodArgs {
+    pub namespace: String,
+    pub pod: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RestartRolloutArgs {
     pub kind: String,
     pub namespace: String,
@@ -334,4 +341,20 @@ pub struct ListEndpointsForServiceArgs {
 pub struct ListEndpointAddressesArgs {
     pub namespace: String,
     pub name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmManifestRevisionArgs {
+    pub namespace: String,
+    pub name: String,
+    pub revision: i64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmValuesRevisionArgs {
+    pub namespace: String,
+    pub name: String,
+    pub revision: i64,
 }

@@ -1,7 +1,5 @@
 //! Read-only AI tools — thin wrappers around `impls::*_impl()`.
 
-use kube::ResourceExt;
-
 use crate::ai::error::{AiError, AiResult};
 use crate::ai::tools::{
     get_arg_str, get_opt_bool, get_opt_i64, get_opt_str, impls, ok_value, Tool, ToolContext,
@@ -190,7 +188,8 @@ impl Tool for TopNodes {
         "top_nodes"
     }
     fn description(&self) -> &str {
-        "Get node status (Ready/NotReady, kubelet version)."
+        "Get per-node CPU and memory usage plus allocatable capacity from metrics.k8s.io. \
+         Returns usage, capacity, and percentage for each node sorted by CPU usage."
     }
     fn parameters_schema(&self) -> serde_json::Value {
         serde_json::json!({"type":"object","properties":{}})
@@ -200,24 +199,69 @@ impl Tool for TopNodes {
         ctx: &ToolContext,
         _args: serde_json::Value,
     ) -> AiResult<serde_json::Value> {
-        let client = crate::ai::tools::require_client(&ctx.manager).await?;
-        let nodes: kube::api::ObjectList<k8s_openapi::api::core::v1::Node> = kube::Api::all(client)
-            .list(&Default::default())
+        impls::top_nodes_impl(&ctx.manager)
             .await
-            .map_err(|e| AiError::Tool(e.to_string()))?;
-        let rows: Vec<serde_json::Value> = nodes
-            .iter()
-            .map(|n| {
-                let ready = n
-                    .status
-                    .as_ref()
-                    .and_then(|s| s.conditions.as_ref())
-                    .map(|cs| cs.iter().any(|c| c.type_ == "Ready" && c.status == "True"))
-                    .unwrap_or(false);
-                serde_json::json!({"name": n.name_any(), "ready": ready})
-            })
-            .collect();
-        ok_value(&rows)
+            .map_err(|e| AiError::Tool(e.to_string()))
+    }
+}
+
+pub struct TopPods;
+#[async_trait]
+impl Tool for TopPods {
+    fn name(&self) -> &str {
+        "top_pods"
+    }
+    fn description(&self) -> &str {
+        "Get CPU and memory usage for all pods, sorted by CPU consumption. \
+         Use this to identify which pods are the heaviest resource consumers."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "namespace": {"type": "string", "description": "Filter by namespace (optional)"}
+            },
+            "required": []
+        })
+    }
+    async fn call(
+        &self,
+        ctx: &ToolContext,
+        args: serde_json::Value,
+    ) -> AiResult<serde_json::Value> {
+        let ns = args
+            .get("namespace")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty());
+        impls::top_pods_impl(&ctx.manager, ns)
+            .await
+            .map_err(|e| AiError::Tool(e.to_string()))
+    }
+}
+
+pub struct CapacityReport;
+#[async_trait]
+impl Tool for CapacityReport {
+    fn name(&self) -> &str {
+        "capacity_report"
+    }
+    fn description(&self) -> &str {
+        "Generate a cluster capacity planning report. Shows node CPU/memory usage, \
+         per-namespace resource consumption, top resource-consuming pods, capacity alerts, \
+         and scaling recommendations. Use this when the user asks about cluster capacity, \
+         resource planning, or whether the cluster needs more nodes."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type":"object","properties":{}})
+    }
+    async fn call(
+        &self,
+        ctx: &ToolContext,
+        _args: serde_json::Value,
+    ) -> AiResult<serde_json::Value> {
+        impls::capacity_report_impl(&ctx.manager)
+            .await
+            .map_err(|e| AiError::Tool(e.to_string()))
     }
 }
 
@@ -310,6 +354,33 @@ impl Tool for HpaStatus {
     }
 }
 
+// Security audit
+pub struct SecurityAudit;
+#[async_trait]
+impl Tool for SecurityAudit {
+    fn name(&self) -> &str {
+        "security_audit"
+    }
+    fn description(&self) -> &str {
+        "Run a comprehensive RBAC security audit of the cluster. \
+         Identifies over-privileged roles, wildcard permissions, secret access, \
+         pod exec capabilities, anonymous bindings, and other security risks. \
+         Use this when the user asks about cluster security, RBAC risks, or wants a security report."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type":"object","properties":{}})
+    }
+    async fn call(
+        &self,
+        ctx: &ToolContext,
+        _args: serde_json::Value,
+    ) -> AiResult<serde_json::Value> {
+        impls::security_audit_impl(&ctx.manager)
+            .await
+            .map_err(|e| AiError::Tool(e.to_string()))
+    }
+}
+
 // Swarm tool — spawn a sub-agent for parallel work.
 pub struct SpawnSubAgent;
 #[async_trait]
@@ -372,5 +443,32 @@ impl Tool for SpawnSubAgent {
             "status": "completed",
             "results": results,
         }))
+    }
+}
+
+// kubectl command generator — provides cluster context for building commands.
+pub struct KubectlGenerator;
+#[async_trait]
+impl Tool for KubectlGenerator {
+    fn name(&self) -> &str {
+        "kubectl_generate"
+    }
+    fn description(&self) -> &str {
+        "Get the current cluster context, available namespaces, and kubectl command templates. \
+         Use this to generate accurate kubectl commands for the user. The response includes \
+         the current context name, server version, all namespaces, and common command templates \
+         that you can customize for the user's specific request."
+    }
+    fn parameters_schema(&self) -> serde_json::Value {
+        serde_json::json!({"type": "object", "properties": {}, "required": []})
+    }
+    async fn call(
+        &self,
+        ctx: &ToolContext,
+        _args: serde_json::Value,
+    ) -> AiResult<serde_json::Value> {
+        impls::kubectl_context_impl(&ctx.manager)
+            .await
+            .map_err(|e| AiError::Tool(e.to_string()))
     }
 }

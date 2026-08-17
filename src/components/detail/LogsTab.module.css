@@ -189,6 +189,41 @@
   color: var(--text-primary);
 }
 
+/* ---------- Search highlight & navigation ---------- */
+
+.highlight {
+  background: var(--accent-dim, rgba(255, 213, 79, 0.35));
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.lineActive {
+  background: var(--bg-log-active, rgba(255, 213, 79, 0.15));
+}
+
+.matchCount {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+.navBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.navBtn:hover {
+  background: var(--bg-hover);
+}
+
 /* Transient "saved N lines" feedback in the footer. */
 .saveNote {
   color: var(--accent);

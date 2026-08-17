@@ -125,24 +125,10 @@ fn xor(buf: &mut [u8]) {
     }
 }
 
-fn default_config_dir() -> AiResult<std::path::PathBuf> {
-    let dir = match std::env::var_os("HOME") {
-        Some(h) => std::path::PathBuf::from(h).join(if cfg!(target_os = "macos") {
-            "Library/Application Support/k7s"
-        } else {
-            ".config/k7s"
-        }),
-        None => return Err(AiError::Other("no HOME".into())),
-    };
-    std::fs::create_dir_all(&dir)
-        .map_err(|e| AiError::Other(format!("mkdir {}: {e}", dir.display())))?;
-    Ok(dir)
-}
-
 fn file_path(data_dir: Option<&std::path::Path>) -> std::path::PathBuf {
     match data_dir {
         Some(d) => d.join("ai-key.bin"),
-        None => default_config_dir()
+        None => crate::ai::default_config_dir()
             .unwrap_or_else(|_| std::path::PathBuf::from("."))
             .join("ai-key.bin"),
     }

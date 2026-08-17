@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, Download } from 'lucide-react';
 import styles from './ResourceTable.module.css';
 import { rowsFor, useStore } from '../../store';
 import { useNow } from '../../hooks/useNow';
@@ -19,6 +19,7 @@ import { useTranslation } from '../../hooks/useI18n';
 import { toneColor } from '../../lib/tone';
 import { formatAge, formatCpu, formatMem } from '../../lib/format';
 import { isClusterScoped, isRolloutKind, kindMeta, navIdForKind, type KindId } from '../../lib/kinds';
+import { toCsv, downloadCsv } from '../../lib/exportCsv';
 import { sortRows } from '../../lib/sort';
 import { parseFilter, matchesFilter } from '../../lib/filter';
 import { eventWithinSince, SINCE_OPTIONS, type SinceOption } from '../../lib/events';
@@ -309,6 +310,19 @@ export function ResourceTable() {
             ))}
           </select>
         )}
+        <button
+          type="button"
+          className={styles.newBtn}
+          title={t('table.csvExportTitle', 'Export table as CSV')}
+          data-testid="export-csv"
+          onClick={() => {
+            if (!meta) return;
+            const csv = toCsv(columns, rows);
+            downloadCsv(`${nav}-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+          }}
+        >
+          <Download size={14} />
+        </button>
         {/* "New" affordance. Mirrors the sidebar Tools → Templates entry so the
             create path is reachable from any kind page, not only via the
             sidebar. The icon matches the sidebar's `✚` so the two surfaces

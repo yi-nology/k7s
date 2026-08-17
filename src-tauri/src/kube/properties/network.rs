@@ -12,7 +12,7 @@ use kube::Client;
 /// An Ingress backend port, which is *either* a number or a named port on the
 /// Service — murphy-yi's only Ingress uses a name, which is the case a
 /// number-only reading would silently drop.
-pub(super) fn backend_port(
+pub(crate) fn backend_port(
     p: Option<&k8s_openapi::api::networking::v1::ServiceBackendPort>,
 ) -> String {
     match p {

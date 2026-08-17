@@ -167,16 +167,6 @@ pub async fn addresses_for(
     Ok(out)
 }
 
-#[allow(dead_code)]
-fn _check_app_result() -> AppResult<()> {
-    Ok(())
-}
-
-#[allow(dead_code)]
-fn _check_err() -> AppError {
-    AppError::Other("never".into())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

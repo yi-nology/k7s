@@ -55,9 +55,9 @@ pub fn resolve_token(data_dir: &Path) -> String {
     }
     // Generate a fresh 32-byte secret. `OsRng` is the OS CSPRNG.
     use base64::Engine;
-    use rand::RngCore;
+    use rand::Rng;
     let mut bytes = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut bytes);
+    rand::rng().fill_bytes(&mut bytes);
     let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes);
     if let Err(e) = std::fs::write(&path, &token) {
         tracing::warn!("could not persist web token to {}: {e}", path.display());

@@ -73,6 +73,15 @@ pub struct NameNamespaceParams {
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
+pub struct DiagnosePodParams {
+    /// Namespace of the Pod.
+    pub namespace: String,
+    /// Name of the Pod to diagnose.
+    pub pod: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct LogsParams {
     pub namespace: String,
     pub pod: String,
@@ -240,6 +249,22 @@ pub struct HelmShowValuesParams {
     pub chart: String,
     #[serde(default)]
     pub version: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmManifestRevisionParams {
+    pub namespace: String,
+    pub name: String,
+    pub revision: i64,
+}
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct HelmValuesRevisionParams {
+    pub namespace: String,
+    pub name: String,
+    pub revision: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema, Default)]
@@ -654,3 +679,11 @@ pub struct SilenceUnifiedParams {
 pub struct ListKindsParams {
     pub scope: String,
 }
+
+// ---------------------------------------------------------------------------
+// Security audit parameter types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SecurityAuditParams {}

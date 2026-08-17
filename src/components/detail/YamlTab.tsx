@@ -5,6 +5,8 @@
  */
 
 import React, { useState } from 'react';
+import { Sparkles } from 'lucide-react';
+import type { EditorView } from '@codemirror/view';
 import styles from './YamlTab.module.css';
 import { useStore } from '../../store';
 import { formatError, getProvider } from '../../providers';
@@ -77,7 +79,11 @@ export function YamlTab() {
   const startYamlEdit = useStore((s) => s.startYamlEdit);
   const cancelYaml = useStore((s) => s.cancelYaml);
   const setYamlDraft = useStore((s) => s.setYamlDraft);
+  const setAiPendingMessage = useStore((s) => s.setAiPendingMessage);
+  const setAiPanelOpen = useStore((s) => s.setAiPanelOpen);
   const { t } = useTranslation();
+
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
 
   const [yamlText, setYamlText] = useState('');
   // Bumped after each fetch so the read-only editor remounts with fresh content.
@@ -89,6 +95,19 @@ export function YamlTab() {
   const [review, setReview] = useState<YamlDiff | null>(null);
 
   const ref: ResourceRef | null = row ? { kind, namespace: row.namespace, name: row.name } : null;
+
+  /** Grab the selection (or full doc) and send it to the AI chat panel. */
+  const onExplainYaml = () => {
+    if (!editorView) return;
+    const sel = editorView.state.sliceDoc(
+      editorView.state.selection.main.from,
+      editorView.state.selection.main.to,
+    );
+    const text = sel || editorView.state.doc.toString();
+    if (!text) return;
+    setAiPendingMessage(`Explain this YAML:\n\`\`\`yaml\n${text}\n\`\`\``);
+    setAiPanelOpen(true);
+  };
 
   // Fetch YAML on selection change (and on first open of this tab).
   useAsyncEffect(async (isMounted) => {
@@ -192,18 +211,29 @@ export function YamlTab() {
             </>
           )
         ) : (
-          editable && (
+          <>
             <button
               type="button"
-              className={styles.editBtn}
-              onClick={() => {
-                setError(null);
-                startYamlEdit(yamlText);
-              }}
+              className={styles.explainBtn}
+              onClick={onExplainYaml}
+              title={t('yaml.explain')}
             >
-              {t('yaml.edit')}
+              <Sparkles size={14} />
+              {t('yaml.explain')}
             </button>
-          )
+            {editable && (
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={() => {
+                  setError(null);
+                  startYamlEdit(yamlText);
+                }}
+              >
+                {t('yaml.edit')}
+              </button>
+            )}
+          </>
         )}
       </div>
 
@@ -213,11 +243,11 @@ export function YamlTab() {
         <DiffView diff={review} />
       ) : yamlEditing ? (
         <div className={`${styles.editorWrap} ${styles.editing}`}>
-          <CodeEditor key={`edit:${row.uid}`} value={yamlText} editable onChange={setYamlDraft} />
+          <CodeEditor key={`edit:${row.uid}`} value={yamlText} editable onChange={setYamlDraft} onViewReady={setEditorView} />
         </div>
       ) : (
         <div className={styles.editorWrap}>
-          <CodeEditor key={`read:${row.uid}:${nonce}`} value={yamlText} editable={false} />
+          <CodeEditor key={`read:${row.uid}:${nonce}`} value={yamlText} editable={false} onViewReady={setEditorView} />
         </div>
       )}
     </>

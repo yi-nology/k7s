@@ -62,6 +62,36 @@ export interface SecretEntry {
   value: string;
 }
 
+/** Diagnosis for a single container within a Pod. */
+export interface ContainerDiagnosis {
+  name: string;
+  /** "container" or "initContainer". */
+  containerType: string;
+  ready: boolean;
+  restartCount: number;
+  /** "running", "waiting", "terminated", or "unknown". */
+  currentState: string;
+  currentReason?: string;
+  currentMessage?: string;
+  currentExitCode?: number;
+  lastTerminationReason?: string;
+  lastTerminationExitCode?: number;
+}
+
+/** Overall Pod termination diagnosis. */
+export interface PodDiagnosis {
+  pod: string;
+  namespace: string;
+  phase: string;
+  containers: ContainerDiagnosis[];
+  /** Human-readable one-line summary. */
+  summary: string;
+  /** "ok", "warn", or "critical". */
+  severity: string;
+  /** Common pattern if detected (e.g. "oomkilled", "crashloop"). */
+  pattern?: string;
+}
+
 /** One row of a properties field grid: a label, a toned value, and an optional
  * nav target that makes the value a click-through link (B33). */
 export interface Field {
@@ -268,3 +298,70 @@ export interface NodeStatsError {
 
 /** Unsubscribe function returned by the `on*` event subscriptions. */
 export type Unsub = () => void;
+
+/** A node in a resource dependency graph. */
+export interface GraphNode {
+  kind: string;
+  name: string;
+  namespace?: string;
+}
+
+/** An edge in a resource dependency graph. */
+export interface GraphEdge {
+  from: GraphNode;
+  to: GraphNode;
+  relation: string;
+}
+
+/** A resource dependency graph: nodes and edges representing Kubernetes resource relationships. */
+export interface DependencyGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+/** One hop in an Ingress routing chain. */
+export interface RouteHop {
+  kind: string;
+  name: string;
+  namespace: string;
+  /** "ok", "warning", or "error". */
+  status: string;
+  detail: string;
+}
+
+/** A single Ingress rule path with its full routing chain. */
+export interface IngressRoute {
+  host: string;
+  path: string;
+  pathType: string;
+  hops: RouteHop[];
+  /** Worst status across all hops. */
+  overallStatus: string;
+}
+
+/** Full debug result for an Ingress resource. */
+export interface IngressDebugResult {
+  ingress: string;
+  namespace: string;
+  ingressClass?: string;
+  tls: boolean;
+  routes: IngressRoute[];
+}
+
+/**
+ * A point-in-time snapshot of a ConfigMap or Secret's data.
+ *
+ * Since Kubernetes does not store historical versions, the backend captures
+ * these into a ring buffer whenever the user views a resource. Users can
+ * compare any two snapshots to see what changed.
+ */
+export interface ConfigSnapshot {
+  /** Kubernetes resourceVersion — the cluster's monotonic revision counter. */
+  resourceVersion: string;
+  /** RFC3339 timestamp when this snapshot was taken. */
+  timestamp: string;
+  /** Sorted list of data keys at this version. */
+  dataKeys: string[];
+  /** Serialized YAML of the resource (secrets are redacted). */
+  yaml: string;
+}

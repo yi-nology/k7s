@@ -111,6 +111,26 @@ pub async fn build_client_from_file(path: &str, context: &str) -> AppResult<(Cli
     Ok((client, server))
 }
 
+/// Build a client from an already-parsed `Kubeconfig` (used when the caller
+/// has bytes in memory rather than a file on disk — e.g. web shell uploads or
+/// the `kubeconfig_bytes` code path in `connect_core`).
+pub async fn build_client_from_kubeconfig(
+    kubeconfig: Kubeconfig,
+    context: &str,
+) -> AppResult<(Client, String)> {
+    let options = KubeConfigOptions {
+        context: Some(context.to_string()),
+        cluster: None,
+        user: None,
+    };
+    let config = Config::from_custom_kubeconfig(kubeconfig, &options)
+        .await
+        .map_err(|e| AppError::Kubeconfig(e.to_string()))?;
+    let server = config.cluster_url.to_string();
+    let client = Client::try_from(config)?;
+    Ok((client, server))
+}
+
 /// Best-effort path to kubectl's default kubeconfig: the first entry of
 /// $KUBECONFIG, else ~/.kube/config. Used to pre-point the import file dialog.
 ///

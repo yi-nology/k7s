@@ -69,8 +69,8 @@ impl EvolutionStore {
     pub fn open(data_dir: &std::path::Path) -> Self {
         let dir = data_dir.join("ai-evolution");
         let _ = std::fs::create_dir_all(&dir);
-        let strategies = load_json::<Vec<Strategy>>(&dir.join("strategies.json"));
-        let recent_runs = load_json::<Vec<RunOutcome>>(&dir.join("runs.json"));
+        let strategies = crate::ai::atomic_read_json(&dir.join("strategies.json"));
+        let recent_runs = crate::ai::atomic_read_json(&dir.join("runs.json"));
         Self {
             dir,
             strategies,
@@ -257,21 +257,8 @@ fn compute_confidence(success: u32, failure: u32) -> f32 {
     (ratio + observation_boost).min(1.0)
 }
 
-fn load_json<T: serde::de::DeserializeOwned>(path: &std::path::Path) -> T {
-    std::fs::read_to_string(path)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_else(|| {
-            serde_json::from_str("[]").unwrap_or_else(|_| panic!("default deserialization failed"))
-        })
-}
-
 fn save_json<T: Serialize>(path: &std::path::Path, data: &T) {
-    if let Ok(text) = serde_json::to_string_pretty(data) {
-        let tmp = path.with_extension("json.tmp");
-        let _ = std::fs::write(&tmp, &text);
-        let _ = std::fs::rename(&tmp, path);
-    }
+    let _ = crate::ai::atomic_write_json(path, data);
 }
 
 #[cfg(test)]

@@ -196,6 +196,27 @@
   text-align: center;
 }
 
+/* ============== Theme toggle ============== */
+
+.themeToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.themeToggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* ============== Language switcher ============== */
 
 /* Mirror of the namespace button: same height, same chrome, just narrower. The

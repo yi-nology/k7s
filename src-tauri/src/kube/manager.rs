@@ -3,6 +3,7 @@
 //! connection. Switching context or disconnecting aborts *all* of them here, so no
 //! task ever outlives the connection that created it (Story 6.1).
 
+use super::config_snapshots::SnapshotStore;
 use super::discovery::CustomKind;
 use super::events;
 use crate::core::events::EventSink;
@@ -129,6 +130,9 @@ pub struct ClientManager {
     /// Persists across connect/reset (it's not connection-scoped) so `connect` can
     /// find which file to build a client from.
     imports: RwLock<HashMap<String, ImportedContext>>,
+    /// ConfigMap/Secret version snapshots. Persists across connections so users
+    /// can compare versions even after a context switch.
+    snapshot_store: SnapshotStore,
 }
 
 impl ClientManager {
@@ -137,6 +141,7 @@ impl ClientManager {
             sink,
             inner: RwLock::new(Inner::default()),
             imports: RwLock::new(HashMap::new()),
+            snapshot_store: SnapshotStore::new(),
         }
     }
 
@@ -483,5 +488,11 @@ impl ClientManager {
     /// already cheap to clone — or a `broadcast::Sender` — already `Arc`-wrapped).
     pub fn sink(&self) -> EventSink {
         self.sink.clone()
+    }
+
+    /// The ConfigMap/Secret snapshot store. Persists across connections so
+    /// version history survives context switches.
+    pub fn snapshot_store(&self) -> &SnapshotStore {
+        &self.snapshot_store
     }
 }

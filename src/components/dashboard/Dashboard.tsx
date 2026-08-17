@@ -293,9 +293,9 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
                   <div className={styles.quotaName}>{name}</div>
                   <div className={styles.quotaNs}>{ns}</div>
                   {resources.map(([key, hardRaw]) => {
-                    const hardVal = parseResourceValue(hardRaw);
+                    const hardVal = parseResourceValue(hardRaw, key);
                     const usedRaw = usedMap.get(key) ?? '';
-                    const usedVal = parseResourceValue(usedRaw);
+                    const usedVal = parseResourceValue(usedRaw, key);
                     const pct = hardVal > 0 ? Math.min(100, (usedVal / hardVal) * 100) : 0;
                     return (
                       <div key={key} className={styles.quotaItem}>
@@ -405,61 +405,76 @@ function capitalize(s: string): string {
  *
  * Returns 0 for empty or unparseable strings so a missing "USED" value
  * renders as a zero-fill bar rather than crashing the math.
+ *
+ * The optional `key` parameter disambiguates core counts from plain
+ * integers: the CPU heuristic only fires when `key` contains "cpu".
  */
-function parseResourceValue(s: string): number {
-  if (!s) return 0;
+function parseResourceValue(s: string, key?: string): number {
+  if (!s || s === '\u2014') return 0;
   const trimmed = s.trim();
 
   // CPU — millicores ("100m") or cores ("1", "2")
   if (trimmed.endsWith('m')) {
-    return parseFloat(trimmed) || 0;
+    return parseInt(trimmed, 10) || 0;
   }
 
   // Memory — binary suffixes
   const memMatch = trimmed.match(/^(\d+(?:\.\d+)?)(Ki|Mi|Gi|Ti|Pi|Ei)$/);
   if (memMatch) {
     const val = parseFloat(memMatch[1]);
-    switch (memMatch[2]) {
-      case 'Ki':
-        return val / 1024; // normalise to MiB
-      case 'Mi':
-        return val;
-      case 'Gi':
-        return val * 1024;
-      case 'Ti':
-        return val * 1024 * 1024;
-      case 'Pi':
-        return val * 1024 * 1024 * 1024;
-      case 'Ei':
-        return val * 1024 * 1024 * 1024 * 1024;
-    }
+    const unit = memMatch[2];
+    const multipliers: Record<string, number> = {
+      Ki: 1 / 1024,
+      Mi: 1,
+      Gi: 1024,
+      Ti: 1024 * 1024,
+      Pi: 1024 * 1024 * 1024,
+      Ei: 1024 * 1024 * 1024 * 1024,
+    };
+    return val * (multipliers[unit] ?? 1);
   }
 
   // Plain number (pods, services, secrets, …) — or a core count ("4")
-  // For cores, multiply by 1000 to match the millicore scale above.
   const num = parseFloat(trimmed);
   if (isNaN(num)) return 0;
-  // Heuristic: if the value is a small integer and the string had no unit
-  // suffix at all, treat it as a core count → millicores so cpu bars scale
-  // correctly against "100m"-style used values.
-  if (Number.isInteger(num) && num <= 64 && !/[a-zA-Z]/.test(trimmed)) {
-    return num * 1000;
+  // CPU core-count heuristic: only apply when the resource key contains
+  // "cpu". Without the key guard, values like pods=50 would be
+  // misinterpreted as 50000 millicores.
+  if (num <= 64 && (!key || key.toLowerCase().includes('cpu'))) {
+    return num * 1000; // cores → millicores
   }
   return num;
 }
 
 /**
- * Parse a comma-separated "key=value" string (the format Kubernetes uses for
- * ResourceQuota HARD and USED columns) into a Map of resource name → raw value
- * string.  Example: "cpu=4,memory=8Gi,pods=10" → { cpu: "4", memory: "8Gi", pods: "10" }.
+ * Parse a ResourceQuota HARD or USED value into a Map of resource name → raw
+ * value string.  The backend serialises these as JSON objects
+ * (e.g. `{"cpu":"4","memory":"8Gi"}`), but the original kubectl-style
+ * comma-separated `key=value` format is kept as a fallback.
  */
 function parseQuotaMap(raw: string): Map<string, string> {
-  const m = new Map<string, string>();
-  if (!raw) return m;
+  const map = new Map<string, string>();
+  if (!raw || raw === '\u2014') return map;
+
+  // Try JSON format first (backend sends {"cpu":"4","memory":"8Gi"})
+  try {
+    const obj = JSON.parse(raw);
+    if (typeof obj === 'object' && obj !== null) {
+      for (const [k, v] of Object.entries(obj)) {
+        map.set(k, String(v));
+      }
+      return map;
+    }
+  } catch {
+    // not JSON — fall through to legacy format
+  }
+
+  // Fallback: comma-separated key=value format
   for (const pair of raw.split(',')) {
     const eq = pair.indexOf('=');
-    if (eq === -1) continue;
-    m.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    if (eq > 0) {
+      map.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    }
   }
-  return m;
+  return map;
 }

@@ -85,9 +85,11 @@ interface CodeEditorProps {
   editable: boolean;
   /** Called with the new document text on every edit (edit mode only). */
   onChange?: (text: string) => void;
+  /** Called once after the EditorView is created, so the parent can hold a ref. */
+  onViewReady?: (view: EditorView) => void;
 }
 
-export function CodeEditor({ value, editable, onChange }: CodeEditorProps) {
+export function CodeEditor({ value, editable, onChange, onViewReady }: CodeEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   // YAML only mounts in the detail panel. That surface is dark under both
@@ -131,6 +133,7 @@ export function CodeEditor({ value, editable, onChange }: CodeEditorProps) {
     });
 
     viewRef.current = view;
+    if (onViewReady) onViewReady(view);
     return () => {
       viewRef.current = null;
       view.destroy();

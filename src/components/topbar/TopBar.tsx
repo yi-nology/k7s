@@ -10,10 +10,12 @@
  */
 
 import { useCallback, useMemo, useRef } from 'react';
+import { Sun, Moon } from 'lucide-react';
 import styles from './TopBar.module.css';
 import { useStore, type OverlayKey } from '../../store';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTranslation } from '../../hooks/useI18n';
+import { useResolvedTheme } from '../../hooks/useTheme';
 import { isClusterScoped, kindMeta, type KindId } from '../../lib/kinds';
 import { cx } from '../../lib/cx';
 import { groupLabel, kindLabelFor, LOCALES, LOCALE_LABELS, type Locale } from '../../lib/i18n';
@@ -62,6 +64,7 @@ export function TopBar() {
   const customKinds = useStore((s) => s.customKinds);
   const setSettings = useStore((s) => s.setSettings);
   const { locale, t } = useTranslation();
+  const resolvedTheme = useResolvedTheme();
 
   const nsRef = useRef<HTMLDivElement>(null);
   const langRef = useRef<HTMLDivElement>(null);
@@ -144,6 +147,16 @@ export function TopBar() {
         <span className={styles.cmdKbd}>⌘</span>
         <span className={styles.cmdKbd}>K</span>
       </div>
+
+      {/* Theme toggle: instant dark/light switch with a smooth crossfade. */}
+      <button
+        type="button"
+        className={styles.themeToggle}
+        onClick={() => setSettings({ theme: resolvedTheme === 'dark' ? 'light' : 'dark' })}
+        title={t('chrome.topbar.themeToggle')}
+      >
+        {resolvedTheme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+      </button>
 
       {/* Language switcher: the current locale's short code, with a dropdown of
           every supported language on click. Lives next to the namespace picker

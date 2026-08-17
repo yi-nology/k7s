@@ -87,6 +87,8 @@ export interface Dictionary {
       nsDisabledOverlay: string;
       /** Tooltip when the ns filter is disabled on a cluster-scoped kind. */
       nsDisabledScope: string;
+      /** Tooltip for the dark/light theme toggle button. */
+      themeToggle: string;
     };
     /** Status bar (Design §5) — every fact is "label value" pair; the value is
      *  rendered in a stronger colour by the StatusBar component. Keys here are
@@ -253,6 +255,8 @@ export interface Dictionary {
     new: string;
     /** Hover/tooltip for the same button — explains what the icon does. */
     newTitle: string;
+    /** Tooltip for the CSV export button in the table toolbar. */
+    csvExportTitle: string;
     /** aria-label for the resource table. */
     ariaLabel: string;
   };
@@ -337,6 +341,7 @@ export interface Dictionary {
   /** Tab-specific UI strings (subset that's not already in chrome.*). */
   logs: {
     filterPlaceholder: string;
+    searchPlaceholder: string;
     container: string;
     ts: string;
     previous: string;
@@ -465,6 +470,7 @@ export interface Dictionary {
     checking: string;
     noChanges: string;
     diffNote: string;
+    explain: string;
   };
 
   /** Feature overlay panels (Phase 1/2/4/5 of KubePi parity). Each panel
@@ -514,6 +520,15 @@ export interface Dictionary {
       install: string;
       done: string;
       invalidNamespace: string;
+    };
+    diff: {
+      selectRevA: string;
+      selectRevB: string;
+      pickRevision: string;
+      loading: string;
+      identical: string;
+      swap: string;
+      emptyHint: string;
     };
   };
   podFiles: { title: string; close: string; noPod: string; placeholder: string };

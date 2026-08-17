@@ -5,7 +5,7 @@
  * The stream lifecycle lives in useLogStream.
  */
 
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import styles from './LogsTab.module.css';
 import { useStore } from '../../store';
 import { formatError, getProvider } from '../../providers';
@@ -28,6 +28,33 @@ function msgColor(level: string): string {
   if (level === 'ERROR') return 'var(--status-err-msg)';
   if (level === 'WARN') return 'var(--status-warn-msg)';
   return 'var(--text-secondary)';
+}
+
+/** Highlight all occurrences of `query` within `text` using <mark>. */
+function highlightMatches(text: string, query: string): React.ReactNode {
+  if (!query) return text;
+  const q = query.trim();
+  if (!q) return text;
+  const lower = text.toLowerCase();
+  const ql = q.toLowerCase();
+  const idx = lower.indexOf(ql);
+  if (idx === -1) return text;
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let i = 0;
+  while (true) {
+    const pos = lower.indexOf(ql, last);
+    if (pos === -1) break;
+    if (pos > last) parts.push(text.slice(last, pos));
+    parts.push(
+      <mark key={i++} className={styles.highlight}>
+        {text.slice(pos, pos + q.length)}
+      </mark>
+    );
+    last = pos + q.length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length > 0 ? parts : text;
 }
 
 export function LogsTab() {
@@ -61,14 +88,44 @@ export function LogsTab() {
   const containerLabel = current === '' ? t('logs.containerAll') : current;
   const showContainerTag = current === '' && containers.length > 1;
 
-  // Client-side filter on message + level (buffer itself is untouched).
-  const filtered = useMemo(() => {
+  // --- Highlight + navigate search ---
+
+  const [matchIndices, setMatchIndices] = useState<number[]>([]);
+  const [currentMatchIdx, setCurrentMatchIdx] = useState(-1);
+  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  // Recompute match indices when logBuffer or query changes.
+  useEffect(() => {
     const q = logSearch.trim().toLowerCase();
-    if (!q) return logBuffer;
-    return logBuffer.filter(
-      (l) => l.msg.toLowerCase().includes(q) || l.level.toLowerCase().includes(q)
-    );
+    if (!q) {
+      setMatchIndices([]);
+      setCurrentMatchIdx(-1);
+      return;
+    }
+    const indices: number[] = [];
+    logBuffer.forEach((line, i) => {
+      if (line.msg.toLowerCase().includes(q) || line.level.toLowerCase().includes(q)) {
+        indices.push(i);
+      }
+    });
+    setMatchIndices(indices);
+    setCurrentMatchIdx(indices.length > 0 ? 0 : -1);
   }, [logBuffer, logSearch]);
+
+  const goToMatch = useCallback(
+    (idx: number) => {
+      if (matchIndices.length === 0) return;
+      const wrapped = ((idx % matchIndices.length) + matchIndices.length) % matchIndices.length;
+      setCurrentMatchIdx(wrapped);
+      const lineIdx = matchIndices[wrapped];
+      const el = lineRefs.current.get(lineIdx);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    },
+    [matchIndices]
+  );
+
+  const nextMatch = useCallback(() => goToMatch(currentMatchIdx + 1), [goToMatch, currentMatchIdx]);
+  const prevMatch = useCallback(() => goToMatch(currentMatchIdx - 1), [goToMatch, currentMatchIdx]);
 
   // Offered only when a container has actually restarted — see hasPrevious.
   const showPrevious = hasPrevious(pod?.pod?.restarts);
@@ -104,7 +161,7 @@ export function LogsTab() {
       const el = viewportRef.current;
       el.scrollTop = el.scrollHeight;
     }
-  }, [filtered.length, following]);
+  }, [logBuffer.length, following]);
 
   // When resuming (following flips on), jump to bottom immediately.
   useEffect(() => {
@@ -123,9 +180,38 @@ export function LogsTab() {
               className={styles.searchInput}
               value={logSearch}
               onChange={(e) => setLogSearch(e.target.value)}
-              placeholder={t('logs.filterPlaceholder')}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.shiftKey ? prevMatch() : nextMatch();
+                if (e.key === 'Escape') setLogSearch('');
+              }}
+              placeholder={t('logs.searchPlaceholder')}
             />
           </div>
+
+          {logSearch && matchIndices.length > 0 && (
+            <>
+              <span className={styles.matchCount}>
+                {currentMatchIdx + 1}/{matchIndices.length}
+              </span>
+              <button
+                className={styles.navBtn}
+                onClick={prevMatch}
+                title="Previous"
+              >
+                ↑
+              </button>
+              <button
+                className={styles.navBtn}
+                onClick={nextMatch}
+                title="Next"
+              >
+                ↓
+              </button>
+            </>
+          )}
+          {logSearch && matchIndices.length === 0 && (
+            <span className={styles.matchCount}>0 matches</span>
+          )}
 
           {/* Container cycler (cycles through the pod's containers, plus "all"). */}
           <button
@@ -203,13 +289,27 @@ export function LogsTab() {
       </div>
 
       <div className={styles.viewport} ref={viewportRef}>
-        {filtered.map((line, i) => (
-          <LogRow key={i} line={line} showTs={showTimestamps} showContainer={showContainerTag} />
+        {logBuffer.map((line, i) => (
+          <div
+            key={i}
+            ref={(el) => {
+              if (el) lineRefs.current.set(i, el);
+              else lineRefs.current.delete(i);
+            }}
+          >
+            <LogRow
+              line={line}
+              showTs={showTimestamps}
+              showContainer={showContainerTag}
+              query={logSearch}
+              isCurrentMatch={matchIndices[currentMatchIdx] === i}
+            />
+          </div>
         ))}
       </div>
 
       <div className={styles.footer}>
-        <span>{t('logs.linesCount', filtered.length)}</span>
+        <span>{t('logs.linesCount', logBuffer.length)}</span>
         <span>
           {t('logs.container')}: {containerLabel}
         </span>
@@ -228,18 +328,22 @@ export function LogsTab() {
 
 /** A single log line row: timestamp (optional), container tag (in "all" mode),
  *  level column, message. Memoized: log streams render hundreds of lines and
- *  only the showTs/showContainer toggles change between renders. */
+ *  only the showTs/showContainer/query/isCurrentMatch toggles change between renders. */
 const LogRow = React.memo(function LogRow({
   line,
   showTs,
   showContainer,
+  query,
+  isCurrentMatch,
 }: {
   line: LogLine;
   showTs: boolean;
   showContainer: boolean;
+  query: string;
+  isCurrentMatch: boolean;
 }) {
   return (
-    <div className={styles.line}>
+    <div className={`${styles.line} ${isCurrentMatch ? styles.lineActive : ''}`}>
       {showTs && <span className={styles.lineTs}>{line.ts}</span>}
       {showContainer && <span className={styles.lineContainer}>{line.container}</span>}
       <span
@@ -249,7 +353,7 @@ const LogRow = React.memo(function LogRow({
         {line.level}
       </span>
       <span className={styles.lineMsg} style={{ color: msgColor(line.level) }}>
-        {line.msg}
+        {highlightMatches(line.msg, query)}
       </span>
     </div>
   );

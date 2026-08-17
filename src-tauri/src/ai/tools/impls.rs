@@ -10,9 +10,10 @@
 
 use crate::core::shell_common;
 use crate::error::{AppError, AppResult};
-use crate::kube::manager::ClientManager;
+use crate::kube::manager::{ClientManager, ConnectionInfo};
 use kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
 use kube::ResourceExt;
+use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
 // Read tools
@@ -490,4 +491,349 @@ pub async fn hpa_status_impl(
         })
         .collect();
     Ok(serde_json::json!({ "hpas": rows }))
+}
+
+// ---------------------------------------------------------------------------
+// Security audit
+// ---------------------------------------------------------------------------
+
+/// Run the RBAC security audit and return findings.
+pub async fn security_audit_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+    let client = manager.client().await.ok_or(AppError::Disconnected)?;
+    let report = crate::kube::security_audit::run_audit(client).await?;
+    serde_json::to_value(report).map_err(|e| AppError::Other(e.to_string()))
+}
+
+// ---------------------------------------------------------------------------
+// Capacity planning (metrics.k8s.io wire types)
+// ---------------------------------------------------------------------------
+
+/// Raw wire types for metrics.k8s.io responses. These mirror the types in
+/// `mcp::kube_api` and `kube::metrics` but are defined here so the AI module
+/// does not depend on feature-gated code.
+
+#[derive(serde::Deserialize)]
+struct MetricsList<T> {
+    items: Vec<T>,
+}
+
+#[derive(serde::Deserialize)]
+struct MetaName {
+    name: String,
+    #[serde(default)]
+    namespace: String,
+}
+
+#[derive(serde::Deserialize)]
+struct Usage {
+    #[serde(default)]
+    cpu: String,
+    #[serde(default)]
+    memory: String,
+}
+
+#[derive(serde::Deserialize)]
+struct PodMetric {
+    metadata: MetaName,
+    containers: Vec<ContainerUsage>,
+}
+
+#[derive(serde::Deserialize)]
+struct ContainerUsage {
+    usage: Usage,
+}
+
+#[derive(serde::Deserialize)]
+struct NodeMetric {
+    metadata: MetaName,
+    usage: Usage,
+}
+
+/// Helper: percentage used/capacity, guarding divide-by-zero.
+fn pct(used: i64, cap: i64) -> f64 {
+    if cap <= 0 {
+        0.0
+    } else {
+        ((used as f64 / cap as f64) * 1000.0).round() / 10.0
+    }
+}
+
+/// Get per-node CPU/memory usage and capacity from metrics.k8s.io.
+pub async fn top_nodes_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+    let client = manager.client().await.ok_or(AppError::Disconnected)?;
+
+    // Fetch node metrics from metrics.k8s.io.
+    let req = http::Request::get("/apis/metrics.k8s.io/v1beta1/nodes")
+        .body(Vec::new())
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+    let metrics: MetricsList<NodeMetric> = client.request(req).await?;
+
+    // Fetch node objects for allocatable capacity.
+    let nodes: Api<k8s_openapi::api::core::v1::Node> = Api::all(client);
+    let node_list = nodes.list(&ListParams::default()).await?;
+
+    // Build capacity map from allocatable.
+    let mut capacity: HashMap<String, (i64, i64)> = HashMap::new();
+    for node in &node_list.items {
+        let name = node.metadata.name.clone().unwrap_or_default();
+        if let Some(status) = &node.status {
+            if let Some(alloc) = &status.allocatable {
+                let cpu = alloc
+                    .get("cpu")
+                    .map(|q| crate::kube::metrics::parse_cpu_millis(&q.0))
+                    .unwrap_or(0);
+                let mem = alloc
+                    .get("memory")
+                    .map(|q| crate::kube::metrics::parse_mem_bytes(&q.0))
+                    .unwrap_or(0);
+                capacity.insert(name, (cpu, mem));
+            }
+        }
+    }
+
+    // Combine metrics + capacity.
+    let mut rows: Vec<serde_json::Value> = Vec::new();
+    for m in &metrics.items {
+        let name = m.metadata.name.clone();
+        let cpu = crate::kube::metrics::parse_cpu_millis(&m.usage.cpu);
+        let mem = crate::kube::metrics::parse_mem_bytes(&m.usage.memory);
+        let (cpu_cap, mem_cap) = capacity.get(&name).copied().unwrap_or((0, 0));
+        let cpu_pct = pct(cpu, cpu_cap);
+        let mem_pct = pct(mem, mem_cap);
+        rows.push(serde_json::json!({
+            "node": name,
+            "cpuMillis": cpu,
+            "memBytes": mem,
+            "cpuCapacityMillis": cpu_cap,
+            "memCapacityBytes": mem_cap,
+            "cpuPercent": cpu_pct,
+            "memPercent": mem_pct,
+        }));
+    }
+    rows.sort_by(|a, b| {
+        b["cpuPercent"]
+            .as_f64()
+            .unwrap_or(0.0)
+            .partial_cmp(&a["cpuPercent"].as_f64().unwrap_or(0.0))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    Ok(serde_json::json!(rows))
+}
+
+/// Get per-pod CPU/memory usage from metrics.k8s.io.
+pub async fn top_pods_impl(
+    manager: &ClientManager,
+    namespace: Option<&str>,
+) -> AppResult<serde_json::Value> {
+    let client = manager.client().await.ok_or(AppError::Disconnected)?;
+
+    let path = match namespace {
+        Some(ns) if !ns.is_empty() => {
+            format!("/apis/metrics.k8s.io/v1beta1/namespaces/{ns}/pods")
+        }
+        _ => "/apis/metrics.k8s.io/v1beta1/pods".to_string(),
+    };
+    let req = http::Request::get(path)
+        .body(Vec::new())
+        .map_err(|e| AppError::Kube(e.to_string()))?;
+    let metrics: MetricsList<PodMetric> = client.request(req).await?;
+
+    let mut rows: Vec<serde_json::Value> = metrics
+        .items
+        .iter()
+        .map(|pm| {
+            let cpu: i64 = pm
+                .containers
+                .iter()
+                .map(|c| crate::kube::metrics::parse_cpu_millis(&c.usage.cpu))
+                .sum();
+            let mem: i64 = pm
+                .containers
+                .iter()
+                .map(|c| crate::kube::metrics::parse_mem_bytes(&c.usage.memory))
+                .sum();
+            serde_json::json!({
+                "namespace": pm.metadata.namespace,
+                "pod": pm.metadata.name,
+                "cpuMillis": cpu,
+                "memBytes": mem,
+            })
+        })
+        .collect();
+    rows.sort_by(|a, b| {
+        b["cpuMillis"]
+            .as_i64()
+            .unwrap_or(0)
+            .cmp(&a["cpuMillis"].as_i64().unwrap_or(0))
+    });
+
+    Ok(serde_json::json!(rows))
+}
+
+/// Generate a cluster capacity report with node usage, namespace aggregation,
+/// and scaling recommendations.
+pub async fn capacity_report_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+    // Get node metrics.
+    let nodes_json = top_nodes_impl(manager).await?;
+    let nodes: Vec<serde_json::Value> = serde_json::from_value(nodes_json).unwrap_or_default();
+
+    // Get pod metrics.
+    let pods_json = top_pods_impl(manager, None).await?;
+    let pods: Vec<serde_json::Value> = serde_json::from_value(pods_json).unwrap_or_default();
+
+    // Cluster totals.
+    let total_cpu: i64 = nodes
+        .iter()
+        .map(|n| n["cpuCapacityMillis"].as_i64().unwrap_or(0))
+        .sum();
+    let used_cpu: i64 = nodes
+        .iter()
+        .map(|n| n["cpuMillis"].as_i64().unwrap_or(0))
+        .sum();
+    let total_mem: i64 = nodes
+        .iter()
+        .map(|n| n["memCapacityBytes"].as_i64().unwrap_or(0))
+        .sum();
+    let used_mem: i64 = nodes
+        .iter()
+        .map(|n| n["memBytes"].as_i64().unwrap_or(0))
+        .sum();
+
+    // Per-namespace aggregation.
+    let mut ns_map: HashMap<String, (i64, i64, usize)> = HashMap::new();
+    for pod in &pods {
+        let ns = pod["namespace"].as_str().unwrap_or("default");
+        let cpu = pod["cpuMillis"].as_i64().unwrap_or(0);
+        let mem = pod["memBytes"].as_i64().unwrap_or(0);
+        let entry = ns_map.entry(ns.to_string()).or_insert((0, 0, 0));
+        entry.0 += cpu;
+        entry.1 += mem;
+        entry.2 += 1;
+    }
+    let mut namespaces: Vec<serde_json::Value> = ns_map
+        .iter()
+        .map(|(ns, (cpu, mem, count))| {
+            serde_json::json!({"name": ns, "podCount": count, "cpuMillis": cpu, "memBytes": mem})
+        })
+        .collect();
+    namespaces.sort_by(|a, b| {
+        b["cpuMillis"]
+            .as_i64()
+            .unwrap_or(0)
+            .cmp(&a["cpuMillis"].as_i64().unwrap_or(0))
+    });
+
+    // Alerts for nodes above 85%.
+    let mut alerts = Vec::new();
+    for node in &nodes {
+        let name = node["node"].as_str().unwrap_or("?");
+        let cpu_pct = node["cpuPercent"].as_f64().unwrap_or(0.0);
+        let mem_pct = node["memPercent"].as_f64().unwrap_or(0.0);
+        if cpu_pct > 85.0 {
+            alerts.push(serde_json::json!({
+                "level": "warning",
+                "node": name,
+                "message": format!("{name} at {cpu_pct}% CPU")
+            }));
+        }
+        if mem_pct > 85.0 {
+            alerts.push(serde_json::json!({
+                "level": "warning",
+                "node": name,
+                "message": format!("{name} at {mem_pct}% memory")
+            }));
+        }
+    }
+
+    // Recommendations.
+    let mut recommendations: Vec<String> = Vec::new();
+    let cpu_pct = if total_cpu > 0 {
+        used_cpu as f64 / total_cpu as f64 * 100.0
+    } else {
+        0.0
+    };
+    let mem_pct = if total_mem > 0 {
+        used_mem as f64 / total_mem as f64 * 100.0
+    } else {
+        0.0
+    };
+    if cpu_pct > 75.0 {
+        recommendations.push(
+            "Cluster CPU usage above 75% \u{2014} consider adding nodes or scaling down workloads"
+                .into(),
+        );
+    }
+    if mem_pct > 75.0 {
+        recommendations.push(
+            "Cluster memory usage above 75% \u{2014} consider adding nodes or reducing memory requests"
+                .into(),
+        );
+    }
+
+    Ok(serde_json::json!({
+        "cluster": {
+            "totalCpuMillis": total_cpu,
+            "usedCpuMillis": used_cpu,
+            "totalMemBytes": total_mem,
+            "usedMemBytes": used_mem,
+            "cpuPercent": (cpu_pct * 10.0).round() / 10.0,
+            "memPercent": (mem_pct * 10.0).round() / 10.0,
+            "nodeCount": nodes.len(),
+        },
+        "nodes": nodes,
+        "namespaces": namespaces,
+        "topPods": pods.iter().take(10).collect::<Vec<_>>(),
+        "alerts": alerts,
+        "recommendations": recommendations,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// kubectl context helper
+// ---------------------------------------------------------------------------
+
+/// Generate kubectl context information for command construction.
+/// Returns the current cluster context, available namespaces, and common
+/// kubectl command templates. The LLM uses this to build accurate,
+/// context-aware kubectl commands the user can copy-paste.
+pub async fn kubectl_context_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+    let client = manager.client().await.ok_or(AppError::Disconnected)?;
+
+    // Current context and server version from the connection info.
+    let info = manager.connection_info().await.unwrap_or(ConnectionInfo {
+        context: String::new(),
+        server: String::new(),
+        version: String::new(),
+    });
+
+    // List all namespaces.
+    let ns_api: kube::Api<k8s_openapi::api::core::v1::Namespace> = kube::Api::all(client);
+    let ns_list = ns_api.list(&ListParams::default()).await?;
+    let namespaces: Vec<String> = ns_list
+        .items
+        .iter()
+        .filter_map(|ns| ns.metadata.name.clone())
+        .collect();
+
+    Ok(serde_json::json!({
+        "context": info.context,
+        "serverVersion": info.version,
+        "namespaces": namespaces,
+        "templates": {
+            "get": "kubectl get {resource} -n {namespace}",
+            "describe": "kubectl describe {resource} {name} -n {namespace}",
+            "logs": "kubectl logs {pod} -n {namespace} --tail=100",
+            "exec": "kubectl exec -it {pod} -n {namespace} -- {command}",
+            "portForward": "kubectl port-forward {pod} {local}:{remote} -n {namespace}",
+            "scale": "kubectl scale {resource} {name} --replicas={n} -n {namespace}",
+            "rollout": "kubectl rollout restart {resource} {name} -n {namespace}",
+            "delete": "kubectl delete {resource} {name} -n {namespace}",
+            "apply": "kubectl apply -f {file}",
+            "top": "kubectl top {resource} -n {namespace}",
+            "cordon": "kubectl cordon {node}",
+            "drain": "kubectl drain {node} --ignore-daemonsets --delete-emptydir-data",
+            "taint": "kubectl taint nodes {node} {key}={value}:{effect}",
+        }
+    }))
 }

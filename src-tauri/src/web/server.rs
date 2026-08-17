@@ -74,7 +74,7 @@ async fn embedded_fallback(req: axum::extract::Request) -> impl axum::response::
                 .status(StatusCode::OK)
                 .header(header::CONTENT_TYPE, mime)
                 .body(axum::body::Body::from(content.data.to_vec()))
-                .unwrap()
+                .expect("Response::builder with hardcoded status and body is infallible")
         }
         None => {
             // SPA fallback: serve index.html for any unmatched path
@@ -83,11 +83,11 @@ async fn embedded_fallback(req: axum::extract::Request) -> impl axum::response::
                     .status(StatusCode::OK)
                     .header(header::CONTENT_TYPE, "text/html")
                     .body(axum::body::Body::from(content.data.to_vec()))
-                    .unwrap(),
+                    .expect("Response::builder with hardcoded status and body is infallible"),
                 None => Response::builder()
                     .status(StatusCode::NOT_FOUND)
                     .body(axum::body::Body::empty())
-                    .unwrap(),
+                    .expect("Response::builder with hardcoded status and body is infallible"),
             }
         }
     }
@@ -148,6 +148,14 @@ pub fn api_router(state: WebState) -> Router {
         .route("/api/invoke/connect", post(handlers::connect))
         .route("/api/invoke/get_yaml", post(resource_handlers::get_yaml))
         .route(
+            "/api/invoke/helm_manifest_revision",
+            post(resource_handlers::helm_manifest_revision),
+        )
+        .route(
+            "/api/invoke/helm_values_revision",
+            post(resource_handlers::helm_values_revision),
+        )
+        .route(
             "/api/invoke/get_events",
             post(resource_handlers::get_events),
         )
@@ -197,6 +205,10 @@ pub fn api_router(state: WebState) -> Router {
         .route(
             "/api/invoke/restart_pod",
             post(resource_handlers::restart_pod),
+        )
+        .route(
+            "/api/invoke/diagnose_pod",
+            post(resource_handlers::diagnose_pod),
         )
         .route(
             "/api/invoke/restart_rollout",
@@ -260,7 +272,7 @@ pub fn api_router(state: WebState) -> Router {
         // SBOM endpoints (REST-style).
         .route("/api/sbom/image", post(handlers::sbom_generate_image))
         .route("/api/sbom/history", get(handlers::sbom_list_history))
-        .route("/api/sbom/:id", get(handlers::sbom_get))
+        .route("/api/sbom/{id}", get(handlers::sbom_get))
         // SBOM invoke bridges — the frontend calls POST /api/invoke/sbom_*.
         .route(
             "/api/invoke/sbom_generate_image",
@@ -374,7 +386,7 @@ pub fn api_router(state: WebState) -> Router {
             post(handlers::ai_cron_delete_handler),
         )
         // Stubs for everything else.
-        .route("/api/invoke/:cmd", post(handlers::not_implemented))
+        .route("/api/invoke/{cmd}", post(handlers::not_implemented))
         // Connection banner polling. `GET` (no body) so a misbehaving client
         // can't accidentally trigger a state change by retrying.
         .route("/api/status", get(handlers::status))

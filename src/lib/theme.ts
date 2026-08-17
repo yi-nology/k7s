@@ -161,10 +161,26 @@ export function prefersDark(): boolean {
  */
 export function applyTheme(resolved: ResolvedTheme): void {
   if (typeof document === 'undefined') return;
-  document.documentElement.dataset.theme = resolved;
-  // Makes the webview's own widgets (native scrollbars, form controls, and the
-  // default canvas behind the app) match, which CSS variables can't reach.
-  document.documentElement.style.colorScheme = resolved;
+  const root = document.documentElement;
+
+  // Use View Transition API if available (Chromium-based browsers including
+  // Tauri WebView) for a native crossfade.  Otherwise fall back to the
+  // CSS class approach which transitions color-related properties.
+  if ('startViewTransition' in document) {
+    (document as any).startViewTransition(() => {
+      root.dataset.theme = resolved;
+      // Makes the webview's own widgets (native scrollbars, form controls, and
+      // the default canvas behind the app) match, which CSS variables can't
+      // reach.
+      root.style.colorScheme = resolved;
+    });
+  } else {
+    root.classList.add('theme-transitioning');
+    root.dataset.theme = resolved;
+    root.style.colorScheme = resolved;
+    // Remove the transition class after the animation completes.
+    setTimeout(() => root.classList.remove('theme-transitioning'), 350);
+  }
 }
 
 /** Persist the *choice* for the paint-time cache. Prefs remain canonical. */

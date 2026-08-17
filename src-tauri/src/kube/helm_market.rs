@@ -33,7 +33,7 @@
 use crate::error::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 /// Default well-known repos seeded on first run. The classic two — KubePi ships
@@ -584,11 +584,6 @@ impl HelmRepo {
         index_path(&self.name).ok()
     }
 }
-
-// Force `Path` import to stay used (avoids dead-code warnings if a future edit
-// drops the only call site).
-#[allow(dead_code)]
-fn _path_marker(_: &Path) {}
 
 // ---------------------------------------------------------------------------
 // Offline chart export/import (air-gap environments)

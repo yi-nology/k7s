@@ -22,7 +22,6 @@ use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
 use crate::kube::{
     client::{self, ClusterInfo, ContextInfo},
-    discovery,
     manager::{ConnectionInfo, ImportedContext},
     watchers,
 };
@@ -175,53 +174,46 @@ pub async fn connect(
 ) -> axum::response::Response {
     let core = state.core.clone();
     let result: AppResult<ClusterInfo> = (|| async {
-        // Abort every task from the previous connection first.
-        core.manager.reset().await;
-
         let context = args.context;
-        // Three ways to build a client for `context`:
-        //   1. It was imported from a file and the file still exists on
-        //      disk (Tauri shell).
-        //   2. It was imported from a file the web shell uploaded — we
-        //      stashed the parsed `Kubeconfig` in the manager, use that.
-        //   3. It's a context in the default kubeconfig.
-        let (kube_client, server) = if let Some(kc) = core.manager.import_kubeconfig(&context).await
-        {
-            build_client_from_kubeconfig(kc, &context).await?
-        } else if let Some(path) = core.manager.import_path(&context).await {
-            client::build_client_from_file(&path, &context).await?
-        } else {
-            client::build_client(&context).await?
-        };
-        let version = client::probe_version(&kube_client).await?;
+
+        // Shared connection sequence: reset -> build client -> probe version ->
+        // discover CRDs. The web shell may have an imported kubeconfig in memory.
+        let imported = core.manager.import_kubeconfig(&context).await;
+        let import_path = core.manager.import_path(&context).await;
+        let cr = shell_common::connect_core(
+            &core.manager,
+            imported,
+            import_path,
+            &context,
+        )
+        .await?;
 
         // Watchers for all built-in kinds (B1).
-        let watcher_count = watchers::spawn_all(&core.manager, kube_client.clone()).await;
+        let watcher_count = watchers::spawn_all(&core.manager, cr.client.clone()).await;
 
         // Metrics + status pollers (B23). Read intervals from prefs at connect,
         // so a settings change takes effect on the next connection.
         let pi = prefs::poll_intervals(&prefs::read_prefs(&core.data_dir));
         let (metrics_task, status_task) =
-            crate::kube::metrics::spawn_pollers(core.manager.sink(), kube_client.clone(), pi);
+            crate::kube::metrics::spawn_pollers(core.manager.sink(), cr.client.clone(), pi);
         let _ = core.manager.push_task(metrics_task).await;
         let _ = core.manager.push_task(status_task).await;
 
-        // CRD discovery — the same as the Tauri `connect` does (B15).
-        let custom = discovery::discover(&kube_client).await;
-        core.manager.set_custom_kinds(custom.clone()).await;
+        // Tell the frontend about CRD-backed kinds (discovered inside connect_core).
         let _ = core
             .manager
             .sink()
-            .emit(crate::kube::events::CUSTOM_KINDS, &custom);
+            .emit(crate::kube::events::CUSTOM_KINDS, &cr.custom_kinds);
 
+        // Record the live connection with the real watcher count.
         let _ = core
             .manager
             .set_connected(
-                kube_client,
+                cr.client,
                 ConnectionInfo {
                     context: context.clone(),
-                    server: server.clone(),
-                    version: version.clone(),
+                    server: cr.server.clone(),
+                    version: cr.version.clone(),
                 },
                 watcher_count,
             )
@@ -230,8 +222,8 @@ pub async fn connect(
         Ok(ClusterInfo {
             context: context.clone(),
             cluster_name: context,
-            server,
-            version,
+            server: cr.server,
+            version: cr.version,
         })
     })()
     .await;
@@ -356,64 +348,8 @@ pub async fn sbom_export(
     let output_path = req["output_path"].as_str().unwrap_or("").to_string();
 
     let result: AppResult<String> = (|| async {
-        let path = std::path::Path::new(&output_path);
-
-        // If the path is just a filename (no directory component), use the temp directory
-        let resolved_path =
-            if path.parent().is_none() || path.parent() == Some(std::path::Path::new("")) {
-                std::env::temp_dir().join(path)
-            } else {
-                path.to_path_buf()
-            };
-
-        // Canonicalize to prevent path traversal attacks
-        let canonical_path = dunce::canonicalize(&resolved_path).or_else(|_| {
-            if let Some(parent) = resolved_path.parent() {
-                let canonical_parent = dunce::canonicalize(parent).map_err(|e| {
-                    crate::error::AppError::Other(format!(
-                        "Cannot resolve export directory '{}': {e}",
-                        parent.display()
-                    ))
-                })?;
-                Ok::<std::path::PathBuf, crate::error::AppError>(
-                    canonical_parent.join(resolved_path.file_name().unwrap_or_default()),
-                )
-            } else {
-                Err(crate::error::AppError::Other(
-                    "Invalid export path: no parent directory".to_string(),
-                ))
-            }
-        })?;
-
-        // Allowed export directories: user's home, data_dir, or temp
-        let allowed_dirs: Vec<std::path::PathBuf> = {
-            let mut dirs = vec![state.core.data_dir.clone()];
-            if let Some(home) = dirs::home_dir() {
-                dirs.push(home);
-            }
-            dirs.push(std::env::temp_dir());
-            dirs
-        };
-
-        let is_allowed = allowed_dirs
-            .iter()
-            .any(|allowed| canonical_path.starts_with(allowed));
-
-        if !is_allowed {
-            return Err(crate::error::AppError::Other(format!(
-                "Export path '{}' is not within allowed directories. Allowed: home, data dir, or temp.",
-                output_path
-            )));
-        }
-
-        if let Some(parent) = canonical_path.parent() {
-            if !parent.exists() {
-                return Err(crate::error::AppError::Other(format!(
-                    "Export directory does not exist: {}",
-                    parent.display()
-                )));
-            }
-        }
+        let canonical_path =
+            crate::kube::sbom_storage::validate_export_path(&output_path, &state.core.data_dir)?;
 
         let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
         let sbom = storage.load(&id)?;
@@ -492,28 +428,6 @@ pub async fn scanner_status(State(state): State<WebState>) -> axum::response::Re
 // Helpers (re-implementations of the small bits commands.rs's connect/get_yaml
 // need that aren't already in `kube::`).
 // ---------------------------------------------------------------------------
-
-/// Build a kube client from an already-parsed `Kubeconfig` (the web shell
-/// has the file's bytes in memory, not on disk; this avoids re-reading).
-/// Mirrors `client::build_client_from_file` line-for-line, just starting
-/// from a `Kubeconfig` rather than a path.
-async fn build_client_from_kubeconfig(
-    kubeconfig: kube::config::Kubeconfig,
-    context: &str,
-) -> AppResult<(kube::Client, String)> {
-    use kube::config::{Config, KubeConfigOptions};
-    let options = KubeConfigOptions {
-        context: Some(context.to_string()),
-        cluster: None,
-        user: None,
-    };
-    let config = Config::from_custom_kubeconfig(kubeconfig, &options)
-        .await
-        .map_err(|e| AppError::Kubeconfig(e.to_string()))?;
-    let server = config.cluster_url.to_string();
-    let client = kube::Client::try_from(config)?;
-    Ok((client, server))
-}
 
 // ---------------------------------------------------------------------------
 // AI webhook hooks
@@ -1153,7 +1067,7 @@ pub async fn web_token(State(state): State<WebState>) -> axum::response::Respons
         return axum::response::Response::builder()
             .status(axum::http::StatusCode::NOT_FOUND)
             .body(axum::body::Body::empty())
-            .unwrap();
+            .expect("Response::builder with hardcoded status and body is infallible");
     }
     Json(serde_json::json!({ "token": *state.web_token })).into_response()
 }

@@ -67,6 +67,7 @@ export const en: Dictionary = {
       searchPlaceholder: 'Search anything…',
       nsDisabledOverlay: 'Namespace filter is hidden while a tool panel is open',
       nsDisabledScope: 'Namespace filter does not apply to cluster-scoped resources',
+      themeToggle: 'Toggle theme',
     },
     statusbar: {
       api: 'api',
@@ -251,6 +252,7 @@ export const en: Dictionary = {
     selected: 'selected',
     new: 'New',
     newTitle: 'Create a resource from a YAML template',
+    csvExportTitle: 'Export table as CSV',
     ariaLabel: 'Resource table',
   },
 
@@ -323,6 +325,7 @@ export const en: Dictionary = {
 
   logs: {
     filterPlaceholder: 'filter logs…',
+    searchPlaceholder: 'search logs…',
     container: 'container',
     ts: 'ts',
     previous: '↺ previous',
@@ -442,6 +445,7 @@ export const en: Dictionary = {
     checking: 'Checking…',
     noChanges: 'No changes — the server would store this object exactly as it is now.',
     diffNote: 'as the server would store it, after defaulting and any mutating webhooks',
+    explain: 'Explain in AI',
   },
 
   helm: {
@@ -487,6 +491,15 @@ export const en: Dictionary = {
       install: 'Install',
       done: 'Done',
       invalidNamespace: 'Invalid namespace name',
+    },
+    diff: {
+      selectRevA: 'From revision',
+      selectRevB: 'To revision',
+      pickRevision: 'Select revision...',
+      loading: 'Fetching manifests...',
+      identical: 'Manifests are identical',
+      swap: 'Swap',
+      emptyHint: 'Select two revisions to compare their rendered manifests.',
     },
   },
   podFiles: {

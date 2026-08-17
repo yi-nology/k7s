@@ -403,7 +403,8 @@ export type DetailTabId =
   | 'yaml'
   | 'events'
   | 'pods'
-  | 'timeline';
+  | 'timeline'
+  | 'diff';
 
 /** Tab id → label, in the order the strip renders them. */
 export const DETAIL_TABS: { id: DetailTabId; label: string }[] = [
@@ -416,6 +417,7 @@ export const DETAIL_TABS: { id: DetailTabId; label: string }[] = [
   { id: 'yaml', label: 'YAML' },
   { id: 'events', label: 'Events' },
   { id: 'timeline', label: 'Timeline' },
+  { id: 'diff', label: 'Diff' },
 ];
 
 /**
@@ -460,6 +462,8 @@ export function tabsFor(kind: KindId, isPod: boolean): DetailTabId[] {
         return kind !== 'helm';
       case 'timeline':
         return kind === 'cronjobs';
+      case 'diff':
+        return kind === 'helm';
       default:
         return true;
     }

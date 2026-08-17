@@ -15,7 +15,7 @@ mod cluster;
 mod config;
 mod extensions;
 mod helm;
-mod network;
+pub(crate) mod network;
 mod pod;
 mod rbac;
 mod workload;

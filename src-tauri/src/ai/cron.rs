@@ -199,24 +199,12 @@ impl CronScheduler {
 }
 
 fn load_file(data_dir: &std::path::Path) -> CronFile {
-    let path = data_dir.join("ai-cron.json");
-    if path.exists() {
-        std::fs::read_to_string(&path)
-            .ok()
-            .and_then(|t| serde_json::from_str(&t).ok())
-            .unwrap_or_default()
-    } else {
-        CronFile::default()
-    }
+    crate::ai::atomic_read_json(&data_dir.join("ai-cron.json"))
 }
 
 fn save_file(data_dir: &std::path::Path, state: &CronFile) {
     let path = data_dir.join("ai-cron.json");
-    if let Ok(text) = serde_json::to_string_pretty(state) {
-        let tmp = path.with_extension("json.tmp");
-        let _ = std::fs::write(&tmp, &text);
-        let _ = std::fs::rename(&tmp, &path);
-    }
+    let _ = crate::ai::atomic_write_json(&path, state);
 }
 
 /// Built-in scheduled task presets.

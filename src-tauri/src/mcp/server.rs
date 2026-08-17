@@ -25,6 +25,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
 use crate::core::events::mcp_sink;
+use crate::core::shell_common::validate_apply_yaml;
 use crate::core::CoreState;
 use crate::error::AppError;
 use crate::kube::{
@@ -108,13 +109,9 @@ impl K7sMcpServer {
         Parameters(p): Parameters<ConnectParams>,
     ) -> Result<CallToolResult, McpError> {
         let manager = self.manager();
-        // Always start clean -- switching context must abort every watcher,
-        // log stream, shell, and port-forward tied to the old cluster.
-        manager.reset().await;
 
+        // Resolve context: empty means "use current-context".
         let context = if p.context.is_empty() {
-            // Empty -> use current-context. Probe the kubeconfig directly
-            // because nothing in the manager knows which one is current.
             kube_client::list_contexts()
                 .ok()
                 .and_then(|cs| cs.into_iter().find(|c| c.current).map(|c| c.name))
@@ -128,35 +125,27 @@ impl K7sMcpServer {
             p.context
         };
 
-        // Three ways to build a client for `context` (same as web::handlers):
-        //   1. imported kubeconfig bytes stashed by import_kubeconfig_content
-        //   2. imported kubeconfig file path
-        //   3. default kubeconfig
-        let (kube_client, server) = if let Some(kc) = manager.import_kubeconfig(&context).await {
-            kube_api::build_client_from_kubeconfig(kc, &context).await
-        } else if let Some(path) = manager.import_path(&context).await {
-            kube_client::build_client_from_file(&path, &context).await
-        } else {
-            kube_client::build_client(&context).await
-        }
+        // Shared connection sequence: reset -> build client -> probe version ->
+        // discover CRDs. The MCP shell may have an imported kubeconfig in memory.
+        let imported = manager.import_kubeconfig(&context).await;
+        let import_path = manager.import_path(&context).await;
+        let cr = crate::core::shell_common::connect_core(
+            &manager,
+            imported,
+            import_path,
+            &context,
+        )
+        .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let version = kube_api::probe_version(&kube_client)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        // CRD discovery so custom kinds resolve through `list_resources` /
-        // `get_resource` / `describe_resource` later.
-        let custom = crate::kube::discovery::discover(&kube_client).await;
-        manager.set_custom_kinds(custom).await;
-
+        // MCP has no watchers — just record the connection.
         manager
             .set_connected(
-                kube_client,
+                cr.client,
                 crate::kube::manager::ConnectionInfo {
                     context: context.clone(),
-                    server: server.clone(),
-                    version: version.clone(),
+                    server: cr.server.clone(),
+                    version: cr.version.clone(),
                 },
                 0,
             )
@@ -165,8 +154,8 @@ impl K7sMcpServer {
         let info = kube_client::ClusterInfo {
             context: context.clone(),
             cluster_name: context,
-            server,
-            version,
+            server: cr.server,
+            version: cr.version,
         };
         json_result(&info)
     }
@@ -317,11 +306,14 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
+        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let namespaced = kube_api::kind_is_namespaced(&p.kind, &self.manager()).await;
+        validate_apply_yaml(&obj, &p.kind, &p.name, &p.namespace, namespaced)
+            .map_err(tool_error)?;
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
-            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
         api.replace(&p.name, &PostParams::default(), &obj)
             .await
             .map(|_| ())
@@ -343,11 +335,14 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
+        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let namespaced = kube_api::kind_is_namespaced(&p.kind, &self.manager()).await;
+        validate_apply_yaml(&obj, &p.kind, &p.name, &p.namespace, namespaced)
+            .map_err(tool_error)?;
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
-            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         let mut current = api
             .get(&p.name)
@@ -481,6 +476,23 @@ impl K7sMcpServer {
             "pod {}/{} deleted for restart",
             p.namespace, p.name
         ))]))
+    }
+
+    #[tool(
+        description = "Diagnose why a Pod is unhealthy. Inspects container statuses for common failure patterns (OOMKilled, CrashLoopBackOff, ImagePullBackOff, segfault, etc.) and returns a structured diagnosis with exit codes, reasons, severity, and a human-readable summary. Use this when investigating why a Pod terminated, is stuck, or is restarting."
+    )]
+    async fn diagnose_pod(
+        &self,
+        Parameters(p): Parameters<DiagnosePodParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let diagnosis =
+            crate::kube::pod_diagnosis::diagnose_pod(client, &p.namespace, &p.pod)
+                .await
+                .map_err(tool_error)?;
+        json_result(&diagnosis)
     }
 
     #[tool(
@@ -1355,6 +1367,48 @@ impl K7sMcpServer {
     }
 
     #[tool(
+        description = "Fetch the rendered Kubernetes manifest for a specific revision of a Helm release. Unlike get_resource which returns the latest revision, this lets you inspect any historical revision. Returns the raw YAML manifest."
+    )]
+    async fn helm_manifest_revision(
+        &self,
+        Parameters(p): Parameters<HelmManifestRevisionParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let manifest = crate::kube::helm::helm_manifest_revision(
+            client,
+            &p.namespace,
+            &p.name,
+            p.revision,
+        )
+        .await
+        .map_err(tool_error)?;
+        Ok(CallToolResult::success(vec![ContentBlock::text(manifest)]))
+    }
+
+    #[tool(
+        description = "Fetch the user-supplied values (config) for a specific revision of a Helm release. Returns the JSON object of value overrides the user provided at install/upgrade time."
+    )]
+    async fn helm_values_revision(
+        &self,
+        Parameters(p): Parameters<HelmValuesRevisionParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let values = crate::kube::helm::helm_values_revision(
+            client,
+            &p.namespace,
+            &p.name,
+            p.revision,
+        )
+        .await
+        .map_err(tool_error)?;
+        json_result(&values)
+    }
+
+    #[tool(
         description = "Render a chart's default values.yaml (helm show values). Useful to prefill the values editor before helm_install/helm_upgrade."
     )]
     async fn helm_show_values(
@@ -2103,8 +2157,8 @@ impl K7sMcpServer {
                 .as_ref()
                 .map(|s| &s.pod_selector)
                 .map(|ps| {
-                    ps.match_labels
-                        .as_ref()
+                    ps.as_ref()
+                        .and_then(|s| s.match_labels.as_ref())
                         .map(|m| {
                             m.iter()
                                 .map(|(k, v)| format!("{k}={v}"))
@@ -2215,6 +2269,22 @@ impl K7sMcpServer {
             "namespace": p.namespace,
             "matches": matches,
         }))
+    }
+
+    #[tool(
+        description = "Run a comprehensive RBAC security audit of the cluster. Identifies over-privileged roles, wildcard permissions, secret access, pod exec capabilities, anonymous bindings, and other security risks. Returns an AuditReport with findings sorted by severity."
+    )]
+    async fn security_audit(
+        &self,
+        Parameters(_p): Parameters<SecurityAuditParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let client = kube_api::require_client(&self.manager())
+            .await
+            .map_err(tool_error)?;
+        let report = crate::kube::security_audit::run_audit(client)
+            .await
+            .map_err(tool_error)?;
+        json_result(&report)
     }
 
     // === Consolidated tools (replace multiple single-purpose tools) ===

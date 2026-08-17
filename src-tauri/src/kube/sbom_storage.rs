@@ -140,6 +140,91 @@ impl SbomStorage {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Export path validation (shared by Tauri commands and web handlers)
+// ---------------------------------------------------------------------------
+
+/// Validate and canonicalize an export path for SBOM output.
+///
+/// Performs the following security checks:
+/// - Resolves bare filenames (no directory component) to the system temp directory.
+/// - Canonicalizes the path to defeat symlink, `../`, and URL-encoded traversal tricks.
+/// - Verifies the canonical path falls within one of the allowed directories
+///   (data_dir, home dir, or system temp).
+/// - Confirms the parent directory exists on disk.
+///
+/// Returns the canonical `PathBuf` on success.
+pub fn validate_export_path(
+    output: &str,
+    data_dir: &std::path::Path,
+) -> AppResult<std::path::PathBuf> {
+    let path = std::path::Path::new(output);
+
+    // If the path is just a filename (no directory component), use the temp directory
+    let resolved_path =
+        if path.parent().is_none() || path.parent() == Some(std::path::Path::new("")) {
+            // Just a filename - use temp directory
+            std::env::temp_dir().join(path)
+        } else {
+            path.to_path_buf()
+        };
+
+    // Canonicalize the path to resolve symlinks, URL-encoded sequences, and other tricks.
+    // This prevents path traversal attacks using ../, symlinks, or encoded characters.
+    let canonical_path = dunce::canonicalize(&resolved_path).or_else(|_| {
+        // If the file doesn't exist yet, canonicalize the parent directory
+        if let Some(parent) = resolved_path.parent() {
+            let canonical_parent = dunce::canonicalize(parent).map_err(|e| {
+                AppError::Other(format!(
+                    "Cannot resolve export directory '{}': {e}",
+                    parent.display()
+                ))
+            })?;
+            Ok::<std::path::PathBuf, AppError>(
+                canonical_parent.join(resolved_path.file_name().unwrap_or_default()),
+            )
+        } else {
+            Err(AppError::Other(
+                "Invalid export path: no parent directory".to_string(),
+            ))
+        }
+    })?;
+
+    // Define allowed export directories: user's home, data_dir, or temp
+    let allowed_dirs: Vec<std::path::PathBuf> = {
+        let mut dirs = vec![data_dir.to_path_buf()];
+        if let Some(home) = dirs::home_dir() {
+            dirs.push(home);
+        }
+        dirs.push(std::env::temp_dir());
+        dirs
+    };
+
+    // Verify the canonical path is within an allowed directory
+    let is_allowed = allowed_dirs
+        .iter()
+        .any(|allowed| canonical_path.starts_with(allowed));
+
+    if !is_allowed {
+        return Err(AppError::Other(format!(
+            "Export path '{}' is not within allowed directories. Allowed: home, data dir, or temp.",
+            output
+        )));
+    }
+
+    // Ensure parent directory exists
+    if let Some(parent) = canonical_path.parent() {
+        if !parent.exists() {
+            return Err(AppError::Other(format!(
+                "Export directory does not exist: {}",
+                parent.display()
+            )));
+        }
+    }
+
+    Ok(canonical_path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
