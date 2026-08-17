@@ -604,7 +604,7 @@ pub async fn fetch_object_yaml(
     if kind == "secrets" {
         redact_secret(&mut obj);
     }
-    Ok(k7s_deps::serde_yaml::to_string(&obj)?)
+    Ok(k7s_deps::yaml_serde::to_string(&obj)?)
 }
 
 /// Server-side dry-run replace: returns both the live object and what would
@@ -619,7 +619,7 @@ pub async fn dry_run_yaml_core(
     mgr: &ClientManager,
 ) -> AppResult<YamlDiff> {
     ensure_writable(kind)?;
-    let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml)?;
+    let obj: DynamicObject = k7s_deps::yaml_serde::from_str(yaml)?;
     let (_ar, namespaced) = resource_for(kind, mgr).await?;
     validate_apply_yaml(&obj, kind, name, namespace, namespaced)?;
     let (api, _is_helm) = dynamic_api(client, kind, namespace, mgr).await?;
@@ -635,8 +635,8 @@ pub async fn dry_run_yaml_core(
     proposed.metadata.managed_fields = None;
 
     Ok(YamlDiff {
-        current: k7s_deps::serde_yaml::to_string(&current)?,
-        proposed: k7s_deps::serde_yaml::to_string(&proposed)?,
+        current: k7s_deps::yaml_serde::to_string(&current)?,
+        proposed: k7s_deps::yaml_serde::to_string(&proposed)?,
     })
 }
 
@@ -650,7 +650,7 @@ pub async fn apply_yaml_core(
     mgr: &ClientManager,
 ) -> AppResult<()> {
     ensure_writable(kind)?;
-    let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml)?;
+    let obj: DynamicObject = k7s_deps::yaml_serde::from_str(yaml)?;
     let (_ar, namespaced) = resource_for(kind, mgr).await?;
     validate_apply_yaml(&obj, kind, name, namespace, namespaced)?;
     let (api, _is_helm) = dynamic_api(client, kind, namespace, mgr).await?;
@@ -750,7 +750,7 @@ metadata:
   resourceVersion: "12345"
 "#
         );
-        k7s_deps::serde_yaml::from_str(&yaml).unwrap()
+        k7s_deps::yaml_serde::from_str(&yaml).unwrap()
     }
 
     #[test]
@@ -766,7 +766,7 @@ metadata:
   name: foo
   resourceVersion: "1"
 "#;
-        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
             .unwrap_err()
             .to_string();
@@ -783,7 +783,7 @@ metadata:
   namespace: default
   resourceVersion: "1"
 "#;
-        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
             .unwrap_err()
             .to_string();
@@ -800,7 +800,7 @@ metadata:
   namespace: default
   resourceVersion: "1"
 "#;
-        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
             .unwrap_err()
             .to_string();
@@ -838,7 +838,7 @@ metadata:
   namespace: default
   resourceVersion: "1"
 "#;
-        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "anything", "default", true)
             .unwrap_err()
             .to_string();
@@ -866,7 +866,7 @@ metadata:
   name: my-deploy
   namespace: default
 "#;
-        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true)
             .unwrap_err()
             .to_string();
@@ -908,7 +908,7 @@ metadata:
   name: my-deploy
   resourceVersion: "12345"
 "#;
-        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(yaml).unwrap();
         assert!(validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true).is_ok());
     }
 }

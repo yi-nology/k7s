@@ -52,7 +52,7 @@ pub async fn multi_apply(
     let mut results = Vec::with_capacity(docs.len());
     let pp = PatchParams::apply("k7s");
     for doc in docs {
-        let parsed: Result<DynamicObject, _> = k7s_deps::serde_yaml::from_str(&doc);
+        let parsed: Result<DynamicObject, _> = k7s_deps::yaml_serde::from_str(&doc);
         let obj = match parsed {
             Ok(o) => o,
             Err(e) => {
@@ -144,7 +144,7 @@ pub async fn multi_dry_run(yaml: &str, client: k7s_deps::kube::Client) -> AppRes
     // single-doc dry_run_yaml, so the bundle preview matches a real apply.
     let pp = PatchParams::apply("k7s").dry_run();
     for doc in docs {
-        let parsed: Result<DynamicObject, _> = k7s_deps::serde_yaml::from_str(&doc);
+        let parsed: Result<DynamicObject, _> = k7s_deps::yaml_serde::from_str(&doc);
         let obj = match parsed {
             Ok(o) => o,
             Err(e) => {
@@ -184,7 +184,7 @@ pub async fn multi_dry_run(yaml: &str, client: k7s_deps::kube::Client) -> AppRes
                     name,
                     kind,
                     namespace: ns,
-                    proposed: Some(k7s_deps::serde_yaml::to_string(&proposed)?),
+                    proposed: Some(k7s_deps::yaml_serde::to_string(&proposed)?),
                     error: None,
                 });
             }

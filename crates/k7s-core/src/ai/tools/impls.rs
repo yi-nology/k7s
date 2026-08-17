@@ -88,7 +88,7 @@ pub async fn get_resource_yaml_impl(
             }
         }
     }
-    k7s_deps::serde_yaml::to_string(&obj).map_err(|e| AppError::Yaml(e.to_string()))
+    k7s_deps::yaml_serde::to_string(&obj).map_err(|e| AppError::Yaml(e.to_string()))
 }
 
 /// Get events for a resource.
@@ -294,7 +294,7 @@ pub async fn apply_manifest_impl(
 ) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let obj: DynamicObject =
-        k7s_deps::serde_yaml::from_str(yaml).map_err(|e| AppError::Yaml(e.to_string()))?;
+        k7s_deps::yaml_serde::from_str(yaml).map_err(|e| AppError::Yaml(e.to_string()))?;
     let name = obj
         .metadata
         .name

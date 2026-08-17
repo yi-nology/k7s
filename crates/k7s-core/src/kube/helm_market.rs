@@ -360,7 +360,7 @@ pub async fn update_repo_index(name: &str) -> AppResult<HelmRepo> {
     match fetch_index(&url).await {
         Ok(index) => {
             let path = index_path(name)?;
-            let text = k7s_deps::serde_yaml::to_string(&index)
+            let text = k7s_deps::yaml_serde::to_string(&index)
                 .map_err(|e| AppError::Other(format!("serialize index: {e}")))?;
             // Same atomic-write dance as the repo file.
             let tmp = path.with_extension("yaml.tmp");
@@ -515,7 +515,7 @@ fn load_index_if_fresh(repo: &str, url: &str) -> Option<HelmIndex> {
     // `helm` release with a slightly different shape, we silently fail rather
     // than panic — the caller treats it as a stale index.
     let _ = url;
-    k7s_deps::serde_yaml::from_str(&text).ok()
+    k7s_deps::yaml_serde::from_str(&text).ok()
 }
 
 async fn fetch_index(url: &str) -> AppResult<HelmIndex> {
@@ -557,7 +557,7 @@ async fn fetch_index(url: &str) -> AppResult<HelmIndex> {
         .text()
         .await
         .map_err(|e| AppError::Other(format!("read body {index_url}: {e}")))?;
-    k7s_deps::serde_yaml::from_str(&text).map_err(|e| AppError::Other(format!("parse index.yaml: {e}")))
+    k7s_deps::yaml_serde::from_str(&text).map_err(|e| AppError::Other(format!("parse index.yaml: {e}")))
 }
 
 fn chrono_now() -> String {

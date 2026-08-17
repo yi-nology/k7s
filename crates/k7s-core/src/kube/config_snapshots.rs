@@ -139,7 +139,7 @@ pub async fn snapshot_configmap(
     )
     .map_err(|e| AppError::Other(e.to_string()))?;
     obj.metadata.managed_fields = None;
-    let yaml = k7s_deps::serde_yaml::to_string(&obj)?;
+    let yaml = k7s_deps::yaml_serde::to_string(&obj)?;
 
     let snapshot = ConfigSnapshot {
         resource_version: rv,
@@ -182,7 +182,7 @@ pub async fn snapshot_secret(
     .map_err(|e| AppError::Other(e.to_string()))?;
     obj.metadata.managed_fields = None;
     crate::core::shell_common::redact_secret(&mut obj);
-    let yaml = k7s_deps::serde_yaml::to_string(&obj)?;
+    let yaml = k7s_deps::yaml_serde::to_string(&obj)?;
 
     let snapshot = ConfigSnapshot {
         resource_version: rv,

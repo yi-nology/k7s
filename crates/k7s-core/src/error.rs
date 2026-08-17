@@ -63,8 +63,8 @@ impl From<k7s_deps::kube::config::KubeconfigError> for AppError {
     }
 }
 
-impl From<k7s_deps::serde_yaml::Error> for AppError {
-    fn from(e: k7s_deps::serde_yaml::Error) -> Self {
+impl From<k7s_deps::yaml_serde::Error> for AppError {
+    fn from(e: k7s_deps::yaml_serde::Error) -> Self {
         AppError::Yaml(e.to_string())
     }
 }
