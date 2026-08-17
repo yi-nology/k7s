@@ -208,21 +208,21 @@ export function LogsTab() {
               <button
                 className={styles.navBtn}
                 onClick={prevMatch}
-                title="Previous"
+                title={t('logs.prevMatch', 'Previous')}
               >
                 ↑
               </button>
               <button
                 className={styles.navBtn}
                 onClick={nextMatch}
-                title="Next"
+                title={t('logs.nextMatch', 'Next')}
               >
                 ↓
               </button>
             </>
           )}
           {logSearch && matchIndices.length === 0 && (
-            <span className={styles.matchCount}>0 matches</span>
+            <span className={styles.matchCount}>{t('logs.noMatches', '0 matches')}</span>
           )}
 
           {/* Container cycler (cycles through the pod's containers, plus "all"). */}

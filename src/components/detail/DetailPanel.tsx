@@ -152,7 +152,7 @@ export function DetailPanel() {
         className={styles.dragHandle}
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
-        title="Drag to resize · Double-click to reset"
+        title={t('detail.dragToResize', 'Drag to resize · Double-click to reset')}
         style={{ cursor: dragging ? 'col-resize' : undefined }}
       />
 

@@ -118,7 +118,7 @@ export function Dialog({
                 type="button"
                 className={styles.close}
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={title ? undefined : 'Close'}
               >
                 <X size={14} />
               </button>

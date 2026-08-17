@@ -79,6 +79,17 @@ export function useGlobalKeys(): void {
         s.openSelectedInTab();
       }
 
+      // Ctrl/Cmd+F: focus the table filter (universal "find" shortcut).
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f' && !typing) {
+        e.preventDefault();
+        const filterInput = document.querySelector<HTMLInputElement>('[data-filter-input]');
+        if (filterInput) {
+          filterInput.focus();
+          filterInput.select();
+        }
+        return;
+      }
+
       // Ctrl/Cmd+W: close the active detail tab (or the panel if no multi-tabs).
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'w') {
         if (s.activeDetailTabUid) {

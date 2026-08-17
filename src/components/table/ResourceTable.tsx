@@ -289,6 +289,7 @@ export function ResourceTable() {
             placeholder={t('table.filterPlaceholder')}
             aria-label={t('table.filterPlaceholder')}
             data-table-filter
+            data-filter-input
           />
         </div>
         {selection.selected.length > 1 && (

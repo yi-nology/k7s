@@ -37,7 +37,7 @@ export function StatusBar() {
   const api = status ? status.apiLatencyMs : null;
 
   return (
-    <div className={styles.statusbar}>
+    <div className={styles.statusbar} role="status" aria-label={t('chrome.statusbar.ariaLabel', 'Cluster status')}>
       <span className={styles.cluster}>
         <span
           className={styles.clusterDot}

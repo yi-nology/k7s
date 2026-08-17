@@ -245,7 +245,7 @@ export const en: Dictionary = {
   },
 
   table: {
-    filterPlaceholder: 'filter…',
+    filterPlaceholder: 'filter… (name or key=value)',
     empty: 'no resources match filter',
     emptyNone: 'no resources',
     forbidden: 'No permission to view this resource (RBAC Forbidden)',

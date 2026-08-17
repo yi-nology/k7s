@@ -61,15 +61,17 @@ export function Hotbar() {
   const emptySlots = MAX_SLOTS - hotbar.length;
 
   return (
-    <div className={styles.hotbar}>
+    <div className={styles.hotbar} role="toolbar" aria-label={t('sidebar.hotbar.title', 'Quick switcher')}>
       {hotbar.map((ctx) => {
         const isActive = ctx === connection.context;
         return (
-          <div key={ctx} style={{ position: 'relative' }}>
+          <div key={ctx} style={{ position: 'relative' }} className={styles.slotWrap}>
             <button
               type="button"
               className={cx(styles.slot, isActive && styles.slotActive)}
               title={ctx}
+              aria-label={t('sidebar.hotbar.switchTo', `Switch to ${ctx}`, ctx)}
+              aria-current={isActive ? 'true' : undefined}
               onClick={() => handleSlotClick(ctx)}
               onContextMenu={(e) => handleContextMenu(e, ctx)}
             >

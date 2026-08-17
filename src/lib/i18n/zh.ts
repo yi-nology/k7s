@@ -250,7 +250,7 @@ export const zh: Dictionary = {
   },
 
   table: {
-    filterPlaceholder: '过滤…',
+    filterPlaceholder: '过滤… (名称或 key=value)',
     empty: '无匹配资源',
     emptyNone: '无资源',
     forbidden: '当前账户无权查看此资源 (RBAC Forbidden)',

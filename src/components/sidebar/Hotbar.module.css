@@ -12,6 +12,11 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
+/* Wrapper for slot + context menu — positioned for the menu overlay. */
+.slotWrap {
+  position: relative;
+}
+
 /* A single pinned-context slot (or empty "+" slot). */
 .slot {
   width: 28px;

@@ -117,8 +117,8 @@ export function TopBar({ onMenuToggle }: { onMenuToggle?: () => void } = {}) {
           type="button"
           className={styles.menuToggle}
           onClick={onMenuToggle}
-          aria-label="Toggle sidebar"
-          title="Toggle sidebar"
+          aria-label={t('chrome.topbar.toggleSidebar', 'Toggle sidebar')}
+          title={t('chrome.topbar.toggleSidebar', 'Toggle sidebar')}
         >
           <Menu size={20} />
         </button>

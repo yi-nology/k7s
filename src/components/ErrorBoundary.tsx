@@ -6,6 +6,7 @@
  */
 
 import { Component, type ReactNode } from 'react';
+import { translate, cachedLocale } from '../lib/i18n';
 
 interface Props {
   children: ReactNode;
@@ -39,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
           background: 'var(--bg-app, #0a0a0f)',
         }}
       >
-        <div style={{ fontSize: 18, fontWeight: 600 }}>Something went wrong</div>
+        <div style={{ fontSize: 18, fontWeight: 600 }}>{translate(cachedLocale(), 'chrome.errorBoundary.title', 'Something went wrong')}</div>
         <pre
           style={{
             fontFamily: 'var(--font-mono, monospace)',
@@ -65,7 +66,7 @@ export class ErrorBoundary extends Component<Props, State> {
             fontSize: 13,
           }}
         >
-          Reload
+          {translate(cachedLocale(), 'chrome.errorBoundary.reload', 'Reload')}
         </button>
       </div>
     );
