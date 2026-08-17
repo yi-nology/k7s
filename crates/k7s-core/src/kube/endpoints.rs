@@ -13,10 +13,10 @@
 //! pod backing a slice) for the drill-down.
 
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::discovery::v1::EndpointSlice;
-use kube::api::{Api, ListParams};
-use kube::Client;
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::discovery::v1::EndpointSlice;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
+use k7s_deps::kube::ResourceExt;
 use serde::Serialize;
 
 /// One row of the Endpoints table.
@@ -39,10 +39,10 @@ pub struct EndpointRow {
 pub async fn list_all(client: &Client) -> AppResult<Vec<EndpointRow>> {
     let api: Api<EndpointSlice> = Api::all(client.clone());
     let slices = api.list(&ListParams::default()).await.map_err(|e| {
-        tracing::error!("EndpointSlice list failed: {e}");
+        k7s_deps::tracing::error!("EndpointSlice list failed: {e}");
         AppError::Kube(e.to_string())
     })?;
-    tracing::info!("EndpointSlice list: got {} slices", slices.items.len());
+    k7s_deps::tracing::info!("EndpointSlice list: got {} slices", slices.items.len());
     Ok(slices.iter().map(map_slice).collect())
 }
 
@@ -170,8 +170,8 @@ pub async fn addresses_for(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use k8s_openapi::api::discovery::v1::{Endpoint, EndpointConditions, EndpointSlice};
-    use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+    use k7s_deps::k8s_openapi::api::discovery::v1::{Endpoint, EndpointConditions, EndpointSlice};
+    use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 
     fn make_slice(
         name: &str,
@@ -232,7 +232,7 @@ mod tests {
     #[test]
     fn map_slice_uses_endpoint_port_when_present() {
         let mut s = make_slice("with-port", "default", "svc", 1, 1);
-        s.ports = Some(vec![k8s_openapi::api::discovery::v1::EndpointPort {
+        s.ports = Some(vec![k7s_deps::k8s_openapi::api::discovery::v1::EndpointPort {
             port: Some(8080),
             ..Default::default()
         }]);

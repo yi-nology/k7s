@@ -1,8 +1,8 @@
 //! RBAC mapping: Role, ClusterRole, RoleBinding, ClusterRoleBinding (DynamicObject-based).
 
 use super::*;
-use kube::core::DynamicObject;
-use kube::ResourceExt;
+use k7s_deps::kube::core::DynamicObject;
+use k7s_deps::kube::ResourceExt;
 
 /// Role: NAME, NAMESPACE, AGE. Namespaced permission rule.
 pub fn map_role(obj: &DynamicObject) -> Row {

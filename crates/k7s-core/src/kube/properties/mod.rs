@@ -24,11 +24,11 @@ use super::dto::{Cell, NavTarget, Tone};
 use super::helm as helm_mod;
 use super::ResourceKind;
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::apps::v1::ReplicaSet;
-use k8s_openapi::api::core::v1::Pod;
-use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
-use kube::api::Api;
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::apps::v1::ReplicaSet;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::k8s_openapi::apimachinery::pkg::api::resource::Quantity;
+use k7s_deps::kube::api::Api;
+use k7s_deps::kube::{Client, ResourceExt};
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -342,9 +342,9 @@ fn qty(q: Option<&Quantity>) -> String {
 
 /// Render an IntOrString ("25%" or "1").
 pub(super) fn int_or_string(
-    v: &k8s_openapi::apimachinery::pkg::util::intstr::IntOrString,
+    v: &k7s_deps::k8s_openapi::apimachinery::pkg::util::intstr::IntOrString,
 ) -> String {
-    use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
+    use k7s_deps::k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
     match v {
         IntOrString::Int(i) => i.to_string(),
         IntOrString::String(s) => s.clone(),
@@ -506,7 +506,7 @@ mod tests {
             updated: format!("2026-06-0{revision}T00:00:00Z"),
             first_deployed: "2026-06-01T00:00:00Z".into(),
             description: "Upgrade complete".into(),
-            config: serde_json::json!({ "auth": { "password": "hunter2" }, "replicas": 3 }),
+            config: k7s_deps::serde_json::json!({ "auth": { "password": "hunter2" }, "replicas": 3 }),
             manifest: String::new(),
         };
         // Deliberately unsorted input: v1, v3, v2.
@@ -567,21 +567,21 @@ mod tests {
     /// a name, so a number-only reading would silently show nothing.
     #[test]
     fn backend_port_takes_a_number_or_a_name() {
-        let port = |v: serde_json::Value| -> k8s_openapi::api::networking::v1::ServiceBackendPort {
-            serde_json::from_value(v).unwrap()
+        let port = |v: k7s_deps::serde_json::Value| -> k7s_deps::k8s_openapi::api::networking::v1::ServiceBackendPort {
+            k7s_deps::serde_json::from_value(v).unwrap()
         };
         assert_eq!(
-            network::backend_port(Some(&port(serde_json::json!({ "number": 8080 })))),
+            network::backend_port(Some(&port(k7s_deps::serde_json::json!({ "number": 8080 })))),
             "8080"
         );
         assert_eq!(
-            network::backend_port(Some(&port(serde_json::json!({ "name": "http" })))),
+            network::backend_port(Some(&port(k7s_deps::serde_json::json!({ "name": "http" })))),
             "http"
         );
         // A number wins when both are somehow set, matching the API's precedence.
         assert_eq!(
             network::backend_port(Some(&port(
-                serde_json::json!({ "number": 80, "name": "http" })
+                k7s_deps::serde_json::json!({ "number": 80, "name": "http" })
             ))),
             "80"
         );
@@ -642,9 +642,9 @@ mod tests {
     /// non-ConfigMap/Secret volume showed a bare em dash for its source.
     #[test]
     fn volume_source_names_inline_backings() {
-        use serde_json::json;
-        let vol = |body: serde_json::Value| -> k8s_openapi::api::core::v1::Volume {
-            serde_json::from_value(body).unwrap()
+        use k7s_deps::serde_json::json;
+        let vol = |body: k7s_deps::serde_json::Value| -> k7s_deps::k8s_openapi::api::core::v1::Volume {
+            k7s_deps::serde_json::from_value(body).unwrap()
         };
 
         let (src, nav) = pod::volume_source(
@@ -736,7 +736,7 @@ mod tests {
 
     /// An unsupported kind errors rather than returning an empty panel, so a dead
     /// tab can't appear.
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn unknown_kind_is_an_error() {
         // No client call happens for an unknown kind, so a default client is fine.
         let Ok(client) = Client::try_default().await else {

@@ -18,7 +18,7 @@
 //! - **Health check**: verify the model is loaded and responsive.
 //! - **Embedded config presets**: one-click "use local model" in the settings UI.
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 
 /// A locally-available model (from Ollama or another local backend).
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ pub struct LocalModel {
 /// `http://localhost:11434`). Returns the list of available models if found.
 pub async fn discover_ollama(base_url: Option<&str>) -> Option<Vec<LocalModel>> {
     let url = base_url.unwrap_or("http://localhost:11434");
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(3))
         .build()
         .ok()?;
@@ -44,7 +44,7 @@ pub async fn discover_ollama(base_url: Option<&str>) -> Option<Vec<LocalModel>> 
     if !resp.status().is_success() {
         return None;
     }
-    let body: serde_json::Value = resp.json().await.ok()?;
+    let body: k7s_deps::serde_json::Value = resp.json().await.ok()?;
     let models = body.get("models")?.as_array()?;
     let result: Vec<LocalModel> = models
         .iter()
@@ -78,14 +78,14 @@ pub async fn discover_ollama(base_url: Option<&str>) -> Option<Vec<LocalModel>> 
 
 /// Quick health check: is the model loaded and responsive?
 pub async fn check_model_health(base_url: &str, model: &str) -> Result<String, String> {
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
         .map_err(|e| e.to_string())?;
     // Use Ollama's /api/generate with a tiny prompt.
     let resp = client
         .post(format!("{base_url}/api/generate"))
-        .json(&serde_json::json!({
+        .json(&k7s_deps::serde_json::json!({
             "model": model,
             "prompt": "hi",
             "stream": false,
@@ -97,7 +97,7 @@ pub async fn check_model_health(base_url: &str, model: &str) -> Result<String, S
     if !resp.status().is_success() {
         return Err(format!("HTTP {}", resp.status()));
     }
-    let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let body: k7s_deps::serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
     let response = body
         .get("response")
         .and_then(|v| v.as_str())

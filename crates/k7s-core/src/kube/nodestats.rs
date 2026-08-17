@@ -19,12 +19,12 @@ use super::events;
 use super::exporter::{self, NodeSample, Sampler};
 use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, ListParams};
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::{Client, ResourceExt};
 use serde::Serialize;
-use tokio::sync::{mpsc, oneshot};
-use tokio::time::{interval, Duration, MissedTickBehavior};
+use k7s_deps::tokio::sync::{mpsc, oneshot};
+use k7s_deps::tokio::time::{interval, Duration, MissedTickBehavior};
 
 /// The port node-exporter listens on. Its well-known default; the DaemonSet on
 /// murphy-yi declares it explicitly too.
@@ -90,7 +90,7 @@ pub async fn run_node_stats(client: Client, sink: EventSink, node: String, every
     // 5s poll.
     let (ready_tx, ready_rx) = oneshot::channel();
     let (err_tx, mut err_rx) = mpsc::channel::<String>(8);
-    let pf = tokio::spawn(super::portforward::run_port_forward(
+    let pf = k7s_deps::tokio::spawn(super::portforward::run_port_forward(
         client,
         namespace,
         pod.clone(),
@@ -115,7 +115,7 @@ pub async fn run_node_stats(client: Client, sink: EventSink, node: String, every
         }
     };
 
-    let http = reqwest::Client::new();
+    let http = k7s_deps::reqwest::Client::new();
     let url = format!("http://127.0.0.1:{local_port}/metrics");
     let mut sampler = Sampler::default();
     let mut tick = interval(every);
@@ -162,7 +162,7 @@ pub async fn run_node_stats(client: Client, sink: EventSink, node: String, every
 }
 
 /// GET the exporter's /metrics.
-async fn scrape(http: &reqwest::Client, url: &str) -> Result<String, String> {
+async fn scrape(http: &k7s_deps::reqwest::Client, url: &str) -> Result<String, String> {
     let resp = http
         // Bounded: a hung exporter must not wedge the poll loop forever.
         .get(url)
@@ -178,7 +178,7 @@ async fn scrape(http: &reqwest::Client, url: &str) -> Result<String, String> {
 
 /// Tell the UI why this node has no plots (best-effort).
 fn fail(sink: &EventSink, node: &str, message: String) {
-    tracing::warn!("node stats for {node}: {message}");
+    k7s_deps::tracing::warn!("node stats for {node}: {message}");
     sink.emit(
         events::NODE_STATS_ERROR,
         &NodeStatsError {
@@ -190,5 +190,5 @@ fn fail(sink: &EventSink, node: &str, message: String) {
 
 /// Epoch milliseconds.
 fn now_ms() -> i64 {
-    chrono::Utc::now().timestamp_millis()
+    k7s_deps::chrono::Utc::now().timestamp_millis()
 }

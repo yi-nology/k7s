@@ -4,10 +4,10 @@
 //! plain string so the frontend receives a human-readable message (e.g. a
 //! kubeconfig parse failure or a Kubernetes API 403) rather than an opaque code.
 
-use k7s_deps::serde::{Serialize, Serializer};
+use serde::{Serialize, Serializer};
 
 /// The single error type surfaced to the frontend across the command boundary.
-#[derive(Debug, k7s_deps::thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum AppError {
     /// No kubeconfig could be found or parsed.
     #[error("kubeconfig error: {0}")]
@@ -51,20 +51,20 @@ impl Serialize for AppError {
 }
 
 // Convenience conversions so `?` works against the crates we use most.
-impl From<k7s_deps::kube::Error> for AppError {
-    fn from(e: k7s_deps::kube::Error) -> Self {
+impl From<kube::Error> for AppError {
+    fn from(e: kube::Error) -> Self {
         AppError::Kube(e.to_string())
     }
 }
 
-impl From<k7s_deps::kube::config::KubeconfigError> for AppError {
-    fn from(e: k7s_deps::kube::config::KubeconfigError) -> Self {
+impl From<kube::config::KubeconfigError> for AppError {
+    fn from(e: kube::config::KubeconfigError) -> Self {
         AppError::Kubeconfig(e.to_string())
     }
 }
 
-impl From<k7s_deps::serde_yaml::Error> for AppError {
-    fn from(e: k7s_deps::serde_yaml::Error) -> Self {
+impl From<serde_yaml::Error> for AppError {
+    fn from(e: serde_yaml::Error) -> Self {
         AppError::Yaml(e.to_string())
     }
 }
@@ -75,14 +75,14 @@ impl From<String> for AppError {
     }
 }
 
-impl From<k7s_deps::tokio::task::JoinError> for AppError {
-    fn from(e: k7s_deps::tokio::task::JoinError) -> Self {
+impl From<tokio::task::JoinError> for AppError {
+    fn from(e: tokio::task::JoinError) -> Self {
         AppError::Other(e.to_string())
     }
 }
 
-impl From<k7s_deps::anyhow::Error> for AppError {
-    fn from(e: k7s_deps::anyhow::Error) -> Self {
+impl From<anyhow::Error> for AppError {
+    fn from(e: anyhow::Error) -> Self {
         AppError::Other(e.to_string())
     }
 }

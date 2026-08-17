@@ -6,8 +6,8 @@
 //! job (see manager.rs) after a successful connect.
 
 use crate::error::{AppError, AppResult};
-use kube::config::{Config, KubeConfigOptions, Kubeconfig};
-use kube::Client;
+use k7s_deps::kube::config::{Config, KubeConfigOptions, Kubeconfig};
+use k7s_deps::kube::Client;
 use serde::Serialize;
 
 /// A kubeconfig context entry for the cluster switcher.
@@ -41,7 +41,7 @@ pub fn list_contexts() -> AppResult<Vec<ContextInfo>> {
         Ok(kc) => kc,
         // Missing/unreadable kubeconfig is a normal state, not a hard error.
         Err(e) => {
-            tracing::warn!("could not read kubeconfig: {e}");
+            k7s_deps::tracing::warn!("could not read kubeconfig: {e}");
             return Ok(Vec::new());
         }
     };

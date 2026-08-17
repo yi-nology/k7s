@@ -26,8 +26,8 @@ use crate::ai::error::{AiError, AiResult};
 use crate::ai::llm::FunctionDef;
 use crate::core::shell_common;
 use crate::kube::manager::ClientManager;
-use async_trait::async_trait;
-use kube::Client;
+use k7s_deps::async_trait::async_trait;
+use k7s_deps::kube::Client;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -42,7 +42,7 @@ pub struct ToolContext {
     pub data_dir: PathBuf,
 }
 
-/// Get a connected `kube::Client` or bail with the standard "disconnected"
+/// Get a connected `k7s_deps::kube::Client` or bail with the standard "disconnected"
 /// error (kept here so every tool reads the same).
 pub async fn require_client(manager: &ClientManager) -> AiResult<Client> {
     manager
@@ -64,7 +64,7 @@ pub trait Tool: Send + Sync {
 
     /// JSON Schema for the tool's `parameters` object (OpenAI function-calling
     /// shape: `{"type":"object","properties":{...},"required":[...]}`).
-    fn parameters_schema(&self) -> serde_json::Value;
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value;
 
     /// True if the tool mutates the cluster (scale/restart/delete/apply/…).
     /// Write tools route through the permission gate before execution.
@@ -73,8 +73,8 @@ pub trait Tool: Send + Sync {
     }
 
     /// Execute with the LLM-supplied arguments (already parsed to a Value).
-    async fn call(&self, ctx: &ToolContext, args: serde_json::Value)
-        -> AiResult<serde_json::Value>;
+    async fn call(&self, ctx: &ToolContext, args: k7s_deps::serde_json::Value)
+        -> AiResult<k7s_deps::serde_json::Value>;
 }
 
 /// Holds all registered tools and the function defs handed to the LLM.
@@ -149,8 +149,8 @@ impl ToolRegistry {
         &self,
         name: &str,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let tool = self
             .get(name)
             .ok_or_else(|| AiError::ToolArgs(format!("unknown tool '{name}'")))?;
@@ -180,31 +180,31 @@ fn names_unique(tools: &[Box<dyn Tool>]) -> bool {
 // Shared arg helpers
 // ---------------------------------------------------------------------------
 
-pub fn get_arg_str(args: &serde_json::Value, key: &str) -> AiResult<String> {
+pub fn get_arg_str(args: &k7s_deps::serde_json::Value, key: &str) -> AiResult<String> {
     args.get(key)
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
         .ok_or_else(|| AiError::ToolArgs(format!("missing string arg '{key}'")))
 }
 
-pub fn get_opt_str(args: &serde_json::Value, key: &str) -> Option<String> {
+pub fn get_opt_str(args: &k7s_deps::serde_json::Value, key: &str) -> Option<String> {
     args.get(key)
         .and_then(|v| v.as_str())
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
 }
 
-pub fn get_arg_i64(args: &serde_json::Value, key: &str) -> AiResult<i64> {
+pub fn get_arg_i64(args: &k7s_deps::serde_json::Value, key: &str) -> AiResult<i64> {
     args.get(key)
         .and_then(|v| v.as_i64())
         .ok_or_else(|| AiError::ToolArgs(format!("missing integer arg '{key}'")))
 }
 
-pub fn get_opt_i64(args: &serde_json::Value, key: &str) -> Option<i64> {
+pub fn get_opt_i64(args: &k7s_deps::serde_json::Value, key: &str) -> Option<i64> {
     args.get(key).and_then(|v| v.as_i64())
 }
 
-pub fn get_opt_bool(args: &serde_json::Value, key: &str) -> Option<bool> {
+pub fn get_opt_bool(args: &k7s_deps::serde_json::Value, key: &str) -> Option<bool> {
     args.get(key).and_then(|v| v.as_bool())
 }
 
@@ -214,7 +214,7 @@ pub async fn dynamic_api(
     ctx: &ToolContext,
     kind: &str,
     namespace: &str,
-) -> AiResult<(kube::Api<kube::api::DynamicObject>, bool)> {
+) -> AiResult<(k7s_deps::kube::Api<k7s_deps::kube::api::DynamicObject>, bool)> {
     let client = require_client(&ctx.manager).await?;
     shell_common::dynamic_api(client, kind, namespace, &ctx.manager)
         .await
@@ -223,8 +223,8 @@ pub async fn dynamic_api(
 
 /// Wrap a serialisable payload into the JSON value tools return. Centralised so
 /// serialisation errors map to `AiError::Tool` consistently.
-pub fn ok_value<T: Serialize + ?Sized>(payload: &T) -> AiResult<serde_json::Value> {
-    serde_json::to_value(payload).map_err(|e| AiError::Tool(e.to_string()))
+pub fn ok_value<T: Serialize + ?Sized>(payload: &T) -> AiResult<k7s_deps::serde_json::Value> {
+    k7s_deps::serde_json::to_value(payload).map_err(|e| AiError::Tool(e.to_string()))
 }
 
 #[cfg(test)]
@@ -308,7 +308,7 @@ mod tests {
     }
 
     /// Dispatching an unknown tool yields a ToolArgs error rather than panicking.
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn unknown_tool_errors() {
         let reg = ToolRegistry::new();
         let ctx = ToolContext {
@@ -318,7 +318,7 @@ mod tests {
             data_dir: std::path::PathBuf::new(),
         };
         let err = reg
-            .dispatch("no_such_tool", &ctx, serde_json::Value::Null)
+            .dispatch("no_such_tool", &ctx, k7s_deps::serde_json::Value::Null)
             .await
             .unwrap_err();
         assert!(matches!(err, AiError::ToolArgs(_)));

@@ -2,9 +2,9 @@
 
 use super::*;
 use crate::error::AppResult;
-use k8s_openapi::api::core::v1::{ConfigMap, Namespace, ResourceQuota, Secret};
-use kube::api::Api;
-use kube::Client;
+use k7s_deps::k8s_openapi::api::core::v1::{ConfigMap, Namespace, ResourceQuota, Secret};
+use k7s_deps::kube::api::Api;
+use k7s_deps::kube::Client;
 
 pub(super) async fn gather_configmap(
     client: Client,

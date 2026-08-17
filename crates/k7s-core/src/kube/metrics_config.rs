@@ -22,7 +22,7 @@
 //! the auth dance and a premature abstraction would just hide the difference.
 
 use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -96,13 +96,13 @@ fn load_file() -> AppResult<MetricsFile> {
     if text.trim().is_empty() {
         return Ok(MetricsFile::default());
     }
-    serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
+    k7s_deps::serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
 }
 
 fn save_file(f: &MetricsFile) -> AppResult<()> {
     let path = config_path()?;
     let text =
-        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+        k7s_deps::serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
     std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
@@ -318,7 +318,7 @@ fn default_status() -> String {
 struct PromData {
     #[serde(default, rename = "resultType")]
     result_type: String,
-    result: serde_json::Value,
+    result: k7s_deps::serde_json::Value,
 }
 
 fn translate(body: PromResponse) -> QueryResult {
@@ -386,8 +386,8 @@ pub(crate) fn find(name: &str) -> AppResult<MetricsConfig> {
         .ok_or_else(|| AppError::NotFound(format!("metrics config '{name}' not found")))
 }
 
-fn build_client(_cfg: &MetricsConfig) -> AppResult<reqwest::Client> {
-    reqwest::Client::builder()
+fn build_client(_cfg: &MetricsConfig) -> AppResult<k7s_deps::reqwest::Client> {
+    k7s_deps::reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .user_agent("k7s/metrics-explorer")
         .build()
@@ -424,8 +424,8 @@ mod tests {
         assert_eq!(urlencode("kube_pod-info"), "kube_pod-info");
     }
 
-    fn sample_matrix() -> serde_json::Value {
-        serde_json::json!({
+    fn sample_matrix() -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({
             "status": "success",
             "data": {
                 "resultType": "matrix",
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn translate_matrix_parses_timestamps_and_values() {
-        let body: PromResponse = serde_json::from_value(sample_matrix()).unwrap();
+        let body: PromResponse = k7s_deps::serde_json::from_value(sample_matrix()).unwrap();
         let r = translate(body);
         assert_eq!(r.result_type, "matrix");
         assert_eq!(r.series.len(), 1);
@@ -460,7 +460,7 @@ mod tests {
 
     #[test]
     fn translate_vector_uses_single_sample_per_series() {
-        let body: PromResponse = serde_json::from_value(serde_json::json!({
+        let body: PromResponse = k7s_deps::serde_json::from_value(k7s_deps::serde_json::json!({
             "data": {
                 "resultType": "vector",
                 "result": [
@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn translate_handles_empty_result() {
-        let body: PromResponse = serde_json::from_value(serde_json::json!({
+        let body: PromResponse = k7s_deps::serde_json::from_value(k7s_deps::serde_json::json!({
             "data": {"resultType": "matrix", "result": []}
         }))
         .unwrap();

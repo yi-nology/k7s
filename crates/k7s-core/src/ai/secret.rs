@@ -17,7 +17,7 @@
 //!
 //! **Concurrency note**: the keychain backends are synchronous and may block
 //! (notably the Linux secret-service D-Bus call). Callers already run this
-//! inside `tokio::task::spawn_blocking` (see `ai::config::load`), so blocking
+//! inside `k7s_deps::tokio::task::spawn_blocking` (see `ai::config::load`), so blocking
 //! here does not stall the runtime.
 
 use crate::ai::error::{AiError, AiResult};
@@ -50,12 +50,12 @@ pub fn save(data_dir: Option<&std::path::Path>, key: &str) -> AiResult<()> {
                 Ok(())
             }
             Err(e) => {
-                tracing::warn!("keychain set_password failed ({e}); falling back to file");
+                k7s_deps::tracing::warn!("keychain set_password failed ({e}); falling back to file");
                 save_to_file(data_dir, key)
             }
         },
         Err(e) => {
-            tracing::warn!("keychain unavailable ({e}); using file fallback");
+            k7s_deps::tracing::warn!("keychain unavailable ({e}); using file fallback");
             save_to_file(data_dir, key)
         }
     }
@@ -69,17 +69,17 @@ pub fn load(data_dir: Option<&std::path::Path>) -> AiResult<Option<String>> {
     match keyring_entry() {
         Ok(entry) => match entry.get_password() {
             Ok(pw) => Ok(Some(pw)),
-            Err(keyring::Error::NoEntry) => {
+            Err(k7s_deps::keyring::Error::NoEntry) => {
                 // Not in the keychain — try the file (may exist from file-only use).
                 load_from_file(data_dir)
             }
             Err(e) => {
-                tracing::warn!("keychain get_password failed ({e}); trying file");
+                k7s_deps::tracing::warn!("keychain get_password failed ({e}); trying file");
                 load_from_file(data_dir)
             }
         },
         Err(e) => {
-            tracing::debug!("keychain unavailable ({e}); loading from file");
+            k7s_deps::tracing::debug!("keychain unavailable ({e}); loading from file");
             load_from_file(data_dir)
         }
     }
@@ -92,8 +92,8 @@ pub fn delete(data_dir: Option<&std::path::Path>) -> AiResult<()> {
         if let Err(e) = entry.delete_credential() {
             // NoEntry is fine; anything else is logged but non-fatal — we still
             // try the file below.
-            if !matches!(e, keyring::Error::NoEntry) {
-                tracing::warn!("keychain delete failed: {e}");
+            if !matches!(e, k7s_deps::keyring::Error::NoEntry) {
+                k7s_deps::tracing::warn!("keychain delete failed: {e}");
             }
         }
     }
@@ -106,8 +106,8 @@ pub fn delete(data_dir: Option<&std::path::Path>) -> AiResult<()> {
 
 /// Build a keyring `Entry` for our well-known service/user. Returns `Err` when
 /// the platform has no usable credential store (so callers can fall back).
-fn keyring_entry() -> Result<keyring::Entry, keyring::Error> {
-    keyring::Entry::new(SERVICE, USER)
+fn keyring_entry() -> Result<k7s_deps::keyring::Entry, k7s_deps::keyring::Error> {
+    k7s_deps::keyring::Entry::new(SERVICE, USER)
 }
 
 // ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ fn file_path(data_dir: Option<&std::path::Path>) -> std::path::PathBuf {
 }
 
 fn save_to_file(data_dir: Option<&std::path::Path>, key: &str) -> AiResult<()> {
-    use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+    use k7s_deps::base64::{engine::general_purpose::STANDARD as B64, Engine as _};
     let path = file_path(data_dir);
     let mut buf = key.as_bytes().to_vec();
     xor(&mut buf);
@@ -155,7 +155,7 @@ fn save_to_file(data_dir: Option<&std::path::Path>, key: &str) -> AiResult<()> {
 }
 
 fn load_from_file(data_dir: Option<&std::path::Path>) -> AiResult<Option<String>> {
-    use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+    use k7s_deps::base64::{engine::general_purpose::STANDARD as B64, Engine as _};
     let path = file_path(data_dir);
     if !path.exists() {
         return Ok(None);

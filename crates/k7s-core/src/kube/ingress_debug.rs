@@ -6,11 +6,11 @@
 //! the exact break in the chain.
 
 use crate::error::AppResult;
-use k8s_openapi::api::core::v1::Service;
-use k8s_openapi::api::discovery::v1::EndpointSlice;
-use k8s_openapi::api::networking::v1::Ingress;
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::k8s_openapi::api::core::v1::Service;
+use k7s_deps::k8s_openapi::api::discovery::v1::EndpointSlice;
+use k7s_deps::k8s_openapi::api::networking::v1::Ingress;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 use serde::Serialize;
 
 /// One hop in the Ingress routing chain.
@@ -300,8 +300,8 @@ mod tests {
     /// count_ready_addresses filters by service name label and ready condition.
     #[test]
     fn count_ready_filters_correctly() {
-        use k8s_openapi::api::discovery::v1::{Endpoint, EndpointConditions, EndpointSlice};
-        use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+        use k7s_deps::k8s_openapi::api::discovery::v1::{Endpoint, EndpointConditions, EndpointSlice};
+        use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
         use std::collections::BTreeMap;
 
         let make_slice =

@@ -1,6 +1,6 @@
 //! Shared property-test strategies for mapper tests.
 
-use kube::core::DynamicObject;
+use k7s_deps::kube::core::DynamicObject;
 use proptest::prelude::*;
 
 /// Generate an arbitrary DynamicObject with valid metadata.
@@ -15,15 +15,15 @@ pub fn arb_dynamic_object(namespaced: bool) -> impl Strategy<Value = DynamicObje
         "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",
     )
         .prop_map(move |(name, namespace, uid)| {
-            let mut metadata = serde_json::json!({
+            let mut metadata = k7s_deps::serde_json::json!({
                 "name": name,
                 "uid": uid,
                 "creationTimestamp": "2025-01-15T10:30:00Z"
             });
             if namespaced && !namespace.is_empty() {
-                metadata["namespace"] = serde_json::json!(namespace);
+                metadata["namespace"] = k7s_deps::serde_json::json!(namespace);
             }
-            serde_json::from_value(serde_json::json!({
+            k7s_deps::serde_json::from_value(k7s_deps::serde_json::json!({
                 "apiVersion": "v1",
                 "kind": "ConfigMap",
                 "metadata": metadata,

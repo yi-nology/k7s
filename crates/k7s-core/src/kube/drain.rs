@@ -18,9 +18,9 @@
 use super::events;
 use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, DeleteParams, EvictParams, ListParams, Patch, PatchParams};
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::{Api, DeleteParams, EvictParams, ListParams, Patch, PatchParams};
+use k7s_deps::kube::{Client, ResourceExt};
 use serde::Serialize;
 
 /// A pod that could not be evicted, and why.
@@ -48,8 +48,8 @@ pub struct DrainProgress {
 
 /// Cordon a node so nothing new schedules onto it.
 pub async fn cordon(client: Client, node: &str) -> AppResult<()> {
-    let api: Api<k8s_openapi::api::core::v1::Node> = Api::all(client);
-    let patch = serde_json::json!({ "spec": { "unschedulable": true } });
+    let api: Api<k7s_deps::k8s_openapi::api::core::v1::Node> = Api::all(client);
+    let patch = k7s_deps::serde_json::json!({ "spec": { "unschedulable": true } });
     api.patch(node, &PatchParams::default(), &Patch::Merge(patch))
         .await
         .map_err(|e| AppError::Kube(e.to_string()))?;
@@ -175,17 +175,17 @@ fn is_finished(pod: &Pod) -> bool {
 }
 
 /// True when the API server refused the eviction because of a PodDisruptionBudget.
-fn is_pdb_block(e: &kube::Error) -> bool {
-    matches!(e, kube::Error::Api(resp) if resp.code == 429)
+fn is_pdb_block(e: &k7s_deps::kube::Error) -> bool {
+    matches!(e, k7s_deps::kube::Error::Api(resp) if resp.code == 429)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
-    fn pod_json(v: serde_json::Value) -> Pod {
-        serde_json::from_value(v).unwrap()
+    fn pod_json(v: k7s_deps::serde_json::Value) -> Pod {
+        k7s_deps::serde_json::from_value(v).unwrap()
     }
 
     /// A plain Deployment-owned pod is what a drain is for.
@@ -262,8 +262,8 @@ mod tests {
     /// 429 means a PDB held the eviction back; anything else is a real error.
     #[test]
     fn pdb_block_is_detected_by_status_code() {
-        use kube::error::ErrorResponse;
-        let too_many = kube::Error::Api(Box::new(ErrorResponse {
+        use k7s_deps::kube::error::ErrorResponse;
+        let too_many = k7s_deps::kube::Error::Api(Box::new(ErrorResponse {
             message: "Cannot evict pod as it would violate the pod's disruption budget.".into(),
             reason: "TooManyRequests".into(),
             code: 429,
@@ -271,7 +271,7 @@ mod tests {
         }));
         assert!(is_pdb_block(&too_many));
 
-        let not_found = kube::Error::Api(Box::new(ErrorResponse {
+        let not_found = k7s_deps::kube::Error::Api(Box::new(ErrorResponse {
             message: "pods \"x\" not found".into(),
             reason: "NotFound".into(),
             code: 404,

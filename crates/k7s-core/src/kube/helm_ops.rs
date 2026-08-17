@@ -22,11 +22,11 @@
 
 use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
+use k7s_deps::tokio::io::{AsyncBufReadExt, BufReader};
+use k7s_deps::tokio::process::Command;
 
 /// Tauri event name carrying a single log line from a running `helm` invocation.
 pub const HELM_LOG_EVENT: &str = "helm-op-log";
@@ -180,7 +180,7 @@ pub async fn run_op(op: HelmOp, sink: EventSink) -> AppResult<HelmOpResult> {
     let line_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let sink_out = sink.clone();
     let count_out = line_count.clone();
-    let out_task = tokio::spawn(async move {
+    let out_task = k7s_deps::tokio::spawn(async move {
         let mut reader = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_out.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -195,7 +195,7 @@ pub async fn run_op(op: HelmOp, sink: EventSink) -> AppResult<HelmOpResult> {
     });
     let sink_err = sink.clone();
     let count_err = line_count.clone();
-    let err_task = tokio::spawn(async move {
+    let err_task = k7s_deps::tokio::spawn(async move {
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_err.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -214,7 +214,7 @@ pub async fn run_op(op: HelmOp, sink: EventSink) -> AppResult<HelmOpResult> {
         .await
         .map_err(|e| AppError::Other(format!("wait helm: {e}")))?;
     // Make sure both pump tasks drain before we return.
-    let _ = tokio::join!(out_task, err_task);
+    let _ = k7s_deps::tokio::join!(out_task, err_task);
 
     let success = status.success();
     let summary = if success {
@@ -351,7 +351,7 @@ fn push_values_args(argv: &mut Vec<String>, values: &str) {
                 argv.push(path.display().to_string());
             }
             Err(e) => {
-                tracing::warn!("could not write values temp file: {e}; --values omitted");
+                k7s_deps::tracing::warn!("could not write values temp file: {e}; --values omitted");
             }
         }
     }
@@ -489,7 +489,7 @@ pub async fn release_history(
     }
     let raw = String::from_utf8_lossy(&out.stdout);
     // `helm history --output json` returns a top-level array.
-    let rows: Vec<serde_json::Value> = serde_json::from_str(&raw)
+    let rows: Vec<k7s_deps::serde_json::Value> = k7s_deps::serde_json::from_str(&raw)
         .map_err(|e| AppError::Other(format!("parse helm history: {e}")))?;
     Ok(rows
         .into_iter()

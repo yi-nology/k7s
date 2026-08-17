@@ -1,9 +1,9 @@
 //! Storage mapping: PersistentVolumeClaim, PersistentVolume, StorageClass.
 
 use super::*;
-use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
-use k8s_openapi::api::storage::v1::StorageClass;
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
+use k7s_deps::k8s_openapi::api::storage::v1::StorageClass;
+use k7s_deps::kube::ResourceExt;
 
 /// Access modes in kubectl's shorthand: RWO / ROX / RWX / RWOP, comma-joined.
 /// An unrecognised mode passes through verbatim rather than being dropped.
@@ -213,13 +213,13 @@ pub fn map_storageclass(sc: &StorageClass) -> Row {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
     /// A bound claim: columns NAME,NAMESPACE,STATUS,VOLUME,CAPACITY,ACCESS,CLASS,AGE,
     /// status green with a dot, access modes in kubectl's shorthand.
     #[test]
     fn bound_pvc_columns() {
-        let pvc: PersistentVolumeClaim = serde_json::from_value(json!({
+        let pvc: PersistentVolumeClaim = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "wiki-postgres-data", "namespace": "wiki", "uid": "c1" },
             "spec": { "volumeName": "pvc-5a948cc3", "storageClassName": "local-path",
                       "accessModes": ["ReadWriteOnce"],
@@ -245,7 +245,7 @@ mod tests {
     /// big the claim was.
     #[test]
     fn pending_pvc_shows_requested_capacity() {
-        let pvc: PersistentVolumeClaim = serde_json::from_value(json!({
+        let pvc: PersistentVolumeClaim = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "reports", "namespace": "prod", "uid": "c2" },
             "spec": { "accessModes": ["ReadWriteMany"],
                       "resources": { "requests": { "storage": "100Gi" } } },
@@ -267,7 +267,7 @@ mod tests {
     /// "namespace/name" the way kubectl prints it.
     #[test]
     fn bound_pv_columns() {
-        let pv: PersistentVolume = serde_json::from_value(json!({
+        let pv: PersistentVolume = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "pvc-5a948cc3", "uid": "v1" },
             "spec": { "capacity": { "storage": "5Gi" }, "accessModes": ["ReadWriteOnce"],
                       "persistentVolumeReclaimPolicy": "Delete", "storageClassName": "local-path",
@@ -291,7 +291,7 @@ mod tests {
     #[test]
     fn pv_phase_tones_differ_from_the_shared_helper() {
         let pv_with = |phase: &str| -> Row {
-            let pv: PersistentVolume = serde_json::from_value(json!({
+            let pv: PersistentVolume = k7s_deps::serde_json::from_value(json!({
                 "metadata": { "name": "v", "uid": "u" },
                 "spec": { "capacity": { "storage": "1Gi" } },
                 "status": { "phase": phase },
@@ -327,7 +327,7 @@ mod tests {
     #[test]
     fn storageclass_marks_the_default() {
         let sc = |default: bool| -> StorageClass {
-            serde_json::from_value(json!({
+            k7s_deps::serde_json::from_value(json!({
                 "metadata": { "name": "local-path", "uid": "s1",
                               "annotations": if default {
                                   json!({ "storageclass.kubernetes.io/is-default-class": "true" })

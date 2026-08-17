@@ -13,7 +13,7 @@
 //! The sandbox sits between the permission gate and tool execution — it's a
 //! more granular layer that evaluates specific tool+args combinations.
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 
 /// Sandbox security configuration.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -104,7 +104,7 @@ pub enum SandboxDecision {
 pub fn evaluate(
     config: &SandboxConfig,
     tool_name: &str,
-    args: &serde_json::Value,
+    args: &k7s_deps::serde_json::Value,
 ) -> SandboxDecision {
     if !config.enabled {
         return SandboxDecision::Allow;
@@ -132,7 +132,7 @@ pub fn evaluate(
         if matches_pattern(tool_name, &rule.tool_pattern) {
             // Check arg pattern if specified.
             if let Some(ref arg_pat) = rule.arg_pattern {
-                let args_str = serde_json::to_string(args).unwrap_or_default();
+                let args_str = k7s_deps::serde_json::to_string(args).unwrap_or_default();
                 if !args_str.contains(arg_pat) {
                     continue; // arg pattern doesn't match, skip this rule
                 }
@@ -150,9 +150,9 @@ pub fn evaluate(
     }
 
     // Check for secret exposure in arguments.
-    let args_str = serde_json::to_string(args).unwrap_or_default();
+    let args_str = k7s_deps::serde_json::to_string(args).unwrap_or_default();
     for pattern in &config.secret_patterns {
-        if let Ok(re) = regex::Regex::new(pattern) {
+        if let Ok(re) = k7s_deps::regex::Regex::new(pattern) {
             if re.is_match(&args_str) {
                 return SandboxDecision::Deny {
                     reason:

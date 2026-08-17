@@ -9,7 +9,7 @@
 //! - **Cancellation propagation**: when a timeout fires, the underlying
 //!   future is aborted cleanly.
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::time::Duration;
 
 /// Timeout configuration.
@@ -45,7 +45,7 @@ pub async fn with_timeout<T, E>(
     duration: Duration,
     future: impl std::future::Future<Output = Result<T, E>>,
 ) -> Result<T, TimeoutError<E>> {
-    match tokio::time::timeout(duration, future).await {
+    match k7s_deps::tokio::time::timeout(duration, future).await {
         Ok(Ok(v)) => Ok(v),
         Ok(Err(e)) => Err(TimeoutError::Inner(e)),
         Err(_) => Err(TimeoutError::TimedOut),
@@ -108,10 +108,10 @@ mod tests {
         assert!(deadline.remaining().as_secs() <= 10);
     }
 
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn timeout_cancels_slow_future() {
         let result = with_timeout(Duration::from_millis(50), async {
-            tokio::time::sleep(Duration::from_secs(10)).await;
+            k7s_deps::tokio::time::sleep(Duration::from_secs(10)).await;
             Ok::<(), &str>(())
         })
         .await;

@@ -2,12 +2,12 @@
 
 use super::*;
 use crate::error::AppResult;
-use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
-use k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler;
-use k8s_openapi::api::batch::v1::{CronJob, Job};
-use k8s_openapi::api::core::v1::{PersistentVolumeClaim, Service};
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
+use k7s_deps::k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler;
+use k7s_deps::k8s_openapi::api::batch::v1::{CronJob, Job};
+use k7s_deps::k8s_openapi::api::core::v1::{PersistentVolumeClaim, Service};
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 
 pub async fn gather_deployment(
     client: Client,

@@ -8,7 +8,7 @@
 
 use crate::ai::error::{AiError, AiResult};
 use crate::ai::secret;
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// How aggressive the AI is allowed to be on the cluster.
@@ -119,7 +119,7 @@ pub fn load(data_dir: Option<&std::path::Path>) -> AiResult<AiConfigView> {
         if text.trim().is_empty() {
             AiConfig::default()
         } else {
-            serde_json::from_str(&text)
+            k7s_deps::serde_json::from_str(&text)
                 .map_err(|e| AiError::Other(format!("parse {}: {e}", path.display())))?
         }
     };

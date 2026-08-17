@@ -9,7 +9,7 @@
 //! (reuses the same CRUD pattern as `metrics_config`).
 
 use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -65,13 +65,13 @@ fn load_file() -> AppResult<LokiFile> {
     if text.trim().is_empty() {
         return Ok(LokiFile::default());
     }
-    serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
+    k7s_deps::serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
 }
 
 fn save_file(f: &LokiFile) -> AppResult<()> {
     let path = config_path()?;
     let text =
-        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+        k7s_deps::serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
     std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
@@ -156,7 +156,7 @@ pub fn remove(name: &str) -> AppResult<()> {
 
 pub async fn test_connect(name: &str) -> AppResult<()> {
     let cfg = find(name)?;
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()
         .map_err(|e| AppError::Other(format!("build client: {e}")))?;
@@ -238,7 +238,7 @@ fn default_limit() -> usize {
 /// Fetch audit events from Loki.
 pub async fn query_audit_events(query: &AuditQuery) -> AppResult<Vec<AuditEvent>> {
     let cfg = find(&query.instance)?;
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|e| AppError::Other(format!("build client: {e}")))?;
@@ -252,7 +252,7 @@ pub async fn query_audit_events(query: &AuditQuery) -> AppResult<Vec<AuditEvent>
     let logql = format!("{{{}}}", selectors.join(", "));
 
     // Loki /loki/api/v1/query_range
-    let end = chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);
+    let end = k7s_deps::chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0);
     let start = end - query.since_seconds * 1_000_000_000;
 
     // Simple percent encoding for the LogQL query (only braces and quotes need encoding)
@@ -281,7 +281,7 @@ pub async fn query_audit_events(query: &AuditQuery) -> AppResult<Vec<AuditEvent>
         return Err(AppError::Other(format!("{url}: HTTP {status}: {text}")));
     }
 
-    let body: serde_json::Value = resp
+    let body: k7s_deps::serde_json::Value = resp
         .json()
         .await
         .map_err(|e| AppError::Other(format!("decode: {e}")))?;
@@ -332,7 +332,7 @@ pub async fn query_audit_events(query: &AuditQuery) -> AppResult<Vec<AuditEvent>
 }
 
 fn parse_audit_line(line: &str) -> Option<AuditEvent> {
-    let v: serde_json::Value = serde_json::from_str(line).ok()?;
+    let v: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(line).ok()?;
     let ts = v
         .get("requestReceivedTimestamp")
         .or_else(|| v.get("stageTimestamp"))

@@ -21,12 +21,12 @@
 //! the same separation `restart.rs` uses.
 
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::apps::v1::{
+use k7s_deps::k8s_openapi::api::apps::v1::{
     ControllerRevision, DaemonSet, Deployment, ReplicaSet, StatefulSet,
 };
-use k8s_openapi::api::core::v1::PodTemplateSpec;
-use kube::api::{Api, ListParams, Patch, PatchParams};
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::PodTemplateSpec;
+use k7s_deps::kube::api::{Api, ListParams, Patch, PatchParams};
+use k7s_deps::kube::ResourceExt;
 use serde::Serialize;
 
 /// Kinds that carry a pod template with a retained revision history. Matches
@@ -154,7 +154,7 @@ pub fn images_of(template: &PodTemplateSpec) -> Vec<ContainerImage> {
 /// behaviour) — the Revisions tab still opens, it just shows "no history"
 /// rather than erroring the whole panel.
 pub async fn list_revisions(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -169,7 +169,7 @@ pub async fn list_revisions(
 }
 
 async fn list_deployment_revisions(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     namespace: &str,
     name: &str,
 ) -> AppResult<Vec<Revision>> {
@@ -240,7 +240,7 @@ async fn list_deployment_revisions(
 }
 
 async fn list_controller_revisions(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -315,7 +315,7 @@ async fn list_controller_revisions(
 /// hand-edited history) — the caller treats that as a revision with no images.
 fn controller_revision_template(cr: &ControllerRevision) -> Option<PodTemplateSpec> {
     let data = cr.data.as_ref()?;
-    serde_json::from_value::<PodTemplateSpec>(data.0.clone()).ok()
+    k7s_deps::serde_json::from_value::<PodTemplateSpec>(data.0.clone()).ok()
 }
 
 /// Roll a workload back to `to_revision`, or to the previous revision when
@@ -327,7 +327,7 @@ fn controller_revision_template(cr: &ControllerRevision) -> Option<PodTemplateSp
 /// `partition`/`maxUnavailable` for StatefulSets/DaemonSets — so the rollback
 /// respects the workload's own rollout budget.
 pub async fn undo_to(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -343,7 +343,7 @@ pub async fn undo_to(
 }
 
 async fn undo_deployment(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     namespace: &str,
     name: &str,
     to_revision: Option<i64>,
@@ -383,13 +383,13 @@ async fn undo_deployment(
             ))
         })?;
 
-    let patch = Patch::Merge(serde_json::json!({ "spec": { "template": template } }));
+    let patch = Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "template": template } }));
     dep_api.patch(name, &PatchParams::default(), &patch).await?;
     Ok(())
 }
 
 async fn undo_controller_revision(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -417,7 +417,7 @@ async fn undo_controller_revision(
     // spec.template — same shape as the Deployment path. The typed Api is
     // required: Strategic merge needs a known schema to merge container lists
     // by name, and a DynamicObject Api would only accept Merge/JSON patches.
-    let patch = Patch::Strategic(serde_json::json!({ "spec": { "template": template } }));
+    let patch = Patch::Strategic(k7s_deps::serde_json::json!({ "spec": { "template": template } }));
     match kind {
         "statefulsets" => {
             let api: Api<StatefulSet> = Api::namespaced(client, namespace);
@@ -501,9 +501,9 @@ fn display_rev(to_revision: Option<i64>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use k8s_openapi::api::apps::v1::{ReplicaSet, ReplicaSetSpec};
-    use k8s_openapi::api::core::v1::{Container, PodSpec, PodTemplateSpec};
-    use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+    use k7s_deps::k8s_openapi::api::apps::v1::{ReplicaSet, ReplicaSetSpec};
+    use k7s_deps::k8s_openapi::api::core::v1::{Container, PodSpec, PodTemplateSpec};
+    use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
     use std::collections::BTreeMap;
 
     fn rs_with_revision(name: &str, rev: i64) -> ReplicaSet {

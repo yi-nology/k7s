@@ -84,7 +84,7 @@ pub fn atomic_write_json<T: serde::Serialize + ?Sized>(
     path: &std::path::Path,
     value: &T,
 ) -> std::io::Result<()> {
-    let text = serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
+    let text = k7s_deps::serde_json::to_string_pretty(value).map_err(std::io::Error::other)?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, &text)?;
     std::fs::rename(&tmp, path)
@@ -96,6 +96,6 @@ pub fn atomic_read_json<T: serde::de::DeserializeOwned + Default>(path: &std::pa
     std::fs::read_to_string(path)
         .ok()
         .filter(|s| !s.trim().is_empty())
-        .and_then(|s| serde_json::from_str(&s).ok())
+        .and_then(|s| k7s_deps::serde_json::from_str(&s).ok())
         .unwrap_or_default()
 }

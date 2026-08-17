@@ -5,14 +5,14 @@
 //! surfaces behave identically.
 //!
 //! Each function takes a `&ClientManager` + raw args, returns
-//! `AppResult<serde_json::Value>`. The caller (AI or MCP) wraps the result
+//! `AppResult<k7s_deps::serde_json::Value>`. The caller (AI or MCP) wraps the result
 //! in its own error/result type.
 
 use crate::core::shell_common;
 use crate::error::{AppError, AppResult};
 use crate::kube::manager::{ClientManager, ConnectionInfo};
-use kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
-use kube::ResourceExt;
+use k7s_deps::kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
+use k7s_deps::kube::ResourceExt;
 use std::collections::HashMap;
 
 // ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ pub async fn list_resources_impl(
     kind: &str,
     namespace: &str,
     label_selector: Option<&str>,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let (api, _is_helm) = shell_common::dynamic_api(client, kind, namespace, manager).await?;
     let mut lp = ListParams::default();
@@ -34,18 +34,18 @@ pub async fn list_resources_impl(
             lp = lp.labels(ls);
         }
     }
-    let list: kube::api::ObjectList<DynamicObject> = api.list(&lp).await?;
-    let rows: Vec<serde_json::Value> = list
+    let list: k7s_deps::kube::api::ObjectList<DynamicObject> = api.list(&lp).await?;
+    let rows: Vec<k7s_deps::serde_json::Value> = list
         .iter()
         .map(|obj| {
-            serde_json::json!({
+            k7s_deps::serde_json::json!({
                 "name": obj.name_any(),
                 "namespace": obj.metadata.namespace,
                 "kind": kind,
             })
         })
         .collect();
-    Ok(serde_json::json!(rows))
+    Ok(k7s_deps::serde_json::json!(rows))
 }
 
 /// Describe a resource (structured JSON, managedFields stripped).
@@ -54,12 +54,12 @@ pub async fn describe_resource_impl(
     kind: &str,
     namespace: &str,
     name: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let (api, _) = shell_common::dynamic_api(client, kind, namespace, manager).await?;
     let mut obj: DynamicObject = api.get(name).await?;
     obj.metadata.managed_fields = None;
-    serde_json::to_value(&obj).map_err(|e| AppError::Other(e.to_string()))
+    k7s_deps::serde_json::to_value(&obj).map_err(|e| AppError::Other(e.to_string()))
 }
 
 /// Get resource YAML (managedFields stripped, secrets redacted).
@@ -81,14 +81,14 @@ pub async fn get_resource_yaml_impl(
                 if let Some(inner) = map.get_mut(*key) {
                     if let Some(inner_map) = inner.as_object_mut() {
                         for v in inner_map.values_mut() {
-                            *v = serde_json::Value::String("***".to_string());
+                            *v = k7s_deps::serde_json::Value::String("***".to_string());
                         }
                     }
                 }
             }
         }
     }
-    serde_yaml::to_string(&obj).map_err(|e| AppError::Yaml(e.to_string()))
+    k7s_deps::serde_yaml::to_string(&obj).map_err(|e| AppError::Yaml(e.to_string()))
 }
 
 /// Get events for a resource.
@@ -97,7 +97,7 @@ pub async fn get_events_impl(
     kind: &str,
     namespace: &str,
     name: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let involved_kind = match kind.rsplit('/').next().unwrap_or(kind) {
         "pods" => "Pod",
@@ -116,7 +116,7 @@ pub async fn get_events_impl(
         "namespaces" => "Namespace",
         other => other,
     };
-    let events: Api<k8s_openapi::api::core::v1::Event> = if namespace.is_empty() {
+    let events: Api<k7s_deps::k8s_openapi::api::core::v1::Event> = if namespace.is_empty() {
         Api::all(client)
     } else {
         Api::namespaced(client, namespace)
@@ -126,10 +126,10 @@ pub async fn get_events_impl(
             "involvedObject.name={name},involvedObject.kind={involved_kind}"
         )))
         .await?;
-    let rows: Vec<serde_json::Value> = list
+    let rows: Vec<k7s_deps::serde_json::Value> = list
         .iter()
         .map(|e| {
-            serde_json::json!({
+            k7s_deps::serde_json::json!({
                 "type": e.type_.clone().unwrap_or_default(),
                 "reason": e.reason.clone().unwrap_or_default(),
                 "message": e.message.clone().unwrap_or_default(),
@@ -137,7 +137,7 @@ pub async fn get_events_impl(
             })
         })
         .collect();
-    Ok(serde_json::json!(rows))
+    Ok(k7s_deps::serde_json::json!(rows))
 }
 
 /// Get pod logs.
@@ -148,25 +148,25 @@ pub async fn get_pod_logs_impl(
     container: Option<&str>,
     tail: Option<i64>,
     previous: bool,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
-    let pods: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, namespace);
-    let lp = kube::api::LogParams {
+    let pods: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, namespace);
+    let lp = k7s_deps::kube::api::LogParams {
         container: container.map(|s| s.to_string()),
         tail_lines: tail,
         previous,
         ..Default::default()
     };
     let logs = pods.logs(pod, &lp).await?;
-    Ok(serde_json::json!({ "logs": logs }))
+    Ok(k7s_deps::serde_json::json!({ "logs": logs }))
 }
 
 /// Cluster health snapshot.
-pub async fn get_cluster_health_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+pub async fn get_cluster_health_impl(manager: &ClientManager) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
-    let nodes: kube::api::ObjectList<k8s_openapi::api::core::v1::Node> =
+    let nodes: k7s_deps::kube::api::ObjectList<k7s_deps::k8s_openapi::api::core::v1::Node> =
         Api::all(client.clone()).list(&Default::default()).await?;
-    let pods: kube::api::ObjectList<k8s_openapi::api::core::v1::Pod> =
+    let pods: k7s_deps::kube::api::ObjectList<k7s_deps::k8s_openapi::api::core::v1::Pod> =
         Api::all(client).list(&Default::default()).await?;
     let mut problems = Vec::new();
     let nodes_ready = nodes
@@ -222,7 +222,7 @@ pub async fn get_cluster_health_impl(manager: &ClientManager) -> AppResult<serde
             }
         })
         .count();
-    Ok(serde_json::json!({
+    Ok(k7s_deps::serde_json::json!({
         "nodes_ready": nodes_ready,
         "nodes_total": nodes.items.len(),
         "pods_running": pods_running,
@@ -242,14 +242,14 @@ pub async fn scale_resource_impl(
     namespace: &str,
     name: &str,
     replicas: i32,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     shell_common::ensure_writable(kind)?;
     let (api, _) = shell_common::dynamic_api(client, kind, namespace, manager).await?;
-    let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": replicas } }));
+    let patch = Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "replicas": replicas } }));
     api.patch(name, &PatchParams::default(), &patch).await?;
     Ok(
-        serde_json::json!({ "scaled": true, "kind": kind, "namespace": namespace, "name": name, "replicas": replicas }),
+        k7s_deps::serde_json::json!({ "scaled": true, "kind": kind, "namespace": namespace, "name": name, "replicas": replicas }),
     )
 }
 
@@ -259,7 +259,7 @@ pub async fn restart_workload_impl(
     kind: &str,
     namespace: &str,
     name: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     if !crate::kube::restart::is_rollout_kind(kind) {
         return Err(AppError::Other(format!(
@@ -267,10 +267,10 @@ pub async fn restart_workload_impl(
         )));
     }
     let (api, _) = shell_common::dynamic_api(client, kind, namespace, manager).await?;
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = k7s_deps::chrono::Utc::now().to_rfc3339();
     let patch = Patch::Merge(crate::kube::restart::restart_patch(&now));
     api.patch(name, &PatchParams::default(), &patch).await?;
-    Ok(serde_json::json!({ "restarted": true, "kind": kind, "namespace": namespace, "name": name }))
+    Ok(k7s_deps::serde_json::json!({ "restarted": true, "kind": kind, "namespace": namespace, "name": name }))
 }
 
 /// Delete a resource.
@@ -279,11 +279,11 @@ pub async fn delete_resource_impl(
     kind: &str,
     namespace: &str,
     name: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let (api, _) = shell_common::dynamic_api(client, kind, namespace, manager).await?;
     api.delete(name, &DeleteParams::default()).await?;
-    Ok(serde_json::json!({ "deleted": true, "kind": kind, "namespace": namespace, "name": name }))
+    Ok(k7s_deps::serde_json::json!({ "deleted": true, "kind": kind, "namespace": namespace, "name": name }))
 }
 
 /// Apply a YAML manifest.
@@ -291,10 +291,10 @@ pub async fn apply_manifest_impl(
     manager: &ClientManager,
     yaml: &str,
     namespace: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let obj: DynamicObject =
-        serde_yaml::from_str(yaml).map_err(|e| AppError::Yaml(e.to_string()))?;
+        k7s_deps::serde_yaml::from_str(yaml).map_err(|e| AppError::Yaml(e.to_string()))?;
     let name = obj
         .metadata
         .name
@@ -323,7 +323,7 @@ pub async fn apply_manifest_impl(
     let (api, _) = shell_common::dynamic_api(client, kind_id, namespace, manager).await?;
     api.replace(&name, &PostParams::default(), &obj).await?;
     Ok(
-        serde_json::json!({ "applied": true, "kind": kind_id, "namespace": namespace, "name": name }),
+        k7s_deps::serde_json::json!({ "applied": true, "kind": kind_id, "namespace": namespace, "name": name }),
     )
 }
 
@@ -335,19 +335,19 @@ pub async fn apply_manifest_impl(
 pub async fn diagnose_unhealthy_impl(
     manager: &ClientManager,
     namespace: Option<&str>,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
-    let mut problems: Vec<serde_json::Value> = Vec::new();
+    let mut problems: Vec<k7s_deps::serde_json::Value> = Vec::new();
 
     // Nodes.
-    let nodes: kube::api::ObjectList<k8s_openapi::api::core::v1::Node> =
+    let nodes: k7s_deps::kube::api::ObjectList<k7s_deps::k8s_openapi::api::core::v1::Node> =
         Api::all(client.clone()).list(&Default::default()).await?;
     for n in nodes {
         let name = n.name_any();
         if let Some(conds) = n.status.as_ref().and_then(|s| s.conditions.as_ref()) {
             for c in conds {
                 if c.type_ == "Ready" && c.status != "True" {
-                    problems.push(serde_json::json!({ "severity": "critical", "resource": name, "kind": "node", "reason": "NotReady" }));
+                    problems.push(k7s_deps::serde_json::json!({ "severity": "critical", "resource": name, "kind": "node", "reason": "NotReady" }));
                 }
                 if c.status == "True"
                     && matches!(
@@ -355,14 +355,14 @@ pub async fn diagnose_unhealthy_impl(
                         "DiskPressure" | "MemoryPressure" | "PIDPressure" | "NetworkUnavailable"
                     )
                 {
-                    problems.push(serde_json::json!({ "severity": "warning", "resource": name, "kind": "node", "reason": c.type_ }));
+                    problems.push(k7s_deps::serde_json::json!({ "severity": "warning", "resource": name, "kind": "node", "reason": c.type_ }));
                 }
             }
         }
     }
 
     // Pods.
-    let pods: kube::api::ObjectList<k8s_openapi::api::core::v1::Pod> = match namespace {
+    let pods: k7s_deps::kube::api::ObjectList<k7s_deps::k8s_openapi::api::core::v1::Pod> = match namespace {
         Some(ns) => Api::namespaced(client.clone(), ns),
         None => Api::all(client.clone()),
     }
@@ -392,25 +392,25 @@ pub async fn diagnose_unhealthy_impl(
                             | "ErrImagePull"
                             | "CreateContainerConfigError"
                     ) {
-                        problems.push(serde_json::json!({ "severity": "critical", "resource": full, "kind": "pod", "reason": reason }));
+                        problems.push(k7s_deps::serde_json::json!({ "severity": "critical", "resource": full, "kind": "pod", "reason": reason }));
                     }
                 }
                 // Terminated-container checks.
                 if let Some(t) = c.state.as_ref().and_then(|s| s.terminated.as_ref()) {
                     match t.exit_code {
-                        137 => problems.push(serde_json::json!({
+                        137 => problems.push(k7s_deps::serde_json::json!({
                             "severity": "critical",
                             "resource": full,
                             "kind": "pod",
                             "reason": format!("OOMKilled: container '{}' exceeded memory limit", c.name),
                         })),
-                        139 => problems.push(serde_json::json!({
+                        139 => problems.push(k7s_deps::serde_json::json!({
                             "severity": "critical",
                             "resource": full,
                             "kind": "pod",
                             "reason": format!("SegFault: container '{}' crashed with SIGSEGV", c.name),
                         })),
-                        code if code > 0 => problems.push(serde_json::json!({
+                        code if code > 0 => problems.push(k7s_deps::serde_json::json!({
                             "severity": "warning",
                             "resource": full,
                             "kind": "pod",
@@ -421,7 +421,7 @@ pub async fn diagnose_unhealthy_impl(
                 }
                 // High restart count.
                 if c.restart_count > 5 {
-                    problems.push(serde_json::json!({
+                    problems.push(k7s_deps::serde_json::json!({
                         "severity": "warning",
                         "resource": format!("{ns}/{}", c.name),
                         "kind": "pod",
@@ -433,7 +433,7 @@ pub async fn diagnose_unhealthy_impl(
     }
 
     // Deployments.
-    let deps: kube::api::ObjectList<k8s_openapi::api::apps::v1::Deployment> = match namespace {
+    let deps: k7s_deps::kube::api::ObjectList<k7s_deps::k8s_openapi::api::apps::v1::Deployment> = match namespace {
         Some(ns) => Api::namespaced(client.clone(), ns),
         None => Api::all(client),
     }
@@ -449,12 +449,12 @@ pub async fn diagnose_unhealthy_impl(
         if let Some(status) = &d.status {
             let unavailable = status.unavailable_replicas.unwrap_or(0);
             if unavailable > 0 {
-                problems.push(serde_json::json!({ "severity": "warning", "resource": full, "kind": "deployment", "reason": format!("{unavailable} unavailable replicas") }));
+                problems.push(k7s_deps::serde_json::json!({ "severity": "warning", "resource": full, "kind": "deployment", "reason": format!("{unavailable} unavailable replicas") }));
             }
         }
     }
 
-    Ok(serde_json::json!({ "problems": problems }))
+    Ok(k7s_deps::serde_json::json!({ "problems": problems }))
 }
 
 // ---------------------------------------------------------------------------
@@ -464,8 +464,8 @@ pub async fn diagnose_unhealthy_impl(
 /// Batch-get multiple resources at once.
 pub async fn batch_get_impl(
     manager: &ClientManager,
-    requests: &[serde_json::Value],
-) -> AppResult<serde_json::Value> {
+    requests: &[k7s_deps::serde_json::Value],
+) -> AppResult<k7s_deps::serde_json::Value> {
     let mut results = Vec::new();
     for req in requests {
         let kind = req.get("kind").and_then(|v| v.as_str()).unwrap_or("");
@@ -473,11 +473,11 @@ pub async fn batch_get_impl(
         let name = req.get("name").and_then(|v| v.as_str()).unwrap_or("");
         let result = describe_resource_impl(manager, kind, ns, name).await;
         results.push(match result {
-            Ok(v) => serde_json::json!({ "kind": kind, "namespace": ns, "name": name, "data": v }),
-            Err(e) => serde_json::json!({ "kind": kind, "namespace": ns, "name": name, "error": e.to_string() }),
+            Ok(v) => k7s_deps::serde_json::json!({ "kind": kind, "namespace": ns, "name": name, "data": v }),
+            Err(e) => k7s_deps::serde_json::json!({ "kind": kind, "namespace": ns, "name": name, "error": e.to_string() }),
         });
     }
-    Ok(serde_json::json!({ "results": results }))
+    Ok(k7s_deps::serde_json::json!({ "results": results }))
 }
 
 /// Diff two resources or two versions of the same resource.
@@ -488,11 +488,11 @@ pub async fn diff_resources_impl(
     name_a: &str,
     ns_b: &str,
     name_b: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let yaml_a = get_resource_yaml_impl(manager, kind, ns_a, name_a).await?;
     let yaml_b = get_resource_yaml_impl(manager, kind, ns_b, name_b).await?;
     let same = yaml_a == yaml_b;
-    Ok(serde_json::json!({
+    Ok(k7s_deps::serde_json::json!({
         "same": same,
         "resource_a": { "kind": kind, "namespace": ns_a, "name": name_a },
         "resource_b": { "kind": kind, "namespace": ns_b, "name": name_b },
@@ -505,18 +505,18 @@ pub async fn diff_resources_impl(
 pub async fn hpa_status_impl(
     manager: &ClientManager,
     namespace: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
-    let hpas: Api<k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler> =
+    let hpas: Api<k7s_deps::k8s_openapi::api::autoscaling::v2::HorizontalPodAutoscaler> =
         Api::namespaced(client, namespace);
     let list = hpas.list(&ListParams::default()).await?;
-    let rows: Vec<serde_json::Value> = list
+    let rows: Vec<k7s_deps::serde_json::Value> = list
         .iter()
         .map(|h| {
             let name = h.name_any();
             let spec = &h.spec;
             let status = h.status.as_ref();
-            serde_json::json!({
+            k7s_deps::serde_json::json!({
                 "name": name,
                 "minReplicas": spec.min_replicas.unwrap_or(1),
                 "maxReplicas": spec.max_replicas,
@@ -525,7 +525,7 @@ pub async fn hpa_status_impl(
             })
         })
         .collect();
-    Ok(serde_json::json!({ "hpas": rows }))
+    Ok(k7s_deps::serde_json::json!({ "hpas": rows }))
 }
 
 // ---------------------------------------------------------------------------
@@ -533,17 +533,17 @@ pub async fn hpa_status_impl(
 // ---------------------------------------------------------------------------
 
 /// Run the RBAC security audit and return findings.
-pub async fn security_audit_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+pub async fn security_audit_impl(manager: &ClientManager) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let report = crate::kube::security_audit::run_audit(client).await?;
-    serde_json::to_value(report).map_err(|e| AppError::Other(e.to_string()))
+    k7s_deps::serde_json::to_value(report).map_err(|e| AppError::Other(e.to_string()))
 }
 
 /// Build the RBAC permission matrix and return it.
-pub async fn rbac_permission_matrix_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+pub async fn rbac_permission_matrix_impl(manager: &ClientManager) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let matrix = crate::kube::rbac_matrix::build_rbac_matrix(client).await?;
-    serde_json::to_value(matrix).map_err(|e| AppError::Other(e.to_string()))
+    k7s_deps::serde_json::to_value(matrix).map_err(|e| AppError::Other(e.to_string()))
 }
 
 /// Deep diagnosis of a single pod: identifies OOMKilled, CrashLoop, ImagePullFailed,
@@ -552,10 +552,10 @@ pub async fn diagnose_pod_impl(
     manager: &ClientManager,
     namespace: &str,
     pod: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, namespace, pod).await?;
-    serde_json::to_value(diagnosis).map_err(|e| AppError::Other(e.to_string()))
+    k7s_deps::serde_json::to_value(diagnosis).map_err(|e| AppError::Other(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -563,7 +563,7 @@ pub async fn diagnose_pod_impl(
 // ---------------------------------------------------------------------------
 
 /// Raw wire types for metrics.k8s.io responses. These mirror the types in
-/// `mcp::kube_api` and `kube::metrics` but are defined here so the AI module
+/// `mcp::kube_api` and `k7s_deps::kube::metrics` but are defined here so the AI module
 /// does not depend on feature-gated code.
 
 #[derive(serde::Deserialize)]
@@ -613,17 +613,17 @@ fn pct(used: i64, cap: i64) -> f64 {
 }
 
 /// Get per-node CPU/memory usage and capacity from metrics.k8s.io.
-pub async fn top_nodes_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+pub async fn top_nodes_impl(manager: &ClientManager) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
 
     // Fetch node metrics from metrics.k8s.io.
-    let req = http::Request::get("/apis/metrics.k8s.io/v1beta1/nodes")
+    let req = k7s_deps::http::Request::get("/apis/metrics.k8s.io/v1beta1/nodes")
         .body(Vec::new())
         .map_err(|e| AppError::Kube(e.to_string()))?;
     let metrics: MetricsList<NodeMetric> = client.request(req).await?;
 
     // Fetch node objects for allocatable capacity.
-    let nodes: Api<k8s_openapi::api::core::v1::Node> = Api::all(client);
+    let nodes: Api<k7s_deps::k8s_openapi::api::core::v1::Node> = Api::all(client);
     let node_list = nodes.list(&ListParams::default()).await?;
 
     // Build capacity map from allocatable.
@@ -646,7 +646,7 @@ pub async fn top_nodes_impl(manager: &ClientManager) -> AppResult<serde_json::Va
     }
 
     // Combine metrics + capacity.
-    let mut rows: Vec<serde_json::Value> = Vec::new();
+    let mut rows: Vec<k7s_deps::serde_json::Value> = Vec::new();
     for m in &metrics.items {
         let name = m.metadata.name.clone();
         let cpu = crate::kube::metrics::parse_cpu_millis(&m.usage.cpu);
@@ -654,7 +654,7 @@ pub async fn top_nodes_impl(manager: &ClientManager) -> AppResult<serde_json::Va
         let (cpu_cap, mem_cap) = capacity.get(&name).copied().unwrap_or((0, 0));
         let cpu_pct = pct(cpu, cpu_cap);
         let mem_pct = pct(mem, mem_cap);
-        rows.push(serde_json::json!({
+        rows.push(k7s_deps::serde_json::json!({
             "node": name,
             "cpuMillis": cpu,
             "memBytes": mem,
@@ -672,14 +672,14 @@ pub async fn top_nodes_impl(manager: &ClientManager) -> AppResult<serde_json::Va
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
-    Ok(serde_json::json!(rows))
+    Ok(k7s_deps::serde_json::json!(rows))
 }
 
 /// Get per-pod CPU/memory usage from metrics.k8s.io.
 pub async fn top_pods_impl(
     manager: &ClientManager,
     namespace: Option<&str>,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
 
     let path = match namespace {
@@ -688,12 +688,12 @@ pub async fn top_pods_impl(
         }
         _ => "/apis/metrics.k8s.io/v1beta1/pods".to_string(),
     };
-    let req = http::Request::get(path)
+    let req = k7s_deps::http::Request::get(path)
         .body(Vec::new())
         .map_err(|e| AppError::Kube(e.to_string()))?;
     let metrics: MetricsList<PodMetric> = client.request(req).await?;
 
-    let mut rows: Vec<serde_json::Value> = metrics
+    let mut rows: Vec<k7s_deps::serde_json::Value> = metrics
         .items
         .iter()
         .map(|pm| {
@@ -707,7 +707,7 @@ pub async fn top_pods_impl(
                 .iter()
                 .map(|c| crate::kube::metrics::parse_mem_bytes(&c.usage.memory))
                 .sum();
-            serde_json::json!({
+            k7s_deps::serde_json::json!({
                 "namespace": pm.metadata.namespace,
                 "pod": pm.metadata.name,
                 "cpuMillis": cpu,
@@ -722,19 +722,19 @@ pub async fn top_pods_impl(
             .cmp(&a["cpuMillis"].as_i64().unwrap_or(0))
     });
 
-    Ok(serde_json::json!(rows))
+    Ok(k7s_deps::serde_json::json!(rows))
 }
 
 /// Generate a cluster capacity report with node usage, namespace aggregation,
 /// and scaling recommendations.
-pub async fn capacity_report_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+pub async fn capacity_report_impl(manager: &ClientManager) -> AppResult<k7s_deps::serde_json::Value> {
     // Get node metrics.
     let nodes_json = top_nodes_impl(manager).await?;
-    let nodes: Vec<serde_json::Value> = serde_json::from_value(nodes_json).unwrap_or_default();
+    let nodes: Vec<k7s_deps::serde_json::Value> = k7s_deps::serde_json::from_value(nodes_json).unwrap_or_default();
 
     // Get pod metrics.
     let pods_json = top_pods_impl(manager, None).await?;
-    let pods: Vec<serde_json::Value> = serde_json::from_value(pods_json).unwrap_or_default();
+    let pods: Vec<k7s_deps::serde_json::Value> = k7s_deps::serde_json::from_value(pods_json).unwrap_or_default();
 
     // Cluster totals.
     let total_cpu: i64 = nodes
@@ -765,10 +765,10 @@ pub async fn capacity_report_impl(manager: &ClientManager) -> AppResult<serde_js
         entry.1 += mem;
         entry.2 += 1;
     }
-    let mut namespaces: Vec<serde_json::Value> = ns_map
+    let mut namespaces: Vec<k7s_deps::serde_json::Value> = ns_map
         .iter()
         .map(|(ns, (cpu, mem, count))| {
-            serde_json::json!({"name": ns, "podCount": count, "cpuMillis": cpu, "memBytes": mem})
+            k7s_deps::serde_json::json!({"name": ns, "podCount": count, "cpuMillis": cpu, "memBytes": mem})
         })
         .collect();
     namespaces.sort_by(|a, b| {
@@ -785,14 +785,14 @@ pub async fn capacity_report_impl(manager: &ClientManager) -> AppResult<serde_js
         let cpu_pct = node["cpuPercent"].as_f64().unwrap_or(0.0);
         let mem_pct = node["memPercent"].as_f64().unwrap_or(0.0);
         if cpu_pct > 85.0 {
-            alerts.push(serde_json::json!({
+            alerts.push(k7s_deps::serde_json::json!({
                 "level": "warning",
                 "node": name,
                 "message": format!("{name} at {cpu_pct}% CPU")
             }));
         }
         if mem_pct > 85.0 {
-            alerts.push(serde_json::json!({
+            alerts.push(k7s_deps::serde_json::json!({
                 "level": "warning",
                 "node": name,
                 "message": format!("{name} at {mem_pct}% memory")
@@ -825,7 +825,7 @@ pub async fn capacity_report_impl(manager: &ClientManager) -> AppResult<serde_js
         );
     }
 
-    Ok(serde_json::json!({
+    Ok(k7s_deps::serde_json::json!({
         "cluster": {
             "totalCpuMillis": total_cpu,
             "usedCpuMillis": used_cpu,
@@ -851,7 +851,7 @@ pub async fn capacity_report_impl(manager: &ClientManager) -> AppResult<serde_js
 /// Returns the current cluster context, available namespaces, and common
 /// kubectl command templates. The LLM uses this to build accurate,
 /// context-aware kubectl commands the user can copy-paste.
-pub async fn kubectl_context_impl(manager: &ClientManager) -> AppResult<serde_json::Value> {
+pub async fn kubectl_context_impl(manager: &ClientManager) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
 
     // Current context and server version from the connection info.
@@ -862,7 +862,7 @@ pub async fn kubectl_context_impl(manager: &ClientManager) -> AppResult<serde_js
     });
 
     // List all namespaces.
-    let ns_api: kube::Api<k8s_openapi::api::core::v1::Namespace> = kube::Api::all(client);
+    let ns_api: k7s_deps::kube::Api<k7s_deps::k8s_openapi::api::core::v1::Namespace> = k7s_deps::kube::Api::all(client);
     let ns_list = ns_api.list(&ListParams::default()).await?;
     let namespaces: Vec<String> = ns_list
         .items
@@ -870,7 +870,7 @@ pub async fn kubectl_context_impl(manager: &ClientManager) -> AppResult<serde_js
         .filter_map(|ns| ns.metadata.name.clone())
         .collect();
 
-    Ok(serde_json::json!({
+    Ok(k7s_deps::serde_json::json!({
         "context": info.context,
         "serverVersion": info.version,
         "namespaces": namespaces,

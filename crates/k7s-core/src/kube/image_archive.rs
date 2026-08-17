@@ -13,7 +13,7 @@
 
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
-use tokio::process::Command;
+use k7s_deps::tokio::process::Command;
 
 /// The salient facts about an image inside a local archive, enough to decide
 /// whether to copy it and what to name the destination.
@@ -79,11 +79,11 @@ pub async fn inspect_archive(path: &str) -> AppResult<ArchiveInfo> {
     }
 
     // skopeo inspect --config prints a JSON object whose shape varies slightly
-    // between docker-archive and OCI sources. We parse loosely (serde_json::Value)
+    // between docker-archive and OCI sources. We parse loosely (k7s_deps::serde_json::Value)
     // and reach for each field defensively so a missing key degrades to "" / 0
     // rather than a parse failure.
     let raw = String::from_utf8_lossy(&out.stdout);
-    let v: serde_json::Value = serde_json::from_str(&raw)
+    let v: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(&raw)
         .map_err(|e| AppError::Other(format!("parse skopeo inspect output: {e}")))?;
 
     let str_field = |key: &str| -> String {

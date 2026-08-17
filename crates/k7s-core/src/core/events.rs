@@ -4,20 +4,20 @@
 //! drains, port-forwards, shells) push events to the user through this type. In
 //! the Tauri shell, [`TauriEventSink`] forwards each call to `AppHandle::emit`
 //! so the existing Tauri event contract on the wire is unchanged. In the
-//! standalone web shell, [`WebEventSink`] writes to a `tokio::sync::broadcast`
+//! standalone web shell, [`WebEventSink`] writes to a `k7s_deps::tokio::sync::broadcast`
 //! channel that the SSE handler fans out to every connected browser tab.
 //!
 //! `EventSink` is an **enum**, not a trait object, so its `emit` method keeps
 //! the generic `<T: Serialize>` signature that the rest of the core already
 //! uses. The alternative (a `dyn EventSink` trait) would have meant dropping
-//! the generic and calling `serde_json::to_value(...).unwrap()` at every
+//! the generic and calling `k7s_deps::serde_json::to_value(...).unwrap()` at every
 //! emit site — a thousand call sites for a one-time saving of one virtual
 //! call. Enum dispatch is also faster, and there's only ever one variant
 //! live at a time, so the match is monomorphised by the compiler.
 
 #[cfg(feature = "tauri")]
 use tauri::Emitter;
-use tokio::sync::broadcast;
+use k7s_deps::tokio::sync::broadcast;
 
 /// Where every `app.emit(...)` call in the core ends up.
 ///
@@ -91,10 +91,10 @@ impl TauriEventSink {
 #[derive(Debug, Clone)]
 pub struct WebEvent {
     pub name: String,
-    pub data: serde_json::Value,
+    pub data: k7s_deps::serde_json::Value,
 }
 
-/// Forwards events to a `tokio::sync::broadcast::Sender<WebEvent>`, which the
+/// Forwards events to a `k7s_deps::tokio::sync::broadcast::Sender<WebEvent>`, which the
 /// SSE handler in `web/sse.rs` subscribes to and writes to each connected
 /// client.
 ///
@@ -137,7 +137,7 @@ impl WebEventSink {
         // Drop on overflow — the broadcast returns Err if there are no
         // receivers OR the channel is full. Both are fine: nobody listening
         // or somebody slow.
-        let value = serde_json::to_value(payload).unwrap_or(serde_json::Value::Null);
+        let value = k7s_deps::serde_json::to_value(payload).unwrap_or(k7s_deps::serde_json::Value::Null);
         let _ = self.tx.send(WebEvent {
             name: event.to_string(),
             data: value,

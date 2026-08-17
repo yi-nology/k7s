@@ -14,13 +14,13 @@
 
 use crate::ai::error::AiError;
 use crate::ai::llm::{ChatStream, FunctionDef, Message, OutgoingToolCall, StreamEvent, StreamItem};
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Concrete client. Construct one per chat (cheap — holds a reqwest Client and
 /// the connection triple).
 pub struct OpenAiClient {
-    http: reqwest::Client,
+    http: k7s_deps::reqwest::Client,
     base_url: String,
     model: String,
     api_key: String,
@@ -35,7 +35,7 @@ impl OpenAiClient {
         temperature: Option<f32>,
     ) -> Self {
         Self {
-            http: reqwest::Client::new(),
+            http: k7s_deps::reqwest::Client::new(),
             base_url: base_url.into(),
             model: model.into(),
             api_key: api_key.into(),
@@ -84,7 +84,7 @@ struct WireTool<'a> {
 struct WireFunctionRef<'a> {
     name: &'a str,
     description: &'a str,
-    parameters: &'a serde_json::Value,
+    parameters: &'a k7s_deps::serde_json::Value,
 }
 
 #[derive(Serialize)]
@@ -209,7 +209,7 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
         let temperature = self.temperature;
         // Build the request body now (needs borrowed messages/tools), then
         // serialise to an owned Value so the borrow ends here.
-        let body = serde_json::to_value(ChatRequest {
+        let body = k7s_deps::serde_json::to_value(ChatRequest {
             model: &model,
             messages: to_wire_messages(messages),
             tools: tools
@@ -238,9 +238,9 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
         // sends items through a channel; the returned stream reads from it.
         // This avoids all async_stream / try_stream macro issues with nested
         // byte_stream polling.
-        let (tx, rx) = tokio::sync::mpsc::channel::<StreamItem>(64);
+        let (tx, rx) = k7s_deps::tokio::sync::mpsc::channel::<StreamItem>(64);
 
-        tokio::spawn(async move {
+        k7s_deps::tokio::spawn(async move {
             // Send the request.
             let resp = match http
                 .post(&url)
@@ -298,7 +298,7 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
                                     .await;
                                 return;
                             }
-                            let chunk: StreamChunk = match serde_json::from_str(data) {
+                            let chunk: StreamChunk = match k7s_deps::serde_json::from_str(data) {
                                 Ok(c) => c,
                                 Err(_) => continue,
                             };
@@ -342,7 +342,7 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
             }
 
             // Read chunks as they arrive and process SSE events incrementally.
-            use futures::StreamExt;
+            use k7s_deps::futures::StreamExt;
             let mut stream = resp.bytes_stream();
             while let Some(chunk_result) = stream.next().await {
                 match chunk_result {
@@ -368,7 +368,7 @@ impl crate::ai::llm::LlmClient for OpenAiClient {
         });
 
         // Convert the channel receiver into a stream.
-        Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx))
+        Box::pin(k7s_deps::tokio_stream::wrappers::ReceiverStream::new(rx))
     }
 }
 
@@ -423,7 +423,7 @@ fn finalize_tool_calls(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::StreamExt;
+    use k7s_deps::futures::StreamExt;
 
     /// Drive the SSE parser end-to-end by feeding it bytes through a mock
     /// reqwest stream isn't trivial without HTTP; instead we unit-test the two
@@ -454,7 +454,7 @@ mod tests {
     fn delta_parses_reasoning_content() {
         // MiMo sends reasoning_content in a separate field.
         let json = r#"{"content":null,"reasoning_content":"Hmm, the user"}"#;
-        let d: Delta = serde_json::from_str(json).unwrap();
+        let d: Delta = k7s_deps::serde_json::from_str(json).unwrap();
         assert_eq!(d.content, None);
         assert_eq!(d.reasoning_content.as_deref(), Some("Hmm, the user"));
     }
@@ -463,7 +463,7 @@ mod tests {
     fn delta_parses_empty_content() {
         // MiMo sends content="" in the first chunk.
         let json = r#"{"content":"","reasoning_content":null}"#;
-        let d: Delta = serde_json::from_str(json).unwrap();
+        let d: Delta = k7s_deps::serde_json::from_str(json).unwrap();
         assert_eq!(d.content, Some(String::new()));
         assert_eq!(d.reasoning_content, None);
     }
@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn delta_parses_content_with_text() {
         let json = r#"{"content":"Hi there!","reasoning_content":null}"#;
-        let d: Delta = serde_json::from_str(json).unwrap();
+        let d: Delta = k7s_deps::serde_json::from_str(json).unwrap();
         assert_eq!(d.content.as_deref(), Some("Hi there!"));
     }
 
@@ -494,7 +494,7 @@ mod tests {
     /// Feed a realistic multi-event SSE byte stream (split across two chunks,
     /// including a multibyte Chinese character straddling the boundary) through
     /// the chat_stream parser and assert the text is reconstructed intact.
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn parses_sse_without_corrupting_multibyte() {
         // Two content deltas whose UTF-8 bytes we split mid-character to prove
         // the byte-buffer fix works. "中" is E4 B8 AD; we split after E4 B8.

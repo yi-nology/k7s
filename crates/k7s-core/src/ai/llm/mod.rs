@@ -15,8 +15,8 @@
 pub mod openai;
 
 use crate::ai::error::AiResult;
-use futures::Stream;
-use serde::{Deserialize, Serialize};
+use k7s_deps::futures::Stream;
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
 pub use openai::OpenAiClient;
@@ -64,7 +64,7 @@ pub struct FunctionDef {
     pub name: String,
     pub description: String,
     /// JSON Schema for the parameters object.
-    pub parameters: serde_json::Value,
+    pub parameters: k7s_deps::serde_json::Value,
 }
 
 /// What the agent loop receives as the stream progresses.

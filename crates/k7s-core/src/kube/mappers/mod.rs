@@ -30,7 +30,7 @@ pub use storage::*;
 pub use workload::*;
 
 use super::dto::{Cell, Row, Tone};
-use kube::ResourceExt;
+use k7s_deps::kube::ResourceExt;
 
 // ---------------------------------------------------------------------------
 // Shared helpers (visible to submodules via `super::*`)
@@ -67,7 +67,7 @@ pub(super) fn ns_cell<K: ResourceExt>(obj: &K) -> Cell {
 
 /// Convert a JSON value to a display string: strings pass through, numbers
 /// stringify, anything else becomes "—".
-pub(super) fn json_value_to_string(v: Option<&serde_json::Value>) -> String {
+pub(super) fn json_value_to_string(v: Option<&k7s_deps::serde_json::Value>) -> String {
     match v {
         Some(val) => {
             if let Some(s) = val.as_str() {
@@ -138,8 +138,8 @@ pub fn humanize_duration(mut secs: i64) -> String {
 }
 
 /// Seconds between an RFC3339-ish k8s `Time` and now (clamped at 0).
-pub(super) fn secs_since(t: &k8s_openapi::apimachinery::pkg::apis::meta::v1::Time) -> i64 {
-    let now = k8s_openapi::jiff::Timestamp::now();
+pub(super) fn secs_since(t: &k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::Time) -> i64 {
+    let now = k7s_deps::k8s_openapi::jiff::Timestamp::now();
     now.duration_since(t.0).as_secs().max(0)
 }
 

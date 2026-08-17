@@ -12,14 +12,14 @@
 
 use super::events;
 use crate::core::events::EventSink;
-use k8s_openapi::api::core::v1::Node;
-use kube::api::{Api, ListParams};
-use kube::Client;
-use serde::{Deserialize, Serialize};
+use k7s_deps::k8s_openapi::api::core::v1::Node;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use tokio::time::{interval, Duration, Instant};
+use k7s_deps::tokio::sync::Mutex;
+use k7s_deps::tokio::time::{interval, Duration, Instant};
 
 /// Default poll intervals. Both are user-configurable (B23); these are the
 /// values used when nothing has been saved.
@@ -143,16 +143,16 @@ pub fn spawn_pollers(
     sink: EventSink,
     client: Client,
     intervals: PollIntervals,
-) -> (tokio::task::JoinHandle<()>, tokio::task::JoinHandle<()>) {
+) -> (k7s_deps::tokio::task::JoinHandle<()>, k7s_deps::tokio::task::JoinHandle<()>) {
     let shared: SharedClusterPct = Arc::new(Mutex::new(None));
 
-    let metrics_task = tokio::spawn(metrics_loop(
+    let metrics_task = k7s_deps::tokio::spawn(metrics_loop(
         sink.clone(),
         client.clone(),
         shared.clone(),
         intervals.metrics,
     ));
-    let status_task = tokio::spawn(status_loop(sink, client, shared, intervals.status));
+    let status_task = k7s_deps::tokio::spawn(status_loop(sink, client, shared, intervals.status));
     (metrics_task, status_task)
 }
 
@@ -184,7 +184,7 @@ async fn metrics_loop(sink: EventSink, client: Client, shared: SharedClusterPct,
             _ => {
                 // metrics-server absent or erroring: stop feeding stale values.
                 if miss_streak == 0 {
-                    tracing::warn!("metrics.k8s.io unavailable; CPU/MEM will show as —");
+                    k7s_deps::tracing::warn!("metrics.k8s.io unavailable; CPU/MEM will show as —");
                 }
                 miss_streak += 1;
                 *shared.lock().await = None;
@@ -194,13 +194,13 @@ async fn metrics_loop(sink: EventSink, client: Client, shared: SharedClusterPct,
 }
 
 /// Fetch pod metrics and reduce to a "ns/name" → usage map (summing containers).
-async fn fetch_pod_metrics(client: &Client) -> Result<HashMap<String, PodUsage>, kube::Error> {
-    let req = http::Request::get("/apis/metrics.k8s.io/v1beta1/pods")
+async fn fetch_pod_metrics(client: &Client) -> Result<HashMap<String, PodUsage>, k7s_deps::kube::Error> {
+    let req = k7s_deps::http::Request::get("/apis/metrics.k8s.io/v1beta1/pods")
         .body(Vec::new())
-        .map_err(|e| kube::Error::Service(Box::new(e)))?;
+        .map_err(|e| k7s_deps::kube::Error::Service(Box::new(e)))?;
     let list: MetricsList<PodMetric> = client.request(req).await?;
 
-    let now_ms = chrono::Utc::now().timestamp_millis();
+    let now_ms = k7s_deps::chrono::Utc::now().timestamp_millis();
     let mut map = HashMap::new();
     for pm in list.items {
         let cpu: i64 = pm
@@ -229,11 +229,11 @@ async fn fetch_pod_metrics(client: &Client) -> Result<HashMap<String, PodUsage>,
 /// Fetch node metrics + allocatable and compute per-node and cluster-wide %.
 async fn fetch_node_metrics(
     client: &Client,
-) -> Result<(HashMap<String, NodeUsage>, (f64, f64)), kube::Error> {
+) -> Result<(HashMap<String, NodeUsage>, (f64, f64)), k7s_deps::kube::Error> {
     // Usage from metrics.k8s.io.
-    let req = http::Request::get("/apis/metrics.k8s.io/v1beta1/nodes")
+    let req = k7s_deps::http::Request::get("/apis/metrics.k8s.io/v1beta1/nodes")
         .body(Vec::new())
-        .map_err(|e| kube::Error::Service(Box::new(e)))?;
+        .map_err(|e| k7s_deps::kube::Error::Service(Box::new(e)))?;
     let list: MetricsList<NodeMetric> = client.request(req).await?;
 
     // Allocatable capacity from the Node objects.
@@ -292,7 +292,7 @@ async fn status_loop(sink: EventSink, client: Client, shared: SharedClusterPct, 
         let (connected, version) = match version_res {
             Ok(info) => (true, info.git_version),
             Err(e) => {
-                tracing::warn!("cluster status probe failed: {e}");
+                k7s_deps::tracing::warn!("cluster status probe failed: {e}");
                 (false, String::new())
             }
         };

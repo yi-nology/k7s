@@ -14,7 +14,7 @@
 //!      a worse experience than just opening a browser tab.
 
 use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -79,13 +79,13 @@ fn load_file() -> AppResult<AlertManagerFile> {
     if text.trim().is_empty() {
         return Ok(AlertManagerFile::default());
     }
-    serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
+    k7s_deps::serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
 }
 
 fn save_file(f: &AlertManagerFile) -> AppResult<()> {
     let path = config_path()?;
     let text =
-        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+        k7s_deps::serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
     std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
@@ -224,14 +224,14 @@ pub async fn list_alerts(name: &str) -> AppResult<Vec<Alert>> {
     if !status.is_success() {
         return Err(AppError::Other(format!("{url}: HTTP {status}")));
     }
-    let raw: Vec<serde_json::Value> = resp
+    let raw: Vec<k7s_deps::serde_json::Value> = resp
         .json()
         .await
         .map_err(|e| AppError::Other(format!("decode: {e}")))?;
     Ok(raw.into_iter().map(map_alert).collect())
 }
 
-fn map_alert(v: serde_json::Value) -> Alert {
+fn map_alert(v: k7s_deps::serde_json::Value) -> Alert {
     let labels: HashMap<String, String> = v
         .get("labels")
         .and_then(|l| l.as_object())
@@ -318,14 +318,14 @@ pub async fn list_silences(name: &str) -> AppResult<Vec<Silence>> {
     if !status.is_success() {
         return Err(AppError::Other(format!("{url}: HTTP {status}")));
     }
-    let raw: Vec<serde_json::Value> = resp
+    let raw: Vec<k7s_deps::serde_json::Value> = resp
         .json()
         .await
         .map_err(|e| AppError::Other(format!("decode: {e}")))?;
     Ok(raw.into_iter().map(map_silence).collect())
 }
 
-fn map_silence(v: serde_json::Value) -> Silence {
+fn map_silence(v: k7s_deps::serde_json::Value) -> Silence {
     let matchers: Vec<String> = v
         .get("matchers")
         .and_then(|m| m.as_array())
@@ -387,8 +387,8 @@ fn find(name: &str) -> AppResult<AlertManager> {
         .ok_or_else(|| AppError::NotFound(format!("alertmanager '{name}' not found")))
 }
 
-fn build_client() -> AppResult<reqwest::Client> {
-    reqwest::Client::builder()
+fn build_client() -> AppResult<k7s_deps::reqwest::Client> {
+    k7s_deps::reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
         .user_agent("k7s/alertmanager")
         .build()
@@ -433,11 +433,11 @@ pub async fn create_silence(name: &str, request: &CreateSilenceRequest) -> AppRe
     let cfg = find(name)?;
     let client = build_client()?;
 
-    let matchers: Vec<serde_json::Value> = request
+    let matchers: Vec<k7s_deps::serde_json::Value> = request
         .matchers
         .iter()
         .map(|m| {
-            serde_json::json!({
+            k7s_deps::serde_json::json!({
                 "name": m.name,
                 "value": m.value,
                 "isRegex": m.is_regex,
@@ -447,12 +447,12 @@ pub async fn create_silence(name: &str, request: &CreateSilenceRequest) -> AppRe
         .collect();
 
     let starts_at = if request.starts_at.is_empty() {
-        chrono::Utc::now().to_rfc3339()
+        k7s_deps::chrono::Utc::now().to_rfc3339()
     } else {
         request.starts_at.clone()
     };
 
-    let body = serde_json::json!({
+    let body = k7s_deps::serde_json::json!({
         "matchers": matchers,
         "startsAt": starts_at,
         "endsAt": request.ends_at,
@@ -544,7 +544,7 @@ pub async fn prometheus_rules(name: &str) -> AppResult<Vec<RuleGroup>> {
     if !status.is_success() {
         return Err(AppError::Other(format!("{url}: HTTP {status}")));
     }
-    let raw: serde_json::Value = resp
+    let raw: k7s_deps::serde_json::Value = resp
         .json()
         .await
         .map_err(|e| AppError::Other(format!("decode: {e}")))?;
@@ -634,8 +634,8 @@ pub async fn prometheus_rules(name: &str) -> AppResult<Vec<RuleGroup>> {
 mod tests {
     use super::*;
 
-    fn sample_alert_json() -> serde_json::Value {
-        serde_json::json!({
+    fn sample_alert_json() -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({
             "fingerprint": "abc123",
             "status": { "state": "active" },
             "labels": {
@@ -681,7 +681,7 @@ mod tests {
 
     #[test]
     fn map_silence_joins_matchers() {
-        let v = serde_json::json!({
+        let v = k7s_deps::serde_json::json!({
             "id": "silence-1",
             "matchers": [
                 {"name": "alertname", "value": "HighCpu", "isRegex": false},
@@ -701,7 +701,7 @@ mod tests {
 
     #[test]
     fn map_silence_defaults_missing_matchers() {
-        let v = serde_json::json!({
+        let v = k7s_deps::serde_json::json!({
             "id": "silence-2",
             "createdBy": "bob",
             "comment": "tmp",

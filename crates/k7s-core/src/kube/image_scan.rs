@@ -21,8 +21,8 @@ use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
+use k7s_deps::tokio::io::{AsyncBufReadExt, BufReader};
+use k7s_deps::tokio::process::Command;
 
 // ---------------------------------------------------------------------------
 // Event names
@@ -294,7 +294,7 @@ async fn scan_with_trivy(
 
     // Pump stderr lines to the event sink.
     let sink_err = sink.clone();
-    let err_task = tokio::spawn(async move {
+    let err_task = k7s_deps::tokio::spawn(async move {
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             sink_err.emit(
@@ -311,7 +311,7 @@ async fn scan_with_trivy(
     // Read all of stdout into a buffer — trivy --quiet prints the JSON report
     // to stdout and nothing else.
     let stdout_bytes = {
-        use tokio::io::AsyncReadExt;
+        use k7s_deps::tokio::io::AsyncReadExt;
         let mut buf = Vec::new();
         let mut reader = BufReader::new(stdout);
         reader
@@ -325,7 +325,7 @@ async fn scan_with_trivy(
         .wait()
         .await
         .map_err(|e| AppError::Other(format!("wait trivy: {e}")))?;
-    let _ = tokio::join!(err_task);
+    let _ = k7s_deps::tokio::join!(err_task);
 
     if !status.success() {
         let msg = format!("trivy exited with {status}");
@@ -340,7 +340,7 @@ async fn scan_with_trivy(
         return Err(AppError::Other(msg));
     }
 
-    let report: serde_json::Value = serde_json::from_slice(&stdout_bytes)
+    let report: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_slice(&stdout_bytes)
         .map_err(|e| AppError::Other(format!("parse trivy JSON: {e}")))?;
 
     let result = parse_trivy_report(image_ref, &report)?;
@@ -349,7 +349,7 @@ async fn scan_with_trivy(
 }
 
 /// Parse the trivy JSON report into our common `ScanResult`.
-fn parse_trivy_report(image_ref: &str, report: &serde_json::Value) -> AppResult<ScanResult> {
+fn parse_trivy_report(image_ref: &str, report: &k7s_deps::serde_json::Value) -> AppResult<ScanResult> {
     let mut vulns = Vec::new();
     let results = report
         .get("Results")
@@ -433,7 +433,7 @@ fn parse_trivy_report(image_ref: &str, report: &serde_json::Value) -> AppResult<
         engine: "trivy".to_string(),
         summary,
         vulnerabilities: vulns,
-        scanned_at: chrono::Utc::now().to_rfc3339(),
+        scanned_at: k7s_deps::chrono::Utc::now().to_rfc3339(),
     })
 }
 
@@ -463,7 +463,7 @@ async fn scan_with_grype(grype: &str, image_ref: &str, sink: EventSink) -> AppRe
 
     // Pump stderr lines to the event sink.
     let sink_err = sink.clone();
-    let err_task = tokio::spawn(async move {
+    let err_task = k7s_deps::tokio::spawn(async move {
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             sink_err.emit(
@@ -479,7 +479,7 @@ async fn scan_with_grype(grype: &str, image_ref: &str, sink: EventSink) -> AppRe
 
     // Read all of stdout.
     let stdout_bytes = {
-        use tokio::io::AsyncReadExt;
+        use k7s_deps::tokio::io::AsyncReadExt;
         let mut buf = Vec::new();
         let mut reader = BufReader::new(stdout);
         reader
@@ -493,7 +493,7 @@ async fn scan_with_grype(grype: &str, image_ref: &str, sink: EventSink) -> AppRe
         .wait()
         .await
         .map_err(|e| AppError::Other(format!("wait grype: {e}")))?;
-    let _ = tokio::join!(err_task);
+    let _ = k7s_deps::tokio::join!(err_task);
 
     if !status.success() {
         let msg = format!("grype exited with {status}");
@@ -508,7 +508,7 @@ async fn scan_with_grype(grype: &str, image_ref: &str, sink: EventSink) -> AppRe
         return Err(AppError::Other(msg));
     }
 
-    let report: serde_json::Value = serde_json::from_slice(&stdout_bytes)
+    let report: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_slice(&stdout_bytes)
         .map_err(|e| AppError::Other(format!("parse grype JSON: {e}")))?;
 
     let result = parse_grype_report(image_ref, &report)?;
@@ -517,7 +517,7 @@ async fn scan_with_grype(grype: &str, image_ref: &str, sink: EventSink) -> AppRe
 }
 
 /// Parse the grype JSON report into our common `ScanResult`.
-fn parse_grype_report(image_ref: &str, report: &serde_json::Value) -> AppResult<ScanResult> {
+fn parse_grype_report(image_ref: &str, report: &k7s_deps::serde_json::Value) -> AppResult<ScanResult> {
     let mut vulns = Vec::new();
     let matches = report
         .get("matches")
@@ -610,7 +610,7 @@ fn parse_grype_report(image_ref: &str, report: &serde_json::Value) -> AppResult<
         engine: "grype".to_string(),
         summary,
         vulnerabilities: vulns,
-        scanned_at: chrono::Utc::now().to_rfc3339(),
+        scanned_at: k7s_deps::chrono::Utc::now().to_rfc3339(),
     })
 }
 
@@ -774,7 +774,7 @@ mod tests {
 
     #[test]
     fn parse_trivy_report_extracts_vulns() {
-        let json = serde_json::json!({
+        let json = k7s_deps::serde_json::json!({
             "Results": [
                 {
                     "Target": "nginx:1.25 (debian 12.0)",
@@ -811,7 +811,7 @@ mod tests {
 
     #[test]
     fn parse_grype_report_extracts_vulns() {
-        let json = serde_json::json!({
+        let json = k7s_deps::serde_json::json!({
             "matches": [
                 {
                     "vulnerability": {
@@ -847,7 +847,7 @@ mod tests {
 
     #[test]
     fn parse_trivy_report_handles_empty_results() {
-        let json = serde_json::json!({ "Results": [] });
+        let json = k7s_deps::serde_json::json!({ "Results": [] });
         let result = parse_trivy_report("alpine:3.18", &json).unwrap();
         assert_eq!(result.vulnerabilities.len(), 0);
         assert_eq!(result.summary.total, 0);
@@ -855,7 +855,7 @@ mod tests {
 
     #[test]
     fn parse_grype_report_handles_empty_matches() {
-        let json = serde_json::json!({ "matches": [] });
+        let json = k7s_deps::serde_json::json!({ "matches": [] });
         let result = parse_grype_report("alpine:3.18", &json).unwrap();
         assert_eq!(result.vulnerabilities.len(), 0);
         assert_eq!(result.summary.total, 0);

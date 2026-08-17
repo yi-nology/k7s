@@ -25,10 +25,10 @@ use crate::ai::llm::{LlmClient, Message, OutgoingToolCall, StreamEvent};
 use crate::ai::permission::{self, Decision};
 use crate::ai::tools::{ToolContext, ToolRegistry};
 use crate::kube::manager::ClientManager;
-use futures::StreamExt;
-use serde::{Deserialize, Serialize};
+use k7s_deps::futures::StreamExt;
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::oneshot;
+use k7s_deps::tokio::sync::oneshot;
 
 /// The conversation turn the UI sends to start a chat.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -80,7 +80,7 @@ pub enum AgentEvent {
     ToolCall {
         call_id: String,
         name: String,
-        arguments: serde_json::Value,
+        arguments: k7s_deps::serde_json::Value,
         is_write: bool,
     },
     /// A write tool is awaiting user approval.
@@ -88,7 +88,7 @@ pub enum AgentEvent {
     PendingApproval {
         call_id: String,
         name: String,
-        arguments: serde_json::Value,
+        arguments: k7s_deps::serde_json::Value,
         summary: String,
     },
     /// A tool finished; include its result (success or error) for the card.
@@ -96,7 +96,7 @@ pub enum AgentEvent {
     ToolResult {
         call_id: String,
         ok: bool,
-        result: serde_json::Value,
+        result: k7s_deps::serde_json::Value,
     },
     /// The run completed. `final_message` is the assistant's last text (if any).
     #[serde(rename_all = "camelCase")]
@@ -298,7 +298,7 @@ impl AgentLoop {
                 if let Some(desc) = context::selected_resource_context(&manager, sel).await {
                     let note = format!(
                         "The user has this resource selected in the UI:\n```json\n{}\n```",
-                        serde_json::to_string_pretty(&desc).unwrap_or_default()
+                        k7s_deps::serde_json::to_string_pretty(&desc).unwrap_or_default()
                     );
                     messages.push(Message::System { content: note });
                 }
@@ -461,7 +461,7 @@ impl AgentLoop {
             });
 
             // Drive one LLM turn.
-            tracing::info!(turns, "starting LLM turn");
+            k7s_deps::tracing::info!(turns, "starting LLM turn");
             let mut stream = llm.chat_stream(&messages, &tool_defs);
             let mut assistant_text = String::new();
             let mut tool_calls: Vec<OutgoingToolCall> = Vec::new();
@@ -493,7 +493,7 @@ impl AgentLoop {
                     }
                 }
             }
-            tracing::info!(
+            k7s_deps::tracing::info!(
                 turns,
                 text_len = assistant_text.len(),
                 tool_calls = tool_calls.len(),
@@ -512,7 +512,7 @@ impl AgentLoop {
                 // construct a fallback summary so the user always sees something.
                 let effective_text = if assistant_text.is_empty() {
                     let summary = summarize_tool_results(&messages);
-                    tracing::info!(summary_len = summary.len(), "fallback summary generated");
+                    k7s_deps::tracing::info!(summary_len = summary.len(), "fallback summary generated");
                     summary
                 } else {
                     assistant_text.clone()
@@ -527,7 +527,7 @@ impl AgentLoop {
                     content: some_content(&assistant_text),
                     tool_calls: None,
                 });
-                tracing::info!(
+                k7s_deps::tracing::info!(
                     final_text_len = final_text.as_ref().map_or(0, |s| s.len()),
                     "emitting Done event"
                 );
@@ -576,8 +576,8 @@ impl AgentLoop {
                     break;
                 }
 
-                let args: serde_json::Value =
-                    serde_json::from_str(&call.arguments).unwrap_or(serde_json::Value::Null);
+                let args: k7s_deps::serde_json::Value =
+                    k7s_deps::serde_json::from_str(&call.arguments).unwrap_or(k7s_deps::serde_json::Value::Null);
                 let is_write = self.registry.is_write(&call.name);
                 tools_called.push(call.name.clone());
 
@@ -598,12 +598,12 @@ impl AgentLoop {
                     sink.emit(AgentEvent::ToolResult {
                         call_id: call.id.clone(),
                         ok: false,
-                        result: serde_json::json!({ "error": format!("blocked by plugin: {reason}") }),
+                        result: k7s_deps::serde_json::json!({ "error": format!("blocked by plugin: {reason}") }),
                     });
                     messages.push(Message::Tool {
                         tool_call_id: call.id.clone(),
                         content:
-                            serde_json::json!({ "error": format!("blocked by plugin: {reason}") })
+                            k7s_deps::serde_json::json!({ "error": format!("blocked by plugin: {reason}") })
                                 .to_string(),
                     });
                     continue;
@@ -673,15 +673,15 @@ impl AgentLoop {
                 };
 
                 // --- Execute with timeout ---
-                let result_val: serde_json::Value = match pre_denied {
+                let result_val: k7s_deps::serde_json::Value = match pre_denied {
                     Some(e) => {
                         let msg = e.to_string();
                         sink.emit(AgentEvent::ToolResult {
                             call_id: call.id.clone(),
                             ok: false,
-                            result: serde_json::json!({ "error": msg }),
+                            result: k7s_deps::serde_json::json!({ "error": msg }),
                         });
-                        serde_json::json!({ "error": msg })
+                        k7s_deps::serde_json::json!({ "error": msg })
                     }
                     _ => {
                         let dispatch_result = crate::ai::timeouts::with_timeout(
@@ -690,7 +690,7 @@ impl AgentLoop {
                         )
                         .await;
 
-                        let result: AiResult<serde_json::Value> = match dispatch_result {
+                        let result: AiResult<k7s_deps::serde_json::Value> = match dispatch_result {
                             Ok(v) => Ok(v),
                             Err(crate::ai::timeouts::TimeoutError::TimedOut) => {
                                 Err(AiError::Tool(format!(
@@ -707,7 +707,7 @@ impl AgentLoop {
                             tool_name: &call.name,
                             result: &result
                                 .as_ref()
-                                .map(|_| serde_json::Value::Null)
+                                .map(|_| k7s_deps::serde_json::Value::Null)
                                 .map_err(|e| e.to_string()),
                         });
 
@@ -725,9 +725,9 @@ impl AgentLoop {
                                 sink.emit(AgentEvent::ToolResult {
                                     call_id: call.id.clone(),
                                     ok: false,
-                                    result: serde_json::json!({ "error": msg }),
+                                    result: k7s_deps::serde_json::json!({ "error": msg }),
                                 });
-                                serde_json::json!({ "error": msg })
+                                k7s_deps::serde_json::json!({ "error": msg })
                             }
                         }
                     }
@@ -736,7 +736,7 @@ impl AgentLoop {
                 let trimmed = trim_result(result_val);
                 messages.push(Message::Tool {
                     tool_call_id: call.id.clone(),
-                    content: serde_json::to_string(&trimmed).unwrap_or_else(|_| "{}".into()),
+                    content: k7s_deps::serde_json::to_string(&trimmed).unwrap_or_else(|_| "{}".into()),
                 });
             }
         }
@@ -756,7 +756,7 @@ impl AgentLoop {
     ) {
         let mut store = crate::ai::evolution::EvolutionStore::open(data_dir);
         store.record_run(crate::ai::evolution::RunOutcome {
-            run_id: uuid::Uuid::new_v4().to_string(),
+            run_id: k7s_deps::uuid::Uuid::new_v4().to_string(),
             user_message: user_message.to_string(),
             tools_called: tools_called.to_vec(),
             success,
@@ -789,7 +789,7 @@ fn save_session_response(data_dir: &std::path::Path, session_id: &Option<String>
             let mgr = crate::ai::session::SessionManager::new(data_dir.to_path_buf());
             let sid = sid.clone();
             let resp = response.to_string();
-            tokio::spawn(async move {
+            k7s_deps::tokio::spawn(async move {
                 mgr.add_message(&sid, "assistant", &resp).await;
             });
         }
@@ -805,11 +805,11 @@ fn summarize_tool_results(messages: &[Message]) -> String {
     for msg in messages {
         if let Message::Tool { content, .. } = msg {
             tool_count += 1;
-            tracing::debug!(
+            k7s_deps::tracing::debug!(
                 content_len = content.len(),
                 "processing tool result for summary"
             );
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(content) {
+            if let Ok(val) = k7s_deps::serde_json::from_str::<k7s_deps::serde_json::Value>(content) {
                 if let Some(arr) = val.as_array() {
                     // Array of resources — show count + first few names.
                     let count = arr.len();
@@ -857,7 +857,7 @@ fn summarize_tool_results(messages: &[Message]) -> String {
                     }
                 } else {
                     // Generic: show a compact representation of the result.
-                    let compact = serde_json::to_string(&val).unwrap_or_default();
+                    let compact = k7s_deps::serde_json::to_string(&val).unwrap_or_default();
                     if compact.len() <= 500 {
                         summaries.push(compact);
                     } else {
@@ -873,10 +873,10 @@ fn summarize_tool_results(messages: &[Message]) -> String {
     }
     if summaries.is_empty() {
         // No tool results at all — the model just didn't respond.
-        tracing::warn!(tool_count, "no summaries generated from tool results");
+        k7s_deps::tracing::warn!(tool_count, "no summaries generated from tool results");
         "AI did not produce a response. Please try again.".to_string()
     } else {
-        tracing::info!(
+        k7s_deps::tracing::info!(
             tool_count,
             summary_count = summaries.len(),
             "tool result summaries generated"
@@ -887,7 +887,7 @@ fn summarize_tool_results(messages: &[Message]) -> String {
 
 /// Build a one-line human summary for a pending approval, e.g.
 /// "scale deployments/payment to 5 replicas".
-fn summarize_call(name: &str, args: &serde_json::Value) -> String {
+fn summarize_call(name: &str, args: &k7s_deps::serde_json::Value) -> String {
     let g = |k: &str| args.get(k).and_then(|v| v.as_str()).unwrap_or("");
     let gi = |k: &str| args.get(k).and_then(|v| v.as_i64()).unwrap_or(0);
     match name {
@@ -912,29 +912,29 @@ fn summarize_call(name: &str, args: &serde_json::Value) -> String {
 
 /// Keep tool results small enough not to dominate the next turn's prompt.
 /// Truncates long string fields and limits array length.
-fn trim_result(v: serde_json::Value) -> serde_json::Value {
+fn trim_result(v: k7s_deps::serde_json::Value) -> k7s_deps::serde_json::Value {
     match v {
-        serde_json::Value::String(s) => {
+        k7s_deps::serde_json::Value::String(s) => {
             if s.chars().count() > 4000 {
                 let head: String = s.chars().take(4000).collect();
-                serde_json::Value::String(format!("{head}\n…[truncated]"))
+                k7s_deps::serde_json::Value::String(format!("{head}\n…[truncated]"))
             } else {
-                serde_json::Value::String(s)
+                k7s_deps::serde_json::Value::String(s)
             }
         }
-        serde_json::Value::Array(a) => {
+        k7s_deps::serde_json::Value::Array(a) => {
             let truncated = a.len() > 50;
-            let mut iter: Box<dyn Iterator<Item = serde_json::Value>> =
+            let mut iter: Box<dyn Iterator<Item = k7s_deps::serde_json::Value>> =
                 Box::new(a.into_iter().take(50).map(trim_result));
-            let mut out: Vec<serde_json::Value> = (&mut iter).collect();
+            let mut out: Vec<k7s_deps::serde_json::Value> = (&mut iter).collect();
             if truncated {
-                out.push(serde_json::json!({ "note": "results truncated to 50 rows" }));
+                out.push(k7s_deps::serde_json::json!({ "note": "results truncated to 50 rows" }));
             }
-            serde_json::Value::Array(out)
+            k7s_deps::serde_json::Value::Array(out)
         }
-        serde_json::Value::Object(o) => {
+        k7s_deps::serde_json::Value::Object(o) => {
             let map = o.into_iter().map(|(k, vv)| (k, trim_result(vv))).collect();
-            serde_json::Value::Object(map)
+            k7s_deps::serde_json::Value::Object(map)
         }
         other => other,
     }
@@ -945,7 +945,7 @@ mod tests {
     use super::*;
     use crate::ai::llm::{ChatStream, FunctionDef, StreamEvent, StreamItem};
     use std::sync::Mutex;
-    use tokio::sync::oneshot;
+    use k7s_deps::tokio::sync::oneshot;
 
     /// A mock LlmClient that returns a pre-scripted sequence of turn responses.
     /// Each call to `chat_stream` advances to the next script entry.
@@ -974,7 +974,7 @@ mod tests {
                 script.remove(0)
             };
             // Build a stream that yields each item then ends.
-            Box::pin(futures::stream::iter(
+            Box::pin(k7s_deps::futures::stream::iter(
                 turn.into_iter().map(Ok::<_, AiError>),
             ))
         }
@@ -1029,7 +1029,7 @@ mod tests {
     #[test]
     fn trim_truncates_long_string() {
         let long = "x".repeat(5000);
-        let v = trim_result(serde_json::Value::String(long));
+        let v = trim_result(k7s_deps::serde_json::Value::String(long));
         let s = v.as_str().unwrap();
         assert!(s.contains("[truncated]"));
         assert!(s.chars().count() < 4100);
@@ -1037,8 +1037,8 @@ mod tests {
 
     #[test]
     fn trim_caps_array_at_50() {
-        let arr: Vec<serde_json::Value> = (0..100).map(serde_json::Value::from).collect();
-        let v = trim_result(serde_json::Value::Array(arr));
+        let arr: Vec<k7s_deps::serde_json::Value> = (0..100).map(k7s_deps::serde_json::Value::from).collect();
+        let v = trim_result(k7s_deps::serde_json::Value::Array(arr));
         let a = v.as_array().unwrap();
         assert_eq!(a.len(), 51); // 50 + the note
         assert!(a.last().unwrap().get("note").is_some());
@@ -1046,10 +1046,10 @@ mod tests {
 
     #[test]
     fn trim_passes_through_small_values() {
-        assert_eq!(trim_result(serde_json::json!(42)), serde_json::json!(42));
+        assert_eq!(trim_result(k7s_deps::serde_json::json!(42)), k7s_deps::serde_json::json!(42));
         assert_eq!(
-            trim_result(serde_json::json!("short")),
-            serde_json::json!("short")
+            trim_result(k7s_deps::serde_json::json!("short")),
+            k7s_deps::serde_json::json!("short")
         );
     }
 
@@ -1058,7 +1058,7 @@ mod tests {
     fn summarize_scale_call() {
         let s = summarize_call(
             "scale_workload",
-            &serde_json::json!({"kind":"deployments","namespace":"prod","name":"api","replicas":5}),
+            &k7s_deps::serde_json::json!({"kind":"deployments","namespace":"prod","name":"api","replicas":5}),
         );
         assert!(s.contains("deployments"));
         assert!(s.contains("prod/api"));

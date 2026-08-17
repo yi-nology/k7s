@@ -6,9 +6,9 @@
 //! list of matching policies.
 
 use crate::error::AppResult;
-use k8s_openapi::api::networking::v1::{NetworkPolicy, NetworkPolicyPeer};
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::k8s_openapi::api::networking::v1::{NetworkPolicy, NetworkPolicyPeer};
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -51,9 +51,9 @@ pub async fn simulate_connectivity(
     protocol: Option<String>,
 ) -> AppResult<SimulationResult> {
     // 1. Fetch source and destination pods.
-    let src_api: Api<k8s_openapi::api::core::v1::Pod> =
+    let src_api: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> =
         Api::namespaced(client.clone(), src_namespace);
-    let dst_api: Api<k8s_openapi::api::core::v1::Pod> =
+    let dst_api: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> =
         Api::namespaced(client.clone(), dst_namespace);
 
     let src_pod_obj = src_api
@@ -309,7 +309,7 @@ fn policy_match(p: &NetworkPolicy, direction: &str) -> MatchedPolicy {
 
 /// Check if a network policy port entry matches the target port and protocol.
 fn port_matches(
-    port_entry: &k8s_openapi::api::networking::v1::NetworkPolicyPort,
+    port_entry: &k7s_deps::k8s_openapi::api::networking::v1::NetworkPolicyPort,
     target_port: i32,
     protocol: &str,
 ) -> bool {
@@ -322,11 +322,11 @@ fn port_matches(
         return false;
     }
     match &port_entry.port {
-        Some(k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::Int(n)) => {
+        Some(k7s_deps::k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::Int(n)) => {
             *n == target_port
         }
         // Named ports cannot be resolved without the pod spec; treat as no match.
-        Some(k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::String(_)) => false,
+        Some(k7s_deps::k8s_openapi::apimachinery::pkg::util::intstr::IntOrString::String(_)) => false,
         // No port specified = all ports.
         None => true,
     }
@@ -336,7 +336,7 @@ fn port_matches(
 ///
 /// An empty or absent selector selects all pods.
 fn pod_matches_selector(
-    selector: &Option<k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector>,
+    selector: &Option<k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector>,
     labels: &BTreeMap<String, String>,
 ) -> bool {
     match selector {
@@ -504,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_pod_matches_selector_empty() {
-        use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
+        use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
         let labels = BTreeMap::from([("app".into(), "web".into())]);
         let sel = LabelSelector {
             match_labels: Some(BTreeMap::new()),
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_pod_matches_selector_matching() {
-        use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
+        use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
         let labels = BTreeMap::from([
             ("app".into(), "web".into()),
             ("tier".into(), "frontend".into()),
@@ -529,7 +529,7 @@ mod tests {
 
     #[test]
     fn test_pod_matches_selector_not_matching() {
-        use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
+        use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
         let labels = BTreeMap::from([("app".into(), "db".into())]);
         let sel = LabelSelector {
             match_labels: Some(BTreeMap::from([("app".into(), "web".into())])),
@@ -540,8 +540,8 @@ mod tests {
 
     #[test]
     fn test_peer_matches_pod_selector_same_ns() {
-        use k8s_openapi::api::networking::v1::NetworkPolicyPeer;
-        use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
+        use k7s_deps::k8s_openapi::api::networking::v1::NetworkPolicyPeer;
+        use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
 
         let peer = NetworkPolicyPeer {
             pod_selector: Some(LabelSelector {
@@ -560,7 +560,7 @@ mod tests {
 
     #[test]
     fn test_peer_matches_ip_block() {
-        use k8s_openapi::api::networking::v1::{IPBlock, NetworkPolicyPeer};
+        use k7s_deps::k8s_openapi::api::networking::v1::{IPBlock, NetworkPolicyPeer};
 
         let peer = NetworkPolicyPeer {
             pod_selector: None,

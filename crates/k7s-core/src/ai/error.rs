@@ -70,8 +70,8 @@ impl From<AiError> for AppResult<()> {
     }
 }
 
-impl From<serde_json::Error> for AiError {
-    fn from(e: serde_json::Error) -> Self {
+impl From<k7s_deps::serde_json::Error> for AiError {
+    fn from(e: k7s_deps::serde_json::Error) -> Self {
         AiError::ToolArgs(format!("json: {e}"))
     }
 }

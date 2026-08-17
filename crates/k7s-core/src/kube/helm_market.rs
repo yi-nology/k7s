@@ -31,7 +31,7 @@
 //! is the wrong answer in the wrong place.
 
 use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -158,7 +158,7 @@ pub struct ChartVersionEntry {
 // ---------------------------------------------------------------------------
 
 fn config_dir() -> Option<PathBuf> {
-    // `dirs::config_dir()` would be the cross-platform answer, but we already
+    // `k7s_deps::dirs::config_dir()` would be the cross-platform answer, but we already
     // hand-roll platform paths in commands.rs; doing the same here keeps the
     // project free of an extra dependency for a single call.
     #[cfg(target_os = "macos")]
@@ -220,7 +220,7 @@ fn read_repos_file() -> AppResult<Vec<HelmRepo>> {
     if text.trim().is_empty() {
         return Ok(Vec::new());
     }
-    let file: HelmRepoFile = serde_json::from_str(&text)
+    let file: HelmRepoFile = k7s_deps::serde_json::from_str(&text)
         .map_err(|e| AppError::Other(format!("parse repos file: {e}")))?;
     Ok(file.repos)
 }
@@ -230,7 +230,7 @@ fn write_repos_file(repos: &[HelmRepo]) -> AppResult<()> {
     let file = HelmRepoFile {
         repos: repos.to_vec(),
     };
-    let text = serde_json::to_string_pretty(&file)
+    let text = k7s_deps::serde_json::to_string_pretty(&file)
         .map_err(|e| AppError::Other(format!("serialize repos: {e}")))?;
     // Atomic write: write to a sibling temp file, then rename. Avoids a half-
     // written file if the app dies mid-save.
@@ -257,7 +257,7 @@ pub fn seed_default_repos() -> AppResult<()> {
             });
         }
         write_repos_file(&repos)?;
-        tracing::info!("seeded {} default helm repos", SEED_REPOS.len());
+        k7s_deps::tracing::info!("seeded {} default helm repos", SEED_REPOS.len());
     } else {
         // Add any seed names that disappeared (e.g. user deleted "stable").
         let existing: std::collections::HashSet<String> =
@@ -360,7 +360,7 @@ pub async fn update_repo_index(name: &str) -> AppResult<HelmRepo> {
     match fetch_index(&url).await {
         Ok(index) => {
             let path = index_path(name)?;
-            let text = serde_yaml::to_string(&index)
+            let text = k7s_deps::serde_yaml::to_string(&index)
                 .map_err(|e| AppError::Other(format!("serialize index: {e}")))?;
             // Same atomic-write dance as the repo file.
             let tmp = path.with_extension("yaml.tmp");
@@ -404,7 +404,7 @@ pub async fn update_all_indexes() -> AppResult<Vec<HelmRepo>> {
         let (name, res) = f.await;
         match res {
             Ok(r) => results.push(r),
-            Err(e) => tracing::warn!("update repo {name} failed: {e}"),
+            Err(e) => k7s_deps::tracing::warn!("update repo {name} failed: {e}"),
         }
     }
     Ok(results)
@@ -515,7 +515,7 @@ fn load_index_if_fresh(repo: &str, url: &str) -> Option<HelmIndex> {
     // `helm` release with a slightly different shape, we silently fail rather
     // than panic — the caller treats it as a stale index.
     let _ = url;
-    serde_yaml::from_str(&text).ok()
+    k7s_deps::serde_yaml::from_str(&text).ok()
 }
 
 async fn fetch_index(url: &str) -> AppResult<HelmIndex> {
@@ -537,7 +537,7 @@ async fn fetch_index(url: &str) -> AppResult<HelmIndex> {
 
     // Use reqwest — already a dependency (used for node-exporter scraping).
     // Default features are off in Cargo.toml, so we bring just what we need.
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .user_agent("k7s/helm-market")
         .build()
@@ -557,14 +557,14 @@ async fn fetch_index(url: &str) -> AppResult<HelmIndex> {
         .text()
         .await
         .map_err(|e| AppError::Other(format!("read body {index_url}: {e}")))?;
-    serde_yaml::from_str(&text).map_err(|e| AppError::Other(format!("parse index.yaml: {e}")))
+    k7s_deps::serde_yaml::from_str(&text).map_err(|e| AppError::Other(format!("parse index.yaml: {e}")))
 }
 
 fn chrono_now() -> String {
     // A loose RFC3339 timestamp with second precision. `chrono` is already a
     // dependency; this is the smallest call that gives us a printable stamp
     // without pulling a `format!` of `SystemTime` manually.
-    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+    k7s_deps::chrono::Utc::now().to_rfc3339_opts(k7s_deps::chrono::SecondsFormat::Secs, true)
 }
 
 impl HelmRepo {
@@ -604,7 +604,7 @@ pub async fn export_chart(
     std::fs::create_dir_all(&output)
         .map_err(|e| AppError::Other(format!("mkdir {}: {e}", output.display())))?;
 
-    let mut cmd = tokio::process::Command::new(&helm);
+    let mut cmd = k7s_deps::tokio::process::Command::new(&helm);
     cmd.arg("pull")
         .arg(format!("{repo}/{chart}"))
         .arg("--version")

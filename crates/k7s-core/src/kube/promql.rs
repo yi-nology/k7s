@@ -18,9 +18,9 @@
 use super::exporter::NodeSample;
 use super::metrics::PodSample;
 use crate::error::AppResult;
-use k8s_openapi::api::core::v1::Service;
-use kube::api::{Api, ListParams};
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::Service;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::{Client, ResourceExt};
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -148,7 +148,7 @@ async fn range(
         "query={}&start={start}&end={end}&step={step}",
         urlencode(query)
     );
-    let req = http::Request::get(svc.path("query_range", &q))
+    let req = k7s_deps::http::Request::get(svc.path("query_range", &q))
         .body(Vec::new())
         .map_err(|e| crate::error::AppError::Other(e.to_string()))?;
     let resp: RangeResponse = client.request(req).await?;
@@ -312,7 +312,7 @@ pub async fn pod_history(
     let Some(svc) = discover(client).await else {
         return Ok(Vec::new());
     };
-    let now = chrono::Utc::now().timestamp();
+    let now = k7s_deps::chrono::Utc::now().timestamp();
     let start = now - duration_secs;
     let step = 30i64;
 
@@ -346,10 +346,10 @@ pub async fn pod_history(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
-    fn svc(v: serde_json::Value) -> Service {
-        serde_json::from_value(v).unwrap()
+    fn svc(v: k7s_deps::serde_json::Value) -> Service {
+        k7s_deps::serde_json::from_value(v).unwrap()
     }
 
     /// The obvious Service wins, and its 9090 port is what gets addressed.

@@ -1,7 +1,7 @@
 //! Config mapping: ConfigMap, Secret, ServiceAccount.
 
 use super::*;
-use k8s_openapi::api::core::v1::{ConfigMap, Secret, ServiceAccount};
+use k7s_deps::k8s_openapi::api::core::v1::{ConfigMap, Secret, ServiceAccount};
 
 /// ConfigMaps: NAME, NAMESPACE, DATA, AGE.
 pub fn map_configmap(cm: &ConfigMap) -> Row {
@@ -59,15 +59,15 @@ pub fn map_serviceaccount(sa: &ServiceAccount) -> Row {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
     /// A ServiceAccount's SECRETS column is 0 on any cluster since 1.24 — the
     /// column earns its place by the exception, so a hand-attached token reads
     /// amber rather than blending in as ordinary data.
     #[test]
     fn serviceaccount_flags_a_hand_attached_token() {
-        let sa = |secrets: serde_json::Value| -> ServiceAccount {
-            serde_json::from_value(json!({
+        let sa = |secrets: k7s_deps::serde_json::Value| -> ServiceAccount {
+            k7s_deps::serde_json::from_value(json!({
                 "metadata": { "name": "ci", "namespace": "prod", "uid": "a1" },
                 "secrets": secrets,
             }))

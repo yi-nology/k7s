@@ -2,9 +2,9 @@
 
 use super::*;
 use crate::error::AppResult;
-use k8s_openapi::api::core::v1::Secret;
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::k8s_openapi::api::core::v1::Secret;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 
 pub(super) async fn gather_helm(
     client: Client,

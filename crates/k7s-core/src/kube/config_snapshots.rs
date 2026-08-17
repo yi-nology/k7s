@@ -6,13 +6,13 @@
 //! Users can then compare any two snapshots to see what changed.
 
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::core::v1::{ConfigMap, Secret};
-use kube::api::Api;
-use kube::Client;
+use k7s_deps::k8s_openapi::api::core::v1::{ConfigMap, Secret};
+use k7s_deps::kube::api::Api;
+use k7s_deps::kube::Client;
 use serde::Serialize;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use k7s_deps::tokio::sync::RwLock;
 
 /// Maximum snapshots to keep per ConfigMap/Secret.
 const MAX_SNAPSHOTS_PER_RESOURCE: usize = 20;
@@ -134,16 +134,16 @@ pub async fn snapshot_configmap(
         .unwrap_or_default();
 
     // Serialize to YAML with managedFields stripped (same as get_yaml).
-    let mut obj: kube::api::DynamicObject = serde_json::from_value(
-        serde_json::to_value(&cm).map_err(|e| AppError::Other(e.to_string()))?,
+    let mut obj: k7s_deps::kube::api::DynamicObject = k7s_deps::serde_json::from_value(
+        k7s_deps::serde_json::to_value(&cm).map_err(|e| AppError::Other(e.to_string()))?,
     )
     .map_err(|e| AppError::Other(e.to_string()))?;
     obj.metadata.managed_fields = None;
-    let yaml = serde_yaml::to_string(&obj)?;
+    let yaml = k7s_deps::serde_yaml::to_string(&obj)?;
 
     let snapshot = ConfigSnapshot {
         resource_version: rv,
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: k7s_deps::chrono::Utc::now().to_rfc3339(),
         data_keys,
         yaml,
     };
@@ -176,17 +176,17 @@ pub async fn snapshot_secret(
         .unwrap_or_default();
 
     // Serialize to YAML with managedFields stripped and secret values redacted.
-    let mut obj: kube::api::DynamicObject = serde_json::from_value(
-        serde_json::to_value(&sec).map_err(|e| AppError::Other(e.to_string()))?,
+    let mut obj: k7s_deps::kube::api::DynamicObject = k7s_deps::serde_json::from_value(
+        k7s_deps::serde_json::to_value(&sec).map_err(|e| AppError::Other(e.to_string()))?,
     )
     .map_err(|e| AppError::Other(e.to_string()))?;
     obj.metadata.managed_fields = None;
     crate::core::shell_common::redact_secret(&mut obj);
-    let yaml = serde_yaml::to_string(&obj)?;
+    let yaml = k7s_deps::serde_yaml::to_string(&obj)?;
 
     let snapshot = ConfigSnapshot {
         resource_version: rv,
-        timestamp: chrono::Utc::now().to_rfc3339(),
+        timestamp: k7s_deps::chrono::Utc::now().to_rfc3339(),
         data_keys,
         yaml,
     };
@@ -213,7 +213,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn record_and_list() {
         let store = SnapshotStore::new();
         store
@@ -228,7 +228,7 @@ mod tests {
         assert_eq!(list[1].resource_version, "200");
     }
 
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn dedup_by_resource_version() {
         let store = SnapshotStore::new();
         store
@@ -245,7 +245,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn ring_buffer_eviction() {
         let store = SnapshotStore::new();
         for i in 0..25 {
@@ -260,7 +260,7 @@ mod tests {
         assert_eq!(list[19].resource_version, "24");
     }
 
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn get_by_resource_version() {
         let store = SnapshotStore::new();
         store
@@ -275,7 +275,7 @@ mod tests {
         assert!(store.get("secrets:ns/s", "99").await.is_none());
     }
 
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn separate_keys_are_independent() {
         let store = SnapshotStore::new();
         store
@@ -289,7 +289,7 @@ mod tests {
         assert_eq!(store.resource_count().await, 2);
     }
 
-    #[tokio::test]
+    #[k7s_deps::tokio::test]
     async fn clear_removes_key() {
         let store = SnapshotStore::new();
         store

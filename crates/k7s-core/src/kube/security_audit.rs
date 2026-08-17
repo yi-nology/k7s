@@ -2,10 +2,10 @@
 //! ClusterRoleBindings for common misconfigurations and privilege risks.
 
 use crate::error::AppResult;
-use chrono::Utc;
-use k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding};
-use kube::api::Api;
-use kube::Client;
+use k7s_deps::chrono::Utc;
+use k7s_deps::k8s_openapi::api::rbac::v1::{ClusterRole, ClusterRoleBinding, Role, RoleBinding};
+use k7s_deps::kube::api::Api;
+use k7s_deps::kube::Client;
 use serde::Serialize;
 
 // ---------------------------------------------------------------------------
@@ -253,7 +253,7 @@ pub async fn run_audit(client: Client) -> AppResult<AuditReport> {
 pub fn check_role_rules(
     name: &str,
     namespace: Option<&str>,
-    rules: Option<&[k8s_openapi::api::rbac::v1::PolicyRule]>,
+    rules: Option<&[k7s_deps::k8s_openapi::api::rbac::v1::PolicyRule]>,
 ) -> Vec<AuditFinding> {
     let ns_display = namespace.unwrap_or("");
     rules
@@ -270,7 +270,7 @@ pub fn check_role_rules(
 /// Audit the rules of a single ClusterRole (cluster-scoped).
 pub fn check_cluster_role_rules(
     name: &str,
-    rules: Option<&[k8s_openapi::api::rbac::v1::PolicyRule]>,
+    rules: Option<&[k7s_deps::k8s_openapi::api::rbac::v1::PolicyRule]>,
 ) -> Vec<AuditFinding> {
     rules
         .unwrap_or(&[])
@@ -284,7 +284,7 @@ pub fn check_cluster_role_rules(
 // ---------------------------------------------------------------------------
 
 fn check_policy_rule(
-    rule: &k8s_openapi::api::rbac::v1::PolicyRule,
+    rule: &k7s_deps::k8s_openapi::api::rbac::v1::PolicyRule,
     kind: &str,
     name: &str,
     namespace: Option<&str>,
@@ -417,8 +417,8 @@ pub fn check_binding(
     name: &str,
     namespace: Option<&str>,
     kind: &str,
-    role_ref: &k8s_openapi::api::rbac::v1::RoleRef,
-    subjects: Option<&[k8s_openapi::api::rbac::v1::Subject]>,
+    role_ref: &k7s_deps::k8s_openapi::api::rbac::v1::RoleRef,
+    subjects: Option<&[k7s_deps::k8s_openapi::api::rbac::v1::Subject]>,
     existing_roles: &std::collections::HashSet<String>,
     existing_cluster_roles: &std::collections::HashSet<String>,
 ) -> Vec<AuditFinding> {

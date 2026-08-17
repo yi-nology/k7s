@@ -20,7 +20,7 @@
 //! commands wrap. Keeping them pure is what lets the patch shape be pinned by a
 //! test rather than only ever exercised against a live cluster.
 
-use k8s_openapi::api::core::v1::Pod;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
 
 /// Kinds that carry a pod template and can therefore be rollout-restarted. A
 /// Job's template is immutable and a CronJob restarts by its schedule, so neither
@@ -48,8 +48,8 @@ pub fn has_controller(pod: &Pod) -> bool {
 /// The merge patch `kubectl rollout restart` applies: a `restartedAt` annotation
 /// on the pod template, set to `now` (an RFC3339 timestamp). Written as a merge
 /// patch so it adds the annotation without touching the rest of the template.
-pub fn restart_patch(now: &str) -> serde_json::Value {
-    serde_json::json!({
+pub fn restart_patch(now: &str) -> k7s_deps::serde_json::Value {
+    k7s_deps::serde_json::json!({
         "spec": { "template": { "metadata": { "annotations": {
             "kubectl.kubernetes.io/restartedAt": now
         }}}}
@@ -59,10 +59,10 @@ pub fn restart_patch(now: &str) -> serde_json::Value {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
-    fn pod_json(v: serde_json::Value) -> Pod {
-        serde_json::from_value(v).unwrap()
+    fn pod_json(v: k7s_deps::serde_json::Value) -> Pod {
+        k7s_deps::serde_json::from_value(v).unwrap()
     }
 
     /// A Deployment-managed pod (via its ReplicaSet) has a controller — restart is

@@ -17,7 +17,7 @@ use serde::Serialize;
 
 /// Fetch a URL and return its text content.
 pub async fn fetch_url(url: &str, max_chars: usize) -> Result<UrlContent, String> {
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(15))
         .user_agent("k7s-ai/1.0")
         .build()
@@ -54,7 +54,7 @@ pub async fn fetch_url(url: &str, max_chars: usize) -> Result<UrlContent, String
         url: url.to_string(),
         content_type,
         text,
-        fetched_at: chrono::Utc::now().to_rfc3339(),
+        fetched_at: k7s_deps::chrono::Utc::now().to_rfc3339(),
     })
 }
 
@@ -140,7 +140,7 @@ fn html_to_text(html: &str, max_chars: usize) -> String {
 /// Search the web using a simple search API (DuckDuckGo Instant Answers).
 /// Returns a summary if available, otherwise a list of result URLs.
 pub async fn web_search(query: &str) -> Result<SearchResult, String> {
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .user_agent("k7s-ai/1.0")
         .build()
@@ -149,7 +149,7 @@ pub async fn web_search(query: &str) -> Result<SearchResult, String> {
     // DuckDuckGo Instant Answer API (no API key needed).
     let url = format!(
         "https://api.duckduckgo.com/?q={}&format=json&no_html=1&skip_disambig=1",
-        urlencoding::encode(query)
+        k7s_deps::urlencoding::encode(query)
     );
 
     let resp = client
@@ -158,7 +158,7 @@ pub async fn web_search(query: &str) -> Result<SearchResult, String> {
         .await
         .map_err(|e| format!("search failed: {e}"))?;
 
-    let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let body: k7s_deps::serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
 
     let abstract_text = body
         .get("AbstractText")

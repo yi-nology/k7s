@@ -1,8 +1,8 @@
 //! Resource dependency graph: maps relationships between Kubernetes resources.
 
 use crate::error::AppResult;
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 use serde::Serialize;
 
 #[derive(Serialize, Clone, Debug, PartialEq, Eq, Hash)]
@@ -43,7 +43,7 @@ pub async fn build_dependency_graph(client: Client) -> AppResult<DependencyGraph
     let mut seen: HashSet<NodeKey> = HashSet::new();
 
     // --- Deployments ---
-    let dep_api: Api<k8s_openapi::api::apps::v1::Deployment> = Api::all(client.clone());
+    let dep_api: Api<k7s_deps::k8s_openapi::api::apps::v1::Deployment> = Api::all(client.clone());
     let deps = dep_api.list(&ListParams::default()).await?;
     for dep in &deps.items {
         let name = dep.metadata.name.clone().unwrap_or_default();
@@ -59,7 +59,7 @@ pub async fn build_dependency_graph(client: Client) -> AppResult<DependencyGraph
     }
 
     // --- ReplicaSets (link to Deployment via ownerRef) ---
-    let rs_api: Api<k8s_openapi::api::apps::v1::ReplicaSet> = Api::all(client.clone());
+    let rs_api: Api<k7s_deps::k8s_openapi::api::apps::v1::ReplicaSet> = Api::all(client.clone());
     let rss = rs_api.list(&ListParams::default()).await?;
     for rs in &rss.items {
         let name = rs.metadata.name.clone().unwrap_or_default();
@@ -92,7 +92,7 @@ pub async fn build_dependency_graph(client: Client) -> AppResult<DependencyGraph
     }
 
     // --- StatefulSets ---
-    let ss_api: Api<k8s_openapi::api::apps::v1::StatefulSet> = Api::all(client.clone());
+    let ss_api: Api<k7s_deps::k8s_openapi::api::apps::v1::StatefulSet> = Api::all(client.clone());
     let sss = ss_api.list(&ListParams::default()).await?;
     for ss in &sss.items {
         let name = ss.metadata.name.clone().unwrap_or_default();
@@ -108,7 +108,7 @@ pub async fn build_dependency_graph(client: Client) -> AppResult<DependencyGraph
     }
 
     // --- DaemonSets ---
-    let ds_api: Api<k8s_openapi::api::apps::v1::DaemonSet> = Api::all(client.clone());
+    let ds_api: Api<k7s_deps::k8s_openapi::api::apps::v1::DaemonSet> = Api::all(client.clone());
     let dss = ds_api.list(&ListParams::default()).await?;
     for ds in &dss.items {
         let name = ds.metadata.name.clone().unwrap_or_default();
@@ -124,7 +124,7 @@ pub async fn build_dependency_graph(client: Client) -> AppResult<DependencyGraph
     }
 
     // --- Pods (link to owner via ownerRef) ---
-    let pod_api: Api<k8s_openapi::api::core::v1::Pod> = Api::all(client.clone());
+    let pod_api: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> = Api::all(client.clone());
     let pods = pod_api.list(&ListParams::default()).await?;
     for pod in &pods.items {
         let name = pod.metadata.name.clone().unwrap_or_default();
@@ -155,7 +155,7 @@ pub async fn build_dependency_graph(client: Client) -> AppResult<DependencyGraph
     }
 
     // --- Services (link to Pods via selector matching) ---
-    let svc_api: Api<k8s_openapi::api::core::v1::Service> = Api::all(client.clone());
+    let svc_api: Api<k7s_deps::k8s_openapi::api::core::v1::Service> = Api::all(client.clone());
     let svcs = svc_api.list(&ListParams::default()).await?;
     for svc in &svcs.items {
         let svc_name = svc.metadata.name.clone().unwrap_or_default();
@@ -203,7 +203,7 @@ pub async fn build_dependency_graph(client: Client) -> AppResult<DependencyGraph
     }
 
     // --- Ingresses (link to Services via backend rules) ---
-    let ing_api: Api<k8s_openapi::api::networking::v1::Ingress> = Api::all(client.clone());
+    let ing_api: Api<k7s_deps::k8s_openapi::api::networking::v1::Ingress> = Api::all(client.clone());
     let ings = ing_api.list(&ListParams::default()).await?;
     for ing in &ings.items {
         let ing_name = ing.metadata.name.clone().unwrap_or_default();
@@ -302,7 +302,7 @@ mod tests {
             },
             relation: "owns".into(),
         };
-        let json = serde_json::to_value(&edge).unwrap();
+        let json = k7s_deps::serde_json::to_value(&edge).unwrap();
         assert_eq!(json["from"]["kind"], "Deployment");
         assert_eq!(json["to"]["kind"], "ReplicaSet");
         assert_eq!(json["relation"], "owns");
@@ -317,7 +317,7 @@ mod tests {
             name: "nginx".into(),
             namespace: Some("default".into()),
         };
-        let json = serde_json::to_value(&node_with_ns).unwrap();
+        let json = k7s_deps::serde_json::to_value(&node_with_ns).unwrap();
         assert_eq!(json["namespace"], "default");
 
         let node_no_ns = GraphNode {
@@ -325,7 +325,7 @@ mod tests {
             name: "node1".into(),
             namespace: None,
         };
-        let json = serde_json::to_value(&node_no_ns).unwrap();
+        let json = k7s_deps::serde_json::to_value(&node_no_ns).unwrap();
         assert!(json["namespace"].is_null());
     }
 
@@ -358,7 +358,7 @@ mod tests {
                 relation: "owns".into(),
             }],
         };
-        let json = serde_json::to_value(&graph).unwrap();
+        let json = k7s_deps::serde_json::to_value(&graph).unwrap();
         assert!(json["nodes"].is_array());
         assert!(json["edges"].is_array());
         assert_eq!(json["nodes"].as_array().unwrap().len(), 2);

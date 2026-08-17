@@ -4,9 +4,9 @@
 //! diagnosis with exit codes, reasons, and a human-readable summary.
 
 use crate::error::AppResult;
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::Api;
-use kube::Client;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::Api;
+use k7s_deps::kube::Client;
 use serde::Serialize;
 
 /// Diagnosis for a single container.
@@ -90,7 +90,7 @@ pub async fn diagnose_pod(
 
 /// Extract state information from a single `ContainerStatus`.
 fn analyze_container_status(
-    cs: &k8s_openapi::api::core::v1::ContainerStatus,
+    cs: &k7s_deps::k8s_openapi::api::core::v1::ContainerStatus,
     container_type: &str,
 ) -> ContainerDiagnosis {
     let (current_state, current_reason, current_message, current_exit_code) =

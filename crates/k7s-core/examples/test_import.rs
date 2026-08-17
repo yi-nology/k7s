@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
+    k7s_deps::tracing_subscriber::fmt()
         .with_env_filter("info")
         .init();
 
@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .ok(); // ignore if already installed
 
     // ── Step 1: Find kubeconfig ──
-    let kubeconfig_path = dirs::home_dir()
+    let kubeconfig_path = k7s_deps::dirs::home_dir()
         .ok_or("no home dir")?
         .join(".kube")
         .join("config");

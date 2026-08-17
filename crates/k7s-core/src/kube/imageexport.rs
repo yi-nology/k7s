@@ -14,11 +14,11 @@
 //!   - docker     → `docker save <image-ref>`
 
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::api::{Api, AttachParams, PostParams};
+use k7s_deps::k8s_openapi::api::core::v1::{Node, Pod};
+use k7s_deps::kube::api::{Api, AttachParams, PostParams};
 use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tokio::io::AsyncReadExt;
+use k7s_deps::tokio::io::AsyncReadExt;
 
 use crate::kube::{imageimport, nodeshell};
 
@@ -203,7 +203,7 @@ pub fn parse_listed_images(output: &str, runtime: &str) -> Vec<String> {
             output
                 .lines()
                 .filter_map(|line| {
-                    let v: serde_json::Value = serde_json::from_str(line.trim()).ok()?;
+                    let v: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(line.trim()).ok()?;
                     let repo = v.get("Repository")?.as_str()?;
                     let tag = v.get("Tag")?.as_str()?;
                     if repo == "<none>" || tag == "<none>" {
@@ -226,7 +226,7 @@ pub fn parse_listed_images(output: &str, runtime: &str) -> Vec<String> {
 }
 
 /// List container images present on a node.
-pub async fn list_node_images(client: kube::Client, node: &str) -> AppResult<Vec<String>> {
+pub async fn list_node_images(client: k7s_deps::kube::Client, node: &str) -> AppResult<Vec<String>> {
     let node_api: Api<Node> = Api::all(client.clone());
     let node_obj = node_api.get(node).await?;
     let version = node_obj
@@ -290,7 +290,7 @@ pub async fn list_node_images(client: kube::Client, node: &str) -> AppResult<Vec
 
 /// Export an image from a node to a local .tar file.
 pub async fn export_from_node(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     node: &str,
     image_ref: &str,
     save_path: &str,
@@ -343,7 +343,7 @@ pub async fn export_from_node(
         let mut proc = pod_api.exec(&pod_name, argv, &ap).await?;
 
         // Stream stdout to the local file.
-        let mut file = tokio::fs::File::create(save_path)
+        let mut file = k7s_deps::tokio::fs::File::create(save_path)
             .await
             .map_err(|e| AppError::Other(format!("create file '{save_path}': {e}")))?;
         let mut total_bytes: u64 = 0;
@@ -354,13 +354,13 @@ pub async fn export_from_node(
                 if n == 0 {
                     break;
                 }
-                tokio::io::AsyncWriteExt::write_all(&mut file, &buf[..n])
+                k7s_deps::tokio::io::AsyncWriteExt::write_all(&mut file, &buf[..n])
                     .await
                     .map_err(|e| AppError::Other(format!("write file: {e}")))?;
                 total_bytes += n as u64;
             }
         }
-        tokio::io::AsyncWriteExt::flush(&mut file)
+        k7s_deps::tokio::io::AsyncWriteExt::flush(&mut file)
             .await
             .map_err(|e| AppError::Other(format!("flush file: {e}")))?;
 
@@ -376,7 +376,7 @@ pub async fn export_from_node(
         let output = format!("exported {total_bytes} bytes to {save_path}");
         if !succeeded {
             // Clean up the partial file.
-            tokio::fs::remove_file(save_path).await.ok();
+            k7s_deps::tokio::fs::remove_file(save_path).await.ok();
             return Err(AppError::Other(format!(
                 "image export failed: {:?}",
                 status_opt.and_then(|s| s.message),

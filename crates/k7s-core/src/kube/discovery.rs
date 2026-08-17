@@ -9,10 +9,10 @@
 //! Discovery is best-effort. A cluster whose RBAC forbids listing CRDs simply has
 //! no Custom section — the twelve built-in kinds are unaffected.
 
-use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
-use kube::api::{Api, ListParams};
-use kube::core::{ApiResource, GroupVersionKind};
-use kube::Client;
+use k7s_deps::k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::core::{ApiResource, GroupVersionKind};
+use k7s_deps::kube::Client;
 use serde::Serialize;
 
 /// A CRD-backed resource kind, as sent to the frontend.
@@ -50,7 +50,7 @@ pub async fn discover(client: &Client) -> Vec<CustomKind> {
     let crds = match api.list(&ListParams::default()).await {
         Ok(list) => list,
         Err(e) => {
-            tracing::warn!("CRD discovery unavailable; no custom kinds will be shown: {e}");
+            k7s_deps::tracing::warn!("CRD discovery unavailable; no custom kinds will be shown: {e}");
             return Vec::new();
         }
     };
@@ -91,7 +91,7 @@ fn storage_version(crd: &CustomResourceDefinition) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
     /// Build a CRD fixture with the given versions as (name, served, storage).
     fn crd(
@@ -108,7 +108,7 @@ mod tests {
                         "schema": { "openAPIV3Schema": { "type": "object" } } })
             })
             .collect();
-        serde_json::from_value(json!({
+        k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": format!("{plural}.{group}") },
             "spec": {
                 "group": group,

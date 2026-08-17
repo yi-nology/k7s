@@ -1,10 +1,10 @@
 //! Network mapping: Service, Ingress, IngressClass, NetworkPolicy.
 
 use super::*;
-use k8s_openapi::api::core::v1::Service;
-use k8s_openapi::api::networking::v1::{Ingress, IngressClass};
-use kube::core::DynamicObject;
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::Service;
+use k7s_deps::k8s_openapi::api::networking::v1::{Ingress, IngressClass};
+use k7s_deps::kube::core::DynamicObject;
+use k7s_deps::kube::ResourceExt;
 
 /// Services: NAME, NAMESPACE, TYPE, CLUSTER-IP, PORTS, AGE.
 pub fn map_service(svc: &Service) -> Row {
@@ -136,7 +136,7 @@ pub fn map_networkpolicy(obj: &DynamicObject) -> Row {
         .data
         .get("spec")
         .and_then(|s| s.get("podSelector"))
-        .map(|p| serde_json::to_string(p).unwrap_or_default())
+        .map(|p| k7s_deps::serde_json::to_string(p).unwrap_or_default())
         .unwrap_or_else(|| "—".to_string());
     let age = obj
         .metadata

@@ -2,8 +2,8 @@
 
 use super::*;
 use crate::kube::dto::InvolvedRef;
-use k8s_openapi::api::core::v1::{Namespace, Node};
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::{Namespace, Node};
+use k7s_deps::kube::ResourceExt;
 
 /// Nodes: NAME, STATUS, ROLES, CPU, MEMORY, VERSION. (No namespace column.)
 /// CPU/MEMORY are "—" placeholders overlaid from the node metrics feed.
@@ -105,7 +105,7 @@ pub fn map_namespace(ns: &Namespace) -> Row {
 ///
 /// The AGE cell carries a last-seen epoch as its sort key, which the watcher's
 /// post-processing uses to order the feed (Warnings first, then newest).
-pub fn map_event(e: &k8s_openapi::api::core::v1::Event) -> Row {
+pub fn map_event(e: &k7s_deps::k8s_openapi::api::core::v1::Event) -> Row {
     let type_ = e.type_.clone().unwrap_or_else(|| "Normal".into());
     // Warning is the only tone that should draw the eye; Normal reads green.
     let tone = if type_ == "Warning" {
@@ -151,7 +151,7 @@ pub fn map_event(e: &k8s_openapi::api::core::v1::Event) -> Row {
 }
 
 /// Best "last seen" time for an event: lastTimestamp, else eventTime, else creation.
-fn event_last_seen(e: &k8s_openapi::api::core::v1::Event) -> k8s_openapi::jiff::Timestamp {
+fn event_last_seen(e: &k7s_deps::k8s_openapi::api::core::v1::Event) -> k7s_deps::k8s_openapi::jiff::Timestamp {
     if let Some(t) = &e.last_timestamp {
         return t.0;
     }
@@ -186,12 +186,12 @@ pub fn sort_events(mut rows: Vec<Row>, cap: usize) -> Vec<Row> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
     /// A Ready node shows a green status cell with a dot.
     #[test]
     fn ready_node() {
-        let node: Node = serde_json::from_value(json!({
+        let node: Node = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "n1", "uid": "nn1",
                           "labels": { "node-role.kubernetes.io/worker": "" } },
             "status": {
@@ -216,8 +216,8 @@ mod tests {
     // ---- Events feed (B14) ----
 
     /// Build an Event with a given type/reason and last-seen time.
-    fn event(type_: &str, reason: &str, last: &str) -> k8s_openapi::api::core::v1::Event {
-        serde_json::from_value(json!({
+    fn event(type_: &str, reason: &str, last: &str) -> k7s_deps::k8s_openapi::api::core::v1::Event {
+        k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": format!("obj.{reason}"), "namespace": "prod", "uid": reason },
             "type": type_,
             "reason": reason,
@@ -298,7 +298,7 @@ mod tests {
     /// A node with MemoryPressure=True shows a warning status.
     #[test]
     fn node_memory_pressure_warns() {
-        let node: Node = serde_json::from_value(json!({
+        let node: Node = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "n1", "uid": "nn1" },
             "status": {
                 "conditions": [
@@ -320,7 +320,7 @@ mod tests {
     /// A node with no pressures and Ready=True shows green status.
     #[test]
     fn node_healthy_shows_ready() {
-        let node: Node = serde_json::from_value(json!({
+        let node: Node = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "n1", "uid": "nn1" },
             "status": {
                 "conditions": [
@@ -344,7 +344,7 @@ mod tests {
     /// A node that is NotReady shows red regardless of pressure conditions.
     #[test]
     fn node_notready_overrides_pressure() {
-        let node: Node = serde_json::from_value(json!({
+        let node: Node = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "n1", "uid": "nn1" },
             "status": {
                 "conditions": [
@@ -366,7 +366,7 @@ mod tests {
     /// lastTimestamp is preferred, but events that only carry eventTime still sort.
     #[test]
     fn event_time_fallback() {
-        let e: k8s_openapi::api::core::v1::Event = serde_json::from_value(json!({
+        let e: k7s_deps::k8s_openapi::api::core::v1::Event = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "e", "namespace": "prod", "uid": "u" },
             "type": "Normal",
             "reason": "Started",

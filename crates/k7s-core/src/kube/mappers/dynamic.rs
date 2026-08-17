@@ -7,8 +7,8 @@
 //! and any deeper columns would be a separate feature.
 
 use super::*;
-use kube::core::DynamicObject;
-use kube::ResourceExt;
+use k7s_deps::kube::core::DynamicObject;
+use k7s_deps::kube::ResourceExt;
 
 /// Generic columns for a CRD-backed object: NAME, NAMESPACE (namespaced kinds
 /// only), AGE.
@@ -16,7 +16,7 @@ use kube::ResourceExt;
 /// A CRD's schema is arbitrary, so there is no meaningful status or ready column
 /// to derive without per-CRD knowledge; the YAML tab is where the detail lives.
 /// The column set must match `kinds.ts`'s generic custom columns.
-pub fn map_dynamic(o: &kube::core::DynamicObject, namespaced: bool) -> Row {
+pub fn map_dynamic(o: &k7s_deps::kube::core::DynamicObject, namespaced: bool) -> Row {
     let mut cells = vec![Cell::new(o.name_any(), Tone::Primary)];
     if namespaced {
         cells.push(Cell::new(o.namespace().unwrap_or_default(), Tone::Muted));
@@ -250,13 +250,13 @@ pub fn map_resourcequota(obj: &DynamicObject) -> Row {
         .data
         .get("status")
         .and_then(|s| s.get("hard"))
-        .map(|h| serde_json::to_string(h).unwrap_or_default())
+        .map(|h| k7s_deps::serde_json::to_string(h).unwrap_or_default())
         .unwrap_or_else(|| "—".to_string());
     let used = obj
         .data
         .get("status")
         .and_then(|s| s.get("used"))
-        .map(|u| serde_json::to_string(u).unwrap_or_default())
+        .map(|u| k7s_deps::serde_json::to_string(u).unwrap_or_default())
         .unwrap_or_else(|| "—".to_string());
     let age = obj
         .metadata
@@ -290,7 +290,7 @@ pub fn map_limitrange(obj: &DynamicObject) -> Row {
         .data
         .get("spec")
         .and_then(|s| s.get("limits"))
-        .map(|l| serde_json::to_string(l).unwrap_or_default())
+        .map(|l| k7s_deps::serde_json::to_string(l).unwrap_or_default())
         .unwrap_or_else(|| "—".to_string());
     let age = obj
         .metadata
@@ -368,7 +368,7 @@ mod tests {
             name in "[a-z][a-z0-9-]{0,20}",
             namespace in "[a-z][a-z0-9-]{0,20}",
         ) {
-            let obj = make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({
+            let obj = make_dynamic_obj_with_data(&name, &namespace, k7s_deps::serde_json::json!({
                 "spec": { "minAvailable": "1", "maxUnavailable": "1" },
                 "status": { "disruptionsAllowed": 1 }
             }));
@@ -382,7 +382,7 @@ mod tests {
             name in "[a-z][a-z0-9-]{0,20}",
             namespace in "[a-z][a-z0-9-]{0,20}",
         ) {
-            let obj = make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({
+            let obj = make_dynamic_obj_with_data(&name, &namespace, k7s_deps::serde_json::json!({
                 "spec": {
                     "scaleTargetRef": { "kind": "Deployment", "name": "app" },
                     "minReplicas": 1,
@@ -397,7 +397,7 @@ mod tests {
 
         #[test]
         fn map_webhook_never_panics(name in "[a-z][a-z0-9-]{0,20}") {
-            let obj = make_dynamic_obj_with_data(&name, "", serde_json::json!({
+            let obj = make_dynamic_obj_with_data(&name, "", k7s_deps::serde_json::json!({
                 "webhooks": [{ "name": "test" }]
             }));
             let row = map_mutating_webhook(&obj);
@@ -408,7 +408,7 @@ mod tests {
 
         #[test]
         fn map_api_service_never_panics(name in "[a-z][a-z0-9-]{0,20}") {
-            let obj = make_dynamic_obj_with_data(&name, "", serde_json::json!({
+            let obj = make_dynamic_obj_with_data(&name, "", k7s_deps::serde_json::json!({
                 "spec": { "service": { "namespace": "default", "name": "api" } },
                 "status": { "conditions": [{ "type": "Available", "status": "True" }] }
             }));
@@ -422,7 +422,7 @@ mod tests {
             name in "[a-z][a-z0-9-]{0,20}",
             namespace in "[a-z][a-z0-9-]{0,20}",
         ) {
-            let obj = make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({
+            let obj = make_dynamic_obj_with_data(&name, &namespace, k7s_deps::serde_json::json!({
                 "status": { "hard": { "cpu": "4" }, "used": { "cpu": "2" } }
             }));
             let row = map_resourcequota(&obj);
@@ -435,7 +435,7 @@ mod tests {
             name in "[a-z][a-z0-9-]{0,20}",
             namespace in "[a-z][a-z0-9-]{0,20}",
         ) {
-            let obj = make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({
+            let obj = make_dynamic_obj_with_data(&name, &namespace, k7s_deps::serde_json::json!({
                 "spec": { "limits": [{ "type": "Container", "default": { "cpu": "100m" } }] }
             }));
             let row = map_limitrange(&obj);
@@ -449,17 +449,17 @@ mod tests {
     fn make_dynamic_obj_with_data(
         name: &str,
         namespace: &str,
-        data: serde_json::Value,
+        data: k7s_deps::serde_json::Value,
     ) -> DynamicObject {
-        let mut metadata = serde_json::json!({
+        let mut metadata = k7s_deps::serde_json::json!({
             "name": name,
             "uid": format!("uid-{name}"),
             "creationTimestamp": "2025-01-15T10:30:00Z"
         });
         if !namespace.is_empty() {
-            metadata["namespace"] = serde_json::json!(namespace);
+            metadata["namespace"] = k7s_deps::serde_json::json!(namespace);
         }
-        serde_json::from_value(serde_json::json!({
+        k7s_deps::serde_json::from_value(k7s_deps::serde_json::json!({
             "apiVersion": "v1",
             "kind": "ConfigMap",
             "metadata": metadata,
@@ -469,7 +469,7 @@ mod tests {
     }
 
     fn make_minimal_dynamic_object(name: &str, namespace: &str) -> DynamicObject {
-        make_dynamic_obj_with_data(name, namespace, serde_json::json!({}))
+        make_dynamic_obj_with_data(name, namespace, k7s_deps::serde_json::json!({}))
     }
 
     fn arb_any_dynamic_object() -> impl Strategy<Value = DynamicObject> {
@@ -479,7 +479,7 @@ mod tests {
             any::<bool>(),
         )
             .prop_map(|(name, namespace, _has_data)| {
-                make_dynamic_obj_with_data(&name, &namespace, serde_json::json!({}))
+                make_dynamic_obj_with_data(&name, &namespace, k7s_deps::serde_json::json!({}))
             })
     }
 }

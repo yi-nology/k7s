@@ -21,10 +21,10 @@
 //! container expects relative paths.
 
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, AttachParams};
-use kube::Client;
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::{Api, AttachParams};
+use k7s_deps::kube::Client;
+use k7s_deps::kube::ResourceExt;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -160,8 +160,8 @@ pub async fn upload_path(
 /// stored as ConfigMaps). Not used in the default UI flow; here as a
 /// utility for power users browsing CM-backed releases.
 pub async fn list_pods(client: Client, namespace: &str) -> AppResult<Vec<HashMap<String, String>>> {
-    use k8s_openapi::api::core::v1::Pod;
-    use kube::api::{Api, ListParams};
+    use k7s_deps::k8s_openapi::api::core::v1::Pod;
+    use k7s_deps::kube::api::{Api, ListParams};
     let api: Api<Pod> = Api::namespaced(client, namespace);
     let pods = api.list(&ListParams::default()).await?;
     Ok(pods
@@ -361,7 +361,7 @@ async fn run_capture_bytes(
     let mut proc = api.exec(pod, cmd.to_vec(), &ap).await?;
     let mut out = Vec::new();
     if let Some(mut stdout) = proc.stdout() {
-        use tokio::io::AsyncReadExt;
+        use k7s_deps::tokio::io::AsyncReadExt;
         stdout
             .read_to_end(&mut out)
             .await
@@ -408,7 +408,7 @@ async fn run_pipe(
         ap = ap.container(c);
     }
     let mut proc = api.exec(pod, cmd.to_vec(), &ap).await?;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use k7s_deps::tokio::io::{AsyncReadExt, AsyncWriteExt};
     if let Some(mut stdin) = proc.stdin() {
         stdin
             .write_all(payload)

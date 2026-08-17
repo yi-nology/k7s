@@ -33,8 +33,8 @@
 //! content store and unpack happens lazily on first run.
 
 use crate::error::{AppError, AppResult};
-use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::api::{Api, AttachParams, PostParams};
+use k7s_deps::k8s_openapi::api::core::v1::{Node, Pod};
+use k7s_deps::kube::api::{Api, AttachParams, PostParams};
 use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -163,7 +163,7 @@ pub fn parse_loaded_images(output: &str) -> Vec<String> {
 /// teardown. The pod also carries `activeDeadlineSeconds` (from the spec) as a
 /// server-side kill switch that outlives this process.
 pub async fn import_to_node(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     node: &str,
     tar_bytes: &[u8],
 ) -> AppResult<ImportResult> {
@@ -220,7 +220,7 @@ pub async fn import_to_node(
             .tty(false);
         ap = ap.container(&pod_name);
         let mut proc = pod_api.exec(&pod_name, argv, &ap).await?;
-        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use k7s_deps::tokio::io::{AsyncReadExt, AsyncWriteExt};
         if let Some(mut stdin) = proc.stdin() {
             stdin
                 .write_all(tar_bytes)

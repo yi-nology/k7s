@@ -2,7 +2,7 @@
 
 use crate::ai::error::{AiError, AiResult};
 use crate::ai::tools::{get_arg_str, get_opt_str, impls, Tool, ToolContext};
-use async_trait::async_trait;
+use k7s_deps::async_trait::async_trait;
 
 pub struct DiagnoseUnhealthy;
 #[async_trait]
@@ -13,14 +13,14 @@ impl Tool for DiagnoseUnhealthy {
     fn description(&self) -> &str {
         "Scan the cluster for unhealthy resources and return a problem list."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{"namespace":{"type":"string"}}})
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{"namespace":{"type":"string"}}})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let ns = get_opt_str(&args, "namespace");
         impls::diagnose_unhealthy_impl(&ctx.manager, ns.as_deref())
             .await
@@ -41,8 +41,8 @@ impl Tool for DiagnosePod {
          status with exit codes, restart counts, and a human-readable summary. \
          Use this when a specific pod is unhealthy or the user asks why a pod is failing."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({
             "type": "object",
             "properties": {
                 "namespace": {
@@ -60,8 +60,8 @@ impl Tool for DiagnosePod {
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let namespace = get_arg_str(&args, "namespace")?;
         let pod = get_arg_str(&args, "pod")?;
         impls::diagnose_pod_impl(&ctx.manager, &namespace, &pod)

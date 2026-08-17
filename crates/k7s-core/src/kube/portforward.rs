@@ -12,13 +12,13 @@
 //! here and everything downstream is the plain pod path.
 
 use crate::error::AppError;
-use k8s_openapi::api::core::v1::{Pod, Service};
-use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
-use kube::api::ListParams;
-use kube::{Api, Client};
-use tokio::net::TcpListener;
-use tokio::sync::{mpsc, oneshot};
-use tokio::task::JoinSet;
+use k7s_deps::k8s_openapi::api::core::v1::{Pod, Service};
+use k7s_deps::k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
+use k7s_deps::kube::api::ListParams;
+use k7s_deps::kube::{Api, Client};
+use k7s_deps::tokio::net::TcpListener;
+use k7s_deps::tokio::sync::{mpsc, oneshot};
+use k7s_deps::tokio::task::JoinSet;
 
 /// Run a port-forward accept loop. Sends the bound local port (or an error) back
 /// through `ready` once the listener is up, then serves connections until aborted.
@@ -66,7 +66,7 @@ pub async fn run_port_forward(
                 Ok(mut pf) => match pf.take_stream(remote_port) {
                     // Pump until either side closes.
                     Some(mut upstream) => {
-                        let _ = tokio::io::copy_bidirectional(&mut tcp, &mut upstream).await;
+                        let _ = k7s_deps::tokio::io::copy_bidirectional(&mut tcp, &mut upstream).await;
                     }
                     None => {
                         let _ = errors.try_send(format!("port {remote_port} not open on {pod}"));
@@ -200,7 +200,7 @@ pub async fn ensure_pod(client: Client, namespace: &str, pod: &str) -> Result<()
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
     /// A pod with the given Ready condition and named container ports.
     fn pod(ready: bool, ports: &[(&str, i32)]) -> Pod {
@@ -208,7 +208,7 @@ mod tests {
             .iter()
             .map(|(n, p)| json!({ "name": n, "containerPort": p }))
             .collect();
-        serde_json::from_value(json!({
+        k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "p1", "namespace": "prod" },
             "spec": { "containers": [{ "name": "app", "ports": ports }] },
             "status": {
@@ -231,7 +231,7 @@ mod tests {
     /// A pod with no status at all (just scheduled) is not ready.
     #[test]
     fn pod_without_status_is_not_ready() {
-        let p: Pod = serde_json::from_value(json!({ "metadata": { "name": "p" } })).unwrap();
+        let p: Pod = k7s_deps::serde_json::from_value(json!({ "metadata": { "name": "p" } })).unwrap();
         assert!(!is_ready(&p));
     }
 

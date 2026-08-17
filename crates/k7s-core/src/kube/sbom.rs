@@ -3,12 +3,12 @@
 //! Supports three-tier fallback: trivy -> grype -> native parser.
 //! Outputs CycloneDX and SPDX formats.
 
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
+use k7s_deps::chrono::{DateTime, Utc};
+use k7s_deps::serde::{Deserialize, Serialize};
+use k7s_deps::uuid::Uuid;
 
 use crate::error::{AppError, AppResult};
-use tokio::process::Command;
+use k7s_deps::tokio::process::Command;
 
 /// SBOM generation source
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -183,7 +183,7 @@ fn parse_trivy_sbom(
     format: &SbomFormat,
     elapsed_ms: u64,
 ) -> AppResult<SbomResult> {
-    let value: serde_json::Value = serde_json::from_str(raw)
+    let value: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(raw)
         .map_err(|e| AppError::Other(format!("Failed to parse trivy output: {e}")))?;
 
     let spec_version = match format {
@@ -221,12 +221,12 @@ fn parse_trivy_sbom(
         dependencies: vec![],
         vulnerabilities: vec![],
         raw_output: Some(raw.to_string()),
-        created_at: chrono::Utc::now(),
+        created_at: k7s_deps::chrono::Utc::now(),
     })
 }
 
 /// Extract components from trivy output.
-fn parse_trivy_components(value: &serde_json::Value, format: &SbomFormat) -> Vec<SbomComponent> {
+fn parse_trivy_components(value: &k7s_deps::serde_json::Value, format: &SbomFormat) -> Vec<SbomComponent> {
     match format {
         SbomFormat::CycloneDx => value["components"]
             .as_array()
@@ -332,7 +332,7 @@ fn parse_grype_sbom(
     format: &SbomFormat,
     elapsed_ms: u64,
 ) -> AppResult<SbomResult> {
-    let value: serde_json::Value = serde_json::from_str(raw)
+    let value: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(raw)
         .map_err(|e| AppError::Other(format!("Failed to parse grype output: {e}")))?;
 
     let spec_version = match format {
@@ -391,7 +391,7 @@ fn parse_grype_sbom(
         dependencies: vec![],
         vulnerabilities,
         raw_output: Some(raw.to_string()),
-        created_at: chrono::Utc::now(),
+        created_at: k7s_deps::chrono::Utc::now(),
     })
 }
 
@@ -433,12 +433,12 @@ pub async fn generate_native(image_ref: &str, format: &SbomFormat) -> AppResult<
         dependencies: vec![],
         vulnerabilities: vec![],
         raw_output: None,
-        created_at: chrono::Utc::now(),
+        created_at: k7s_deps::chrono::Utc::now(),
     })
 }
 
 /// Try to get image config via docker inspect.
-async fn get_image_config(image_ref: &str) -> AppResult<serde_json::Value> {
+async fn get_image_config(image_ref: &str) -> AppResult<k7s_deps::serde_json::Value> {
     let output = Command::new("docker")
         .args(["inspect", image_ref])
         .output()
@@ -453,7 +453,7 @@ async fn get_image_config(image_ref: &str) -> AppResult<serde_json::Value> {
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
-    let arr: serde_json::Value = serde_json::from_str(&raw)
+    let arr: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(&raw)
         .map_err(|e| AppError::Other(format!("Failed to parse docker inspect output: {e}")))?;
 
     arr.as_array()
@@ -463,7 +463,7 @@ async fn get_image_config(image_ref: &str) -> AppResult<serde_json::Value> {
 }
 
 /// Extract basic components from image config.
-fn extract_components_from_config(config: &serde_json::Value) -> Vec<SbomComponent> {
+fn extract_components_from_config(config: &k7s_deps::serde_json::Value) -> Vec<SbomComponent> {
     let mut components = vec![];
 
     // Extract OS info
@@ -654,14 +654,14 @@ impl SbomEngine {
         if let Some(ref path) = self.trivy_path {
             match generate_via_trivy(path, image_ref, format, &self.timeout).await {
                 Ok(result) => return Ok(result),
-                Err(e) => tracing::warn!("trivy SBOM generation failed, falling back: {e}"),
+                Err(e) => k7s_deps::tracing::warn!("trivy SBOM generation failed, falling back: {e}"),
             }
         }
         // Tier 2: grype
         if let Some(ref path) = self.grype_path {
             match generate_via_grype(path, image_ref, format).await {
                 Ok(result) => return Ok(result),
-                Err(e) => tracing::warn!("grype SBOM generation failed, falling back: {e}"),
+                Err(e) => k7s_deps::tracing::warn!("grype SBOM generation failed, falling back: {e}"),
             }
         }
         // Tier 3: native fallback
@@ -720,14 +720,14 @@ async fn scan_vulnerabilities(
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        tracing::warn!("trivy vulnerability scan failed for {image_ref}: {stderr}");
+        k7s_deps::tracing::warn!("trivy vulnerability scan failed for {image_ref}: {stderr}");
         return Err(AppError::Other(format!(
             "trivy vulnerability scan failed: {stderr}"
         )));
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
-    let value: serde_json::Value = serde_json::from_str(&raw)
+    let value: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(&raw)
         .map_err(|e| AppError::Other(format!("Failed to parse trivy vuln output: {e}")))?;
 
     let vulns = value["Results"]
@@ -798,8 +798,8 @@ mod tests {
             namespace: "default".to_string(),
             pod: Some("nginx-abc123".to_string()),
         };
-        let json = serde_json::to_string(&source).unwrap();
-        let deserialized: SbomSource = serde_json::from_str(&json).unwrap();
+        let json = k7s_deps::serde_json::to_string(&source).unwrap();
+        let deserialized: SbomSource = k7s_deps::serde_json::from_str(&json).unwrap();
         match deserialized {
             SbomSource::Image {
                 image_ref,
@@ -819,8 +819,8 @@ mod tests {
         let source = SbomSource::Cluster {
             context: "production".to_string(),
         };
-        let json = serde_json::to_string(&source).unwrap();
-        let deserialized: SbomSource = serde_json::from_str(&json).unwrap();
+        let json = k7s_deps::serde_json::to_string(&source).unwrap();
+        let deserialized: SbomSource = k7s_deps::serde_json::from_str(&json).unwrap();
         match deserialized {
             SbomSource::Cluster { context } => {
                 assert_eq!(context, "production");
@@ -868,11 +868,11 @@ mod tests {
                 fixed_version: Some("1.2.6".to_string()),
             }],
             raw_output: None,
-            created_at: chrono::Utc::now(),
+            created_at: k7s_deps::chrono::Utc::now(),
         };
 
-        let json = serde_json::to_string_pretty(&result).unwrap();
-        let deserialized: SbomResult = serde_json::from_str(&json).unwrap();
+        let json = k7s_deps::serde_json::to_string_pretty(&result).unwrap();
+        let deserialized: SbomResult = k7s_deps::serde_json::from_str(&json).unwrap();
 
         assert_eq!(deserialized.id, "test-id-001");
         assert_eq!(deserialized.format, SbomFormat::CycloneDx);
@@ -943,7 +943,7 @@ mod tests {
 
     #[test]
     fn parse_trivy_components_cyclonedx() {
-        let json = serde_json::json!({
+        let json = k7s_deps::serde_json::json!({
             "components": [
                 {
                     "name": "openssl",
@@ -978,7 +978,7 @@ mod tests {
 
     #[test]
     fn parse_trivy_components_spdx() {
-        let json = serde_json::json!({
+        let json = k7s_deps::serde_json::json!({
             "packages": [
                 {
                     "name": "bash",
@@ -996,7 +996,7 @@ mod tests {
 
     #[test]
     fn parse_trivy_components_empty() {
-        let json = serde_json::json!({});
+        let json = k7s_deps::serde_json::json!({});
         let components = parse_trivy_components(&json, &SbomFormat::CycloneDx);
         assert!(components.is_empty());
     }
@@ -1018,10 +1018,10 @@ mod tests {
             component_count: 150,
             vulnerability_count: 5,
             tool: "trivy".to_string(),
-            created_at: chrono::Utc::now(),
+            created_at: k7s_deps::chrono::Utc::now(),
         };
-        let json = serde_json::to_string(&summary).unwrap();
-        let deserialized: SbomSummary = serde_json::from_str(&json).unwrap();
+        let json = k7s_deps::serde_json::to_string(&summary).unwrap();
+        let deserialized: SbomSummary = k7s_deps::serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.id, "sum-001");
         assert_eq!(deserialized.component_count, 150);
         assert_eq!(deserialized.vulnerability_count, 5);

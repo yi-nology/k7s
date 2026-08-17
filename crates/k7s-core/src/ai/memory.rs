@@ -21,7 +21,7 @@
 //! or included in the context block) ≥ 3 times, it's promoted to long-term.
 //! Decay: short-term memories older than `ttl_days` are pruned on load.
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Memory tier — determines storage, retrieval priority, and lifetime.
@@ -111,11 +111,11 @@ impl MemoryStore {
         data.context = context.to_string();
         // Prune expired short-term memories.
         let ttl_days = 7;
-        let cutoff = chrono::Utc::now() - chrono::Duration::days(ttl_days as i64);
+        let cutoff = k7s_deps::chrono::Utc::now() - k7s_deps::chrono::Duration::days(ttl_days as i64);
         data.entries.retain(|e| {
             e.tier != Tier::ShortTerm
-                || chrono::DateTime::parse_from_rfc3339(&e.created_at)
-                    .map(|dt| dt.with_timezone(&chrono::Utc) > cutoff)
+                || k7s_deps::chrono::DateTime::parse_from_rfc3339(&e.created_at)
+                    .map(|dt| dt.with_timezone(&k7s_deps::chrono::Utc) > cutoff)
                     .unwrap_or(true)
         });
         Self {
@@ -129,9 +129,9 @@ impl MemoryStore {
     /// Add a memory to a specific tier.
     pub fn add(&mut self, tier: Tier, content: &str, tags: Vec<String>, source: MemorySource) {
         self.data.entries.push(MemoryEntry {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: k7s_deps::uuid::Uuid::new_v4().to_string(),
             tier,
-            created_at: chrono::Utc::now().to_rfc3339(),
+            created_at: k7s_deps::chrono::Utc::now().to_rfc3339(),
             content: content.to_string(),
             tags,
             source,
@@ -237,7 +237,7 @@ impl MemoryStore {
             self.data.preferences.push(UserPreference {
                 key: key.to_string(),
                 value: value.to_string(),
-                learned_at: chrono::Utc::now().to_rfc3339(),
+                learned_at: k7s_deps::chrono::Utc::now().to_rfc3339(),
                 confidence: 0.6,
             });
         }

@@ -22,7 +22,7 @@
 //! than pretending. The `tags/list` endpoint is universal.
 
 use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -92,7 +92,7 @@ pub struct TagEntry {
 
 #[derive(Clone, Debug, Default)]
 struct HttpClient {
-    inner: reqwest::Client,
+    inner: k7s_deps::reqwest::Client,
 }
 
 impl HttpClient {
@@ -105,11 +105,11 @@ impl HttpClient {
         // registries on a corporate VPN over HTTPS aren't affected; only
         // self-signed certs are.
         let _ = insecure;
-        let b = reqwest::Client::builder()
+        let b = k7s_deps::reqwest::Client::builder()
             .timeout(Duration::from_secs(20))
             .user_agent("k7s/image-registry")
             .build()
-            .unwrap_or_else(|_| reqwest::Client::new());
+            .unwrap_or_else(|_| k7s_deps::reqwest::Client::new());
         Self { inner: b }
     }
 }
@@ -142,13 +142,13 @@ fn load_file() -> AppResult<RegistryFile> {
     if text.trim().is_empty() {
         return Ok(RegistryFile::default());
     }
-    serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
+    k7s_deps::serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
 }
 
 fn save_file(f: &RegistryFile) -> AppResult<()> {
     let path = config_path()?;
     let text =
-        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+        k7s_deps::serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
     std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
@@ -362,7 +362,7 @@ async fn authed_get(
     client: &HttpClient,
     reg: &ImageRegistry,
     url: &str,
-) -> AppResult<reqwest::Response> {
+) -> AppResult<k7s_deps::reqwest::Response> {
     let mut req = client.inner.get(url);
     if !reg.username.is_empty() {
         req = req.basic_auth(&reg.username, Some(&reg.password));
@@ -377,7 +377,7 @@ async fn authed_get(
     // Parse `Www-Authenticate: Bearer realm="…", service="…", scope="…"`
     let challenge = resp
         .headers()
-        .get(reqwest::header::WWW_AUTHENTICATE)
+        .get(k7s_deps::reqwest::header::WWW_AUTHENTICATE)
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
     let Some(challenge) = challenge else {
@@ -528,7 +528,7 @@ pub async fn manifest(reg: &ImageRegistry, repo: &str, tag: &str) -> AppResult<I
         .text()
         .await
         .map_err(|e| AppError::Other(format!("read body: {e}")))?;
-    let raw: serde_json::Value = serde_json::from_str(&text)
+    let raw: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(&text)
         .map_err(|e| AppError::Other(format!("decode manifest: {e}")))?;
     let schema_version = raw
         .get("schemaVersion")
@@ -542,7 +542,7 @@ pub async fn manifest(reg: &ImageRegistry, repo: &str, tag: &str) -> AppResult<I
     let config = raw
         .get("config")
         .cloned()
-        .unwrap_or(serde_json::Value::Null);
+        .unwrap_or(k7s_deps::serde_json::Value::Null);
     let config_digest = config
         .get("digest")
         .and_then(|v| v.as_str())
@@ -591,7 +591,7 @@ async fn authed_get_manifest(
     client: &HttpClient,
     reg: &ImageRegistry,
     url: &str,
-) -> AppResult<reqwest::Response> {
+) -> AppResult<k7s_deps::reqwest::Response> {
     let mut req = client.inner.get(url);
     // Manifest GETs need an explicit Accept; the registry otherwise
     // returns a fat manifest list which our parser doesn't handle.
@@ -611,7 +611,7 @@ async fn authed_get_manifest(
     }
     let challenge = resp
         .headers()
-        .get(reqwest::header::WWW_AUTHENTICATE)
+        .get(k7s_deps::reqwest::header::WWW_AUTHENTICATE)
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
     let Some(challenge) = challenge else {

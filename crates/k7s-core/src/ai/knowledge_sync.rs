@@ -16,8 +16,8 @@
 
 use crate::ai::memory::{MemorySource, MemoryStore, Tier};
 use crate::kube::manager::ClientManager;
-use kube::api::{Api, ListParams};
-use kube::ResourceExt;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::ResourceExt;
 use std::sync::Arc;
 
 /// Sync knowledge from the connected cluster into the Knowledge Vault.
@@ -32,7 +32,7 @@ pub async fn sync_from_cluster(
     let mut report = SyncReport::default();
 
     // 1. ConfigMaps labeled k7s.ai/docs=true.
-    let cms: Api<k8s_openapi::api::core::v1::ConfigMap> = Api::all(client.clone());
+    let cms: Api<k7s_deps::k8s_openapi::api::core::v1::ConfigMap> = Api::all(client.clone());
     match cms
         .list(&ListParams::default().labels("k7s.ai/docs=true"))
         .await
@@ -56,7 +56,7 @@ pub async fn sync_from_cluster(
     }
 
     // 2. Pods with k7s.ai/runbook or k7s.ai/description annotations.
-    let pods: Api<k8s_openapi::api::core::v1::Pod> = Api::all(client.clone());
+    let pods: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> = Api::all(client.clone());
     match pods.list(&ListParams::default()).await {
         Ok(list) => {
             for pod in list {
@@ -87,7 +87,7 @@ pub async fn sync_from_cluster(
     }
 
     // 3. Deployments with k7s.ai/runbook annotation.
-    let deps: Api<k8s_openapi::api::apps::v1::Deployment> = Api::all(client.clone());
+    let deps: Api<k7s_deps::k8s_openapi::api::apps::v1::Deployment> = Api::all(client.clone());
     match deps.list(&ListParams::default()).await {
         Ok(list) => {
             for dep in list {

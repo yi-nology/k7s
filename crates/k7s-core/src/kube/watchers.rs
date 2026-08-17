@@ -15,24 +15,24 @@ use super::{
     dto::Row, events, helm, mappers, ClientManager, KindStatus, ResourceKind, ResourceUpdate,
 };
 use crate::core::events::EventSink;
-use futures::stream::BoxStream;
-use futures::StreamExt;
-use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
-use k8s_openapi::api::batch::v1::{CronJob, Job};
-use k8s_openapi::api::core::v1::{
+use k7s_deps::futures::stream::BoxStream;
+use k7s_deps::futures::StreamExt;
+use k7s_deps::k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
+use k7s_deps::k8s_openapi::api::batch::v1::{CronJob, Job};
+use k7s_deps::k8s_openapi::api::core::v1::{
     ConfigMap, Event, Namespace, Node, PersistentVolume, PersistentVolumeClaim, Pod, Secret,
     Service, ServiceAccount,
 };
-use k8s_openapi::api::networking::v1::{Ingress, IngressClass};
-use k8s_openapi::api::storage::v1::StorageClass;
-use kube::core::{ApiResource, DynamicObject};
-use kube::runtime::reflector::Lookup;
-use kube::runtime::{reflector, watcher, WatchStreamExt};
-use kube::{Api, Client, Resource};
+use k7s_deps::k8s_openapi::api::networking::v1::{Ingress, IngressClass};
+use k7s_deps::k8s_openapi::api::storage::v1::StorageClass;
+use k7s_deps::kube::core::{ApiResource, DynamicObject};
+use k7s_deps::kube::runtime::reflector::Lookup;
+use k7s_deps::kube::runtime::{reflector, watcher, WatchStreamExt};
+use k7s_deps::kube::{Api, Client, Resource};
 use serde::de::DeserializeOwned;
 use std::fmt::Debug;
 use std::hash::Hash;
-use tokio::time::{interval, Duration, MissedTickBehavior};
+use k7s_deps::tokio::time::{interval, Duration, MissedTickBehavior};
 
 /// Maximum snapshot emit rate per kind (coalesces bursts of watch events).
 const DEBOUNCE: Duration = Duration::from_millis(150);
@@ -215,7 +215,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_hpa).await;
         });
         mgr.push_task(handle).await;
@@ -229,7 +229,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_role).await;
         });
         mgr.push_task(handle).await;
@@ -242,7 +242,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(
                 client_clone,
                 sink,
@@ -263,7 +263,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(
                 client_clone,
                 sink,
@@ -284,7 +284,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(
                 client_clone,
                 sink,
@@ -306,7 +306,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(client_clone, sink, id, ar, namespaced, mappers::map_pdb).await;
         });
         mgr.push_task(handle).await;
@@ -320,7 +320,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(
                 client_clone,
                 sink,
@@ -342,7 +342,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(
                 client_clone,
                 sink,
@@ -364,7 +364,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
         let sink = mgr.sink();
         let client_clone = client.clone();
         let id = kind.id().to_string();
-        let handle = tokio::spawn(async move {
+        let handle = k7s_deps::tokio::spawn(async move {
             run_dynamic_watcher(
                 client_clone,
                 sink,
@@ -391,7 +391,7 @@ pub async fn spawn_all(mgr: &ClientManager, client: Client) -> usize {
     // Helm releases, decoded from their Secrets (B26).
     let sink = mgr.sink();
     let helm_client = client.clone();
-    let handle = tokio::spawn(async move { run_helm_watcher(helm_client, sink).await });
+    let handle = k7s_deps::tokio::spawn(async move { run_helm_watcher(helm_client, sink).await });
     mgr.push_task(handle).await;
     count += 1;
     count
@@ -420,7 +420,7 @@ async fn spawn<K>(
 {
     let sink = mgr.sink();
     let client = client.clone();
-    let handle = tokio::spawn(async move {
+    let handle = k7s_deps::tokio::spawn(async move {
         run_watcher::<K>(client, sink, kind, map_fn, post_fn).await;
     });
     mgr.push_task(handle).await;
@@ -506,7 +506,7 @@ pub async fn spawn_custom(mgr: &ClientManager, client: Client, kind: &CustomKind
     let id = kind.id.clone();
     let ar = kind.api_resource();
     let namespaced = kind.namespaced;
-    let handle = tokio::spawn(async move {
+    let handle = k7s_deps::tokio::spawn(async move {
         run_custom_watcher(client, sink, id, ar, namespaced).await;
     });
     mgr.add_custom_watcher(kind.id.clone(), handle).await;
@@ -594,7 +594,7 @@ async fn pump<K>(
     let mut dirty = false;
     let mut was_forbidden = false;
     loop {
-        tokio::select! {
+        k7s_deps::tokio::select! {
             // A watch event arrived; the store is already updated. Mark dirty so the
             // next tick emits a fresh snapshot.
             ev = stream.next() => match ev {
@@ -610,7 +610,7 @@ async fn pump<K>(
                 }
                 Some(Err(e)) => {
                     // Logged, not fatal — backoff will retry this one kind.
-                    tracing::warn!("watch {kind} error: {e}");
+                    k7s_deps::tracing::warn!("watch {kind} error: {e}");
                     let err_str = e.to_string();
                     if (err_str.contains("403") || err_str.contains("Forbidden"))
                         && !was_forbidden

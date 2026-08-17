@@ -8,13 +8,13 @@
 use super::events;
 use crate::core::events::EventSink;
 use crate::error::{AppError, AppResult};
-use chrono::{DateTime, Utc};
-use futures::{AsyncBufReadExt, StreamExt};
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, LogParams};
-use kube::Client;
+use k7s_deps::chrono::{DateTime, Utc};
+use k7s_deps::futures::{AsyncBufReadExt, StreamExt};
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::{Api, LogParams};
+use k7s_deps::kube::Client;
 use serde::Serialize;
-use tokio::time::{interval, Duration};
+use k7s_deps::tokio::time::{interval, Duration};
 
 /// Flush cadence for batched log lines.
 const FLUSH: Duration = Duration::from_millis(80);
@@ -114,7 +114,7 @@ pub fn log_params(container: &str, opts: &LogStreamOptions) -> LogParams {
             // Parse the resume time; ignore a malformed value rather than failing.
             if let Ok(dt) = DateTime::parse_from_rfc3339(ts) {
                 let dt_utc = dt.with_timezone(&Utc);
-                lp.since_time = k8s_openapi::jiff::Timestamp::new(
+                lp.since_time = k7s_deps::k8s_openapi::jiff::Timestamp::new(
                     dt_utc.timestamp(),
                     dt_utc.timestamp_subsec_nanos() as i32,
                 )
@@ -149,7 +149,7 @@ async fn stream_one(
     let mut flush = interval(FLUSH);
 
     loop {
-        tokio::select! {
+        k7s_deps::tokio::select! {
             next = lines.next() => match next {
                 Some(Ok(raw)) => {
                     let mut line = parse_log_line(&raw);
@@ -192,8 +192,8 @@ async fn stream_all(
         return Ok("no containers".to_string());
     }
 
-    let (tx, mut rx) = tokio::sync::mpsc::channel::<LogLine>(256);
-    let mut readers = tokio::task::JoinSet::new();
+    let (tx, mut rx) = k7s_deps::tokio::sync::mpsc::channel::<LogLine>(256);
+    let mut readers = k7s_deps::tokio::task::JoinSet::new();
     for container in containers {
         let api = api.clone();
         let lp = log_params(&container, &opts);
@@ -218,7 +218,7 @@ async fn stream_all(
     let mut batch: Vec<LogLine> = Vec::new();
     let mut flush = interval(FLUSH);
     loop {
-        tokio::select! {
+        k7s_deps::tokio::select! {
             got = rx.recv() => match got {
                 Some(line) => batch.push(line),
                 None => {

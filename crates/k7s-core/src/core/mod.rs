@@ -30,7 +30,7 @@ pub use events::{tauri_sink, TauriEventSink};
 pub use events::{EventSink, McpEventSink, WebEventSink};
 pub use state::CoreState;
 
-// Re-export the kube module so the public API stays "kube::client" etc. —
+// Re-export the kube module so the public API stays "k7s_deps::kube::client" etc. —
 // command handlers and web routes import it from here, the Tauri adapter still
 // re-exports it from `crate::kube` for backwards compatibility.
 pub use crate::kube;

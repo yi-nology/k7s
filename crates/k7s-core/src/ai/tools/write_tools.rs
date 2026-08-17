@@ -2,7 +2,7 @@
 
 use crate::ai::error::{AiError, AiResult};
 use crate::ai::tools::{get_arg_i64, get_arg_str, get_opt_str, impls, Tool, ToolContext};
-use async_trait::async_trait;
+use k7s_deps::async_trait::async_trait;
 
 pub struct ScaleWorkload;
 #[async_trait]
@@ -16,16 +16,16 @@ impl Tool for ScaleWorkload {
     fn is_write(&self) -> bool {
         true
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "kind":{"type":"string"},"namespace":{"type":"string"},"name":{"type":"string"},"replicas":{"type":"integer"}
         },"required":["kind","namespace","name","replicas"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let replicas = get_arg_i64(&args, "replicas")?;
         if !(0..=1000).contains(&replicas) {
             return Err(AiError::ToolArgs("replicas must be 0..=1000".to_string()));
@@ -54,16 +54,16 @@ impl Tool for RestartWorkload {
     fn is_write(&self) -> bool {
         true
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "kind":{"type":"string"},"namespace":{"type":"string"},"name":{"type":"string"}
         },"required":["kind","namespace","name"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::restart_workload_impl(
             &ctx.manager,
             &get_arg_str(&args, "kind")?,
@@ -87,16 +87,16 @@ impl Tool for DeleteResource {
     fn is_write(&self) -> bool {
         true
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "kind":{"type":"string"},"namespace":{"type":"string"},"name":{"type":"string"}
         },"required":["kind","name"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::delete_resource_impl(
             &ctx.manager,
             &get_arg_str(&args, "kind")?,
@@ -120,16 +120,16 @@ impl Tool for ApplyManifest {
     fn is_write(&self) -> bool {
         true
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "yaml":{"type":"string"},"namespace":{"type":"string"}
         },"required":["yaml"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let yaml = get_arg_str(&args, "yaml")?;
         let ns = get_opt_str(&args, "namespace").unwrap_or_default();
         impls::apply_manifest_impl(&ctx.manager, &yaml, &ns)

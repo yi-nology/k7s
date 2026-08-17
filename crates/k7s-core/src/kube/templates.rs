@@ -22,9 +22,9 @@
 
 use crate::error::{AppError, AppResult};
 use crate::kube::manager::ClientManager;
-use kube::api::{Api, DynamicObject, Patch, PatchParams};
-use kube::core::{ApiResource, GroupVersionKind};
-use kube::ResourceExt;
+use k7s_deps::kube::api::{Api, DynamicObject, Patch, PatchParams};
+use k7s_deps::kube::core::{ApiResource, GroupVersionKind};
+use k7s_deps::kube::ResourceExt;
 use serde::Serialize;
 
 #[derive(Clone, Debug, Serialize)]
@@ -42,7 +42,7 @@ pub struct ApplyResult {
 /// succeeded so the UI can show a "5 of 7 applied" status.
 pub async fn multi_apply(
     yaml: &str,
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     mgr: &ClientManager,
 ) -> AppResult<Vec<ApplyResult>> {
     let docs = split_documents(yaml);
@@ -52,7 +52,7 @@ pub async fn multi_apply(
     let mut results = Vec::with_capacity(docs.len());
     let pp = PatchParams::apply("k7s");
     for doc in docs {
-        let parsed: Result<DynamicObject, _> = serde_yaml::from_str(&doc);
+        let parsed: Result<DynamicObject, _> = k7s_deps::serde_yaml::from_str(&doc);
         let obj = match parsed {
             Ok(o) => o,
             Err(e) => {
@@ -133,7 +133,7 @@ pub struct DocDryRun {
 /// patch per doc, collecting the server-defaulted proposed YAML. Stops at the
 /// first hard error (parse/resolve), but a *rejected* dry run is recorded as a
 /// per-doc error and the loop continues so the caller sees every problem.
-pub async fn multi_dry_run(yaml: &str, client: kube::Client) -> AppResult<Vec<DocDryRun>> {
+pub async fn multi_dry_run(yaml: &str, client: k7s_deps::kube::Client) -> AppResult<Vec<DocDryRun>> {
     let docs = split_documents(yaml);
     if docs.is_empty() {
         return Err(AppError::Other("no documents in YAML bundle".into()));
@@ -144,7 +144,7 @@ pub async fn multi_dry_run(yaml: &str, client: kube::Client) -> AppResult<Vec<Do
     // single-doc dry_run_yaml, so the bundle preview matches a real apply.
     let pp = PatchParams::apply("k7s").dry_run();
     for doc in docs {
-        let parsed: Result<DynamicObject, _> = serde_yaml::from_str(&doc);
+        let parsed: Result<DynamicObject, _> = k7s_deps::serde_yaml::from_str(&doc);
         let obj = match parsed {
             Ok(o) => o,
             Err(e) => {
@@ -184,7 +184,7 @@ pub async fn multi_dry_run(yaml: &str, client: kube::Client) -> AppResult<Vec<Do
                     name,
                     kind,
                     namespace: ns,
-                    proposed: Some(serde_yaml::to_string(&proposed)?),
+                    proposed: Some(k7s_deps::serde_yaml::to_string(&proposed)?),
                     error: None,
                 });
             }
@@ -229,14 +229,14 @@ fn split_documents(yaml: &str) -> Vec<String> {
 }
 
 async fn resolve_api_resource(
-    client: &kube::Client,
+    client: &k7s_deps::kube::Client,
     gvk: &GroupVersionKind,
 ) -> AppResult<(ApiResource, bool)> {
     // We need a `Resource` mapping to learn plural + scope. The dynamic-typed
     // path in commands.rs does the same thing; we duplicate the call here
     // because the resource resolution needs to happen per-doc and we don't
     // want to entangle this with the kind table the watcher already uses.
-    use kube::discovery::{Discovery, Scope};
+    use k7s_deps::kube::discovery::{Discovery, Scope};
     let apigroups = Discovery::new(client.clone()).run().await?;
     for group in apigroups.groups() {
         if group.name() != gvk.group {

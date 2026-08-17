@@ -4,7 +4,7 @@ use crate::ai::error::{AiError, AiResult};
 use crate::ai::tools::{
     get_arg_str, get_opt_bool, get_opt_i64, get_opt_str, impls, ok_value, Tool, ToolContext,
 };
-use async_trait::async_trait;
+use k7s_deps::async_trait::async_trait;
 
 pub struct ListResources;
 #[async_trait]
@@ -15,16 +15,16 @@ impl Tool for ListResources {
     fn description(&self) -> &str {
         "List Kubernetes resources of a given kind. Returns [{name, namespace, kind}]."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "kind":{"type":"string"},"namespace":{"type":"string"},"label_selector":{"type":"string"}
         },"required":["kind"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let kind = get_arg_str(&args, "kind")?;
         let ns = get_opt_str(&args, "namespace").unwrap_or_default();
         let label = get_opt_str(&args, "label_selector");
@@ -43,16 +43,16 @@ impl Tool for DescribeResource {
     fn description(&self) -> &str {
         "Get structured JSON description of one resource."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "kind":{"type":"string"},"namespace":{"type":"string"},"name":{"type":"string"}
         },"required":["kind","name"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::describe_resource_impl(
             &ctx.manager,
             &get_arg_str(&args, "kind")?,
@@ -73,16 +73,16 @@ impl Tool for GetResourceYaml {
     fn description(&self) -> &str {
         "Get the full YAML manifest of one resource."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "kind":{"type":"string"},"namespace":{"type":"string"},"name":{"type":"string"}
         },"required":["kind","name"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let yaml = impls::get_resource_yaml_impl(
             &ctx.manager,
             &get_arg_str(&args, "kind")?,
@@ -91,7 +91,7 @@ impl Tool for GetResourceYaml {
         )
         .await
         .map_err(|e| AiError::Tool(e.to_string()))?;
-        ok_value(&serde_json::json!({"yaml": yaml}))
+        ok_value(&k7s_deps::serde_json::json!({"yaml": yaml}))
     }
 }
 
@@ -104,16 +104,16 @@ impl Tool for GetEvents {
     fn description(&self) -> &str {
         "Read Kubernetes events for a specific resource."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "kind":{"type":"string"},"namespace":{"type":"string"},"name":{"type":"string"}
         },"required":["kind","name"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::get_events_impl(
             &ctx.manager,
             &get_arg_str(&args, "kind")?,
@@ -134,8 +134,8 @@ impl Tool for GetPodLogs {
     fn description(&self) -> &str {
         "Fetch pod logs. Set previous:true for CrashLoopBackOff."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "namespace":{"type":"string"},"pod":{"type":"string"},
             "container":{"type":"string"},"tail":{"type":"integer"},"previous":{"type":"boolean"}
         },"required":["namespace","pod"]})
@@ -143,8 +143,8 @@ impl Tool for GetPodLogs {
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::get_pod_logs_impl(
             &ctx.manager,
             &get_arg_str(&args, "namespace")?,
@@ -167,14 +167,14 @@ impl Tool for GetClusterHealth {
     fn description(&self) -> &str {
         "Get an at-a-glance cluster health snapshot."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{}})
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{}})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        _args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        _args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::get_cluster_health_impl(&ctx.manager)
             .await
             .map_err(|e| AiError::Tool(e.to_string()))
@@ -191,14 +191,14 @@ impl Tool for TopNodes {
         "Get per-node CPU and memory usage plus allocatable capacity from metrics.k8s.io. \
          Returns usage, capacity, and percentage for each node sorted by CPU usage."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{}})
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{}})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        _args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        _args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::top_nodes_impl(&ctx.manager)
             .await
             .map_err(|e| AiError::Tool(e.to_string()))
@@ -215,8 +215,8 @@ impl Tool for TopPods {
         "Get CPU and memory usage for all pods, sorted by CPU consumption. \
          Use this to identify which pods are the heaviest resource consumers."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({
             "type": "object",
             "properties": {
                 "namespace": {"type": "string", "description": "Filter by namespace (optional)"}
@@ -227,8 +227,8 @@ impl Tool for TopPods {
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let ns = args
             .get("namespace")
             .and_then(|v| v.as_str())
@@ -251,14 +251,14 @@ impl Tool for CapacityReport {
          and scaling recommendations. Use this when the user asks about cluster capacity, \
          resource planning, or whether the cluster needs more nodes."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{}})
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{}})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        _args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        _args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::capacity_report_impl(&ctx.manager)
             .await
             .map_err(|e| AiError::Tool(e.to_string()))
@@ -275,8 +275,8 @@ impl Tool for BatchGet {
     fn description(&self) -> &str {
         "Batch-get multiple resources at once."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "requests":{"type":"array","items":{"type":"object","properties":{
                 "kind":{"type":"string"},"namespace":{"type":"string"},"name":{"type":"string"}
             },"required":["kind","name"]}}
@@ -285,8 +285,8 @@ impl Tool for BatchGet {
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let reqs = args
             .get("requests")
             .and_then(|v| v.as_array())
@@ -306,8 +306,8 @@ impl Tool for DiffResources {
     fn description(&self) -> &str {
         "Compare two resources or two versions of the same resource."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "kind":{"type":"string"},
             "namespace_a":{"type":"string"},"name_a":{"type":"string"},
             "namespace_b":{"type":"string"},"name_b":{"type":"string"}
@@ -316,8 +316,8 @@ impl Tool for DiffResources {
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::diff_resources_impl(
             &ctx.manager,
             &get_arg_str(&args, "kind")?,
@@ -340,14 +340,14 @@ impl Tool for HpaStatus {
     fn description(&self) -> &str {
         "Get HPA status for a namespace."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{"namespace":{"type":"string"}},"required":["namespace"]})
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{"namespace":{"type":"string"}},"required":["namespace"]})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::hpa_status_impl(&ctx.manager, &get_arg_str(&args, "namespace")?)
             .await
             .map_err(|e| AiError::Tool(e.to_string()))
@@ -367,14 +367,14 @@ impl Tool for SecurityAudit {
          pod exec capabilities, anonymous bindings, and other security risks. \
          Use this when the user asks about cluster security, RBAC risks, or wants a security report."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{}})
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{}})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        _args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        _args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::security_audit_impl(&ctx.manager)
             .await
             .map_err(|e| AiError::Tool(e.to_string()))
@@ -394,14 +394,14 @@ impl Tool for RbacPermissionMatrix {
          Use this when the user asks 'who can do what', wants to see RBAC permissions, \
          or needs a cross-tabulation of subjects vs actions."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{}})
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{}})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        _args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        _args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::rbac_permission_matrix_impl(&ctx.manager)
             .await
             .map_err(|e| AiError::Tool(e.to_string()))
@@ -420,8 +420,8 @@ impl Tool for SpawnSubAgent {
          runs independently and its result is returned when complete. Use for \
          parallel diagnosis of multiple resources or independent sub-tasks."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type":"object","properties":{
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type":"object","properties":{
             "task":{"type":"string","description":"The sub-task for the sub-agent to execute."},
             "agent_name":{"type":"string","description":"A name for this sub-agent (e.g. 'pod-analyzer')."}
         },"required":["task","agent_name"]})
@@ -429,15 +429,15 @@ impl Tool for SpawnSubAgent {
     async fn call(
         &self,
         ctx: &ToolContext,
-        args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         let task = get_arg_str(&args, "task")?;
         let agent_name = get_arg_str(&args, "agent_name")?;
         // Execute the sub-task by running the most relevant tools based on
         // keywords in the task description. This is a "smart dispatch" —
         // not a full LLM agent, but produces real results.
         let lower = task.to_lowercase();
-        let mut results = serde_json::json!({});
+        let mut results = k7s_deps::serde_json::json!({});
 
         // Always start with cluster health.
         if let Ok(health) = impls::get_cluster_health_impl(&ctx.manager).await {
@@ -464,7 +464,7 @@ impl Tool for SpawnSubAgent {
             }
         }
 
-        Ok(serde_json::json!({
+        Ok(k7s_deps::serde_json::json!({
             "agent": agent_name,
             "task": task,
             "status": "completed",
@@ -486,14 +486,14 @@ impl Tool for KubectlGenerator {
          the current context name, server version, all namespaces, and common command templates \
          that you can customize for the user's specific request."
     }
-    fn parameters_schema(&self) -> serde_json::Value {
-        serde_json::json!({"type": "object", "properties": {}, "required": []})
+    fn parameters_schema(&self) -> k7s_deps::serde_json::Value {
+        k7s_deps::serde_json::json!({"type": "object", "properties": {}, "required": []})
     }
     async fn call(
         &self,
         ctx: &ToolContext,
-        _args: serde_json::Value,
-    ) -> AiResult<serde_json::Value> {
+        _args: k7s_deps::serde_json::Value,
+    ) -> AiResult<k7s_deps::serde_json::Value> {
         impls::kubectl_context_impl(&ctx.manager)
             .await
             .map_err(|e| AiError::Tool(e.to_string()))

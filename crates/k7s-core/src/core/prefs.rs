@@ -63,7 +63,7 @@ pub fn read_prefs(data_dir: &Path) -> Prefs {
     let path = prefs_path(data_dir);
     std::fs::read_to_string(&path)
         .ok()
-        .and_then(|t| serde_json::from_str(&t).ok())
+        .and_then(|t| k7s_deps::serde_json::from_str(&t).ok())
         .unwrap_or_default()
 }
 
@@ -79,7 +79,7 @@ pub fn save_prefs(data_dir: &Path, prefs: &Prefs) -> AppResult<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| AppError::Other(e.to_string()))?;
     }
-    let text = serde_json::to_string_pretty(prefs).map_err(|e| AppError::Other(e.to_string()))?;
+    let text = k7s_deps::serde_json::to_string_pretty(prefs).map_err(|e| AppError::Other(e.to_string()))?;
     std::fs::write(&path, text).map_err(|e| AppError::Other(e.to_string()))?;
     Ok(())
 }
@@ -87,7 +87,7 @@ pub fn save_prefs(data_dir: &Path, prefs: &Prefs) -> AppResult<()> {
 /// Load persisted preferences as raw JSON, or None if absent/unreadable.
 pub fn load_prefs_json(data_dir: &Path) -> Option<Prefs> {
     let text = std::fs::read_to_string(prefs_path(data_dir)).ok()?;
-    serde_json::from_str(&text).ok()
+    k7s_deps::serde_json::from_str(&text).ok()
 }
 
 /// Poll intervals from prefs, clamped to the same bounds the settings panel

@@ -5,8 +5,8 @@
 //! to their referenced roles' PolicyRules.
 
 use crate::error::AppResult;
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -70,8 +70,8 @@ const STANDARD_VERBS: &[&str] = &[
 /// Build the RBAC permission matrix.
 pub async fn build_rbac_matrix(client: Client) -> AppResult<PermissionMatrix> {
     // 1. Fetch all RBAC resources, tolerating permission errors gracefully.
-    let roles: Vec<k8s_openapi::api::rbac::v1::Role> =
-        match Api::<k8s_openapi::api::rbac::v1::Role>::all(client.clone())
+    let roles: Vec<k7s_deps::k8s_openapi::api::rbac::v1::Role> =
+        match Api::<k7s_deps::k8s_openapi::api::rbac::v1::Role>::all(client.clone())
             .list(&ListParams::default())
             .await
         {
@@ -79,8 +79,8 @@ pub async fn build_rbac_matrix(client: Client) -> AppResult<PermissionMatrix> {
             Err(_) => Vec::new(),
         };
 
-    let cluster_roles: Vec<k8s_openapi::api::rbac::v1::ClusterRole> =
-        match Api::<k8s_openapi::api::rbac::v1::ClusterRole>::all(client.clone())
+    let cluster_roles: Vec<k7s_deps::k8s_openapi::api::rbac::v1::ClusterRole> =
+        match Api::<k7s_deps::k8s_openapi::api::rbac::v1::ClusterRole>::all(client.clone())
             .list(&ListParams::default())
             .await
         {
@@ -88,8 +88,8 @@ pub async fn build_rbac_matrix(client: Client) -> AppResult<PermissionMatrix> {
             Err(_) => Vec::new(),
         };
 
-    let role_bindings: Vec<k8s_openapi::api::rbac::v1::RoleBinding> =
-        match Api::<k8s_openapi::api::rbac::v1::RoleBinding>::all(client.clone())
+    let role_bindings: Vec<k7s_deps::k8s_openapi::api::rbac::v1::RoleBinding> =
+        match Api::<k7s_deps::k8s_openapi::api::rbac::v1::RoleBinding>::all(client.clone())
             .list(&ListParams::default())
             .await
         {
@@ -97,8 +97,8 @@ pub async fn build_rbac_matrix(client: Client) -> AppResult<PermissionMatrix> {
             Err(_) => Vec::new(),
         };
 
-    let cluster_role_bindings: Vec<k8s_openapi::api::rbac::v1::ClusterRoleBinding> =
-        match Api::<k8s_openapi::api::rbac::v1::ClusterRoleBinding>::all(client)
+    let cluster_role_bindings: Vec<k7s_deps::k8s_openapi::api::rbac::v1::ClusterRoleBinding> =
+        match Api::<k7s_deps::k8s_openapi::api::rbac::v1::ClusterRoleBinding>::all(client)
             .list(&ListParams::default())
             .await
         {
@@ -107,7 +107,7 @@ pub async fn build_rbac_matrix(client: Client) -> AppResult<PermissionMatrix> {
         };
 
     // 2. Build role lookup: name -> rules
-    let mut role_rules: BTreeMap<String, Vec<k8s_openapi::api::rbac::v1::PolicyRule>> =
+    let mut role_rules: BTreeMap<String, Vec<k7s_deps::k8s_openapi::api::rbac::v1::PolicyRule>> =
         BTreeMap::new();
     for r in &roles {
         let name = r.metadata.name.clone().unwrap_or_default();
@@ -221,7 +221,7 @@ pub async fn build_rbac_matrix(client: Client) -> AppResult<PermissionMatrix> {
 
 /// Expand a role's PolicyRules into (subject, action, source) tuples.
 fn expand_rules(
-    rules: &[k8s_openapi::api::rbac::v1::PolicyRule],
+    rules: &[k7s_deps::k8s_openapi::api::rbac::v1::PolicyRule],
     subject: &MatrixSubject,
     source: &GrantSource,
     actions_set: &mut BTreeSet<ActionKey>,
@@ -306,7 +306,7 @@ mod tests {
 
     #[test]
     fn expand_rules_basic() {
-        let rule = k8s_openapi::api::rbac::v1::PolicyRule {
+        let rule = k7s_deps::k8s_openapi::api::rbac::v1::PolicyRule {
             verbs: vec!["get".into(), "list".into()],
             resources: Some(vec!["pods".into()]),
             api_groups: Some(vec!["".into()]),
@@ -339,7 +339,7 @@ mod tests {
 
     #[test]
     fn expand_rules_wildcard_verbs() {
-        let rule = k8s_openapi::api::rbac::v1::PolicyRule {
+        let rule = k7s_deps::k8s_openapi::api::rbac::v1::PolicyRule {
             verbs: vec!["*".into()],
             resources: Some(vec!["pods".into()]),
             api_groups: Some(vec!["".into()]),
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn expand_rules_wildcard_resources() {
-        let rule = k8s_openapi::api::rbac::v1::PolicyRule {
+        let rule = k7s_deps::k8s_openapi::api::rbac::v1::PolicyRule {
             verbs: vec!["get".into()],
             resources: Some(vec!["*".into()]),
             api_groups: Some(vec!["".into()]),

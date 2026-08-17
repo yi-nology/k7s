@@ -15,7 +15,7 @@
 //! are compiled in as built-in defaults (the `builtin/` directory). The
 //! [`SkillRegistry`] merges both sources at load time.
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// A single skill definition.
@@ -69,7 +69,7 @@ impl SkillRegistry {
                         let path = entry.path();
                         if path.extension().and_then(|e| e.to_str()) == Some("json") {
                             if let Ok(text) = std::fs::read_to_string(&path) {
-                                if let Ok(skill) = serde_json::from_str::<Skill>(&text) {
+                                if let Ok(skill) = k7s_deps::serde_json::from_str::<Skill>(&text) {
                                     by_id.insert(skill.id.clone(), skill);
                                 }
                             }

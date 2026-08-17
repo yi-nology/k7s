@@ -17,7 +17,7 @@
 //! - **Prompt adapter** (`prompt.rs` equivalent): injects learned strategies
 //!   into the system prompt so the LLM benefits from past experience.
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// A learned strategy — what worked (or didn't) for a specific type of problem.
@@ -108,13 +108,13 @@ impl EvolutionStore {
                 } else {
                     strategy.failure_count += 1;
                 }
-                strategy.last_observed = chrono::Utc::now().to_rfc3339();
+                strategy.last_observed = k7s_deps::chrono::Utc::now().to_rfc3339();
                 strategy.confidence =
                     compute_confidence(strategy.success_count, strategy.failure_count);
             } else if run.success && run.tools_called.len() >= 2 {
                 // Only store strategies for successful multi-tool runs.
                 self.strategies.push(Strategy {
-                    id: uuid::Uuid::new_v4().to_string(),
+                    id: k7s_deps::uuid::Uuid::new_v4().to_string(),
                     problem_pattern: pattern,
                     solution_pattern: format!(
                         "Used tools [{}] to solve the problem",
@@ -124,7 +124,7 @@ impl EvolutionStore {
                     success_count: 1,
                     failure_count: 0,
                     confidence: 0.6,
-                    last_observed: chrono::Utc::now().to_rfc3339(),
+                    last_observed: k7s_deps::chrono::Utc::now().to_rfc3339(),
                     tags: extract_tags(&run.user_message),
                 });
             }

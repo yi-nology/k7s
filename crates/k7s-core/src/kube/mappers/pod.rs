@@ -3,8 +3,8 @@
 use super::*;
 use crate::kube::dto::{PodMeta, PodResources};
 use crate::kube::metrics::{parse_cpu_millis, parse_mem_bytes};
-use k8s_openapi::api::core::v1::Pod;
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::ResourceExt;
 
 /// Pods: NAME, NAMESPACE, READY, RESTARTS, CPU, MEM, AGE, STATUS.
 pub fn map_pod(pod: &Pod) -> Row {
@@ -186,12 +186,12 @@ fn pod_resources(pod: &Pod) -> PodResources {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
     /// A healthy Running pod: status Good with a dot, ready/restarts Secondary.
     #[test]
     fn healthy_running_pod() {
-        let pod: Pod = serde_json::from_value(json!({
+        let pod: Pod = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "ok-pod", "namespace": "prod", "uid": "u1",
                           "creationTimestamp": "2026-07-01T00:00:00Z" },
             "spec": { "nodeName": "n1", "containers": [{ "name": "app" }, { "name": "side" }] },
@@ -216,7 +216,7 @@ mod tests {
     /// CrashLoopBackOff: status Bad, degraded ready Warn, high restarts Bad.
     #[test]
     fn crashloop_pod() {
-        let pod: Pod = serde_json::from_value(json!({
+        let pod: Pod = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "crash", "namespace": "prod", "uid": "u2",
                           "creationTimestamp": "2026-07-15T09:00:00Z" },
             "spec": { "nodeName": "n2", "containers": [{ "name": "auth" }, { "name": "side" }] },
@@ -238,7 +238,7 @@ mod tests {
     /// Pending pod: status Warn, CPU/MEM em-dash placeholders.
     #[test]
     fn pending_pod() {
-        let pod: Pod = serde_json::from_value(json!({
+        let pod: Pod = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "canary", "namespace": "staging", "uid": "u3",
                           "creationTimestamp": "2026-07-15T11:59:00Z" },
             "spec": { "containers": [{ "name": "a" }, { "name": "b" }, { "name": "c" }] },
@@ -257,7 +257,7 @@ mod tests {
     /// lines up with the (likewise summed) usage feed.
     #[test]
     fn pod_resources_sum_across_containers() {
-        let pod: Pod = serde_json::from_value(json!({
+        let pod: Pod = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "two", "namespace": "prod", "uid": "r1" },
             "spec": { "containers": [
                 { "name": "app", "resources": {
@@ -280,7 +280,7 @@ mod tests {
     /// None (no ceiling line), while the request total still sums what's set.
     #[test]
     fn pod_resources_uncapped_container_has_no_limit() {
-        let pod: Pod = serde_json::from_value(json!({
+        let pod: Pod = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "mixed", "namespace": "prod", "uid": "r2" },
             "spec": { "containers": [
                 { "name": "app", "resources": {
@@ -304,7 +304,7 @@ mod tests {
     /// overlay draws nothing instead of a misleading line at zero.
     #[test]
     fn pod_resources_absent_are_none() {
-        let pod: Pod = serde_json::from_value(json!({
+        let pod: Pod = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "bare", "namespace": "prod", "uid": "r3" },
             "spec": { "containers": [{ "name": "app" }] }
         }))
@@ -319,7 +319,7 @@ mod tests {
     /// A pod carries its labels so the selector filter can match it (B33).
     #[test]
     fn pod_carries_labels() {
-        let pod: Pod = serde_json::from_value(json!({
+        let pod: Pod = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "wiki-x", "namespace": "wiki", "uid": "p2",
                           "labels": { "app": "wiki" } },
             "spec": { "containers": [{ "name": "app" }] },
@@ -342,7 +342,7 @@ mod tests {
             phase in "(Running|Pending|Failed|Succeeded|Unknown)",
             restarts in 0i32..1000,
         ) {
-            let pod_json = serde_json::json!({
+            let pod_json = k7s_deps::serde_json::json!({
                 "apiVersion": "v1",
                 "kind": "Pod",
                 "metadata": {
@@ -359,16 +359,16 @@ mod tests {
                         "ready": phase == "Running",
                         "restartCount": restarts,
                         "state": if phase == "Running" {
-                            serde_json::json!({"running": {}})
+                            k7s_deps::serde_json::json!({"running": {}})
                         } else if phase == "Pending" {
-                            serde_json::json!({"waiting": {"reason": "ContainerCreating"}})
+                            k7s_deps::serde_json::json!({"waiting": {"reason": "ContainerCreating"}})
                         } else {
-                            serde_json::json!({"terminated": {"exitCode": 1, "reason": "Error"}})
+                            k7s_deps::serde_json::json!({"terminated": {"exitCode": 1, "reason": "Error"}})
                         }
                     }]
                 }
             });
-            let pod: Pod = serde_json::from_value(pod_json).unwrap();
+            let pod: Pod = k7s_deps::serde_json::from_value(pod_json).unwrap();
             let row = map_pod(&pod);
 
             // Universal invariants

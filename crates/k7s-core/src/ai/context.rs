@@ -9,7 +9,7 @@
 
 use crate::ai::error::{AiError, AiResult};
 use crate::core::shell_common;
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 
 /// The "what am I looking at" context the UI can attach to a chat message.
 /// All fields optional — the user might just type a question with nothing
@@ -63,13 +63,13 @@ resource they mean."
 pub async fn selected_resource_context(
     manager: &crate::kube::manager::ClientManager,
     sel: &SelectedContext,
-) -> Option<serde_json::Value> {
+) -> Option<k7s_deps::serde_json::Value> {
     let (kind, ns, name) = (
         sel.kind.as_deref()?,
         sel.namespace.as_deref().unwrap_or(""),
         sel.name.as_deref()?,
     );
-    let result: AiResult<serde_json::Value> = async {
+    let result: AiResult<k7s_deps::serde_json::Value> = async {
         let client = manager
             .client()
             .await
@@ -82,11 +82,11 @@ pub async fn selected_resource_context(
             .await
             .map_err(|e| AiError::Tool(e.to_string()))?;
         obj.metadata.managed_fields = None;
-        serde_json::to_value(&obj).map_err(|e| AiError::Tool(e.to_string()))
+        k7s_deps::serde_json::to_value(&obj).map_err(|e| AiError::Tool(e.to_string()))
     }
     .await;
     match result {
-        Ok(v) => Some(serde_json::json!({
+        Ok(v) => Some(k7s_deps::serde_json::json!({
             "selectedResource": { "kind": kind, "namespace": ns, "name": name },
             "describe": v,
         })),

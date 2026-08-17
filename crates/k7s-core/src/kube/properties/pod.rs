@@ -2,11 +2,11 @@
 
 use super::*;
 use crate::error::AppResult;
-use k8s_openapi::api::core::v1::{
+use k7s_deps::k8s_openapi::api::core::v1::{
     ConfigMap, PersistentVolume, PersistentVolumeClaim, Pod, Secret, Service,
 };
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 
 pub async fn gather_pod(client: Client, namespace: &str, name: &str) -> AppResult<Properties> {
     let pods: Api<Pod> = Api::namespaced(client.clone(), namespace);
@@ -310,7 +310,7 @@ fn mount_text(v: &VolumeInfo) -> String {
 async fn gather_volumes(
     client: &Client,
     namespace: &str,
-    spec: &k8s_openapi::api::core::v1::PodSpec,
+    spec: &k7s_deps::k8s_openapi::api::core::v1::PodSpec,
 ) -> Vec<VolumeInfo> {
     let pvcs: Api<PersistentVolumeClaim> = Api::namespaced(client.clone(), namespace);
     let pvs: Api<PersistentVolume> = Api::all(client.clone());
@@ -443,7 +443,7 @@ async fn gather_volumes(
 /// (a host directory, an NFS server, a CSI driver) aren't cluster objects, so they
 /// are shown as plain text with no nav target.
 pub(super) fn volume_source(
-    v: &k8s_openapi::api::core::v1::Volume,
+    v: &k7s_deps::k8s_openapi::api::core::v1::Volume,
     namespace: &str,
 ) -> (String, Option<NavTarget>) {
     if let Some(name) = v
@@ -482,7 +482,7 @@ pub(super) fn volume_source(
 }
 
 /// Classify a volume by its source.
-fn volume_kind(v: &k8s_openapi::api::core::v1::Volume) -> &'static str {
+fn volume_kind(v: &k7s_deps::k8s_openapi::api::core::v1::Volume) -> &'static str {
     if v.persistent_volume_claim.is_some() {
         "PVC"
     } else if v.config_map.is_some() {
@@ -550,7 +550,7 @@ async fn gather_services(
 }
 
 /// "8080/TCP, 443/TCP" for a service spec.
-fn service_ports_text(spec: &k8s_openapi::api::core::v1::ServiceSpec) -> String {
+fn service_ports_text(spec: &k7s_deps::k8s_openapi::api::core::v1::ServiceSpec) -> String {
     spec.ports
         .as_ref()
         .map(|ps| {

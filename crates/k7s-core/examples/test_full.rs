@@ -7,13 +7,13 @@ use k7s_core::core::shell_common;
 use k7s_core::core::CoreState;
 use k7s_core::kube::manager::ClientManager;
 use k7s_core::kube::ResourceKind;
-use kube::api::{Api, DynamicObject, ListParams};
-use kube::ResourceExt;
+use k7s_deps::kube::api::{Api, DynamicObject, ListParams};
+use k7s_deps::kube::ResourceExt;
 use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
+    k7s_deps::tracing_subscriber::fmt()
         .with_env_filter("info")
         .init();
 

@@ -8,9 +8,9 @@
 //! Tasks are persisted as JSON under `<data_dir>/ai-cron.json`. The scheduler
 //! runs as a background tokio task managed by [`CronScheduler`].
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use k7s_deps::tokio::sync::Mutex;
 
 /// A scheduled AI task.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -172,7 +172,7 @@ impl CronScheduler {
     /// cron parser. For now, we check if enough time has elapsed since last_run.
     pub async fn due_tasks(&self) -> Vec<CronTask> {
         let state = self.state.lock().await;
-        let now = chrono::Utc::now();
+        let now = k7s_deps::chrono::Utc::now();
         state
             .tasks
             .iter()
@@ -182,11 +182,11 @@ impl CronScheduler {
                 match &t.last_run {
                     None => true, // never run
                     Some(last) => {
-                        chrono::DateTime::parse_from_rfc3339(last)
+                        k7s_deps::chrono::DateTime::parse_from_rfc3339(last)
                             .map(|dt| {
-                                let elapsed = now - dt.with_timezone(&chrono::Utc);
+                                let elapsed = now - dt.with_timezone(&k7s_deps::chrono::Utc);
                                 // Default: run if more than 1 hour has elapsed.
-                                elapsed > chrono::Duration::hours(1)
+                                elapsed > k7s_deps::chrono::Duration::hours(1)
                             })
                             .unwrap_or(true)
                     }

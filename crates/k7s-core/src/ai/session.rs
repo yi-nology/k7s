@@ -8,11 +8,11 @@
 //! messages arrive (e.g., from IM channels), they're queued and processed
 //! serially to prevent race conditions.
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use k7s_deps::tokio::sync::Mutex;
 
 /// A persistent conversation session.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -55,7 +55,7 @@ pub struct QueuedMessage {
     pub session_id: String,
     pub message: String,
     pub source: String,
-    pub enqueued_at: chrono::DateTime<chrono::Utc>,
+    pub enqueued_at: k7s_deps::chrono::DateTime<k7s_deps::chrono::Utc>,
 }
 
 impl SessionManager {
@@ -83,10 +83,10 @@ impl SessionManager {
 
     pub async fn create(&self, name: &str, kube_context: Option<String>) -> Session {
         let session = Session {
-            id: uuid::Uuid::new_v4().to_string(),
+            id: k7s_deps::uuid::Uuid::new_v4().to_string(),
             name: name.to_string(),
-            created_at: chrono::Utc::now().to_rfc3339(),
-            updated_at: chrono::Utc::now().to_rfc3339(),
+            created_at: k7s_deps::chrono::Utc::now().to_rfc3339(),
+            updated_at: k7s_deps::chrono::Utc::now().to_rfc3339(),
             history: Vec::new(),
             active_skill_id: None,
             kube_context,
@@ -104,9 +104,9 @@ impl SessionManager {
             session.history.push(SessionMessage {
                 role: role.to_string(),
                 content: content.to_string(),
-                timestamp: chrono::Utc::now().to_rfc3339(),
+                timestamp: k7s_deps::chrono::Utc::now().to_rfc3339(),
             });
-            session.updated_at = chrono::Utc::now().to_rfc3339();
+            session.updated_at = k7s_deps::chrono::Utc::now().to_rfc3339();
             save_sessions(&self.data_dir, &sessions);
         }
     }
@@ -131,7 +131,7 @@ impl SessionManager {
             session_id: session_id.to_string(),
             message: message.to_string(),
             source: source.to_string(),
-            enqueued_at: chrono::Utc::now(),
+            enqueued_at: k7s_deps::chrono::Utc::now(),
         });
     }
 

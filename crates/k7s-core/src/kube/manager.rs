@@ -7,11 +7,11 @@ use super::config_snapshots::SnapshotStore;
 use super::discovery::CustomKind;
 use super::events;
 use crate::core::events::EventSink;
-use kube::Client;
+use k7s_deps::kube::Client;
 use serde::Serialize;
 use std::collections::HashMap;
-use tokio::sync::{mpsc, RwLock};
-use tokio::task::JoinHandle;
+use k7s_deps::tokio::sync::{mpsc, RwLock};
+use k7s_deps::tokio::task::JoinHandle;
 
 /// A running interactive shell session (B4): its pump task and the channels used
 /// to feed it stdin and terminal-resize events.
@@ -112,7 +112,7 @@ pub struct ImportedContext {
     pub cluster: String,
     /// Parsed kubeconfig. `Some` in the web shell, `None` in the Tauri
     /// shell (which re-reads from `path` on every connect).
-    pub kubeconfig: Option<kube::config::Kubeconfig>,
+    pub kubeconfig: Option<k7s_deps::kube::config::Kubeconfig>,
 }
 
 /// Owns the client + all connection-scoped tasks. Stored in Tauri managed state
@@ -163,7 +163,7 @@ impl ClientManager {
     /// through the web shell (which can't read the file again later). The
     /// Tauri shell always returns `None` here — it has the real file on
     /// disk and re-reads it through `import_path` + `build_client_from_file`.
-    pub async fn import_kubeconfig(&self, context: &str) -> Option<kube::config::Kubeconfig> {
+    pub async fn import_kubeconfig(&self, context: &str) -> Option<k7s_deps::kube::config::Kubeconfig> {
         self.imports
             .read()
             .await

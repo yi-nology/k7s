@@ -27,8 +27,8 @@ use crate::error::{AppError, AppResult};
 use crate::kube::{imageexport, imagerepo};
 use serde::Serialize;
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::Command;
+use k7s_deps::tokio::io::{AsyncBufReadExt, BufReader};
+use k7s_deps::tokio::process::Command;
 
 /// Tauri event name carrying one stdout/stderr line from a running skopeo call.
 pub const IMAGE_SYNC_LOG_EVENT: &str = "image-sync-log";
@@ -179,14 +179,14 @@ pub(crate) fn write_skopeo_authfile(
     host: &str,
     creds: AuthCreds,
 ) -> AppResult<Option<std::path::PathBuf>> {
-    use base64::Engine;
+    use k7s_deps::base64::Engine;
     use std::io::Write;
 
     let Some((user, pass)) = creds.user_pass() else {
         return Ok(None);
     };
 
-    let auth = base64::engine::general_purpose::STANDARD.encode(format!("{user}:{pass}"));
+    let auth = k7s_deps::base64::engine::general_purpose::STANDARD.encode(format!("{user}:{pass}"));
     let body = format!(r#"{{"auths":{{"{host}":{{"auth":"{auth}"}}}}}}"#);
 
     // A unique temp file per call so concurrent copies don't clobber each
@@ -221,7 +221,7 @@ pub(crate) fn cleanup_authfile(path: Option<&std::path::PathBuf>) -> std::io::Re
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(e) => {
-                tracing::warn!("failed to remove skopeo authfile {}: {e}", p.display());
+                k7s_deps::tracing::warn!("failed to remove skopeo authfile {}: {e}", p.display());
                 Err(e)
             }
         }
@@ -404,7 +404,7 @@ pub async fn copy_image(
     let line_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let sink_out = sink.clone();
     let count_out = line_count.clone();
-    let out_task = tokio::spawn(async move {
+    let out_task = k7s_deps::tokio::spawn(async move {
         let mut reader = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_out.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -419,7 +419,7 @@ pub async fn copy_image(
     });
     let sink_err = sink.clone();
     let count_err = line_count.clone();
-    let err_task = tokio::spawn(async move {
+    let err_task = k7s_deps::tokio::spawn(async move {
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_err.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -438,7 +438,7 @@ pub async fn copy_image(
         .await
         .map_err(|e| AppError::Other(format!("wait skopeo: {e}")))?;
     // Drain both pumps before we read the count / build the summary.
-    let _ = tokio::join!(out_task, err_task);
+    let _ = k7s_deps::tokio::join!(out_task, err_task);
 
     let success = status.success();
     let lines = line_count.load(std::sync::atomic::Ordering::Relaxed);
@@ -593,7 +593,7 @@ pub async fn export_from_registry(
     let line_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let sink_out = sink.clone();
     let count_out = line_count.clone();
-    let out_task = tokio::spawn(async move {
+    let out_task = k7s_deps::tokio::spawn(async move {
         let mut reader = BufReader::new(stdout).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_out.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -608,7 +608,7 @@ pub async fn export_from_registry(
     });
     let sink_err = sink.clone();
     let count_err = line_count.clone();
-    let err_task = tokio::spawn(async move {
+    let err_task = k7s_deps::tokio::spawn(async move {
         let mut reader = BufReader::new(stderr).lines();
         while let Ok(Some(line)) = reader.next_line().await {
             count_err.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -626,7 +626,7 @@ pub async fn export_from_registry(
         .wait()
         .await
         .map_err(|e| AppError::Other(format!("wait skopeo: {e}")))?;
-    let _ = tokio::join!(out_task, err_task);
+    let _ = k7s_deps::tokio::join!(out_task, err_task);
 
     let success = status.success();
     let lines = line_count.load(std::sync::atomic::Ordering::Relaxed);
@@ -983,7 +983,7 @@ mod tests {
 
     #[test]
     fn write_skopeo_authfile_writes_valid_docker_format() {
-        use base64::Engine;
+        use k7s_deps::base64::Engine;
         let path = write_skopeo_authfile(
             "harbor.local",
             AuthCreds::Split {
@@ -999,7 +999,7 @@ mod tests {
 
         // The auth value must be base64("admin:s3cret"), and the structure must
         // be a valid Docker auth file skopeo can consume via --authfile.
-        let expected_auth = base64::engine::general_purpose::STANDARD.encode("admin:s3cret");
+        let expected_auth = k7s_deps::base64::engine::general_purpose::STANDARD.encode("admin:s3cret");
         assert!(
             body.contains(r#""harbor.local""#),
             "body missing host: {body}"
@@ -1008,7 +1008,7 @@ mod tests {
             body.contains(&expected_auth),
             "body missing base64 auth: {body}"
         );
-        let parsed: serde_json::Value = serde_json::from_str(&body).unwrap();
+        let parsed: k7s_deps::serde_json::Value = k7s_deps::serde_json::from_str(&body).unwrap();
         assert_eq!(
             parsed["auths"]["harbor.local"]["auth"].as_str(),
             Some(expected_auth.as_str())

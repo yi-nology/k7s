@@ -11,7 +11,7 @@
 //! They're mounted on the existing web server (`k7s-web`) when the AI module
 //! is enabled.
 
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 
 /// A webhook request payload.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -63,7 +63,7 @@ pub struct ClusterEvent {
     pub severity: String,
     /// Raw event data (JSON).
     #[serde(default)]
-    pub data: Option<serde_json::Value>,
+    pub data: Option<k7s_deps::serde_json::Value>,
     /// Timestamp (ISO 8601).
     #[serde(default)]
     pub timestamp: Option<String>,

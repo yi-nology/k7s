@@ -17,7 +17,7 @@
 
 use crate::error::{AppError, AppResult};
 use crate::kube::metrics_config;
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::RwLock;
@@ -64,13 +64,13 @@ fn load_file() -> AppResult<SavedQueriesFile> {
     if text.trim().is_empty() {
         return Ok(SavedQueriesFile::default());
     }
-    serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
+    k7s_deps::serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
 }
 
 fn save_file(f: &SavedQueriesFile) -> AppResult<()> {
     let path = config_path()?;
     let text =
-        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+        k7s_deps::serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
     std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;

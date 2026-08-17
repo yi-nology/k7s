@@ -25,8 +25,8 @@
 //! that decides how much privilege gets handed out, and it should be reviewable
 //! without a cluster.
 
-use k8s_openapi::api::core::v1::{Container, Pod, PodSpec, SecurityContext, Toleration};
-use k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
+use k7s_deps::k8s_openapi::api::core::v1::{Container, Pod, PodSpec, SecurityContext, Toleration};
+use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::ObjectMeta;
 use std::collections::BTreeMap;
 
 /// Namespace the debug pod is created in.
@@ -226,10 +226,10 @@ pub const READY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(90
 /// Shared by `start_node_shell` (interactive) and `imageimport::import_to_node`
 /// (one-shot). Both need the same "wait, then surface the actionable reason"
 /// behaviour, so it lives with the pod spec rather than in either caller.
-pub async fn await_debug_pod(api: &kube::Api<Pod>, name: &str) -> crate::error::AppResult<()> {
-    let deadline = tokio::time::Instant::now() + READY_TIMEOUT;
+pub async fn await_debug_pod(api: &k7s_deps::kube::Api<Pod>, name: &str) -> crate::error::AppResult<()> {
+    let deadline = k7s_deps::tokio::time::Instant::now() + READY_TIMEOUT;
     let mut last = String::from("the pod was never observed");
-    while tokio::time::Instant::now() < deadline {
+    while k7s_deps::tokio::time::Instant::now() < deadline {
         let pod = match api.get(name).await {
             Ok(p) => p,
             // Transient 404 right after create is expected: the API server's
@@ -241,7 +241,7 @@ pub async fn await_debug_pod(api: &kube::Api<Pod>, name: &str) -> crate::error::
                 let msg = e.to_string();
                 if msg.contains("404") || msg.contains("not found") || msg.contains("NotFound") {
                     last = format!("pod {name} not yet visible (API cache lag)");
-                    tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+                    k7s_deps::tokio::time::sleep(std::time::Duration::from_millis(600)).await;
                     continue;
                 }
                 return Err(e.into());
@@ -270,7 +270,7 @@ pub async fn await_debug_pod(api: &kube::Api<Pod>, name: &str) -> crate::error::
             &phase,
             waiting.as_ref().map(|(r, m)| (r.as_str(), m.as_str())),
         );
-        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+        k7s_deps::tokio::time::sleep(std::time::Duration::from_millis(600)).await;
     }
     Err(crate::error::AppError::Other(format!(
         "timed out starting the debug pod: {last}"
@@ -279,8 +279,8 @@ pub async fn await_debug_pod(api: &kube::Api<Pod>, name: &str) -> crate::error::
 
 /// Delete a debug pod, best effort. Used by both the orphan sweep and session
 /// teardown, and by image import's unconditional cleanup.
-pub async fn delete_debug_pod(api: &kube::Api<Pod>, name: &str) {
-    use kube::api::DeleteParams;
+pub async fn delete_debug_pod(api: &k7s_deps::kube::Api<Pod>, name: &str) {
+    use k7s_deps::kube::api::DeleteParams;
     // Grace period 0: there is nothing to flush, and every second it lingers is a
     // second a privileged pod is still on the node.
     let dp = DeleteParams {
@@ -288,7 +288,7 @@ pub async fn delete_debug_pod(api: &kube::Api<Pod>, name: &str) {
         ..Default::default()
     };
     if let Err(e) = api.delete(name, &dp).await {
-        tracing::warn!("failed to delete debug pod {name}: {e}");
+        k7s_deps::tracing::warn!("failed to delete debug pod {name}: {e}");
     }
 }
 

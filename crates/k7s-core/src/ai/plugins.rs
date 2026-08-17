@@ -34,13 +34,13 @@ pub enum PluginEvent<'a> {
     BeforeTool {
         run_id: &'a str,
         tool_name: &'a str,
-        args: &'a serde_json::Value,
+        args: &'a k7s_deps::serde_json::Value,
     },
     /// A tool call completed.
     AfterTool {
         run_id: &'a str,
         tool_name: &'a str,
-        result: &'a Result<serde_json::Value, String>,
+        result: &'a Result<k7s_deps::serde_json::Value, String>,
     },
     /// The agent run completed.
     RunEnd {
@@ -57,7 +57,7 @@ pub enum PluginDecision {
     /// Continue processing (pass-through).
     Continue,
     /// Modify the value and continue.
-    Modify(serde_json::Value),
+    Modify(k7s_deps::serde_json::Value),
     /// Block further processing (the message/tool call is rejected).
     Block { reason: String },
 }
@@ -106,7 +106,7 @@ impl PluginRegistry {
                 PluginDecision::Continue => continue,
                 PluginDecision::Modify(v) => return PluginDecision::Modify(v),
                 PluginDecision::Block { reason } => {
-                    tracing::info!("plugin '{}' blocked event: {reason}", plugin.name());
+                    k7s_deps::tracing::info!("plugin '{}' blocked event: {reason}", plugin.name());
                     return PluginDecision::Block { reason };
                 }
             }
@@ -142,17 +142,17 @@ impl AgentPlugin for AuditLogger {
             PluginEvent::BeforeTool {
                 tool_name, args, ..
             } => {
-                tracing::info!(tool = tool_name, "AI tool call");
+                k7s_deps::tracing::info!(tool = tool_name, "AI tool call");
                 let _ = args;
             }
             PluginEvent::AfterTool {
                 tool_name, result, ..
             } => match result {
-                Ok(_) => tracing::info!(tool = tool_name, "AI tool succeeded"),
-                Err(e) => tracing::warn!(tool = tool_name, error = %e, "AI tool failed"),
+                Ok(_) => k7s_deps::tracing::info!(tool = tool_name, "AI tool succeeded"),
+                Err(e) => k7s_deps::tracing::warn!(tool = tool_name, error = %e, "AI tool failed"),
             },
             PluginEvent::RunError { error, .. } => {
-                tracing::error!(error = %error, "AI run failed");
+                k7s_deps::tracing::error!(error = %error, "AI run failed");
             }
             _ => {}
         }

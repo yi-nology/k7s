@@ -11,12 +11,12 @@
 
 use crate::core::events::EventSink;
 use crate::error::AppError;
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, AttachParams, TerminalSize};
-use kube::Client;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::{Api, AttachParams, TerminalSize};
+use k7s_deps::kube::Client;
 use serde::Serialize;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::sync::mpsc;
+use k7s_deps::tokio::io::{AsyncReadExt, AsyncWriteExt};
+use k7s_deps::tokio::sync::mpsc;
 
 /// Prefix for stdout chunk events (`shell-out:{stream_id}`).
 pub const SHELL_OUT_PREFIX: &str = "shell-out:";
@@ -157,7 +157,7 @@ async fn exec_pump(
     let mut buf = [0u8; 8192];
 
     loop {
-        tokio::select! {
+        k7s_deps::tokio::select! {
             // Container output → frontend.
             read = stdout.read(&mut buf) => match read {
                 Ok(0) => return Ok("session ended".into()),

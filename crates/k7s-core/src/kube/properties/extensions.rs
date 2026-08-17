@@ -2,10 +2,10 @@
 
 use super::*;
 use crate::error::AppResult;
-use k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
-use kube::api::Api;
-use kube::core::DynamicObject;
-use kube::Client;
+use k7s_deps::k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
+use k7s_deps::kube::api::Api;
+use k7s_deps::kube::core::DynamicObject;
+use k7s_deps::kube::Client;
 
 pub(super) async fn gather_pdb(
     client: Client,

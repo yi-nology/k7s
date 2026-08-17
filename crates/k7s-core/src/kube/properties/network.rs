@@ -2,18 +2,18 @@
 
 use super::*;
 use crate::error::AppResult;
-use k8s_openapi::api::core::v1::Pod;
-use k8s_openapi::api::core::v1::{Secret, Service};
-use k8s_openapi::api::discovery::v1::EndpointSlice;
-use k8s_openapi::api::networking::v1::{Ingress, NetworkPolicy};
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::k8s_openapi::api::core::v1::{Secret, Service};
+use k7s_deps::k8s_openapi::api::discovery::v1::EndpointSlice;
+use k7s_deps::k8s_openapi::api::networking::v1::{Ingress, NetworkPolicy};
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 
 /// An Ingress backend port, which is *either* a number or a named port on the
 /// Service — murphy-yi's only Ingress uses a name, which is the case a
 /// number-only reading would silently drop.
 pub(crate) fn backend_port(
-    p: Option<&k8s_openapi::api::networking::v1::ServiceBackendPort>,
+    p: Option<&k7s_deps::k8s_openapi::api::networking::v1::ServiceBackendPort>,
 ) -> String {
     match p {
         Some(port) => port

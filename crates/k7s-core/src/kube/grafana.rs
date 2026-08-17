@@ -12,7 +12,7 @@
 //! would mean a JSON editor, which is its own project.
 
 use crate::error::{AppError, AppResult};
-use serde::{Deserialize, Serialize};
+use k7s_deps::serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -93,13 +93,13 @@ fn load_file() -> AppResult<GrafanaFile> {
     if text.trim().is_empty() {
         return Ok(GrafanaFile::default());
     }
-    serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
+    k7s_deps::serde_json::from_str(&text).map_err(|e| AppError::Other(format!("parse: {e}")))
 }
 
 fn save_file(f: &GrafanaFile) -> AppResult<()> {
     let path = config_path()?;
     let text =
-        serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
+        k7s_deps::serde_json::to_string_pretty(f).map_err(|e| AppError::Other(format!("serialise: {e}")))?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, text).map_err(|e| AppError::Other(format!("write tmp: {e}")))?;
     std::fs::rename(&tmp, &path).map_err(|e| AppError::Other(format!("rename: {e}")))?;
@@ -205,7 +205,7 @@ pub fn remove(name: &str) -> AppResult<()> {
 
 pub async fn test_connect(name: &str) -> AppResult<()> {
     let cfg = find(name)?;
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(Duration::from_secs(20))
         .user_agent("k7s/grafana")
         .build()
@@ -331,7 +331,7 @@ pub struct DashboardSearchResult {
 /// Search dashboards on a Grafana instance via `/api/search`.
 pub async fn search_dashboards(name: &str, query: &str) -> AppResult<Vec<DashboardSearchResult>> {
     let cfg = find(name)?;
-    let client = reqwest::Client::builder()
+    let client = k7s_deps::reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .build()
         .map_err(|e| AppError::Other(format!("build client: {e}")))?;
@@ -354,7 +354,7 @@ pub async fn search_dashboards(name: &str, query: &str) -> AppResult<Vec<Dashboa
         return Err(AppError::Other(format!("{url}: HTTP {status}")));
     }
 
-    let raw: Vec<serde_json::Value> = resp
+    let raw: Vec<k7s_deps::serde_json::Value> = resp
         .json()
         .await
         .map_err(|e| AppError::Other(format!("decode: {e}")))?;

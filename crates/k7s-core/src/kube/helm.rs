@@ -18,10 +18,10 @@
 //!     hole behind a different door.
 
 use super::dto::{Cell, Row, Tone};
-use base64::Engine;
-use flate2::read::GzDecoder;
-use k8s_openapi::api::core::v1::Secret;
-use kube::ResourceExt;
+use k7s_deps::base64::Engine;
+use k7s_deps::flate2::read::GzDecoder;
+use k7s_deps::k8s_openapi::api::core::v1::Secret;
+use k7s_deps::kube::ResourceExt;
 use serde::Deserialize;
 use std::io::Read;
 
@@ -47,7 +47,7 @@ pub struct Release {
     /// The user-supplied values overrides (Helm's `config`); an object, possibly
     /// empty. Chart defaults live under `chart.values` and are deliberately not
     /// surfaced — "what did *I* set" is the question this answers (B35).
-    pub config: serde_json::Value,
+    pub config: k7s_deps::serde_json::Value,
     /// The rendered manifest, with any Secret values redacted.
     pub manifest: String,
 }
@@ -71,7 +71,7 @@ struct ReleaseJson {
     chart: ChartJson,
     /// User-supplied values overrides.
     #[serde(default)]
-    config: serde_json::Value,
+    config: k7s_deps::serde_json::Value,
     #[serde(default)]
     manifest: String,
 }
@@ -127,19 +127,19 @@ pub fn decode_release(secret: &Secret) -> Option<Release> {
 
     // base64 text → gzip bytes → JSON. Helm's own encoding, on top of the
     // transport base64 the client already undid.
-    let gz = base64::engine::general_purpose::STANDARD
+    let gz = k7s_deps::base64::engine::general_purpose::STANDARD
         .decode(raw)
-        .map_err(|e| tracing::warn!("helm release {}: bad base64: {e}", secret.name_any()))
+        .map_err(|e| k7s_deps::tracing::warn!("helm release {}: bad base64: {e}", secret.name_any()))
         .ok()?;
 
     let mut json = String::new();
     GzDecoder::new(&gz[..])
         .read_to_string(&mut json)
-        .map_err(|e| tracing::warn!("helm release {}: bad gzip: {e}", secret.name_any()))
+        .map_err(|e| k7s_deps::tracing::warn!("helm release {}: bad gzip: {e}", secret.name_any()))
         .ok()?;
 
-    let r: ReleaseJson = serde_json::from_str(&json)
-        .map_err(|e| tracing::warn!("helm release {}: bad json: {e}", secret.name_any()))
+    let r: ReleaseJson = k7s_deps::serde_json::from_str(&json)
+        .map_err(|e| k7s_deps::tracing::warn!("helm release {}: bad json: {e}", secret.name_any()))
         .ok()?;
 
     // Chart is "name-version", the form `helm list` prints.
@@ -179,12 +179,12 @@ pub fn decode_release(secret: &Secret) -> Option<Release> {
 /// Secret (`sh.helm.release.v1.<name>.v<revision>`), so we list by label
 /// and match on `release.revision`.
 pub async fn helm_manifest_revision(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     namespace: &str,
     name: &str,
     revision: i64,
 ) -> crate::error::AppResult<String> {
-    use kube::api::{Api, ListParams};
+    use k7s_deps::kube::api::{Api, ListParams};
 
     let api: Api<Secret> = if namespace.is_empty() {
         Api::all(client)
@@ -222,12 +222,12 @@ pub async fn helm_manifest_revision(
 /// `flatten_values` on the caller side, but the raw JSON is returned here so
 /// the caller can choose how to present it.
 pub async fn helm_values_revision(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     namespace: &str,
     name: &str,
     revision: i64,
-) -> crate::error::AppResult<serde_json::Value> {
-    use kube::api::{Api, ListParams};
+) -> crate::error::AppResult<k7s_deps::serde_json::Value> {
+    use k7s_deps::kube::api::{Api, ListParams};
 
     let api: Api<Secret> = if namespace.is_empty() {
         Api::all(client)
@@ -284,7 +284,7 @@ fn is_sensitive_key(key: &str) -> bool {
 ///
 /// Nested objects dot together (`resources.limits.cpu`); arrays index
 /// (`hosts.0`). Scalars render as their JSON text without quotes.
-pub fn flatten_values(config: &serde_json::Value) -> Vec<(String, String)> {
+pub fn flatten_values(config: &k7s_deps::serde_json::Value) -> Vec<(String, String)> {
     let mut out = Vec::new();
     // Values is an object (or absent/null); a top-level scalar isn't a real Helm
     // config, so it yields nothing rather than a nameless row.
@@ -295,9 +295,9 @@ pub fn flatten_values(config: &serde_json::Value) -> Vec<(String, String)> {
     out
 }
 
-fn flatten_into(prefix: &str, value: &serde_json::Value, out: &mut Vec<(String, String)>) {
+fn flatten_into(prefix: &str, value: &k7s_deps::serde_json::Value, out: &mut Vec<(String, String)>) {
     match value {
-        serde_json::Value::Object(map) => {
+        k7s_deps::serde_json::Value::Object(map) => {
             for (k, v) in map {
                 let path = if prefix.is_empty() {
                     k.clone()
@@ -312,7 +312,7 @@ fn flatten_into(prefix: &str, value: &serde_json::Value, out: &mut Vec<(String, 
                 }
             }
         }
-        serde_json::Value::Array(items) => {
+        k7s_deps::serde_json::Value::Array(items) => {
             for (i, v) in items.iter().enumerate() {
                 let path = if prefix.is_empty() {
                     i.to_string()
@@ -322,8 +322,8 @@ fn flatten_into(prefix: &str, value: &serde_json::Value, out: &mut Vec<(String, 
                 flatten_into(&path, v, out);
             }
         }
-        serde_json::Value::String(s) => out.push((prefix.to_string(), s.clone())),
-        serde_json::Value::Null => out.push((prefix.to_string(), DASH.to_string())),
+        k7s_deps::serde_json::Value::String(s) => out.push((prefix.to_string(), s.clone())),
+        k7s_deps::serde_json::Value::Null => out.push((prefix.to_string(), DASH.to_string())),
         other => out.push((prefix.to_string(), other.to_string())),
     }
 }
@@ -473,9 +473,9 @@ fn redact_doc(doc: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use serde_json::json;
+    use k7s_deps::flate2::write::GzEncoder;
+    use k7s_deps::flate2::Compression;
+    use k7s_deps::serde_json::json;
     use std::io::Write;
 
     /// Build a release Secret exactly as the cluster hands one to us.
@@ -497,11 +497,11 @@ mod tests {
         let mut gz = GzEncoder::new(Vec::new(), Compression::default());
         gz.write_all(body.to_string().as_bytes()).unwrap();
         // What Helm stores in the value: base64 text.
-        let helm_value = base64::engine::general_purpose::STANDARD.encode(gz.finish().unwrap());
+        let helm_value = k7s_deps::base64::engine::general_purpose::STANDARD.encode(gz.finish().unwrap());
         // What the API serialises: that text, base64'd again for transport.
-        let transport = base64::engine::general_purpose::STANDARD.encode(helm_value.as_bytes());
+        let transport = k7s_deps::base64::engine::general_purpose::STANDARD.encode(helm_value.as_bytes());
 
-        serde_json::from_value(json!({
+        k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": format!("sh.helm.release.v1.{name}.v{revision}"), "namespace": ns },
             "type": RELEASE_SECRET_TYPE,
             "data": { "release": transport },
@@ -534,7 +534,7 @@ mod tests {
     /// Non-Helm Secrets are not releases, and must not be decoded or shown.
     #[test]
     fn ignores_ordinary_secrets() {
-        let s: Secret = serde_json::from_value(json!({
+        let s: Secret = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "db-creds", "namespace": "prod" },
             "type": "Opaque",
             "data": { "password": "aHVudGVyMg==" },
@@ -546,7 +546,7 @@ mod tests {
     /// Garbage in the release key is skipped, not surfaced as a broken row.
     #[test]
     fn undecodable_release_is_skipped() {
-        let s: Secret = serde_json::from_value(json!({
+        let s: Secret = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "sh.helm.release.v1.x.v1", "namespace": "prod" },
             "type": RELEASE_SECRET_TYPE,
             // Transport-decodes to "not-gzip", which is valid base64 of nothing useful.
@@ -618,7 +618,7 @@ mod tests {
     #[test]
     fn flatten_empty_config_is_empty() {
         assert!(flatten_values(&json!({})).is_empty());
-        assert!(flatten_values(&serde_json::Value::Null).is_empty());
+        assert!(flatten_values(&k7s_deps::serde_json::Value::Null).is_empty());
     }
 
     /// Status colouring: deployed is healthy, superseded is just history, failed

@@ -12,16 +12,16 @@ use crate::kube::logs::{self, LogStreamOptions};
 use crate::kube::manager::{ClientManager, ShellSession};
 use crate::kube::nodeshell;
 use crate::kube::ResourceKind;
-use k8s_openapi::api::core::v1::Secret;
-use kube::api::{
+use k7s_deps::k8s_openapi::api::core::v1::Secret;
+use k7s_deps::kube::api::{
     Api, ApiResource, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams,
 };
-use kube::config::Kubeconfig;
-use kube::core::GroupVersionKind;
-use kube::ResourceExt;
+use k7s_deps::kube::config::Kubeconfig;
+use k7s_deps::kube::core::GroupVersionKind;
+use k7s_deps::kube::ResourceExt;
 use std::sync::atomic::{AtomicU64, Ordering};
-use tokio::sync::mpsc;
-use tokio::task::JoinHandle;
+use k7s_deps::tokio::sync::mpsc;
+use k7s_deps::tokio::task::JoinHandle;
 
 // ---------------------------------------------------------------------------
 // Shared connection sequence
@@ -30,7 +30,7 @@ use tokio::task::JoinHandle;
 /// Result of the shared connection sequence returned to each shell so it can
 /// layer its own post-connect work (watchers, pollers, knowledge sync) on top.
 pub struct ConnectResult {
-    pub client: kube::Client,
+    pub client: k7s_deps::kube::Client,
     pub server: String,
     pub version: String,
     /// CRD-backed kinds discovered during connection. Callers that emit
@@ -182,7 +182,7 @@ pub async fn resource_for(kind: &str, mgr: &ClientManager) -> AppResult<(ApiReso
 /// Build a dynamic API for `kind`, namespaced or cluster-scoped as appropriate.
 /// Returns `(Api, is_helm)` so the caller can special-case Helm releases.
 pub async fn dynamic_api(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     mgr: &ClientManager,
@@ -345,9 +345,9 @@ pub fn validate_apply_yaml(
 /// leave the backend.
 pub fn redact_secret(obj: &mut DynamicObject) {
     for field in ["data", "stringData"] {
-        if let Some(serde_json::Value::Object(map)) = obj.data.get_mut(field) {
+        if let Some(k7s_deps::serde_json::Value::Object(map)) = obj.data.get_mut(field) {
             for v in map.values_mut() {
-                *v = serde_json::Value::String("<redacted>".into());
+                *v = k7s_deps::serde_json::Value::String("<redacted>".into());
             }
         }
     }
@@ -358,7 +358,7 @@ pub fn redact_secret(obj: &mut DynamicObject) {
 /// Finds the release by label rather than reconstructing the Secret's name:
 /// `sh.helm.release.v1.<name>.v<revision>` requires knowing the revision, and
 /// the labels are what Helm itself queries on.
-pub async fn helm_manifest(client: kube::Client, namespace: &str, name: &str) -> AppResult<String> {
+pub async fn helm_manifest(client: k7s_deps::kube::Client, namespace: &str, name: &str) -> AppResult<String> {
     let api: Api<Secret> = Api::namespaced(client, namespace);
     let lp = ListParams::default()
         .fields(&format!("type={}", crate::kube::helm::RELEASE_SECRET_TYPE))
@@ -416,7 +416,7 @@ pub async fn merged_contexts(manager: &ClientManager) -> Vec<crate::kube::client
 /// task, and register the session with the manager.
 pub async fn spawn_shell_session(
     manager: &ClientManager,
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     namespace: String,
     pod: String,
     container: String,
@@ -434,7 +434,7 @@ pub async fn spawn_shell_session(
     let ns_for_task = namespace.clone();
     let pod_for_task = pod.clone();
     let id_for_task = id.clone();
-    let task = tokio::spawn(async move {
+    let task = k7s_deps::tokio::spawn(async move {
         exec::run_shell(
             client,
             sink,
@@ -474,11 +474,11 @@ pub async fn spawn_shell_session(
 /// into the host's namespaces.
 pub async fn spawn_node_shell_session(
     manager: &ClientManager,
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     node_name: String,
     data_dir: &std::path::Path,
 ) -> AppResult<NodeShellInfo> {
-    let api: Api<k8s_openapi::api::core::v1::Pod> =
+    let api: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> =
         Api::namespaced(client.clone(), nodeshell::DEBUG_NAMESPACE);
 
     // Sweep this node's leftovers first. A previous session that died without
@@ -520,7 +520,7 @@ pub async fn spawn_node_shell_session(
     let sink = manager.sink();
     let id_for_task = id.clone();
     let pod_for_task = pod_name.clone();
-    let task = tokio::spawn(async move {
+    let task = k7s_deps::tokio::spawn(async move {
         exec::run_argv(
             client,
             sink,
@@ -560,7 +560,7 @@ pub async fn spawn_node_shell_session(
 /// the manager.
 pub async fn spawn_log_stream(
     manager: &ClientManager,
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     namespace: String,
     pod: String,
     container: String,
@@ -569,7 +569,7 @@ pub async fn spawn_log_stream(
     let stream_id = format!("{}-{}", pod, STREAM_SEQ.fetch_add(1, Ordering::Relaxed));
     let sink = manager.sink();
     let id_for_task = stream_id.clone();
-    let handle: JoinHandle<()> = tokio::spawn(async move {
+    let handle: JoinHandle<()> = k7s_deps::tokio::spawn(async move {
         logs::run_log_stream(client, sink, id_for_task, namespace, pod, container, opts).await;
     });
     manager.add_log(stream_id.clone(), handle).await;
@@ -582,14 +582,14 @@ pub async fn spawn_log_stream(
 //
 // Each function below contains the logic that was previously duplicated
 // between `commands::core` (Tauri) and `web::resource_handlers` (HTTP).
-// The thin command/handler layer is responsible for obtaining a `kube::Client`
+// The thin command/handler layer is responsible for obtaining a `k7s_deps::kube::Client`
 // and forwarding errors; everything else lives here.
 
 /// Fetch an object's YAML for the detail panel. Strips `managedFields`;
 /// Secret values are redacted. Helm releases are decoded from their
 /// release Secret.
 pub async fn fetch_object_yaml(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -604,14 +604,14 @@ pub async fn fetch_object_yaml(
     if kind == "secrets" {
         redact_secret(&mut obj);
     }
-    Ok(serde_yaml::to_string(&obj)?)
+    Ok(k7s_deps::serde_yaml::to_string(&obj)?)
 }
 
 /// Server-side dry-run replace: returns both the live object and what would
 /// be stored after admission, each serialized as YAML with `managedFields`
 /// stripped.
 pub async fn dry_run_yaml_core(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -619,7 +619,7 @@ pub async fn dry_run_yaml_core(
     mgr: &ClientManager,
 ) -> AppResult<YamlDiff> {
     ensure_writable(kind)?;
-    let obj: DynamicObject = serde_yaml::from_str(yaml)?;
+    let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml)?;
     let (_ar, namespaced) = resource_for(kind, mgr).await?;
     validate_apply_yaml(&obj, kind, name, namespace, namespaced)?;
     let (api, _is_helm) = dynamic_api(client, kind, namespace, mgr).await?;
@@ -635,14 +635,14 @@ pub async fn dry_run_yaml_core(
     proposed.metadata.managed_fields = None;
 
     Ok(YamlDiff {
-        current: serde_yaml::to_string(&current)?,
-        proposed: serde_yaml::to_string(&proposed)?,
+        current: k7s_deps::serde_yaml::to_string(&current)?,
+        proposed: k7s_deps::serde_yaml::to_string(&proposed)?,
     })
 }
 
 /// Apply edited YAML back to the cluster via replace.
 pub async fn apply_yaml_core(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -650,7 +650,7 @@ pub async fn apply_yaml_core(
     mgr: &ClientManager,
 ) -> AppResult<()> {
     ensure_writable(kind)?;
-    let obj: DynamicObject = serde_yaml::from_str(yaml)?;
+    let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml)?;
     let (_ar, namespaced) = resource_for(kind, mgr).await?;
     validate_apply_yaml(&obj, kind, name, namespace, namespaced)?;
     let (api, _is_helm) = dynamic_api(client, kind, namespace, mgr).await?;
@@ -660,7 +660,7 @@ pub async fn apply_yaml_core(
 
 /// Delete a resource of any kind.
 pub async fn delete_resource_core(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -673,7 +673,7 @@ pub async fn delete_resource_core(
 
 /// Scale a Deployment/StatefulSet by patching `spec.replicas`.
 pub async fn scale_resource_core(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -681,28 +681,28 @@ pub async fn scale_resource_core(
     mgr: &ClientManager,
 ) -> AppResult<()> {
     let (api, _is_helm) = dynamic_api(client, kind, namespace, mgr).await?;
-    let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": replicas } }));
+    let patch = Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "replicas": replicas } }));
     api.patch(name, &PatchParams::default(), &patch).await?;
     Ok(())
 }
 
 /// Cordon or uncordon a node by patching `spec.unschedulable`.
 pub async fn set_cordon_core(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     name: &str,
     unschedulable: bool,
     mgr: &ClientManager,
 ) -> AppResult<()> {
     let (api, _is_helm) = dynamic_api(client, "nodes", "", mgr).await?;
-    let patch = Patch::Merge(serde_json::json!({ "spec": { "unschedulable": unschedulable } }));
+    let patch = Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "unschedulable": unschedulable } }));
     api.patch(name, &PatchParams::default(), &patch).await?;
     Ok(())
 }
 
 /// Restart a pod by deleting it so its controller recreates a fresh one.
 /// Refuses a pod with no controlling owner.
-pub async fn restart_pod_core(client: kube::Client, namespace: &str, name: &str) -> AppResult<()> {
-    let api: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, namespace);
+pub async fn restart_pod_core(client: k7s_deps::kube::Client, namespace: &str, name: &str) -> AppResult<()> {
+    let api: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, namespace);
     let pod = api.get(name).await?;
     if !crate::kube::restart::has_controller(&pod) {
         return Err(AppError::Other(format!(
@@ -716,7 +716,7 @@ pub async fn restart_pod_core(client: kube::Client, namespace: &str, name: &str)
 /// Rollout-restart a Deployment/StatefulSet/DaemonSet by patching the pod
 /// template's `restartedAt` annotation.
 pub async fn restart_rollout_core(
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     kind: &str,
     namespace: &str,
     name: &str,
@@ -728,7 +728,7 @@ pub async fn restart_rollout_core(
         )));
     }
     let (api, _is_helm) = dynamic_api(client, kind, namespace, mgr).await?;
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = k7s_deps::chrono::Utc::now().to_rfc3339();
     let patch = Patch::Merge(crate::kube::restart::restart_patch(&now));
     api.patch(name, &PatchParams::default(), &patch).await?;
     Ok(())
@@ -750,7 +750,7 @@ metadata:
   resourceVersion: "12345"
 "#
         );
-        serde_yaml::from_str(&yaml).unwrap()
+        k7s_deps::serde_yaml::from_str(&yaml).unwrap()
     }
 
     #[test]
@@ -766,7 +766,7 @@ metadata:
   name: foo
   resourceVersion: "1"
 "#;
-        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
             .unwrap_err()
             .to_string();
@@ -783,7 +783,7 @@ metadata:
   namespace: default
   resourceVersion: "1"
 "#;
-        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
             .unwrap_err()
             .to_string();
@@ -800,7 +800,7 @@ metadata:
   namespace: default
   resourceVersion: "1"
 "#;
-        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "foo", "default", true)
             .unwrap_err()
             .to_string();
@@ -838,7 +838,7 @@ metadata:
   namespace: default
   resourceVersion: "1"
 "#;
-        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "anything", "default", true)
             .unwrap_err()
             .to_string();
@@ -866,7 +866,7 @@ metadata:
   name: my-deploy
   namespace: default
 "#;
-        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
         let err = validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true)
             .unwrap_err()
             .to_string();
@@ -908,7 +908,7 @@ metadata:
   name: my-deploy
   resourceVersion: "12345"
 "#;
-        let obj: DynamicObject = serde_yaml::from_str(yaml).unwrap();
+        let obj: DynamicObject = k7s_deps::serde_yaml::from_str(yaml).unwrap();
         assert!(validate_apply_yaml(&obj, "deployments", "my-deploy", "default", true).is_ok());
     }
 }

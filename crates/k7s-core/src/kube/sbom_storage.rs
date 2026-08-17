@@ -28,7 +28,7 @@ impl SbomStorage {
 
         let filename = format!("{}_{}.json", sbom.format.as_str(), sbom.id);
         let path = source_dir.join(&filename);
-        let json = serde_json::to_string_pretty(sbom)
+        let json = k7s_deps::serde_json::to_string_pretty(sbom)
             .map_err(|e| AppError::Other(format!("serialize sbom: {e}")))?;
         std::fs::write(&path, json).map_err(|e| AppError::Other(format!("write sbom: {e}")))?;
 
@@ -50,7 +50,7 @@ impl SbomStorage {
         let json = std::fs::read_to_string(&path)
             .map_err(|e| AppError::Other(format!("read sbom: {e}")))?;
         let sbom: SbomResult =
-            serde_json::from_str(&json).map_err(|e| AppError::Other(format!("parse sbom: {e}")))?;
+            k7s_deps::serde_json::from_str(&json).map_err(|e| AppError::Other(format!("parse sbom: {e}")))?;
         Ok(sbom)
     }
 
@@ -103,7 +103,7 @@ impl SbomStorage {
         }
         let json = std::fs::read_to_string(&path)
             .map_err(|e| AppError::Other(format!("read sbom index: {e}")))?;
-        let index: Vec<SbomSummary> = serde_json::from_str(&json)
+        let index: Vec<SbomSummary> = k7s_deps::serde_json::from_str(&json)
             .map_err(|e| AppError::Other(format!("parse sbom index: {e}")))?;
         Ok(index)
     }
@@ -111,7 +111,7 @@ impl SbomStorage {
     fn write_index(&self, index: &[SbomSummary]) -> AppResult<()> {
         std::fs::create_dir_all(&self.base_dir)
             .map_err(|e| AppError::Other(format!("create sbom dir: {e}")))?;
-        let json = serde_json::to_string_pretty(index)
+        let json = k7s_deps::serde_json::to_string_pretty(index)
             .map_err(|e| AppError::Other(format!("serialize sbom index: {e}")))?;
         // Atomic write: write to temp file then rename
         let tmp_path = self.index_path().with_extension("json.tmp");
@@ -171,10 +171,10 @@ pub fn validate_export_path(
 
     // Canonicalize the path to resolve symlinks, URL-encoded sequences, and other tricks.
     // This prevents path traversal attacks using ../, symlinks, or encoded characters.
-    let canonical_path = dunce::canonicalize(&resolved_path).or_else(|_| {
+    let canonical_path = k7s_deps::dunce::canonicalize(&resolved_path).or_else(|_| {
         // If the file doesn't exist yet, canonicalize the parent directory
         if let Some(parent) = resolved_path.parent() {
-            let canonical_parent = dunce::canonicalize(parent).map_err(|e| {
+            let canonical_parent = k7s_deps::dunce::canonicalize(parent).map_err(|e| {
                 AppError::Other(format!(
                     "Cannot resolve export directory '{}': {e}",
                     parent.display()
@@ -193,7 +193,7 @@ pub fn validate_export_path(
     // Define allowed export directories: user's home, data_dir, or temp
     let allowed_dirs: Vec<std::path::PathBuf> = {
         let mut dirs = vec![data_dir.to_path_buf()];
-        if let Some(home) = dirs::home_dir() {
+        if let Some(home) = k7s_deps::dirs::home_dir() {
             dirs.push(home);
         }
         dirs.push(std::env::temp_dir());
@@ -258,7 +258,7 @@ mod tests {
             dependencies: vec![],
             vulnerabilities: vec![],
             raw_output: None,
-            created_at: chrono::Utc::now(),
+            created_at: k7s_deps::chrono::Utc::now(),
         }
     }
 

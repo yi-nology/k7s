@@ -1,8 +1,8 @@
 //! Workload mapping: Deployment, ReplicaSet, StatefulSet, DaemonSet, Job, CronJob.
 
 use super::*;
-use k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
-use k8s_openapi::api::batch::v1::{CronJob, Job};
+use k7s_deps::k8s_openapi::api::apps::v1::{DaemonSet, Deployment, ReplicaSet, StatefulSet};
+use k7s_deps::k8s_openapi::api::batch::v1::{CronJob, Job};
 
 /// Deployments: NAME, NAMESPACE, READY, UP-TO-DATE, AVAILABLE, AGE.
 pub fn map_deployment(d: &Deployment) -> Row {
@@ -218,12 +218,12 @@ pub fn map_cronjob(c: &CronJob) -> Row {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use k7s_deps::serde_json::json;
 
     /// A degraded Deployment (0/1) colors the READY cell amber.
     #[test]
     fn degraded_deployment() {
-        let dep: Deployment = serde_json::from_value(json!({
+        let dep: Deployment = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "heimdall", "namespace": "prod", "uid": "d1",
                           "creationTimestamp": "2026-07-15T09:45:00Z" },
             "spec": { "replicas": 1 },
@@ -240,7 +240,7 @@ mod tests {
     /// A Deployment carries its pod selector for the "view pods" jump (B33).
     #[test]
     fn deployment_carries_selector() {
-        let dep: Deployment = serde_json::from_value(json!({
+        let dep: Deployment = k7s_deps::serde_json::from_value(json!({
             "metadata": { "name": "wiki", "namespace": "wiki", "uid": "d2" },
             "spec": { "replicas": 1, "selector": { "matchLabels": { "app": "wiki", "tier": "web" } } },
         }))
@@ -256,7 +256,7 @@ mod tests {
     #[test]
     fn replicaset_scaled_down_reads_as_history() {
         let rs = |desired: i32, ready: i32| -> ReplicaSet {
-            serde_json::from_value(json!({
+            k7s_deps::serde_json::from_value(json!({
                 "metadata": { "name": "api-6c8d9", "namespace": "prod", "uid": "r1" },
                 "spec": { "replicas": desired },
                 "status": { "replicas": desired, "readyReplicas": ready },
