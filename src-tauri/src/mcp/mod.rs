@@ -40,3 +40,8 @@ pub mod server;
 
 #[cfg(any(feature = "mcp", feature = "web"))]
 pub use server::K7sMcpServer;
+
+
+// Re-export macros
+#[macro_use]
+pub mod macros;

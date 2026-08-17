@@ -35,3 +35,7 @@ pub use security::*;
 pub use shell::*;
 pub use skills::*;
 pub use storage::*;
+
+// Re-export macros
+#[macro_use]
+pub mod macros;
