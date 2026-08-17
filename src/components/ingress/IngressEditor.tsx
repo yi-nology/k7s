@@ -244,16 +244,32 @@ export function IngressEditor({ onClose }: { onClose?: () => void }) {
                   <input
                     value={form.name}
                     onChange={(e) => update('name', e.target.value)}
-                    style={inputStyle}
+                    style={{
+                      ...inputStyle,
+                      borderColor: form.name && !isValidK8sName(form.name) ? 'var(--status-err)' : undefined,
+                    }}
                   />
+                  {form.name && !isValidK8sName(form.name) && (
+                    <span style={{ fontSize: 11, color: 'var(--status-err)' }}>
+                      {t('ingressEditor.invalidName', 'Invalid K8s name (lowercase, alphanumeric, hyphens)')}
+                    </span>
+                  )}
                 </label>
                 <label style={labelColStyle}>
                   {t('ingressEditor.namespace', 'Namespace')}
                   <input
                     value={form.namespace}
                     onChange={(e) => update('namespace', e.target.value)}
-                    style={inputStyle}
+                    style={{
+                      ...inputStyle,
+                      borderColor: form.namespace && !isValidNamespace(form.namespace) ? 'var(--status-err)' : undefined,
+                    }}
                   />
+                  {form.namespace && !isValidNamespace(form.namespace) && (
+                    <span style={{ fontSize: 11, color: 'var(--status-err)' }}>
+                      {t('ingressEditor.invalidNamespace', 'Invalid namespace name')}
+                    </span>
+                  )}
                 </label>
                 <label style={labelColStyle}>
                   {t('ingressEditor.ingressClass', 'IngressClass')}
