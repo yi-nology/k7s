@@ -21,6 +21,7 @@ import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { HelmChartSummary, HelmRepo } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { HelmInstallWizard } from './HelmInstallWizard';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './HelmMarket.module.css';
 
 type Tab = 'charts' | 'repos';
@@ -180,11 +181,30 @@ function HelmRepos({
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<HelmRepo | null>(null);
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [description, setDescription] = useState('');
 
   return (
+    <>
+    <ConfirmDialog
+      open={!!pendingRemove}
+      onClose={() => setPendingRemove(null)}
+      onConfirm={async () => {
+        if (!pendingRemove) return;
+        try {
+          await getProvider().helmRemoveRepo(pendingRemove.name);
+          onChange();
+        } catch (e) {
+          onError(formatError(e));
+        }
+        setPendingRemove(null);
+      }}
+      title={t('helm.repos.removeTitle', 'Remove repository')}
+      body={t('helm.repos.confirmRemove', `Remove repo "${pendingRemove?.name}"?`)}
+      danger
+    />
     <div className={styles.repos}>
       {repos.length === 0 ? (
         <div className={styles.empty}>{t('helm.repos.empty', 'No repos yet')}</div>
@@ -225,17 +245,7 @@ function HelmRepos({
                 </button>
                 <button
                   className={styles.btnDanger}
-                  onClick={async () => {
-                    if (!confirm(t('helm.repos.confirmRemove', `Remove repo "${r.name}"?`))) {
-                      return;
-                    }
-                    try {
-                      await getProvider().helmRemoveRepo(r.name);
-                      onChange();
-                    } catch (e) {
-                      onError(formatError(e));
-                    }
-                  }}
+                  onClick={() => setPendingRemove(r)}
                 >
                   {t('helm.repos.remove', 'Remove')}
                 </button>
@@ -315,5 +325,6 @@ function HelmRepos({
         </button>
       )}
     </div>
+    </>
   );
 }

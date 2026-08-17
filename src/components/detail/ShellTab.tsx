@@ -1,17 +1,8 @@
 /**
  * Shell tab (B4, B19): an interactive terminal (xterm) attached to the selected
- * pod's container via the backend exec session. Keystrokes go to the container;
- * output is written to the terminal; terminal resizes are forwarded.
+ * pod's container via the backend exec session.
  *
- * The terminal and the session have deliberately different lifetimes (B19):
- *   - the terminal belongs to a pod+container, and
- *   - a session is one connection to it, which can end (you type `exit`, the pod
- *     restarts) and be reconnected.
- * Keeping them apart is what preserves scrollback across a reconnect — the
- * terminal isn't rebuilt, only the session underneath it is.
- *
- * The container choice is the tab's own (B19): it used to piggyback on the Logs
- * tab's cycler index, so cycling log containers silently moved your shell.
+ * Enhanced with TerminalToolbar: font size, search, clear, reconnect.
  */
 
 import { useEffect, useState } from 'react';
@@ -20,6 +11,7 @@ import { useStore } from '../../store';
 import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useTerminal } from './useTerminal';
+import { TerminalToolbar } from './TerminalToolbar';
 import type { ShellHandle } from '../../providers/types';
 
 export function ShellTab() {
@@ -36,17 +28,16 @@ export function ShellTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pod?.uid]);
 
-  // Why the session ended, or null while it's live. Drives the reconnect bar.
+  // Why the session ended, or null while it's live.
   const [ended, setEnded] = useState<string | null>(null);
   // Bumping this re-runs the session effect against the same terminal.
   const [attempt, setAttempt] = useState(0);
 
-  // The terminal is rebuilt only when the target changes; a reconnect reuses it.
-  const { hostRef, termRef, sessionRef } = useTerminal(
+  const { hostRef, termRef, sessionRef, searchRef } = useTerminal(
     pod && container ? `${pod.uid}:${container}` : null
   );
 
-  // ---- the session: re-runs on reconnect, writing into the existing terminal ----
+  // ---- the session ----
   useEffect(() => {
     const term = termRef.current;
     if (!term || !pod || !container) return;
@@ -54,8 +45,6 @@ export function ShellTab() {
     setEnded(null);
     let handle: ShellHandle | null = null;
     let cancelled = false;
-    // xterm's onData returns a disposable; without disposing it, every reconnect
-    // would stack another listener and each keystroke would be sent twice.
     let dataSub: { dispose(): void } | null = null;
 
     void getProvider()
@@ -74,7 +63,6 @@ export function ShellTab() {
         }
         handle = h;
         sessionRef.current = h;
-        // Pipe keystrokes to the container and sync the initial size.
         dataSub = term.onData((d) => h.input(d));
         h.resize(term.cols, term.rows);
       })
@@ -92,7 +80,6 @@ export function ShellTab() {
     };
   }, [pod, container, attempt, termRef, sessionRef, t]);
 
-  /** Start a fresh session in the same terminal, marking the break in scrollback. */
   const reconnect = () => {
     termRef.current?.write('\r\n\x1b[90m── reconnecting ──\x1b[0m\r\n');
     setAttempt((n) => n + 1);
@@ -100,23 +87,17 @@ export function ShellTab() {
 
   return (
     <div className={styles.wrap}>
-      {/* Only worth a picker when there's a choice to make. */}
-      {containers.length > 1 && (
-        <div className={styles.header}>
-          <span className={styles.headerLabel}>{t('shell.container')}</span>
-          <select
-            className={styles.picker}
-            value={container}
-            onChange={(e) => setContainer(e.target.value)}
-          >
-            {containers.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <TerminalToolbar
+        status={ended ? 'ended' : 'live'}
+        statusText={ended ?? undefined}
+        containers={containers}
+        currentContainer={container}
+        onContainerChange={setContainer}
+        termRef={termRef}
+        searchRef={searchRef}
+        onReconnect={reconnect}
+        canReconnect={!!ended}
+      />
 
       <div className={styles.shell} ref={hostRef} />
 

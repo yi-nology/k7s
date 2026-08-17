@@ -20,12 +20,14 @@ import type {
   ImageTag,
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './ImageRepoPanel.module.css';
 
 export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const [regs, setRegs] = useState<ImageRegistry[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [repos, setRepos] = useState<ImageRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   const [tags, setTags] = useState<ImageTag[]>([]);
@@ -105,6 +107,21 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
   };
 
   return (
+    <>
+    <ConfirmDialog
+      open={!!pendingRemove}
+      onClose={() => setPendingRemove(null)}
+      onConfirm={async () => {
+        if (!pendingRemove) return;
+        await getProvider().imageRegistryRemove(pendingRemove);
+        setSelected(null);
+        reload();
+        setPendingRemove(null);
+      }}
+      title={t('image.removeTitle', 'Remove registry')}
+      body={t('image.confirmRemove', 'Remove this registry?')}
+      danger
+    />
     <div className={styles.panel}>
       <header className={styles.header}>
         <h2>{t('image.title', 'Image registries')}</h2>
@@ -152,14 +169,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
               </button>
               <button
                 className={styles.btnDanger}
-                onClick={async () => {
-                  if (!confirm(t('image.confirmRemove', 'Remove this registry?'))) {
-                    return;
-                  }
-                  await getProvider().imageRegistryRemove(selected);
-                  setSelected(null);
-                  reload();
-                }}
+                onClick={() => setPendingRemove(selected)}
               >
                 {t('image.remove', 'Remove')}
               </button>
@@ -350,6 +360,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
         </main>
       </div>
     </div>
+    </>
   );
 }
 

@@ -15,6 +15,7 @@ import { formatError, getProvider } from '../../providers';
 import type { MetricsConfig, PromQueryResult, SavedQuery } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { Plot } from '../detail/PlotChart';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './MetricsExplorer.module.css';
 
 type Mode = 'instant' | 'range';
@@ -154,12 +155,17 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
     }
   };
 
-  const removeSaved = async (name: string) => {
-    if (!confirm(t('metricsExplorer.saved.confirmRemove', `Delete saved query "${name}"?`))) {
-      return;
-    }
-    await getProvider().savedQueriesRemove(name);
+  const [pendingRemoveQuery, setPendingRemoveQuery] = useState<string | null>(null);
+
+  const removeSaved = (name: string) => {
+    setPendingRemoveQuery(name);
+  };
+
+  const confirmRemoveQuery = async () => {
+    if (!pendingRemoveQuery) return;
+    await getProvider().savedQueriesRemove(pendingRemoveQuery);
     setCacheBust((c) => c + 1);
+    setPendingRemoveQuery(null);
   };
 
   // Clear-cache handler. The button's text briefly flips to
@@ -184,6 +190,15 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   }, [mode, rangeMinutes, instance]);
 
   return (
+    <>
+    <ConfirmDialog
+      open={!!pendingRemoveQuery}
+      onClose={() => setPendingRemoveQuery(null)}
+      onConfirm={() => void confirmRemoveQuery()}
+      title={t('metricsExplorer.saved.removeTitle', 'Delete query')}
+      body={t('metricsExplorer.saved.confirmRemove', `Delete saved query "${pendingRemoveQuery}"?`)}
+      danger
+    />
     <div className={styles.panel}>
       <header className={styles.header}>
         <h2>{t('metricsExplorer.title', 'Metrics Explorer')}</h2>
@@ -421,6 +436,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
         </div>
       </section>
     </div>
+    </>
   );
 }
 

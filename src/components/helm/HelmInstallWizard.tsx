@@ -17,6 +17,7 @@ import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { HelmChartSummary, HelmChartVersionEntry, HelmOpResult } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { isValidHelmReleaseName, isValidNamespace, isSafeHelmValues } from '../../lib/security';
+import { EditorCore } from '../editor/EditorCore';
 import styles from './HelmMarket.module.css';
 
 type Step = 'version' | 'values' | 'review';
@@ -221,13 +222,15 @@ export function HelmInstallWizard({
       )}
 
       {step === 'values' && (
-        <div className={styles.wizardBody}>
-          <textarea
-            className={styles.values}
-            value={values}
-            onChange={(e) => setValues(e.target.value)}
-            spellCheck={false}
-          />
+        <div className={styles.wizardBody} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <EditorCore
+              value={values}
+              language="yaml"
+              editable
+              onChange={setValues}
+            />
+          </div>
           <div className={styles.wizardActions}>
             <button onClick={() => setStep('version')}>{t('helm.wizard.back', 'Back')}</button>
             <button className={styles.primary} onClick={() => setStep('review')}>

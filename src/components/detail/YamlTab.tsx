@@ -1,10 +1,20 @@
 /**
- * YAML tab (Design §4-YAML). Fetches the pod's YAML, shows it read-only with
- * syntax highlighting, and supports Edit → Apply (PUT to the cluster) with inline
- * API-error reporting. Cancel discards the draft.
+ * YAML tab — dual-pane editor with live local diff during editing.
+ *
+ * Layout (edit mode):
+ *   ┌────────────────────────┬────────────────────────┐
+ *   │  EditorCore (62%)      │  Live local diff (38%) │
+ *   │  with lint + search    │  debounced 300ms       │
+ *   └────────────────────────┴────────────────────────┘
+ *
+ * After dry-run preview, the right pane switches to server diff.
+ * Read-only mode: single-pane EditorCore without toolbar.
+ *
+ * Draft protection: dirty state is tracked via yamlBase in the store;
+ * navigating away while dirty triggers EditGuardDialog (mounted in App).
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import type { EditorView } from '@codemirror/view';
 import styles from './YamlTab.module.css';
@@ -12,20 +22,80 @@ import { useStore } from '../../store';
 import { formatError, getProvider } from '../../providers';
 import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useTranslation } from '../../hooks/useI18n';
-import { CodeEditor } from './CodeEditor';
+import { EditorCore } from '../editor/EditorCore';
 import { diffLines, diffStat, hasChanges, hunks } from '../../lib/diff';
 import type { ResourceRef, YamlDiff } from '../../providers/types';
 
+/** Debounce helper. */
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 /**
- * What the server says this edit would do (B36) — the live object against the
- * object that would be stored, so defaulting and mutating webhooks are visible
- * before anything is written.
- *
- * Only changed regions are shown. A manifest is mostly unchanged, and rendering
- * the whole file would bury the one line that matters. Memoized: the diff
- * object is stable between renders.
+ * Local diff view — shows changes between the original YAML and the current draft.
+ * Updates in real-time (debounced) as the user types.
  */
-const DiffView = React.memo(function DiffView({ diff }: { diff: YamlDiff }) {
+const LocalDiffView = React.memo(function LocalDiffView({
+  original,
+  draft,
+}: {
+  original: string;
+  draft: string;
+}) {
+  const { t } = useTranslation();
+  const lines = diffLines(original, draft);
+  const groups = hunks(lines);
+  const { added, removed } = diffStat(lines);
+
+  if (!hasChanges(lines)) {
+    return (
+      <div className={styles.diffWrap}>
+        <div className={styles.diffEmpty}>{t('yaml.noChanges')}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.diffWrap}>
+      <div className={styles.diffStat}>
+        <span className={styles.diffAdded}>+{added}</span>{' '}
+        <span className={styles.diffRemoved}>−{removed}</span>{' '}
+        <span className={styles.diffNote}>{t('yaml.localDiff')}</span>
+      </div>
+      {groups.map((g, i) => (
+        <div className={styles.diffHunk} key={i}>
+          {g.map((l, j) => (
+            <div
+              key={j}
+              className={[
+                styles.diffLine,
+                l.op === 'add' ? styles.diffLineAdd : '',
+                l.op === 'del' ? styles.diffLineDel : '',
+              ].join(' ')}
+            >
+              <span className={styles.diffGutter}>{l.before ?? l.after ?? ''}</span>
+              <span className={styles.diffSign}>
+                {l.op === 'add' ? '+' : l.op === 'del' ? '−' : ' '}
+              </span>
+              <span className={styles.diffText}>{l.text || ' '}</span>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+});
+
+/**
+ * Server diff view — shows what the dry-run would actually do.
+ * Same rendering as the old DiffView.
+ */
+const ServerDiffView = React.memo(function ServerDiffView({ diff }: { diff: YamlDiff }) {
   const { t } = useTranslation();
   const lines = diffLines(diff.current, diff.proposed);
   const groups = hunks(lines);
@@ -72,7 +142,6 @@ const DiffView = React.memo(function DiffView({ diff }: { diff: YamlDiff }) {
 
 export function YamlTab() {
   const row = useStore((s) => s.selectedRow);
-  // The selected row's kind is the current nav kind (selection clears on nav change).
   const kind = useStore((s) => s.nav);
   const yamlEditing = useStore((s) => s.yamlEditing);
   const yamlDraft = useStore((s) => s.yamlDraft);
@@ -84,15 +153,18 @@ export function YamlTab() {
   const { t } = useTranslation();
 
   const [editorView, setEditorView] = useState<EditorView | null>(null);
-
   const [yamlText, setYamlText] = useState('');
-  // Bumped after each fetch so the read-only editor remounts with fresh content.
   const [nonce, setNonce] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
-  // The server's answer to "what would this actually do" (B36). Non-null puts
-  // the tab in review mode: the real apply is only reachable from here.
   const [review, setReview] = useState<YamlDiff | null>(null);
+
+  // Dirty tracking: compare draft to the original fetched text.
+  const originalRef = useRef('');
+  const isDirty = yamlEditing && yamlDraft !== originalRef.current;
+
+  // Debounce the draft for local diff (300ms).
+  const debouncedDraft = useDebounce(yamlDraft, 300);
 
   const ref: ResourceRef | null = row ? { kind, namespace: row.namespace, name: row.name } : null;
 
@@ -109,13 +181,14 @@ export function YamlTab() {
     setAiPanelOpen(true);
   };
 
-  // Fetch YAML on selection change (and on first open of this tab).
+  // Fetch YAML on selection change.
   useAsyncEffect(async (isMounted) => {
     if (!ref) return;
     try {
       const text = await getProvider().getYaml(ref);
       if (!isMounted()) return;
       setYamlText(text);
+      originalRef.current = text;
       setNonce((n) => n + 1);
       setError(null);
     } catch (e) {
@@ -125,18 +198,11 @@ export function YamlTab() {
 
   if (!row || !ref) return null;
 
-  // Secret values are redacted server-side, so editing is disabled for them.
   const editable = kind !== 'secrets';
-  // Namespaced → "kind/ns/name.yaml"; cluster-scoped → "kind/name.yaml".
   const path = row.namespace
     ? `${kind}/${row.namespace}/${row.name}.yaml`
     : `${kind}/${row.name}.yaml`;
 
-  /**
-   * Step one of applying (B36): ask the server what the edit would do, without
-   * writing. A rejection here is the admission chain refusing the manifest —
-   * shown inline, draft kept, cluster untouched.
-   */
   const onPreview = async () => {
     setApplying(true);
     try {
@@ -154,14 +220,13 @@ export function YamlTab() {
     try {
       await getProvider().applyYaml(ref, yamlDraft);
       setReview(null);
-      cancelYaml(); // leave edit mode
-      // Refetch to reflect the server's canonical version.
+      cancelYaml();
       const text = await getProvider().getYaml(ref);
       setYamlText(text);
+      originalRef.current = text;
       setNonce((n) => n + 1);
       setError(null);
     } catch (e) {
-      // Keep the draft and surface the API error inline (Story 5.4).
       setError(formatError(e));
     } finally {
       setApplying(false);
@@ -172,6 +237,18 @@ export function YamlTab() {
     <>
       <div className={styles.toolbar}>
         <span className={styles.path}>{path}</span>
+        {isDirty && (
+          <span
+            style={{
+              display: 'inline-block',
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: 'var(--status-warn)',
+            }}
+            title={t('yaml.unsaved', 'Unsaved changes')}
+          />
+        )}
         <span className={styles.spacer} />
         {yamlEditing ? (
           review ? (
@@ -240,14 +317,52 @@ export function YamlTab() {
       {error && <div className={styles.error}>{error}</div>}
 
       {yamlEditing && review ? (
-        <DiffView diff={review} />
+        // Review mode: editor left + server diff right
+        <div className={styles.editorWrap} style={{ display: 'flex' }}>
+          <div className={styles.editing} style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+            <EditorCore
+              key={`edit:${row.uid}`}
+              value={yamlText}
+              language="yaml"
+              editable
+              onChange={setYamlDraft}
+              onViewReady={setEditorView}
+              onSave={() => void onPreview()}
+            />
+          </div>
+          <div style={{ flex: '0 0 38%', borderLeft: '1px solid var(--border-row)', minHeight: 0, overflow: 'hidden' }}>
+            <ServerDiffView diff={review} />
+          </div>
+        </div>
       ) : yamlEditing ? (
-        <div className={`${styles.editorWrap} ${styles.editing}`}>
-          <CodeEditor key={`edit:${row.uid}`} value={yamlText} editable onChange={setYamlDraft} onViewReady={setEditorView} />
+        // Edit mode: editor left + live local diff right
+        <div className={styles.editorWrap} style={{ display: 'flex' }}>
+          <div className={styles.editing} style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+            <EditorCore
+              key={`edit:${row.uid}`}
+              value={yamlText}
+              language="yaml"
+              editable
+              onChange={setYamlDraft}
+              onViewReady={setEditorView}
+              onSave={() => void onPreview()}
+            />
+          </div>
+          <div style={{ flex: '0 0 38%', borderLeft: '1px solid var(--border-row)', minHeight: 0, overflow: 'hidden' }}>
+            <LocalDiffView original={originalRef.current} draft={debouncedDraft} />
+          </div>
         </div>
       ) : (
+        // Read-only mode: single pane, no toolbar
         <div className={styles.editorWrap}>
-          <CodeEditor key={`read:${row.uid}:${nonce}`} value={yamlText} editable={false} onViewReady={setEditorView} />
+          <EditorCore
+            key={`read:${row.uid}:${nonce}`}
+            value={yamlText}
+            language="yaml"
+            editable={false}
+            onViewReady={setEditorView}
+            hideToolbar
+          />
         </div>
       )}
     </>

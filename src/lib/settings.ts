@@ -51,6 +51,15 @@ export interface Settings {
   scannerGrypePath: string;
   /** Timeout for scanner invocations (e.g. "5m", "300s"); empty = 5m default. */
   scannerTimeout: string;
+  // ---- editor / terminal ----
+  /** Font size for the YAML editor and other CodeMirror surfaces. */
+  editorFontSize: number;
+  /** Font size for the terminal (xterm). */
+  terminalFontSize: number;
+  /** Scrollback lines for the terminal. */
+  terminalScrollback: number;
+  /** Detail panel width as percentage of content area (25–70). */
+  detailWidthPct: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -70,6 +79,10 @@ export const DEFAULT_SETTINGS: Settings = {
   scannerTrivyPath: '',
   scannerGrypePath: '',
   scannerTimeout: '',
+  editorFontSize: 12,
+  terminalFontSize: 12,
+  terminalScrollback: 5000,
+  detailWidthPct: 48,
 };
 
 /**
@@ -82,6 +95,10 @@ export const LIMITS = {
   logBufferCap: { min: 50, max: 5000 },
   metricsIntervalSecs: { min: 5, max: 300 },
   statusIntervalSecs: { min: 5, max: 300 },
+  editorFontSize: { min: 9, max: 18 },
+  terminalFontSize: { min: 9, max: 18 },
+  terminalScrollback: { min: 1000, max: 50000 },
+  detailWidthPct: { min: 25, max: 70 },
 } as const;
 
 /**
@@ -175,5 +192,29 @@ export function sanitizeSettings(raw: SettingsInput | null | undefined): Setting
       typeof s.scannerGrypePath === 'string' ? sanitizePath(s.scannerGrypePath) : '',
     scannerTimeout:
       typeof s.scannerTimeout === 'string' ? sanitizeTimeout(s.scannerTimeout) : '',
+    editorFontSize: clampNumber(
+      s.editorFontSize,
+      LIMITS.editorFontSize.min,
+      LIMITS.editorFontSize.max,
+      DEFAULT_SETTINGS.editorFontSize
+    ),
+    terminalFontSize: clampNumber(
+      s.terminalFontSize,
+      LIMITS.terminalFontSize.min,
+      LIMITS.terminalFontSize.max,
+      DEFAULT_SETTINGS.terminalFontSize
+    ),
+    terminalScrollback: clampNumber(
+      s.terminalScrollback,
+      LIMITS.terminalScrollback.min,
+      LIMITS.terminalScrollback.max,
+      DEFAULT_SETTINGS.terminalScrollback
+    ),
+    detailWidthPct: clampNumber(
+      s.detailWidthPct,
+      LIMITS.detailWidthPct.min,
+      LIMITS.detailWidthPct.max,
+      DEFAULT_SETTINGS.detailWidthPct
+    ),
   };
 }

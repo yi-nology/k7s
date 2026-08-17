@@ -1,0 +1,57 @@
+/* ConfirmDialog — inline styles replaced by CSS module. */
+
+.body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0 0 16px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cancelBtn,
+.confirmBtn,
+.dangerBtn {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+}
+
+.cancelBtn {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.cancelBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-body);
+}
+
+.confirmBtn {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.confirmBtn:hover {
+  opacity: 0.9;
+}
+
+.dangerBtn {
+  background: var(--status-err);
+  color: white;
+  border-color: var(--status-err);
+}
+
+.dangerBtn:hover {
+  opacity: 0.9;
+}

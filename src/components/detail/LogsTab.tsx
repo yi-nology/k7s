@@ -30,6 +30,9 @@ function msgColor(level: string): string {
   return 'var(--text-secondary)';
 }
 
+/** All known log levels for the filter chips. */
+const LOG_LEVELS = ['ALL', 'INFO', 'WARN', 'ERROR', 'DEBUG'] as const;
+
 /** Highlight all occurrences of `query` within `text` using <mark>. */
 function highlightMatches(text: string, query: string): React.ReactNode {
   if (!query) return text;
@@ -79,6 +82,10 @@ export function LogsTab() {
 
   // Transient save feedback: which file was written, or why it wasn't.
   const [saveNote, setSaveNote] = useState<string | null>(null);
+  // Wrap toggle — defaults to true (matching original behavior).
+  const [wrap, setWrap] = useState(true);
+  // Level filter — defaults to 'ALL' (show everything).
+  const [levelFilter, setLevelFilter] = useState<string>('ALL');
 
   // Multi-container pods get an "all" option ("") first; "(all)" is its label and
   // turns on the per-line container tag column.
@@ -156,6 +163,11 @@ export function LogsTab() {
 
   // Auto-scroll to the bottom on new lines, but only while following.
   const viewportRef = useRef<HTMLDivElement>(null);
+
+  // Filter logBuffer by level.
+  const filteredBuffer = levelFilter === 'ALL'
+    ? logBuffer
+    : logBuffer.filter((line) => line.level === levelFilter);
   useLayoutEffect(() => {
     if (following && viewportRef.current) {
       const el = viewportRef.current;
@@ -274,6 +286,16 @@ export function LogsTab() {
             {t('logs.save')}
           </button>
 
+          {/* Wrap toggle */}
+          <button
+            type="button"
+            className={cx(styles.toggle, wrap && styles.toggleActive)}
+            onClick={() => setWrap(!wrap)}
+            title={t('logs.wrap', 'Wrap lines')}
+          >
+            {t('logs.wrap', 'Wrap')}
+          </button>
+
           {/* Follow / pause. Meaningless for a previous read: that container is
               dead, so there is nothing to follow. */}
           {!previous && (
@@ -288,8 +310,26 @@ export function LogsTab() {
         </div>
       </div>
 
-      <div className={styles.viewport} ref={viewportRef}>
-        {logBuffer.map((line, i) => (
+      {/* Level filter chips */}
+      <div className={styles.levelChips}>
+        {LOG_LEVELS.map((lvl) => (
+          <button
+            key={lvl}
+            type="button"
+            className={cx(styles.levelChip, levelFilter === lvl && styles.levelChipActive)}
+            onClick={() => setLevelFilter(lvl)}
+          >
+            {lvl}
+          </button>
+        ))}
+      </div>
+
+      <div
+        className={styles.viewport}
+        ref={viewportRef}
+        style={{ whiteSpace: wrap ? 'pre-wrap' : 'pre' }}
+      >
+        {filteredBuffer.map((line, i) => (
           <div
             key={i}
             ref={(el) => {
@@ -309,7 +349,7 @@ export function LogsTab() {
       </div>
 
       <div className={styles.footer}>
-        <span>{t('logs.linesCount', logBuffer.length)}</span>
+        <span>{t('logs.linesCount', filteredBuffer.length)}{levelFilter !== 'ALL' ? ` (${logBuffer.length} total)` : ''}</span>
         <span>
           {t('logs.container')}: {containerLabel}
         </span>

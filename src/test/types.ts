@@ -287,6 +287,10 @@ export function createMockSettings(overrides: MockSettings = {}): Settings {
     scannerTrivyPath: '',
     scannerGrypePath: '',
     scannerTimeout: '',
+    editorFontSize: 12,
+    terminalFontSize: 12,
+    terminalScrollback: 5000,
+    detailWidthPct: 48,
     ...overrides,
   };
 }

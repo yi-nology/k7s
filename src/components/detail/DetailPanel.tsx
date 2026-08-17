@@ -9,7 +9,7 @@
  * and node drain progress (B20).
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styles from './DetailPanel.module.css';
 import { useStore, rowsFor } from '../../store';
 import { useNow } from '../../hooks/useNow';
@@ -96,9 +96,61 @@ export function DetailPanel() {
   const kindLabel =
     kindLabelFor(nav, customKinds, locale) ?? kindMeta(nav, customKinds)?.label ?? nav;
 
+  // Drag-to-resize: left edge handle, persists width to settings.
+  const detailWidthPct = useStore((s) => s.settings.detailWidthPct);
+  const setSettings = useStore((s) => s.setSettings);
+  const dragRef = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setDragging(true);
+    const startX = e.clientX;
+    const startWidth = detailWidthPct;
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      const contentArea = document.querySelector(`.${styles.panel}`)?.parentElement;
+      if (!contentArea) return;
+      const totalWidth = contentArea.getBoundingClientRect().width;
+      const delta = startX - ev.clientX; // dragging left increases width
+      const newPct = Math.min(70, Math.max(25, startWidth + (delta / totalWidth) * 100));
+      setSettings({ detailWidthPct: Math.round(newPct) });
+    };
+
+    const handleMouseUp = () => {
+      setDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  }, [detailWidthPct, setSettings]);
+
+  // Double-click resets to 48%.
+  const handleDoubleClick = useCallback(() => {
+    setSettings({ detailWidthPct: 48 });
+  }, [setSettings]);
+
   // data-surface="panel": in light mode the inspector is dark chrome (tokens.css).
   return (
-    <div className={styles.panel} data-surface="panel" role="region" aria-label="Detail panel">
+    <div
+      className={styles.panel}
+      data-surface="panel"
+      role="region"
+      aria-label="Detail panel"
+      style={{ width: `${detailWidthPct}%` }}
+    >
+      {/* Drag handle — left edge */}
+      <div
+        ref={dragRef}
+        className={styles.dragHandle}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={handleDoubleClick}
+        title="Drag to resize · Double-click to reset"
+        style={{ cursor: dragging ? 'col-resize' : undefined }}
+      />
+
       {/* Multi-tab strip: shows when 2+ resources are open in tabs. */}
       <TabStrip />
       <div className={styles.header}>

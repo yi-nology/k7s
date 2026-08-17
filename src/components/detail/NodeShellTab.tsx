@@ -22,6 +22,7 @@ import { useStore } from '../../store';
 import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useTerminal } from './useTerminal';
+import { TerminalToolbar } from './TerminalToolbar';
 import type { NodeShellHandle } from '../../providers/types';
 
 type Phase =
@@ -41,7 +42,7 @@ export function NodeShellTab() {
   // The terminal exists only once a session has been asked for; keying on the node
   // means switching nodes tears the old one down.
   const started = phase.state !== 'idle';
-  const { hostRef, termRef, sessionRef } = useTerminal(started && node ? node : null);
+  const { hostRef, termRef, sessionRef, searchRef } = useTerminal(started && node ? node : null);
 
   // Switching nodes must not leave the previous node's session running — it's a
   // privileged pod, and "out of sight" is the worst way for one to be still alive.
@@ -125,27 +126,21 @@ export function NodeShellTab() {
 
   return (
     <div className={styles.wrap}>
-      <div className={styles.header}>
-        <span className={styles.headerLabel}>
-          {phase.state === 'starting'
-            ? t('nodeShell.starting', 'starting debug pod…')
-            : t('nodeShell.nodeLabel', 'node')}
-        </span>
-        <span className={nodeStyles.nodeName}>{node}</span>
-        {/* The pod name is shown, not hidden: this feature made a privileged pod,
-            and the user should be able to see and delete it themselves. */}
-        {phase.state === 'running' && <span className={nodeStyles.podName}>{phase.pod}</span>}
-        {phase.state === 'running' && (
-          <button
-            type="button"
-            className={nodeStyles.close}
-            onClick={stop}
-            title={t('nodeShell.endTitle')}
-          >
-            {t('nodeShell.endSession', '✕ end session')}
-          </button>
-        )}
-      </div>
+      <TerminalToolbar
+        status={
+          phase.state === 'starting' ? 'connecting' :
+          phase.state === 'running' ? 'live' : 'ended'
+        }
+        statusText={
+          phase.state === 'starting' ? t('nodeShell.starting', 'starting debug pod…') :
+          phase.state === 'ended' ? phase.reason :
+          phase.state === 'running' ? `${node} (${phase.pod})` : undefined
+        }
+        termRef={termRef}
+        searchRef={searchRef}
+        canReconnect={false}
+        onEndSession={phase.state === 'running' ? stop : undefined}
+      />
 
       <div className={styles.shell} ref={hostRef} />
 

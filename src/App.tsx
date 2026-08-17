@@ -25,6 +25,7 @@ import { DetailPanel } from './components/detail/DetailPanel';
 import { ForwardsBar } from './components/forwards/ForwardsBar';
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { CommandPalette } from './components/palette/CommandPalette';
+import { EditGuardDialog } from './components/detail/EditGuardDialog';
 import { useStore } from './store';
 // The AI panel drags in react-markdown + shiki (the heaviest dep in the app).
 // It only renders when the user opens it, so it's lazy — non-AI sessions never
@@ -212,6 +213,7 @@ export default function App() {
             everything — ⌘K works from anywhere, including the settings panel. */}
         <SettingsPanel />
         <CommandPalette />
+        <EditGuardDialog />
         {/* Error toasts — rendered above everything else. */}
         <ErrorToast toasts={toasts} onDismiss={dismissToast} />
       </div>

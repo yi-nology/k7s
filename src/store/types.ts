@@ -20,6 +20,18 @@ import type {
 import type { SinceOption } from '../lib/logview';
 import type { Settings } from '../lib/settings';
 
+/**
+ * Intercepted navigation intent while YAML is dirty.
+ * When the user tries to navigate away while editing, the intent is stored here
+ * and a confirmation dialog is shown. On confirm, the intent is replayed.
+ */
+export type DetailIntent =
+  | { type: 'select'; row: Row }
+  | { type: 'tab'; tab: DetailTab }
+  | { type: 'closeTab'; uid: string }
+  | { type: 'closePanel' }
+  | { type: 'jump'; kind: KindId; row?: Row };
+
 /** Detail-panel tab identifiers. */
 export type DetailTab =
   | 'logs'
@@ -187,6 +199,10 @@ export interface AppState {
   // yaml
   yamlEditing: boolean;
   yamlDraft: string;
+  /** Baseline text for dirty detection — set when startYamlEdit is called. */
+  yamlBase: string;
+  /** Intercepted navigation intent while YAML is dirty. null = no pending intent. */
+  pendingDetail: DetailIntent | null;
 
   // ai
   aiPanelOpen: boolean;
@@ -255,6 +271,8 @@ export interface AppState {
   startYamlEdit: (initial: string) => void;
   cancelYaml: () => void;
   setYamlDraft: (text: string) => void;
+  confirmPendingDetail: () => void;
+  cancelPendingDetail: () => void;
   openOverlay: (
     key: OverlayKey,
     podRef?: { namespace: string; name: string; container: string | null } | null

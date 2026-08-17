@@ -17,7 +17,32 @@ import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { PodFileEntry, ResourceRef } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { sanitizePath, safePathJoin } from '../../lib/security';
+import { EditorCore } from '../editor/EditorCore';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './PodFilesPanel.module.css';
+
+/** Extensions considered binary — editing disabled, download only. */
+const BINARY_EXTS = new Set([
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'svg',
+  'zip', 'tar', 'gz', 'bz2', 'xz', '7z', 'rar',
+  'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+  'exe', 'bin', 'so', 'dylib', 'dll', 'o', 'a',
+  'woff', 'woff2', 'ttf', 'otf', 'eot',
+  'mp3', 'mp4', 'wav', 'avi', 'mov', 'mkv', 'webm',
+]);
+
+/** Extensions that get YAML/highlight support. */
+const YAML_EXTS = new Set(['yaml', 'yml']);
+
+function isBinaryFilename(name: string): boolean {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  return BINARY_EXTS.has(ext);
+}
+
+function languageForFile(name: string): 'yaml' | undefined {
+  const ext = name.split('.').pop()?.toLowerCase() ?? '';
+  return YAML_EXTS.has(ext) ? 'yaml' : undefined;
+}
 
 export function PodFilesPanel({
   ref,
@@ -35,9 +60,13 @@ export function PodFilesPanel({
   const [entries, setEntries] = useState<PodFileEntry[]>([]);
   const [selected, setSelected] = useState<PodFileEntry | null>(null);
   const [content, setContent] = useState<string>('');
-  const [dirty, setDirty] = useState(false);
+  const [originalContent, setOriginalContent] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<PodFileEntry | null>(null);
+  const dirty = content !== originalContent && selected?.kind !== 'dir';
+  const isBinary = selected ? isBinaryFilename(selected.name) : false;
+  const isLarge = content.length > 1_000_000; // >1MB
 
   // Reload listing whenever the path changes.
   useAsyncEffect(async (isMounted) => {
@@ -64,7 +93,7 @@ export function PodFilesPanel({
         const text = await getProvider().podFilesRead(ref, container, fullPath);
         if (isMounted()) {
           setContent(text);
-          setDirty(false);
+          setOriginalContent(text);
         }
       } catch (e: unknown) {
         if (isMounted()) setError(formatError(e));
@@ -83,15 +112,45 @@ export function PodFilesPanel({
     setError(null);
     try {
       await getProvider().podFilesWrite(ref, container, joinPath(path, selected.name), content);
-      setDirty(false);
+      setOriginalContent(content);
     } catch (e) {
       setError(formatError(e));
     }
   }, [selected, ref, container, path, content]);
 
+  /** Select a file — with dirty guard. */
+  const selectFile = useCallback((entry: PodFileEntry) => {
+    if (dirty && selected) {
+      setPendingFile(entry);
+      return;
+    }
+    setSelected(entry);
+  }, [dirty, selected]);
+
+  const confirmSwitch = useCallback(() => {
+    if (pendingFile) {
+      setSelected(pendingFile);
+      setPendingFile(null);
+    }
+  }, [pendingFile]);
+
+  const cancelSwitch = useCallback(() => {
+    setPendingFile(null);
+  }, []);
+
   const breadcrumbs = useMemo(() => path.split('/').filter(Boolean), [path]);
 
   return (
+    <>
+    <ConfirmDialog
+      open={!!pendingFile}
+      onClose={cancelSwitch}
+      onConfirm={confirmSwitch}
+      title={t('files.unsavedTitle', 'Unsaved changes')}
+      body={t('files.unsavedBody', 'You have unsaved changes. Discard and switch file?')}
+      confirmLabel={t('files.discardAndSwitch', 'Discard and switch')}
+      danger
+    />
     <div className={styles.panel}>
       <header className={styles.header}>
         <div className={styles.crumbs}>
@@ -138,7 +197,7 @@ export function PodFilesPanel({
                 <li
                   key={e.name}
                   className={selected?.name === e.name ? styles.entryActive : styles.entry}
-                  onClick={() => setSelected(e)}
+                  onClick={() => selectFile(e)}
                   onDoubleClick={() => e.kind === 'dir' && navigateInto(e.name)}
                   title={e.target ? `${e.name} → ${e.target}` : `${e.name} (${e.kind})`}
                 >
@@ -190,15 +249,24 @@ export function PodFilesPanel({
                   </button>
                 </div>
               </div>
-              <textarea
-                className={styles.content}
-                value={content}
-                onChange={(e) => {
-                  setContent(e.target.value);
-                  setDirty(true);
-                }}
-                spellCheck={false}
-              />
+              {isBinary ? (
+                <div className={styles.empty}>
+                  {t('files.binary', 'Binary file — editing disabled. Use Download.')}
+                </div>
+              ) : isLarge ? (
+                <div className={styles.empty}>
+                  {t('files.tooLarge', 'File too large for editing (>1MB). Use Download.')}
+                </div>
+              ) : (
+                <EditorCore
+                  key={selected.name}
+                  value={content}
+                  language={languageForFile(selected.name)}
+                  editable
+                  onChange={setContent}
+                  onSave={() => void save()}
+                />
+              )}
             </>
           ) : (
             <div className={styles.empty}>{t('files.pickFile', 'Pick a file to view or edit')}</div>
@@ -206,6 +274,7 @@ export function PodFilesPanel({
         </div>
       </div>
     </div>
+    </>
   );
 }
 

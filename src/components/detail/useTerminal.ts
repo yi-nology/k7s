@@ -2,21 +2,21 @@
  * The xterm terminal behind the Shell tabs — shared by the pod shell (B4/B19) and
  * the node debug shell (B53).
  *
- * Shared because the two tabs differ only in *what they attach to*; the terminal
- * itself — fitting, resize reporting, palette changes, disposal — behaves
- * identically, and two copies would drift the moment one of them was fixed.
- *
- * The terminal and the session deliberately have different lifetimes: the terminal
- * belongs to a target, a session is one connection to it. A session can end (you
- * type `exit`, the pod restarts) and be reconnected into the *same* terminal, which
- * is what preserves scrollback across a reconnect.
+ * Enhancements over the original:
+ * - @xterm/addon-search (Ctrl-F terminal search)
+ * - @xterm/addon-web-links (clickable URLs)
+ * - Configurable fontSize and scrollback from settings
+ * - Clipboard handling (Cmd-C/V in Tauri webview)
  */
 
 import { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { SearchAddon } from '@xterm/addon-search';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { useResolvedTheme } from '../../hooks/useTheme';
+import { useStore } from '../../store';
 import { termTheme } from '../../lib/theme';
 
 /** Anything that can receive keystrokes and a terminal size. */
@@ -31,6 +31,8 @@ export interface TerminalHandles {
   termRef: React.RefObject<Terminal | null>;
   /** Set this so panel resizes are forwarded to the running session. */
   sessionRef: React.RefObject<Resizable | null>;
+  /** The search addon, for programmatic search. */
+  searchRef: React.RefObject<SearchAddon | null>;
 }
 
 /**
@@ -44,28 +46,61 @@ export function useTerminal(key: string | null): TerminalHandles {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const sessionRef = useRef<Resizable | null>(null);
+  const searchRef = useRef<SearchAddon | null>(null);
   const theme = useResolvedTheme();
+  const fontSize = useStore((s) => s.settings.terminalFontSize);
+  const scrollback = useStore((s) => s.settings.terminalScrollback);
 
   useEffect(() => {
     if (!hostRef.current || !key) return;
 
-    // Resolve colours from the host so light-mode dark panels (scoped tokens on
-    // [data-surface="panel"]) win over the document palette.
     const host = hostRef.current;
     const term = new Terminal({
       fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-      fontSize: 12,
+      fontSize,
       cursorBlink: true,
+      scrollback,
       theme: termTheme(host),
     });
+
+    // Addons
     const fit = new FitAddon();
+    const search = new SearchAddon();
+    const webLinks = new WebLinksAddon();
     term.loadAddon(fit);
+    term.loadAddon(search);
+    term.loadAddon(webLinks);
     term.open(host);
     fit.fit();
-    termRef.current = term;
 
-    // Refit + report size when the panel resizes. Reads the session through a ref
-    // so a reconnect doesn't need to rebuild the observer.
+    termRef.current = term;
+    searchRef.current = search;
+
+    // Clipboard handling for Tauri webview (Cmd-C/V).
+    term.attachCustomKeyEventHandler((e) => {
+      // Cmd-C / Ctrl-C: copy selection if any, otherwise let xterm handle (SIGINT).
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && e.type === 'keydown') {
+        const sel = term.getSelection();
+        if (sel) {
+          void navigator.clipboard.writeText(sel);
+          return false; // prevent xterm's default copy
+        }
+        return true; // no selection → let Ctrl-C through as SIGINT
+      }
+      // Cmd-V / Ctrl-V: paste from clipboard.
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v' && e.type === 'keydown') {
+        void navigator.clipboard.readText().then((text) => {
+          if (text && sessionRef.current) {
+            // Write through the session handle so it reaches the container.
+            (sessionRef.current as { input?: (d: string) => void }).input?.(text);
+          }
+        });
+        return false;
+      }
+      return true;
+    });
+
+    // Refit + report size when the panel resizes.
     const ro = new ResizeObserver(() => {
       try {
         fit.fit();
@@ -78,17 +113,23 @@ export function useTerminal(key: string | null): TerminalHandles {
 
     return () => {
       ro.disconnect();
+      webLinks.dispose();
+      search.dispose();
       term.dispose();
       termRef.current = null;
+      searchRef.current = null;
     };
-  }, [key]);
+  }, [key, fontSize, scrollback]);
 
-  // Palette changes re-theme in place (B52) rather than rebuilding, for the same
-  // reason a reconnect doesn't: the scrollback is the session, and switching to
-  // light mode is no reason to throw away what you were reading.
+  // Palette changes re-theme in place rather than rebuilding.
   useEffect(() => {
     if (termRef.current) termRef.current.options.theme = termTheme(hostRef.current);
   }, [theme, key]);
 
-  return { hostRef, termRef, sessionRef };
+  // Hot-update fontSize when settings change (without rebuilding terminal).
+  useEffect(() => {
+    if (termRef.current) termRef.current.options.fontSize = fontSize;
+  }, [fontSize]);
+
+  return { hostRef, termRef, sessionRef, searchRef };
 }

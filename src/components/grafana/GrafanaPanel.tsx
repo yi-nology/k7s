@@ -20,6 +20,7 @@ import type {
   GrafanaDashboardSearchResult,
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './GrafanaPanel.module.css';
 
 function getRangeOptions(t: (key: string) => string) {
@@ -35,6 +36,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const [instances, setInstances] = useState<GrafanaConfig[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [presets, setPresets] = useState<DashboardPreset[]>([]);
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [iframeUrl, setIframeUrl] = useState<string | null>(null);
@@ -116,6 +118,21 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   }, [selected, activePreset, rangeMinutes]);
 
   return (
+    <>
+    <ConfirmDialog
+      open={!!pendingRemove}
+      onClose={() => setPendingRemove(null)}
+      onConfirm={async () => {
+        if (!pendingRemove) return;
+        await getProvider().grafanaRemove(pendingRemove);
+        setSelected(null);
+        reload();
+        setPendingRemove(null);
+      }}
+      title={t('grafana.removeTitle', 'Remove Grafana instance')}
+      body={t('grafana.confirmRemove', 'Remove this instance?')}
+      danger
+    />
     <div className={styles.panel}>
       <header className={styles.header}>
         <h2>{t('grafana.title', 'Grafana')}</h2>
@@ -162,14 +179,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
               </button>
               <button
                 className={styles.btnDanger}
-                onClick={async () => {
-                  if (!confirm(t('grafana.confirmRemove', 'Remove this instance?'))) {
-                    return;
-                  }
-                  await getProvider().grafanaRemove(selected);
-                  setSelected(null);
-                  reload();
-                }}
+                onClick={() => setPendingRemove(selected)}
               >
                 {t('grafana.remove', 'Remove')}
               </button>
@@ -337,5 +347,6 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
         </main>
       </div>
     </div>
+    </>
   );
 }

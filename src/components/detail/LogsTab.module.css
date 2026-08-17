@@ -228,3 +228,46 @@
 .saveNote {
   color: var(--accent);
 }
+
+/* Level filter chips */
+.levelChips {
+  display: flex;
+  gap: 4px;
+  padding: 4px 14px;
+  border-bottom: 1px solid var(--border-row);
+  flex-shrink: 0;
+}
+
+.levelChip {
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.levelChip:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border-hover);
+}
+
+.levelChipActive {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.levelChipActive:hover {
+  opacity: 0.9;
+  background: var(--accent);
+  color: white;
+}

@@ -161,6 +161,48 @@ export function SettingsPanel() {
             hint={t('chrome.settings.advancedHint')}
             startOpen={section === 'advanced'}
           >
+            {/* Terminal settings */}
+            <Row
+              label={t('settings.terminalFontSize.label', 'Terminal font size')}
+              hint={t('settings.terminalFontSize.hint', 'Font size for terminal (9–18px)')}
+            >
+              <input
+                className={styles.number}
+                type="number"
+                min={LIMITS.terminalFontSize.min}
+                max={LIMITS.terminalFontSize.max}
+                value={settings.terminalFontSize}
+                onChange={(e) => update({ terminalFontSize: Number(e.target.value) })}
+              />
+            </Row>
+
+            <Row
+              label={t('settings.terminalScrollback.label', 'Terminal scrollback')}
+              hint={t('settings.terminalScrollback.hint', `${LIMITS.terminalScrollback.min}–${LIMITS.terminalScrollback.max} lines; takes effect on new sessions`)}
+            >
+              <input
+                className={styles.number}
+                type="number"
+                min={LIMITS.terminalScrollback.min}
+                max={LIMITS.terminalScrollback.max}
+                value={settings.terminalScrollback}
+                onChange={(e) => update({ terminalScrollback: Number(e.target.value) })}
+              />
+            </Row>
+
+            <Row
+              label={t('settings.editorFontSize.label', 'Editor font size')}
+              hint={t('settings.editorFontSize.hint', 'Font size for code editor (9–18px)')}
+            >
+              <input
+                className={styles.number}
+                type="number"
+                min={LIMITS.editorFontSize.min}
+                max={LIMITS.editorFontSize.max}
+                value={settings.editorFontSize}
+                onChange={(e) => update({ editorFontSize: Number(e.target.value) })}
+              />
+            </Row>
             <Row
               label={t('settings.logBuffer.label')}
               hint={t('settings.logBuffer.hint', LIMITS.logBufferCap.min, LIMITS.logBufferCap.max)}

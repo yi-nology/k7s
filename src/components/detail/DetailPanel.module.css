@@ -4,8 +4,8 @@
    underline, ring border on action buttons. */
 
 .panel {
-  width: 48%;
-  min-width: 560px;
+  /* width is set dynamically via inline style (detailWidthPct from settings) */
+  min-width: 400px;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -315,4 +315,26 @@
   margin-top: 3px;
   color: var(--text-muted);
   line-height: 1.4;
+}
+
+/* Drag handle — left edge of detail panel for resize. */
+.dragHandle {
+  position: absolute;
+  top: 0;
+  left: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 10;
+  transition: background 150ms;
+}
+
+.dragHandle:hover {
+  background: var(--accent);
+  opacity: 0.5;
+}
+
+/* Make panel position: relative for the absolute drag handle */
+.panel {
+  position: relative;
 }

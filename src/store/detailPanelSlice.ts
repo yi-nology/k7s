@@ -4,8 +4,9 @@
 
 import type { StateCreator } from 'zustand';
 import type { KindId, LogLine, Row } from '../providers/types';
-import type { AppState, DetailTab, DetailTab2 } from './types';
+import type { AppState, DetailTab, DetailTab2, DetailIntent } from './types';
 import { rowsFor } from './types';
+// DetailIntent is used in the DetailPanelSlice interface below.
 import { EMPTY_SELECTION, type SelectionState } from '../lib/selection';
 import type { SinceOption } from '../lib/logview';
 
@@ -33,6 +34,11 @@ const LOG_RESET_PATCH = Object.freeze({
 
 function logResetPatch() {
   return LOG_RESET_PATCH;
+}
+
+/** Check if YAML is in dirty editing state (draft differs from baseline). */
+function isYamlDirty(s: { yamlEditing: boolean; yamlDraft: string; yamlBase: string }) {
+  return s.yamlEditing && s.yamlDraft !== s.yamlBase;
 }
 
 /**
@@ -89,6 +95,8 @@ export interface DetailPanelSlice {
   eventsSince: SinceOption;
   yamlEditing: boolean;
   yamlDraft: string;
+  yamlBase: string;
+  pendingDetail: DetailIntent | null;
 
   // Actions
   selectRow: (row: Row) => void;
@@ -123,6 +131,10 @@ export interface DetailPanelSlice {
   startYamlEdit: (initial: string) => void;
   cancelYaml: () => void;
   setYamlDraft: (text: string) => void;
+  /** Replay the intercepted navigation intent after user confirms discard. */
+  confirmPendingDetail: () => void;
+  /** Cancel the intercepted intent — stay in edit mode. */
+  cancelPendingDetail: () => void;
 }
 
 export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelSlice> = (set) => ({
@@ -141,11 +153,18 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
   eventsSince: 'all',
   yamlEditing: false,
   yamlDraft: '',
+  yamlBase: '',
+  pendingDetail: null,
 
   // Actions
-  selectRow: (row) => set(selectionPatch(row)),
+  selectRow: (row) =>
+    set((s) => {
+      if (isYamlDirty(s)) return { pendingDetail: { type: 'select', row } };
+      return selectionPatch(row);
+    }),
   closeDetail: () =>
     set((s) => {
+      if (isYamlDirty(s)) return { pendingDetail: { type: 'closePanel' } };
       if (s.activeDetailTabUid) {
         const next = s.detailTabs.filter((t) => t.uid !== s.activeDetailTabUid);
         if (next.length === 0) {
@@ -179,6 +198,7 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
     }),
   setActiveTab: (tab) =>
     set((s) => {
+      if (isYamlDirty(s)) return { pendingDetail: { type: 'tab', tab } };
       let detailTabs = s.detailTabs;
       if (s.activeDetailTabUid) {
         detailTabs = s.detailTabs.map((t) =>
@@ -189,6 +209,8 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
     }),
   openDetailTab: (kind, row) =>
     set((s) => {
+      // openDetailTab opens a new tab — no dirty guard needed (doesn't navigate away).
+      // But if the same row is already open, it switches to it, which does navigate.
       const existing = s.detailTabs.find((t) => t.row.uid === row.uid);
       if (existing) {
         return {
@@ -212,6 +234,7 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
     }),
   closeDetailTab: (uid) =>
     set((s) => {
+      if (isYamlDirty(s)) return { pendingDetail: { type: 'closeTab', uid } };
       const idx = s.detailTabs.findIndex((t) => t.uid === uid);
       if (idx < 0) return {};
       const next = s.detailTabs.filter((t) => t.uid !== uid);
@@ -255,6 +278,11 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
     }),
   setActiveDetailTab: (uid) =>
     set((s) => {
+      if (isYamlDirty(s)) {
+        const tab = s.detailTabs.find((t) => t.uid === uid);
+        if (tab) return { pendingDetail: { type: 'select', row: tab.row } };
+        return {};
+      }
       const tab = s.detailTabs.find((t) => t.uid === uid);
       if (!tab || uid === s.activeDetailTabUid) return {};
       return {
@@ -268,6 +296,12 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
   cycleDetailTab: (direction) =>
     set((s) => {
       if (s.detailTabs.length <= 1) return {};
+      if (isYamlDirty(s)) {
+        const i = s.detailTabs.findIndex((t) => t.uid === s.activeDetailTabUid);
+        if (i < 0) return {};
+        const next = s.detailTabs[(i + direction + s.detailTabs.length) % s.detailTabs.length];
+        return { pendingDetail: { type: 'select', row: next.row } };
+      }
       const i = s.detailTabs.findIndex((t) => t.uid === s.activeDetailTabUid);
       if (i < 0) return {};
       const next = s.detailTabs[(i + direction + s.detailTabs.length) % s.detailTabs.length];
@@ -305,7 +339,11 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
         ...logResetPatch(),
       };
     }),
-  jumpTo: (kind, row) => set((s) => jumpPatch(s, kind, row)),
+  jumpTo: (kind, row) =>
+    set((s) => {
+      if (isYamlDirty(s)) return { pendingDetail: { type: 'jump', kind, row } };
+      return jumpPatch(s, kind, row);
+    }),
   navigateTo: (target) =>
     set((s) => {
       const found = rowsFor(s.rows, target.kind).find(
@@ -364,7 +402,49 @@ export const createDetailPanelSlice: StateCreator<AppState, [], [], DetailPanelS
       return { logBuffer: combined };
     }),
   clearLogs: () => set({ logBuffer: [] }),
-  startYamlEdit: (initial) => set({ yamlEditing: true, yamlDraft: initial }),
-  cancelYaml: () => set({ yamlEditing: false, yamlDraft: '' }),
+  startYamlEdit: (initial) => set({ yamlEditing: true, yamlDraft: initial, yamlBase: initial }),
+  cancelYaml: () => set({ yamlEditing: false, yamlDraft: '', yamlBase: '', pendingDetail: null }),
   setYamlDraft: (text) => set({ yamlDraft: text }),
+  confirmPendingDetail: () =>
+    set((s) => {
+      const intent = s.pendingDetail;
+      if (!intent) return {};
+      // Clear the guard state and apply the pending intent.
+      const base = { pendingDetail: null as null, yamlEditing: false, yamlDraft: '', yamlBase: '' };
+      switch (intent.type) {
+        case 'select':
+          return { ...base, ...selectionPatch(intent.row) };
+        case 'tab': {
+          let detailTabs = s.detailTabs;
+          if (s.activeDetailTabUid) {
+            detailTabs = s.detailTabs.map((t) =>
+              t.uid === s.activeDetailTabUid ? { ...t, activeTab: intent.tab } : t
+            );
+          }
+          return { ...base, activeTab: intent.tab, detailTabs };
+        }
+        case 'closeTab': {
+          const idx = s.detailTabs.findIndex((t) => t.uid === intent.uid);
+          if (idx < 0) return base;
+          const next = s.detailTabs.filter((t) => t.uid !== intent.uid);
+          if (next.length === 0) return { ...base, detailTabs: [], activeDetailTabUid: null, selectedRow: null };
+          const newActive = next[Math.min(idx, next.length - 1)];
+          return {
+            ...base,
+            detailTabs: next,
+            activeDetailTabUid: newActive.uid,
+            nav: newActive.kind,
+            selectedRow: newActive.row,
+            activeTab: newActive.activeTab,
+          };
+        }
+        case 'closePanel':
+          return { ...base, selectedRow: null };
+        case 'jump':
+          return { ...base, ...jumpPatch(s, intent.kind, intent.row) };
+        default:
+          return base;
+      }
+    }),
+  cancelPendingDetail: () => set({ pendingDetail: null }),
 });
