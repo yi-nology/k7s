@@ -25,6 +25,9 @@ use std::sync::Arc;
 use tauri::Manager;
 
 pub fn run() {
+    // Install rustls crypto provider before any TLS operations
+    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
