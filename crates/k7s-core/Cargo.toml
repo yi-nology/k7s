@@ -1,0 +1,58 @@
+[package]
+name = "k7s-core"
+version = "0.3.6"
+description = "k7s core — transport-agnostic Kubernetes business logic"
+authors = ["k7s"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "k7s_core"
+
+[dependencies]
+# Shared dependencies via k7s-deps (re-exported for downstream consumers)
+k7s-deps = { path = "../../../k7s-deps" }
+
+# Direct dependencies (same versions as k7s-deps, used internally)
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "signal", "sync", "time"] }
+futures = "0.3"
+kube = { version = "4", features = ["client", "config", "runtime", "ws"] }
+k8s-openapi = { version = "0.28", features = ["latest"] }
+thiserror = "2"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }
+jiff = "0.2"
+uuid = { version = "1", features = ["v4"] }
+async-trait = "0.1"
+keyring = "4"
+urlencoding = "2"
+regex = "1"
+rand = "0.10"
+tokio-stream = { version = "0.1", features = ["sync"] }
+dirs = "5"
+dunce = "1"
+http = "1"
+base64 = "0.23"
+flate2 = "1"
+async-stream = "0.3"
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
+
+# Dependencies not in k7s-deps (optional/specialized)
+tauri = { version = "2", optional = true }
+rmcp = { version = "3", optional = true, features = ["server", "transport-io", "transport-streamable-http-server", "macros"] }
+schemars = { version = "1.0", features = ["chrono04"], optional = true }
+
+[features]
+default = []
+tauri = ["dep:tauri"]
+mcp = ["dep:rmcp", "dep:schemars"]
+
+[dev-dependencies]
+proptest = "1"
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
