@@ -178,7 +178,7 @@ const sharedEventBus = (() => {
         let buf = '';
         let currentEvent: string | null = null;
         backoffMs = 250; // healthy connection — reset backoff
-        // eslint-disable-next-line no-constant-condition
+         
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;

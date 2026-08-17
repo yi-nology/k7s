@@ -370,10 +370,11 @@ pub async fn diagnose_unhealthy_impl(
     .await?;
     for p in pods {
         let ns = p.metadata.namespace.clone().unwrap_or_default();
+        let pod_name = p.name_any();
         let full = if ns.is_empty() {
-            p.name_any()
+            pod_name.clone()
         } else {
-            format!("{}/{}", ns, p.name_any())
+            format!("{ns}/{pod_name}")
         };
         if let Some(cs) = p
             .status
@@ -381,6 +382,7 @@ pub async fn diagnose_unhealthy_impl(
             .and_then(|s| s.container_statuses.as_ref())
         {
             for c in cs {
+                // Waiting-reason checks.
                 if let Some(w) = c.state.as_ref().and_then(|s| s.waiting.as_ref()) {
                     let reason = w.reason.as_deref().unwrap_or("Waiting");
                     if matches!(
@@ -392,6 +394,39 @@ pub async fn diagnose_unhealthy_impl(
                     ) {
                         problems.push(serde_json::json!({ "severity": "critical", "resource": full, "kind": "pod", "reason": reason }));
                     }
+                }
+                // Terminated-container checks.
+                if let Some(t) = c.state.as_ref().and_then(|s| s.terminated.as_ref()) {
+                    match t.exit_code {
+                        137 => problems.push(serde_json::json!({
+                            "severity": "critical",
+                            "resource": full,
+                            "kind": "pod",
+                            "reason": format!("OOMKilled: container '{}' exceeded memory limit", c.name),
+                        })),
+                        139 => problems.push(serde_json::json!({
+                            "severity": "critical",
+                            "resource": full,
+                            "kind": "pod",
+                            "reason": format!("SegFault: container '{}' crashed with SIGSEGV", c.name),
+                        })),
+                        code if code > 0 => problems.push(serde_json::json!({
+                            "severity": "warning",
+                            "resource": full,
+                            "kind": "pod",
+                            "reason": format!("CrashExit: container '{}' exited with code {}", c.name, code),
+                        })),
+                        _ => {}
+                    }
+                }
+                // High restart count.
+                if c.restart_count > 5 {
+                    problems.push(serde_json::json!({
+                        "severity": "warning",
+                        "resource": format!("{ns}/{}", c.name),
+                        "kind": "pod",
+                        "reason": format!("HighRestarts: container '{}' restarted {} times", c.name, c.restart_count),
+                    }));
                 }
             }
         }
@@ -509,6 +544,18 @@ pub async fn rbac_permission_matrix_impl(manager: &ClientManager) -> AppResult<s
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
     let matrix = crate::kube::rbac_matrix::build_rbac_matrix(client).await?;
     serde_json::to_value(matrix).map_err(|e| AppError::Other(e.to_string()))
+}
+
+/// Deep diagnosis of a single pod: identifies OOMKilled, CrashLoop, ImagePullFailed,
+/// config errors, segfaults, and other failure patterns.
+pub async fn diagnose_pod_impl(
+    manager: &ClientManager,
+    namespace: &str,
+    pod: &str,
+) -> AppResult<serde_json::Value> {
+    let client = manager.client().await.ok_or(AppError::Disconnected)?;
+    let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, namespace, pod).await?;
+    serde_json::to_value(diagnosis).map_err(|e| AppError::Other(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------

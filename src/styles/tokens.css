@@ -129,17 +129,19 @@
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
 
   /* ================ Font size (theme-independent) ================ */
-  --text-2xs: 9px;
-  --text-xs: 10px;
-  --text-sm: 11px;
-  --text-md: 12px;
-  --text-base: 13.5px;
-  --text-lg: 14px;
-  --text-xl: 16px;
-  --text-2xl: 20px;
-  --text-3xl: 28px;
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-md: 13px;
+  --text-base: 14px;
+  --text-lg: 15px;
+  --text-xl: 17px;
+  --text-2xl: 22px;
+  --text-3xl: 30px;
 
   /* ================ Radius aliases (theme-independent) ================ */
   --radius-1: var(--radius-sm);

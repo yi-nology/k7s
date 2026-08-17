@@ -69,5 +69,4 @@ export interface CustomKind {
  * A custom id always contains a slash; a built-in id never does. That's the test
  * used wherever the two need distinguishing (`isCustomKind`).
  */
-// eslint-disable-next-line @typescript-eslint/ban-types
 export type KindId = ResourceKind | (string & {});

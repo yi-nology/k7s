@@ -110,6 +110,7 @@ impl ToolRegistry {
             Box::new(write_tools::ApplyManifest),
             // diag
             Box::new(diag_tools::DiagnoseUnhealthy),
+            Box::new(diag_tools::DiagnosePod),
         ];
 
         debug_assert!(names_unique(&tools), "duplicate tool name in AI registry");
@@ -253,6 +254,7 @@ mod tests {
             "delete_resource",
             "apply_manifest",
             "diagnose_unhealthy",
+            "diagnose_pod",
             "kubectl_generate",
         ];
         for e in expected {

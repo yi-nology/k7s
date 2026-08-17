@@ -14,7 +14,7 @@ import { afterEach } from 'vitest';
 
 // React refuses to run act() without this, and says so loudly.
 declare global {
-  // eslint-disable-next-line no-var
+   
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
