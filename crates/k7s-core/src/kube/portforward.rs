@@ -26,15 +26,18 @@ use k7s_deps::tokio::task::JoinSet;
 /// `errors` reports per-connection failures (the pod died, connection refused) so
 /// the UI can flag the forward: those happen long after `ready` has been answered,
 /// and would otherwise be invisible — the local port keeps accepting either way.
+///
+/// `local_port` specifies the local port to bind to. If 0, the OS picks a free port.
 pub async fn run_port_forward(
     client: Client,
     namespace: String,
     pod: String,
     remote_port: u16,
+    local_port: u16,
     ready: oneshot::Sender<Result<u16, String>>,
     errors: mpsc::Sender<String>,
 ) {
-    let listener = match TcpListener::bind(("127.0.0.1", 0)).await {
+    let listener = match TcpListener::bind(("127.0.0.1", local_port)).await {
         Ok(l) => l,
         Err(e) => {
             let _ = ready.send(Err(e.to_string()));

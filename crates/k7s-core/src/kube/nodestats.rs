@@ -95,6 +95,7 @@ pub async fn run_node_stats(client: Client, sink: EventSink, node: String, every
         namespace,
         pod.clone(),
         EXPORTER_PORT,
+        0, // let the OS pick a free port
         ready_tx,
         err_tx,
     ));

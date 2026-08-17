@@ -52,6 +52,7 @@ async fn main() -> anyhow::Result<()> {
             ns,
             pod,
             9100,
+            0,
             ready_tx,
             err_tx,
         ));

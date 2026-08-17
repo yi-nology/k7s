@@ -59,6 +59,7 @@ async fn main() -> anyhow::Result<()> {
         "default".to_string(),
         pod.clone(),
         port,
+        0,
         ready_tx,
         err_tx,
     ));

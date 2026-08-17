@@ -10,8 +10,9 @@ rust-version = "1.77.2"
 name = "k7s_core"
 
 [dependencies]
-# Shared dependencies via k7s-deps (re-exported for downstream consumers)
-k7s-deps = { path = "../../../k7s-deps" }
+# Shared dependencies via k7s-deps (re-exported for downstream consumers).
+# Points at the in-repo submodule so the workspace is self-contained.
+k7s-deps = { path = "../k7s-deps" }
 
 # serde must stay as a direct dependency: the `#[derive(Serialize)]` proc macro
 # generates code that references `serde::Serialize` by crate name, so the crate

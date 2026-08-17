@@ -92,7 +92,7 @@ pub async fn spawn_forward(
     let ns = namespace.clone();
     let p = pod.clone();
     let task = tokio::spawn(async move {
-        crate::kube::portforward::run_port_forward(client, ns, p, remote_port, ready_tx, err_tx)
+        crate::kube::portforward::run_port_forward(client, ns, p, remote_port, 0, ready_tx, err_tx)
             .await;
     });
 
