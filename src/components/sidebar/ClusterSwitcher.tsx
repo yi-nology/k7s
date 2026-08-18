@@ -13,6 +13,7 @@ import { connectTo } from '../../lib/connect';
 import { cx } from '../../lib/cx';
 import { importKubeconfigViaInput } from '../../providers';
 import type { ImportResult } from '../../providers/types';
+import { useConnection } from '../../hooks/useStoreHooks';
 
 /** First two letters of the cluster name, uppercased ("FR" for "murphy-yi"). */
 function initials(name: string): string {
@@ -20,7 +21,7 @@ function initials(name: string): string {
 }
 
 export function ClusterSwitcher() {
-  const connection = useStore((s) => s.connection);
+  const connection = useConnection();
   const clusterStatus = useStore((s) => s.clusterStatus);
   const contexts = useStore((s) => s.contexts);
   const open = useStore((s) => s.openMenu === 'cluster');
