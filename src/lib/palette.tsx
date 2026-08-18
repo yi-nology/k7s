@@ -23,6 +23,8 @@ import type { CustomKind, Row } from '../providers/types';
 export type ActionId =
   | 'settings'
   | 'import-kubeconfig'
+  | 'toggle-sidebar'
+  | 'keyboard-shortcuts'
   | 'cordon'
   | 'uncordon'
   // Overlay views (read-only cluster panels)
@@ -278,6 +280,34 @@ function actionCandidates(ctx: PaletteContext) {
       targets: [
         paletteStr(locale, 'chrome.palette.actions.importKubeconfig', 'Import kubeconfig…'),
         'Import kubeconfig',
+      ],
+    },
+    {
+      item: {
+        type: 'action',
+        id: 'toggle-sidebar',
+        label: paletteStr(locale, 'chrome.palette.actions.toggleSidebar', 'Toggle sidebar'),
+        hint: appHint,
+      },
+      targets: [
+        paletteStr(locale, 'chrome.palette.actions.toggleSidebar', 'Toggle sidebar'),
+        'Toggle sidebar',
+        'sidebar',
+      ],
+    },
+    {
+      item: {
+        type: 'action',
+        id: 'keyboard-shortcuts',
+        label: paletteStr(locale, 'chrome.palette.actions.keyboardShortcuts', 'Keyboard shortcuts'),
+        hint: appHint,
+      },
+      targets: [
+        paletteStr(locale, 'chrome.palette.actions.keyboardShortcuts', 'Keyboard shortcuts'),
+        'Keyboard shortcuts',
+        'hotkeys',
+        'keybindings',
+        'shortcuts',
       ],
     },
   ];

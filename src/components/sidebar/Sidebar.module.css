@@ -578,3 +578,18 @@
   transform: translateX(-100%);
   box-shadow: none;
 }
+
+/* Tools section: chevron rotation for collapse/expand. */
+.toolsChevron {
+  transition: transform 150ms;
+}
+
+.toolsChevronCollapsed {
+  transform: rotate(-90deg);
+}
+
+/* Tools section: wrench icon before "Tools" label. */
+.toolsIcon {
+  margin-right: 6px;
+  opacity: 0.6;
+}

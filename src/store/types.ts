@@ -171,6 +171,7 @@ export interface AppState {
    *  Cleared after the panel consumes it. null = no requested section. */
   settingsSection: string | null;
   paletteOpen: boolean;
+  shortcutsOpen: boolean;
   podMetrics: PodMetricsMap;
   nodeMetrics: NodeMetricsMap;
   portForwards: ForwardInfo[];
@@ -244,6 +245,7 @@ export interface AppState {
    *  — used by the "enable AI" affordances to drop the user right at the config. */
   setSettingsOpen: (open: boolean, section?: string) => void;
   setPaletteOpen: (open: boolean) => void;
+  setShortcutsOpen: (open: boolean) => void;
   jumpTo: (kind: KindId, row?: Row) => void;
   navigateTo: (target: NavTarget) => void;
   viewPods: (namespace: string | undefined, selector: string) => void;

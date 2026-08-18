@@ -201,6 +201,17 @@ function runAction(id: ActionId) {
           .catch((e) => console.warn(`${id} failed:`, e));
       }
       break;
+    case 'toggle-sidebar': {
+      const sidebar = document.querySelector<HTMLElement>('[data-surface="panel"]');
+      if (sidebar) {
+        const hidden = sidebar.style.display === 'none';
+        sidebar.style.display = hidden ? '' : 'none';
+      }
+      break;
+    }
+    case 'keyboard-shortcuts':
+      s.setShortcutsOpen(true);
+      break;
     // Overlay views and tools — open the corresponding sidebar panel.
     default:
       s.openOverlay(id as import('../../store').OverlayKey);

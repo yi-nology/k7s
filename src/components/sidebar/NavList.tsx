@@ -290,9 +290,9 @@ function ToolsSection({
         aria-label={t('chrome.sidebar.tools.title', 'Tools')}
       >
         <span className={styles.navGroupChevron} aria-hidden="true">
-          <ChevronDown size={12} style={{ transform: open ? 'none' : 'rotate(-90deg)', transition: 'transform 150ms' }} />
+          <ChevronDown size={12} className={cx(styles.toolsChevron, !open && styles.toolsChevronCollapsed)} />
         </span>
-        <Wrench size={13} style={{ marginRight: 6, opacity: 0.6 }} />
+        <Wrench size={13} className={styles.toolsIcon} />
         <span className={styles.navGroupLabel}>{t('chrome.sidebar.tools.title', 'Tools')}</span>
         <span className={styles.navCount}>{totalTools}</span>
       </button>

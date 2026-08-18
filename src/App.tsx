@@ -26,6 +26,7 @@ import { ForwardsBar } from './components/forwards/ForwardsBar';
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { CommandPalette } from './components/palette/CommandPalette';
 import { EditGuardDialog } from './components/detail/EditGuardDialog';
+import { ShortcutsHelp } from './components/common/ShortcutsHelp';
 import { useStore } from './store';
 // The AI panel drags in react-markdown + shiki (the heaviest dep in the app).
 // It only renders when the user opens it, so it's lazy — non-AI sessions never
@@ -83,6 +84,12 @@ const overlayPanels: Partial<Record<OverlayKey, ComponentType<{ onClose: () => v
   plugins: PluginPanel,
   sbom: SBOMPanel,
 };
+
+function ShortcutsHelpPanel() {
+  const open = useStore((s) => s.shortcutsOpen);
+  const setOpen = useStore((s) => s.setShortcutsOpen);
+  return <ShortcutsHelp open={open} onClose={() => setOpen(false)} />;
+}
 
 export default function App() {
   // Wire provider → store and connect on mount.
@@ -223,6 +230,7 @@ export default function App() {
         <SettingsPanel />
         <CommandPalette />
         <EditGuardDialog />
+        <ShortcutsHelpPanel />
         {/* Error toasts — rendered above everything else. */}
         <ErrorToast toasts={toasts} onDismiss={dismissToast} />
       </div>

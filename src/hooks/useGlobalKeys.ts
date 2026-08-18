@@ -79,6 +79,13 @@ export function useGlobalKeys(): void {
         s.openSelectedInTab();
       }
 
+      // ? : open keyboard shortcuts help (only outside text fields).
+      if (e.key === '?' && !typing && !s.paletteOpen) {
+        e.preventDefault();
+        s.setShortcutsOpen(true);
+        return;
+      }
+
       // Ctrl/Cmd+F: focus the table filter (universal "find" shortcut).
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f' && !typing) {
         e.preventDefault();

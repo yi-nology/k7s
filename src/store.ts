@@ -22,8 +22,10 @@ export const useStore = create<AppState>()((set, get, api) => ({
   settingsOpen: false,
   settingsSection: null,
   selection: EMPTY_SELECTION,
+  shortcutsOpen: false,
   aiPanelOpen: false,
   aiPendingMessage: undefined,
+  setShortcutsOpen: (open: boolean) => set({ shortcutsOpen: open }),
   setAiPanelOpen: (open: boolean) => set({ aiPanelOpen: open }),
   setAiPendingMessage: (msg: string | undefined) => set({ aiPendingMessage: msg }),
   setSettings: (patch: Partial<typeof DEFAULT_SETTINGS>) =>
