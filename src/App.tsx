@@ -18,6 +18,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ErrorToast } from './components/common/ErrorToast';
 import { setErrorReporter } from './providers/errorHandler';
 import { Sidebar } from './components/sidebar/Sidebar';
+import { SubNav } from './components/subnav/SubNav';
 import { TopBar } from './components/topbar/TopBar';
 import { StatusBar } from './components/statusbar/StatusBar';
 import { ResourceTable } from './components/table/ResourceTable';
@@ -58,20 +59,22 @@ const IngressEditor = lazy(() => import('./components/ingress/IngressEditor').th
 const ResourceDiff = lazy(() => import('./components/diff/ResourceDiff').then((m) => ({ default: m.ResourceDiff })));
 const PluginPanel = lazy(() => import('./components/plugins/PluginPanel').then((m) => ({ default: m.PluginPanel })));
 const SBOMPanel = lazy(() => import('./components/sbom/SBOMPanel').then((m) => ({ default: m.SBOMPanel })));
+// The tools catalog page (P1 IA) — the Tools section's inline content.
+const ToolsPage = lazy(() => import('./components/tools/ToolsPage').then((m) => ({ default: m.ToolsPage })));
 
 /**
  * Overlays whose panel takes only `{ onClose }` — the overwhelming majority.
  * Each is the same `<backdrop><overlay><Panel onClose/></overlay></backdrop>`
  * shell, so we dispatch through this table instead of repeating the shell 15×.
  * `pod-files` is special (it reads overlayPodRef and renders an empty state),
- * so it's handled separately below.
+ * so it's handled separately below. `dashboard` is no longer an overlay — it
+ * renders inline as the overview section's content (P1 IA).
  */
 const overlayPanels: Partial<Record<OverlayKey, ComponentType<{ onClose: () => void }>>> = {
   'helm-market': HelmMarket,
   'image-repos': ImageRepoPanel,
   'image-transfer': ImageTransferPanel,
   templates: TemplatePicker,
-  dashboard: Dashboard,
   metrics: MetricsExplorer,
   grafana: GrafanaPanel,
   endpoints: EndpointsPanel,
@@ -122,6 +125,8 @@ export default function App() {
   const overlay = useStore((s) => s.overlay);
   const overlayPodRef = useStore((s) => s.overlayPodRef);
   const closeOverlay = useStore((s) => s.closeOverlay);
+  // Active top-level section (P1 IA) — routes the content area.
+  const section = useStore((s) => s.section);
   const { t } = useTranslation();
 
   // AI assistant panel toggle (the panel is a right-side sidebar, not an
@@ -140,14 +145,34 @@ export default function App() {
         <div className={styles.main}>
           <TopBar onMenuToggle={sidebar.toggle} />
           <div className={styles.content}>
-            {/* Keep the table + detail panel mounted when an overlay opens —
-                scroll position, sort state, and selections survive the round-trip. */}
+            {/* Section-based content routing (P1 IA): overview hosts the
+                Dashboard inline, tools hosts the ops-tool catalog, and the
+                three resource sections get the SubNav + table + detail panel.
+                Keep the section content mounted when an overlay opens — scroll
+                position, sort state, and selections survive the round-trip. */}
             <div
               className={styles.tableArea}
               style={{ display: overlay === null ? 'flex' : 'none' }}
             >
-              <ResourceTable />
-              <DetailPanel />
+              <div className={styles.sectionContent}>
+                {section === 'overview' ? (
+                  <Suspense fallback={null}>
+                    <Dashboard />
+                  </Suspense>
+                ) : section === 'tools' ? (
+                  <Suspense fallback={null}>
+                    <ToolsPage />
+                  </Suspense>
+                ) : (
+                  <>
+                    <SubNav section={section} />
+                    <div className={styles.tableRow}>
+                      <ResourceTable />
+                      <DetailPanel />
+                    </div>
+                  </>
+                )}
+              </div>
               {aiOpen && AI_ENABLED && (
                 <Suspense fallback={null}>
                   <AiChat onClose={() => setAiOpen(false)} />

@@ -188,6 +188,20 @@ export interface Dictionary {
     };
   };
 
+  /** The ToolsPage catalog (P1 IA) — category headings above each card grid,
+   *  keyed by the catalog's category id ("tools.category.observability", …).
+   *  Card labels reuse the chrome.sidebar.tools.* entries. */
+  tools: {
+    category: {
+      observability: string;
+      helm: string;
+      images: string;
+      security: string;
+      network: string;
+      cluster: string;
+    };
+  };
+
   /** Settings panel rows and their option lists. */
   settings: {
     theme: { label: string; hint: string; system: string; dark: string; light: string };

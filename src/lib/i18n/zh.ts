@@ -157,6 +157,17 @@ export const zh: Dictionary = {
     },
   },
 
+  tools: {
+    category: {
+      observability: '可观测性',
+      helm: 'Helm 应用',
+      images: '镜像',
+      security: '安全合规',
+      network: '网络诊断',
+      cluster: '集群工具',
+    },
+  },
+
   settings: {
     theme: {
       label: '颜色',

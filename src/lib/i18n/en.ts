@@ -152,6 +152,17 @@ export const en: Dictionary = {
     },
   },
 
+  tools: {
+    category: {
+      observability: 'Observability',
+      helm: 'Helm',
+      images: 'Images',
+      security: 'Security',
+      network: 'Network',
+      cluster: 'Cluster Tools',
+    },
+  },
+
   settings: {
     theme: {
       label: 'Theme',
