@@ -119,7 +119,7 @@ WORKDIR /app
 
 # Copy the binary and the built front-end. The binary's --static flag
 # points at /app/dist (see CMD below).
-COPY --from=backend --chown=k7s:k7s /src/src-tauri/target/release/k7s-web /app/k7s-web
+COPY --from=backend --chown=k7s:k7s /src/target/release/k7s-web /app/k7s-web
 COPY --from=frontend --chown=k7s:k7s /dist /app/dist
 
 # Where k7s-web persists per-user prefs (XDG_CONFIG_HOME/k7s).
