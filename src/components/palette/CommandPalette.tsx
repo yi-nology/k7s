@@ -18,6 +18,7 @@ import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { buildPalette, type ActionId, type PaletteItem } from '../../lib/palette';
 import { cx } from '../../lib/cx';
+import { useCustomKinds, useNav, useSelectedRow } from '../../hooks/useStoreHooks';
 
 export function CommandPalette() {
   const open = useStore((s) => s.paletteOpen);
@@ -27,9 +28,9 @@ export function CommandPalette() {
   // full rows map. useShallow compares each kind array by reference so we only
   // re-render when a kind's rows actually change, not on unrelated store fields.
   const rows = useStore(useShallow((s) => s.rows));
-  const customKinds = useStore((s) => s.customKinds);
-  const nav = useStore((s) => s.nav);
-  const selectedRow = useStore((s) => s.selectedRow);
+  const customKinds = useCustomKinds();
+  const nav = useNav();
+  const selectedRow = useSelectedRow();
 
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
