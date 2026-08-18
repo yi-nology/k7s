@@ -42,7 +42,7 @@ export function Sidebar({ open = true, onClose }: SidebarProps) {
       data-open={open}
     >
       <ClusterSwitcher />
-      <nav className={styles.rail} aria-label="sections">
+      <nav className={styles.rail} aria-label={t('sidebar.mainNav')}>
         {SECTION_ORDER.map((id) => (
           <button
             key={id}

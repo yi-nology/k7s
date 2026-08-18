@@ -57,4 +57,12 @@ describe('Sidebar (5-section rail)', () => {
     // Only the active section carries the state.
     expect(view.querySelector('[title="概览"]')?.className).not.toContain('active');
   });
+
+  it('labels the nav landmark with the localized aria-label', () => {
+    view = render(<Sidebar open onClose={() => {}} onToggle={() => {}} />);
+    const nav = view.querySelector('nav');
+    expect(nav).not.toBeNull();
+    // zh locale → the sidebar.mainNav dictionary value, not hardcoded English.
+    expect(nav?.getAttribute('aria-label')).toBe('主导航');
+  });
 });
