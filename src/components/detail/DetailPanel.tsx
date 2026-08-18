@@ -18,6 +18,7 @@ import { formatAge } from '../../lib/format';
 import { cx } from '../../lib/cx';
 import { toneColor } from '../../lib/tone';
 import { DETAIL_TABS, isRolloutKind, kindMeta, KINDS_WITH_PROPERTIES, tabsFor } from '../../lib/kinds';
+import { useSelectedRow, useNav, useCustomKinds } from '../../hooks/useStoreHooks';
 import { tabLabel, kindLabelFor } from '../../lib/i18n';
 import { drainErrors, drainSummary, drainTone, pdbBlocked } from '../../lib/drain';
 import { LogsTab } from './LogsTab';
@@ -38,15 +39,15 @@ import { TabStrip } from './TabStrip';
 import type { DrainProgress } from '../../providers/types';
 
 export function DetailPanel() {
-  const row = useStore((s) => s.selectedRow);
-  const nav = useStore((s) => s.nav);
+  const row = useSelectedRow();
+  const nav = useNav();
   // Subscribe to only the current nav kind's rows, not the whole rows map, so
   // a pod-metric tick on another kind doesn't re-render the detail panel.
   const kindRows = useStore((s) => rowsFor(s.rows, s.nav));
   const activeTab = useStore((s) => s.activeTab);
   const setActiveTab = useStore((s) => s.setActiveTab);
   const closeDetail = useStore((s) => s.closeDetail);
-  const customKinds = useStore((s) => s.customKinds);
+  const customKinds = useCustomKinds();
   const drains = useStore((s) => s.drains);
   const detailTabs = useStore((s) => s.detailTabs);
   const activeDetailTabUid = useStore((s) => s.activeDetailTabUid);
