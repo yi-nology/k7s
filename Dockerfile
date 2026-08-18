@@ -77,6 +77,7 @@ RUN mkdir -p src \
 # The #[folder = "../dist"] in the code expects dist/ at the parent of the
 # crate root, so we create a symlink.
 COPY tauri.conf.json ./
+COPY icons ./icons
 COPY src ./src
 COPY build.rs ./
 COPY dist ./dist
