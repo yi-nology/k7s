@@ -22,10 +22,10 @@ use std::path::Path;
 
 use axum::body::Body;
 use axum::extract::State;
-use k7s_deps::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
+use k7s_deps::http::{Request, StatusCode};
 use k7s_deps::serde_json::json;
 
 use super::state::WebState;

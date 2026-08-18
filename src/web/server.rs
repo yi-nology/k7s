@@ -55,8 +55,8 @@ pub struct FrontendAssets;
 /// For any request path, tries to find a matching file in the embedded
 /// dist/; if not found, serves index.html for SPA client-side routing.
 async fn embedded_fallback(req: axum::extract::Request) -> impl axum::response::IntoResponse {
-    use k7s_deps::http::{header, StatusCode};
     use axum::response::Response;
+    use k7s_deps::http::{header, StatusCode};
 
     let path = req.uri().path().trim_start_matches('/').to_string();
     let path = if path.is_empty() {
