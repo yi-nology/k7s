@@ -85,6 +85,7 @@ jobs:
           cargo tauri ios build -- \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGN_IDENTITY="-" \
+            DEVELOPMENT_TEAM="" \
             AD_HOC_CODE_SIGNING_ALLOWED=YES
         env:
           # Prevent Tauri from requesting a signing identity
