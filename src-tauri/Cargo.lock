@@ -1981,9 +1981,9 @@ dependencies = [
 
 [[package]]
 name = "http-body-util"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9f41fd6a08e4d4ec69df65976da761afd5ad5e58a9d4acb46bd1c953a9e3ff2"
+checksum = "23169fe34a5fbcdd3f3862e78fb9b6fccd5f02a6dc6f732547005d45631ce71c"
 dependencies = [
  "bytes",
  "futures-core",
@@ -2541,35 +2541,17 @@ dependencies = [
 name = "k7s"
 version = "0.3.6"
 dependencies = [
- "anyhow",
- "async-stream",
- "async-trait",
  "axum",
- "base64 0.23.1",
- "chrono",
- "dirs 5.0.1",
- "dunce",
- "flate2",
- "futures",
- "http",
  "http-body-util",
- "jiff",
- "k8s-openapi",
- "keyring",
- "kube",
+ "k7s-core",
+ "k7s-deps",
  "mime_guess",
  "open",
  "proptest",
- "rand 0.10.2",
- "regex",
- "reqwest",
  "rmcp",
  "rust-embed",
- "rustls",
  "schemars 1.2.2",
  "serde",
- "serde_json",
- "serde_yaml",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -2577,13 +2559,55 @@ dependencies = [
  "tauri-plugin-window-state",
  "thiserror 2.0.20",
  "tokio",
- "tokio-stream",
  "tower",
  "tower-http",
+]
+
+[[package]]
+name = "k7s-core"
+version = "0.3.6"
+dependencies = [
+ "k7s-deps",
+ "rmcp",
+ "schemars 1.2.2",
+ "serde",
+ "tauri",
+ "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
+name = "k7s-deps"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-stream",
+ "async-trait",
+ "base64 0.23.1",
+ "chrono",
+ "dirs 5.0.1",
+ "dunce",
+ "flate2",
+ "futures",
+ "http",
+ "jiff",
+ "k8s-openapi",
+ "keyring",
+ "kube",
+ "rand 0.10.2",
+ "regex",
+ "reqwest",
+ "rustls",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+ "tokio-stream",
  "tracing",
  "tracing-subscriber",
  "urlencoding",
  "uuid",
+ "yaml_serde",
 ]
 
 [[package]]
@@ -2787,6 +2811,12 @@ checksum = "2026a5056764a10b2bf5d56488cba40da507f5493a6a429340e2004d9ed085fa"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "libyaml-rs"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e126dda6f34391ab7b444f9922055facc83c07a910da3eb16f1e4d9c45dc777"
 
 [[package]]
 name = "linux-raw-sys"
@@ -4428,7 +4458,7 @@ checksum = "7bd22781911de0ca6debda95f073c8f18bec65d1a94f1fa9573f3102e514cea4"
 dependencies = [
  "ahash",
  "annotate-snippets",
- "base64 0.21.7",
+ "base64 0.22.1",
  "encoding_rs_io",
  "getrandom 0.3.4",
  "granit-parser",
@@ -4599,19 +4629,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "serde_yaml"
-version = "0.9.34+deprecated"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a8b1a1a2ebf674015cc02edccce75287f1a0130d394307b36743c2f5d504b47"
-dependencies = [
- "indexmap 2.14.0",
- "itoa",
- "ryu",
- "serde",
- "unsafe-libyaml",
 ]
 
 [[package]]
@@ -5915,12 +5932,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
-name = "unsafe-libyaml"
-version = "0.2.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
-
-[[package]]
 name = "untrusted"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6867,6 +6878,19 @@ dependencies = [
  "libc",
  "once_cell",
  "pkg-config",
+]
+
+[[package]]
+name = "yaml_serde"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad7a8266fc7ce9d77db272ca5b40b704a1753e2a2e2ab7b1f2da22672941bf93"
+dependencies = [
+ "indexmap 2.14.0",
+ "itoa",
+ "libyaml-rs",
+ "ryu",
+ "serde",
 ]
 
 [[package]]
