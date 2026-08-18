@@ -37,6 +37,15 @@ pub struct WebState {
     /// at `GET /api/web-token` (so the same-origin SPA can self-serve it);
     /// non-loopback binds refuse to publish and require `K7S_WEB_TOKEN`.
     pub is_loopback: bool,
+    /// Single-user password gate (P1): argon2 hash + in-memory sessions.
+    /// `Arc` so the route state and the auth middleware's state clone share
+    /// one session map — a plain `Mutex<PasswordAuth>` field would give each
+    /// clone its own copy and sessions issued by handlers would be invisible
+    /// to `require_token`.
+    pub password_auth: Arc<Mutex<super::auth_password::PasswordAuth>>,
+    /// Data dir, kept next to `core` for the password-file path. The auth
+    /// handlers persist the argon2 hash to `<data_dir>/web-password`.
+    pub data_dir: std::path::PathBuf,
 }
 
 impl WebState {
@@ -62,6 +71,10 @@ impl WebState {
 
         let web_token = Arc::new(super::auth::resolve_token(&core.data_dir));
         let is_loopback = addr.ip().is_loopback();
+        let password_auth = Arc::new(Mutex::new(super::auth_password::PasswordAuth::load(
+            &core.data_dir,
+        )));
+        let data_dir = core.data_dir.clone();
 
         Self {
             core,
@@ -70,6 +83,8 @@ impl WebState {
             pending_approvals: Arc::new(Mutex::new(HashMap::new())),
             web_token,
             is_loopback,
+            password_auth,
+            data_dir,
         }
     }
 

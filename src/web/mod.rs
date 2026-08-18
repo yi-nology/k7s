@@ -17,6 +17,8 @@
 #[cfg(feature = "web")]
 pub mod auth;
 #[cfg(feature = "web")]
+pub mod auth_password;
+#[cfg(feature = "web")]
 pub mod handlers;
 #[cfg(feature = "web")]
 pub mod resource_handlers;
