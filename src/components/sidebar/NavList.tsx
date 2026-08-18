@@ -67,6 +67,7 @@ import { groupLabel, kindLabelFor } from '../../lib/i18n';
 import { IPADOS_HIDDEN_OVERLAYS } from '../../lib/platform';
 import { useTranslation } from '../../hooks/useI18n';
 import type { CustomKind } from '../../providers/types';
+import { useNav, useCustomKinds } from '../../hooks/useStoreHooks';
 
 // ─── Tool subgroup definitions ───────────────────────────────────────────────
 
@@ -136,10 +137,10 @@ function useToolSubgroups(): ToolSubgroup[] {
 // ─── NavList ─────────────────────────────────────────────────────────────────
 
 export function NavList({ onNavigate }: { onNavigate?: () => void } = {}) {
-  const nav = useStore((s) => s.nav);
+  const nav = useNav();
   const counts = useStore(useShallow((s) => selectKindCounts(s.rows)));
   const setNav = useStore((s) => s.setNav);
-  const customKinds = useStore((s) => s.customKinds);
+  const customKinds = useCustomKinds();
   const watchStatus = useStore((s) => s.watchStatus);
   const overlay = useStore((s) => s.overlay);
   const openOverlay = useStore((s) => s.openOverlay);
