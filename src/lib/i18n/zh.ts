@@ -146,6 +146,17 @@ export const zh: Dictionary = {
     },
   },
 
+  subnav: {
+    group: {
+      config: '配置',
+      network: '网络',
+      access: '访问控制',
+      cluster: '集群',
+      custom: '自定义资源',
+      storage: '存储',
+    },
+  },
+
   settings: {
     theme: {
       label: '颜色',

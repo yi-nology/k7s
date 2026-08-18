@@ -141,6 +141,17 @@ export const en: Dictionary = {
     },
   },
 
+  subnav: {
+    group: {
+      config: 'Configuration',
+      network: 'Network',
+      access: 'Access Control',
+      cluster: 'Cluster',
+      custom: 'Custom Resources',
+      storage: 'Storage',
+    },
+  },
+
   settings: {
     theme: {
       label: 'Theme',

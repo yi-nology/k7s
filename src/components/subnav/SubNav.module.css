@@ -1,0 +1,45 @@
+/* SubNav (P1 IA): the per-section kind tab strip at the top of a resource
+   section's content area. Tokens only — inactive/hover/active mirror the
+   sidebar rail (Sidebar.module.css) so the two navigation levels read as one
+   system. */
+
+.subnav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-default);
+  overflow-x: auto;
+}
+.group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.groupLabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+  margin-right: 4px;
+}
+.tab {
+  padding: 5px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-nav-inactive);
+  font-size: var(--text-md);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.active {
+  background: var(--bg-nav-active);
+  color: var(--text-primary);
+  font-weight: 600;
+}

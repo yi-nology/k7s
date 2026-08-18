@@ -174,6 +174,20 @@ export interface Dictionary {
     };
   };
 
+  /** The per-section SubNav (P1 IA) — group headings inside a section's kind
+   *  tab strip, keyed by SECTION_SUBGROUPS group id ("subnav.group.config", …)
+   *  plus 'custom' for the CRD group appended from useCustomKinds. */
+  subnav: {
+    group: {
+      config: string;
+      network: string;
+      access: string;
+      cluster: string;
+      custom: string;
+      storage: string;
+    };
+  };
+
   /** Settings panel rows and their option lists. */
   settings: {
     theme: { label: string; hint: string; system: string; dark: string; light: string };
