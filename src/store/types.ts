@@ -19,6 +19,7 @@ import type {
 } from '../providers/types';
 import type { SinceOption } from '../lib/logview';
 import type { Settings } from '../lib/settings';
+import type { SectionId } from '../lib/sections';
 
 /**
  * Intercepted navigation intent while YAML is dirty.
@@ -150,6 +151,8 @@ export interface AppState {
 
   // navigation & filtering
   nav: KindId;
+  /** Active top-level section of the 5-section IA (P1). Derived on setNav. */
+  section: SectionId;
   namespace: string;
   tableFilter: string;
   sortCol: number | null;
@@ -211,6 +214,7 @@ export interface AppState {
 
   // actions
   setNav: (kind: KindId) => void;
+  setSection: (section: SectionId) => void;
   setNamespace: (ns: string) => void;
   setTableFilter: (q: string) => void;
   toggleSort: (col: number) => void;
