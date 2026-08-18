@@ -163,19 +163,21 @@ function ProbeFields({
       </label>
       {probe.enabled && (
         <>
-          <label className={styles.field} htmlFor="wizard-probe-path">
+          {/* No id/htmlFor here: ProbeFields renders twice on step 2
+              (readiness + liveness) and a shared id would be invalid HTML
+              that points both labels at the first probe's inputs. The
+              wrapping <label> already associates label ↔ input. */}
+          <label className={styles.field}>
             {t('wizard.field.path', 'Path')}
             <input
-              id="wizard-probe-path"
               className={styles.input}
               value={probe.path}
               onChange={(e) => onChange({ path: e.target.value })}
             />
           </label>
-          <label className={styles.field} htmlFor="wizard-probe-port">
+          <label className={styles.field}>
             {t('wizard.field.port', 'Port')}
             <input
-              id="wizard-probe-port"
               className={styles.input}
               type="number"
               min={1}
@@ -183,10 +185,9 @@ function ProbeFields({
               onChange={(e) => onChange({ port: Math.max(1, Number(e.target.value) || 0) })}
             />
           </label>
-          <label className={styles.field} htmlFor="wizard-probe-delay">
+          <label className={styles.field}>
             {t('wizard.field.initialDelay', 'Initial delay (s)')}
             <input
-              id="wizard-probe-delay"
               className={styles.input}
               type="number"
               min={0}

@@ -151,6 +151,30 @@ describe('CreateWorkloadWizard', () => {
     expect(yaml).toContain('claimName: data');
   });
 
+  it('renders both probe editors simultaneously without duplicate field ids', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+    view.click(view.getByText('下一步')); // step 2 (container)
+
+    // The two probe <details> blocks each hold an enable checkbox (inside the
+    // collapsed block, still in the DOM). Toggle both so the probe fields
+    // actually render.
+    const checkboxes = view.querySelectorAll('input[type="checkbox"]');
+    expect(checkboxes.length).toBe(2); // readiness + liveness
+    for (const cb of checkboxes) view.click(cb);
+
+    // Both probes show their full field set (path/port/delay) at once.
+    expect(view.queryAllByText('路径').length).toBe(2);
+    expect(view.queryAllByText('初始延迟(秒)').length).toBe(2);
+
+    // Every wizard-scoped id in the DOM is unique — the probe editors share
+    // markup, so a hardcoded id there would appear twice (invalid HTML, and
+    // the second probe's label would focus the first probe's input).
+    const ids = view.querySelectorAll('[id^="wizard-"]').map((el) => el.id);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it('closes on Esc (document keydown), the OnboardingWizard contract', () => {
     view = render(<CreateWorkloadWizard onClose={onClose} />);
     act(() => {

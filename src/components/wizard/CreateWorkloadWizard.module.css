@@ -164,7 +164,10 @@
 /* ---------- groups (fieldset + legend, the IngressEditor shape) ---------- */
 
 .group {
-  border: 1px solid var(--border-subtle);
+  /* --border-subtle isn't a token yet — guarded fallback to --border, the
+     same convention as ImageTransferPanel (--border would otherwise be
+     dropped entirely by the browser and the group would have no border). */
+  border: 1px solid var(--border-subtle, var(--border));
   border-radius: var(--radius-sm);
   padding: 10px 12px 12px;
   margin: 0;
@@ -217,7 +220,7 @@
 /* ---------- advanced (<details>) blocks ---------- */
 
 .advanced {
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-subtle, var(--border));
   border-radius: var(--radius-sm);
   padding: 8px 12px;
 }
@@ -252,7 +255,7 @@
   min-height: 0;
   display: flex;
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-subtle, var(--border));
   border-radius: var(--radius-sm);
 }
 
