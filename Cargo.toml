@@ -1,0 +1,41 @@
+[package]
+name = "k7s-core"
+version = "0.3.6"
+description = "k7s core — transport-agnostic Kubernetes business logic"
+authors = ["k7s"]
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "k7s_core"
+
+[dependencies]
+# Shared dependencies from k7s-deps.
+# Git (not path): git consumers (k7s-android/ios/desktop) resolve a path dep
+# relative to the git checkout and fail. Local development overrides this via
+# the [patch] in .cargo/config.toml, which only applies when k7s-core is the
+# workspace root.
+k7s-deps = { git = "https://github.com/yi-nology/k7s-deps.git" }
+
+# Proc-macro dependencies (must be in extern prelude)
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "signal", "sync", "time"] }
+
+# Tauri support (optional)
+tauri = { version = "2", optional = true }
+
+# MCP support (optional)
+rmcp = { version = "3", optional = true, features = ["server", "transport-io", "transport-streamable-http-server", "macros"] }
+schemars = { version = "1.0", features = ["chrono04"], optional = true }
+
+[features]
+default = []
+tauri = ["dep:tauri"]
+mcp = ["dep:rmcp", "dep:schemars"]
+
+[dev-dependencies]
+proptest = "1"
+# properties tests create a real kube client; rustls needs an explicit crypto
+# provider install when the default provider isn't already set.
+rustls = { version = "0.23", features = ["aws-lc-rs"] }
