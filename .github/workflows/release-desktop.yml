@@ -66,6 +66,24 @@ jobs:
           repository: yi-nology/k7s-desktop
           path: k7s-desktop
 
+      - name: checkout k7s-server
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-server
+          path: k7s-server
+
+      - name: checkout k7s-core
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-core
+          path: k7s-core
+
+      - name: checkout k7s-deps
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-deps
+          path: k7s-deps
+
       - name: download frontend artifact
         uses: actions/download-artifact@v4
         with:
@@ -107,14 +125,18 @@ jobs:
           prerelease: false
           projectPath: k7s-desktop
 
+      - name: copy dist for k7s-server rust-embed
+        shell: bash
+        run: cp -r dist ../dist
+
       - name: build k7s-web
         run: cargo build --release --features web --bin k7s-web
-        working-directory: k7s-desktop
+        working-directory: k7s-server
 
       - name: rename and upload k7s-web
         shell: bash
         run: |
-          cd k7s-desktop/target/release
+          cd k7s-server/target/release
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp k7s-web.exe k7s-web-windows-x64.exe
           elif [ "${{ runner.os }}" = "macOS" ]; then
@@ -127,6 +149,6 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            k7s-desktop/target/release/k7s-web-*
+            k7s-server/target/release/k7s-web-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
