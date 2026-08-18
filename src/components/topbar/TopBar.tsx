@@ -18,6 +18,7 @@ import { useTranslation } from '../../hooks/useI18n';
 import { useResolvedTheme } from '../../hooks/useTheme';
 import { isClusterScoped, kindMeta, type KindId } from '../../lib/kinds';
 import { cx } from '../../lib/cx';
+import { useNav, useNamespace, useConnection, useCustomKinds } from '../../hooks/useStoreHooks';
 import { groupLabel, kindLabelFor, LOCALES, LOCALE_LABELS, type Locale } from '../../lib/i18n';
 import { IS_IPADOS } from '../../providers/transport';
 
@@ -52,17 +53,17 @@ function overlayLabel(key: OverlayKey, t: ReturnType<typeof useTranslation>['t']
 }
 
 export function TopBar({ onMenuToggle }: { onMenuToggle?: () => void } = {}) {
-  const nav = useStore((s) => s.nav);
+  const nav = useNav();
   const overlay = useStore((s) => s.overlay);
-  const namespace = useStore((s) => s.namespace);
-  const connection = useStore((s) => s.connection);
+  const namespace = useNamespace();
+  const connection = useConnection();
   const nsRows = useStore((s) => s.rows.namespaces);
   const setPaletteOpen = useStore((s) => s.setPaletteOpen);
   const open = useStore((s) => s.openMenu === 'ns');
   const toggleMenu = useStore((s) => s.toggleMenu);
   const closeMenus = useStore((s) => s.closeMenus);
   const setNamespace = useStore((s) => s.setNamespace);
-  const customKinds = useStore((s) => s.customKinds);
+  const customKinds = useCustomKinds();
   const setSettings = useStore((s) => s.setSettings);
   const { locale, t } = useTranslation();
   const resolvedTheme = useResolvedTheme();
