@@ -80,6 +80,15 @@ export interface Dictionary {
         plugins: string;
       };
     };
+    /** The 5-section rail (P1 IA) — one label per SectionId in SECTION_ORDER,
+     *  keyed by section id ("chrome.sections.overview", …). */
+    sections: {
+      overview: string;
+      workloads: string;
+      config: string;
+      storage: string;
+      tools: string;
+    };
     topbar: {
       nsPrefix: string;
       searchPlaceholder: string;

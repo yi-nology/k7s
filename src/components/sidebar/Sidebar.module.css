@@ -593,3 +593,43 @@
   margin-right: 6px;
   opacity: 0.6;
 }
+
+/* ============== 5-section rail (P1 IA) ============== */
+
+/* The section rail replaces the old scrollable kind list. Five buttons, one
+   per section in SECTION_ORDER — the kind-level navigation moved into each
+   section page's SubNav. */
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  flex: 1;
+  overflow-y: auto;
+}
+.railItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-nav-inactive);
+  cursor: pointer;
+  font-size: var(--text-md);
+  text-align: left;
+}
+.railItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.active {
+  background: var(--bg-nav-active);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.railLabel {
+  white-space: nowrap;
+}

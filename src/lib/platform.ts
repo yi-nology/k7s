@@ -58,7 +58,7 @@ export function featureEnabled(id: FeatureId): boolean {
 
 /**
  * FeatureIds that name a sidebar overlay entry. Everything in this list is
- * gated in NavList/App via `IPADOS_HIDDEN_OVERLAYS.has(key)`.
+ * gated in App via `IPADOS_HIDDEN_OVERLAYS.has(key)`.
  */
 const OVERLAY_KEYS: readonly FeatureId[] = [
   'helm-market',

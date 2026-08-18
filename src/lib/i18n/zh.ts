@@ -62,6 +62,13 @@ export const zh: Dictionary = {
         plugins: '插件',
       },
     },
+    sections: {
+      overview: '概览',
+      workloads: '工作负载',
+      config: '配置与网络',
+      storage: '存储',
+      tools: '运维工具',
+    },
     topbar: {
       nsPrefix: '命名空间:',
       searchPlaceholder: '搜索任何内容…',

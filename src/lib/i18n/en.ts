@@ -62,6 +62,13 @@ export const en: Dictionary = {
         plugins: 'Plugins',
       },
     },
+    sections: {
+      overview: 'Overview',
+      workloads: 'Workloads',
+      config: 'Config & Network',
+      storage: 'Storage',
+      tools: 'Ops Tools',
+    },
     topbar: {
       nsPrefix: 'ns:',
       searchPlaceholder: 'Search anything…',
