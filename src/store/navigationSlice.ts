@@ -64,10 +64,15 @@ export const createNavigationSlice: StateCreator<AppState, [], [], NavigationSli
       section,
       overlay: null,
       overlayPodRef: null,
-      // 进入资源分区时切到该分区第一个 kind;概览/工具分区保留当前 nav,
-      // 返回资源分区时表格还能显示上次的 kind。
+      // DetailPanel 的契约是「选中行的 kind 即当前 nav kind」——任何分区切换
+      // 都不携带旧选中行/多选(selection 在 nav 变化时总是被清空)。
+      selectedRow: null,
+      selection: EMPTY_SELECTION,
+      // 进入资源分区时切到该分区第一个 kind,并按 setNav 语义重置表格状态;
+      // 概览/工具分区保留当前 nav 和过滤/排序,返回资源分区时表格还能显示
+      // 上次的 kind。
       ...(section === 'workloads' || section === 'config' || section === 'storage'
-        ? { nav: FIRST_KIND[section] }
+        ? { nav: FIRST_KIND[section], tableFilter: '', sortCol: null, sortDir: 'asc' }
         : {}),
     }),
   setNamespace: (ns) =>

@@ -245,6 +245,75 @@ describe('selection & nav reset', () => {
   });
 });
 
+/**
+ * setSection (P1 section nav). Entering a resource section changes nav just
+ * like setNav does, so it must honor the same contract: the DetailPanel
+ * derives its tabs/labels/actions from nav on the assumption that "the
+ * selected row's kind is the current nav kind, because selection is cleared
+ * whenever nav changes". A selection surviving the section switch would
+ * render the old row under the new kind.
+ */
+describe('setSection (P1 section nav)', () => {
+  const svc: Row = { uid: 'svc:prod/api', name: 'api', namespace: 'prod', cells: [] };
+
+  beforeEach(() => {
+    useStore.setState({
+      nav: 'services',
+      section: 'config',
+      selectedRow: null,
+      selection: { selected: [], anchor: null },
+      tableFilter: '',
+      sortCol: null,
+      sortDir: 'asc',
+    });
+  });
+
+  it('entering a resource section lands on FIRST_KIND and resets like setNav', () => {
+    useStore.setState({
+      selectedRow: svc,
+      selection: { selected: ['svc:prod/api'], anchor: 'svc:prod/api' },
+      tableFilter: 'api',
+      sortCol: 2,
+      sortDir: 'desc',
+    });
+    useStore.getState().setSection('workloads');
+    const s = useStore.getState();
+    expect(s.section).toBe('workloads');
+    expect(s.nav).toBe('deployments');
+    expect(s.selectedRow).toBeNull();
+    expect(s.selection).toEqual({ selected: [], anchor: null });
+    expect(s.tableFilter).toBe('');
+    expect(s.sortCol).toBeNull();
+    expect(s.sortDir).toBe('asc');
+  });
+
+  /** A stale row makes no sense in any section: overview keeps the nav (so
+   *  returning to a resource section still shows the last kind) but still
+   *  drops the selection. */
+  it('the overview section keeps nav and table state but clears the selection', () => {
+    useStore.setState({
+      selectedRow: svc,
+      selection: { selected: ['svc:prod/api'], anchor: 'svc:prod/api' },
+      tableFilter: 'api',
+      sortCol: 1,
+    });
+    useStore.getState().setSection('overview');
+    const s = useStore.getState();
+    expect(s.section).toBe('overview');
+    expect(s.nav).toBe('services');
+    expect(s.selectedRow).toBeNull();
+    expect(s.selection).toEqual({ selected: [], anchor: null });
+    expect(s.tableFilter).toBe('api');
+    expect(s.sortCol).toBe(1);
+  });
+
+  it('closes an open overlay like setNav does', () => {
+    useStore.setState({ overlay: 'dashboard', overlayPodRef: null });
+    useStore.getState().setSection('tools');
+    expect(useStore.getState().overlay).toBeNull();
+  });
+});
+
 describe('navigateTo (B33: owner link / event click-through)', () => {
   const dep = (name: string, namespace: string): Row => ({
     uid: `deployments:${namespace}/${name}`,
