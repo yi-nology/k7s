@@ -23,7 +23,7 @@ import { toCsv, downloadCsv } from '../../lib/exportCsv';
 import { sortRows } from '../../lib/sort';
 import { parseFilter, matchesFilter } from '../../lib/filter';
 import { eventWithinSince, SINCE_OPTIONS, type SinceOption } from '../../lib/events';
-import { rowWindow, scrollToShow, type RowWindow } from '../../lib/virtual';
+import { scrollToShow } from '../../lib/virtual';
 import type { NavTarget, NodeMetricsMap, PodMetricsMap, Row } from '../../providers/types';
 import {
   applyClick,
@@ -33,6 +33,7 @@ import {
 } from '../../lib/selection';
 import { RowContextMenu, type ContextMenuAt } from '../actions/RowContextMenu';
 import { headerHeight, columnWidth, renderCell, overlayMetrics } from './tableUtils';
+import { useVirtualRows } from './useVirtualRows';
 
 /** Stable empty objects — used when a kind doesn't need metrics/podRows, so the
  *  selector returns the same reference every time and skips the rows recompute. */
@@ -501,80 +502,10 @@ export function ResourceTable() {
  */
 const ROW_HEIGHT = 26;
 
-/** Rows kept beyond each edge of the viewport, so fast scrolling stays filled. */
-const OVERSCAN = 20;
-
-/**
- * Row count above which the table windows its rendering.
- *
- * Below it, every row is rendered exactly as before — which is what keeps the
- * table pixel-identical at ordinary cluster sizes (murphy-yi's largest kind is 71
- * rows). That matters because windowing forces `table-layout: fixed`: with the
- * default auto layout, column widths are computed from the *rendered* rows, so a
- * windowed table would visibly re-jig its columns as you scrolled.
- */
-const VIRTUAL_THRESHOLD = 200;
-
 // Utility functions extracted to ./tableUtils.ts:
 // - headerHeight: sticky header height calculation
 // - columnWidth: column width calculation based on header name
 
-/**
- * Track scroll position and viewport height, and derive the row window from them.
- * Returns `virtual: false` for lists short enough to render whole.
- */
-function useVirtualRows(
-  scrollRef: React.RefObject<HTMLDivElement | null>,
-  total: number
-): { virtual: boolean; window: RowWindow } {
-  const virtual = total > VIRTUAL_THRESHOLD;
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportH, setViewportH] = useState(0);
-
-  // A ref, so the scroll handler doesn't have to be re-attached when it flips.
-  const virtualRef = useRef(virtual);
-  virtualRef.current = virtual;
-
-  // Seed from the DOM whenever windowing engages. While it was off the handler
-  // below ignored scrolling, so the state can be stale by now — switching to a
-  // short kind lets the browser clamp scrollTop to 0 unobserved, and windowing
-  // around that abandoned offset would render the window behind a huge spacer,
-  // i.e. a blank table.
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (virtual && el) setScrollTop(el.scrollTop);
-  }, [virtual, scrollRef]);
-
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const onScroll = () => {
-      // Short lists render whole; re-rendering them on every scroll event would
-      // be pure waste. The effect above repairs the state when this stops.
-      if (virtualRef.current) setScrollTop(el.scrollTop);
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-
-    const ro = new ResizeObserver(() => setViewportH(el.clientHeight));
-    ro.observe(el);
-    setViewportH(el.clientHeight);
-
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      ro.disconnect();
-    };
-  }, [scrollRef]);
-
-  const window = useMemo(
-    () =>
-      virtual
-        ? rowWindow(total, scrollTop, viewportH, ROW_HEIGHT, OVERSCAN)
-        : { start: 0, end: total, padTop: 0, padBottom: 0 },
-    [virtual, total, scrollTop, viewportH]
-  );
-
-  return { virtual, window };
-}
+// useVirtualRows hook extracted to ./useVirtualRows.ts
 
 // renderCell and overlayMetrics functions extracted to ./tableUtils.ts
