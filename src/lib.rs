@@ -8,21 +8,13 @@ mod commands;
 // Re-export core modules from k7s-core instead of duplicating them
 pub use k7s_core::{ai, core, error, kube};
 
-// The web shell (axum HTTP server, k7s-web binary). `pub` because the binary
-// entry point lives in src/bin/ and needs to import the router; everything
-// inside is `#[cfg(feature = "web")]` so a `cargo build` of just the desktop
-// app doesn't pull in axum.
+// Web and MCP servers are now in the k7s-server crate.
+// Re-export for backward compatibility so existing bin entry points work.
 #[cfg(feature = "web")]
-pub mod web;
+pub use k7s_server::web;
 
-// The MCP server (stdio, k7s-mcp binary). Same `core::` business logic as the
-// other shells, just exposed through the Model Context Protocol so AI clients
-// (Claude Desktop, Cursor, Claude Code, …) can talk to a real cluster. Gated
-// on either the `mcp` feature (for the stdio `k7s-mcp` binary) or the
-// `web` feature (so the `k7s-web` server can mount the same MCP tools on a
-// `/mcp` HTTP endpoint). Either gate pulls the rmcp SDK in.
 #[cfg(any(feature = "mcp", feature = "web"))]
-pub mod mcp;
+pub use k7s_server::mcp;
 
 pub use error::{AppError, AppResult};
 
