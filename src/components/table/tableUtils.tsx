@@ -7,6 +7,7 @@
 import type { Cell, KindId, NodeMetricsMap, PodMetricsMap, Row } from '../../providers/types';
 import { formatAge, formatCpu, formatMem } from '../../lib/format';
 import { isRolloutKind } from '../../lib/kinds';
+import styles from './ResourceTable.module.css';
 
 /** The sticky header's height, so a row isn't scrolled to sit behind it. */
 export function headerHeight(scrollEl: HTMLElement): number {
@@ -67,13 +68,18 @@ export function renderCell(cell: Cell, now: number): React.ReactNode {
   // is colored by its tone. Map the cell's tone to the corresponding status* class.
   const toneCls =
     cell.tone === 'ok'
-      ? 'statusRunning'
+      ? styles.statusRunning
       : cell.tone === 'warn'
-        ? 'statusPending'
+        ? styles.statusPending
         : cell.tone === 'err'
-          ? 'statusFailed'
+          ? styles.statusFailed
           : '';
-  return `<span className="${toneCls}"><span className="statusDot" aria-hidden="true" />${text}</span>`;
+  return (
+    <span className={`${styles.status} ${toneCls}`}>
+      <span className={styles.statusDot} aria-hidden="true" />
+      {text}
+    </span>
+  );
 }
 
 /**
