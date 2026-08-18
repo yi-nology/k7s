@@ -28,6 +28,8 @@ import { CronPanel } from './CronPanel';
 import { useTranslation } from '../../hooks/useI18n';
 import { useClickOutside } from '../../hooks/useClickOutside';
 import { useStore } from '../../store';
+import { ReasoningBlock } from './ReasoningBlock';
+import { ContextBadge } from './ContextBadge';
 import styles from './AiChat.module.css';
 
 type Tab = 'chat' | 'skills' | 'memory' | 'cron';
@@ -534,53 +536,6 @@ export function AiChat({ selectedContext, onClose }: Props) {
   );
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────
-
-/** Collapsible reasoning block. */
-function ReasoningBlock({
-  text,
-  defaultExpanded = false,
-}: {
-  text: string;
-  defaultExpanded?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
-  const { t } = useTranslation();
-  return (
-    <div className={styles.reasoningBlock}>
-      <button
-        type="button"
-        className={styles.reasoningToggle}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <span>{expanded ? '▾' : '▸'}</span>
-        <span>💭 {t('ai.chat.thinking')}</span>
-        <span className={styles.reasoningLen}>{text.length} chars</span>
-      </button>
-      {expanded && <div className={styles.reasoningContent}>{text}</div>}
-    </div>
-  );
-}
-
-/** Context injection badge. */
-function ContextBadge({
-  blockType,
-  summary,
-}: {
-  blockType: string;
-  summary: string;
-}) {
-  const icons: Record<string, string> = {
-    skill: '⚡',
-    memory: '🧠',
-    evolution: '📈',
-    sandbox: '🔒',
-    preferences: '⚙️',
-  };
-  return (
-    <div className={styles.contextBadge}>
-      <span>{icons[blockType] || '📋'}</span>
-      <span>{summary}</span>
-    </div>
-  );
-}
+// Sub-components extracted to separate files:
+// - ReasoningBlock: ./ReasoningBlock.tsx
+// - ContextBadge: ./ContextBadge.tsx
