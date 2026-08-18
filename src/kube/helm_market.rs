@@ -161,7 +161,7 @@ fn config_dir() -> Option<PathBuf> {
     // `dirs::config_dir()` would be the cross-platform answer, but we already
     // hand-roll platform paths in commands.rs; doing the same here keeps the
     // project free of an extra dependency for a single call.
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     return std::env::var_os("HOME")
         .map(|h| PathBuf::from(h).join("Library/Application Support/k7s"));
     #[cfg(target_os = "linux")]
@@ -175,7 +175,7 @@ fn config_dir() -> Option<PathBuf> {
 }
 
 pub(crate) fn cache_dir() -> Option<PathBuf> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     return std::env::var_os("HOME")
         .map(|h| PathBuf::from(h).join("Library/Caches/k7s/helm-index"));
     #[cfg(target_os = "linux")]

@@ -1,5 +1,6 @@
 //! k7s-core — transport-agnostic Kubernetes business logic.
 
+#[cfg(not(target_os = "ios"))]
 pub mod ai;
 pub mod core;
 pub mod error;
