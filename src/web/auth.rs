@@ -22,7 +22,7 @@ use std::path::Path;
 
 use axum::body::Body;
 use axum::extract::State;
-use axum::k7s_deps::http::{Request, StatusCode};
+use k7s_deps::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -113,7 +113,7 @@ pub async fn require_token(
     let expected = state.web_token.as_bytes();
     let provided = req
         .headers()
-        .get(axum::k7s_deps::http::header::AUTHORIZATION)
+        .get(k7s_deps::http::header::AUTHORIZATION)
         .and_then(|v| v.to_str().ok())
         .map(|h| {
             h.strip_prefix("Bearer ")

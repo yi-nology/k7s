@@ -34,9 +34,9 @@ use rmcp::transport::streamable_http_server::{
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tower_k7s_deps::http::cors::CorsLayer;
-use tower_k7s_deps::http::services::{ServeDir, ServeFile};
-use tower_k7s_deps::http::trace::TraceLayer;
+use tower_http::cors::CorsLayer;
+use tower_http::services::{ServeDir, ServeFile};
+use tower_http::trace::TraceLayer;
 
 use super::handlers;
 use super::resource_handlers;
@@ -55,7 +55,7 @@ pub struct FrontendAssets;
 /// For any request path, tries to find a matching file in the embedded
 /// dist/; if not found, serves index.html for SPA client-side routing.
 async fn embedded_fallback(req: axum::extract::Request) -> impl axum::response::IntoResponse {
-    use axum::k7s_deps::http::{header, StatusCode};
+    use k7s_deps::http::{header, StatusCode};
     use axum::response::Response;
 
     let path = req.uri().path().trim_start_matches('/').to_string();
@@ -465,8 +465,8 @@ pub fn router(
 /// Methods/headers are narrowed to what the API actually uses. If you need a
 /// browser client on another origin, set `K7S_ALLOWED_ORIGINS=https://app.example.com`.
 fn cors_layer(addr: SocketAddr) -> CorsLayer {
-    use axum::k7s_deps::http::{HeaderName, HeaderValue, Method};
-    use tower_k7s_deps::http::cors::AllowOrigin;
+    use k7s_deps::http::{HeaderName, HeaderValue, Method};
+    use tower_http::cors::AllowOrigin;
 
     let mut origins: Vec<HeaderValue> = vec![
         // Same-origin prod (the SPA is served from this same addr).

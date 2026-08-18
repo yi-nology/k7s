@@ -441,7 +441,7 @@ pub async fn scanner_status(State(state): State<WebState>) -> axum::response::Re
 /// The response returns immediately; the agent runs in the background.
 pub async fn hook_wake(
     State(_state): State<WebState>,
-    headers: axum::k7s_deps::http::HeaderMap,
+    headers: k7s_deps::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     // Hooks are enabled only when a token is configured (fail-closed).
@@ -475,7 +475,7 @@ pub async fn hook_wake(
 /// ChatRequest and run the agent loop.
 pub async fn hook_agent(
     State(_state): State<WebState>,
-    headers: axum::k7s_deps::http::HeaderMap,
+    headers: k7s_deps::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     // Hooks are enabled only when a token is configured (fail-closed).
@@ -507,7 +507,7 @@ pub async fn hook_agent(
 /// POST /hooks/event — push a cluster event for the agent to analyze.
 pub async fn hook_event(
     State(_state): State<WebState>,
-    headers: axum::k7s_deps::http::HeaderMap,
+    headers: k7s_deps::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     // Hooks are enabled only when a token is configured (fail-closed).
@@ -1160,7 +1160,7 @@ pub async fn ai_approve_tool_call_handler(
 pub async fn web_token(State(state): State<WebState>) -> axum::response::Response {
     if !state.is_loopback {
         return axum::response::Response::builder()
-            .status(axum::k7s_deps::http::StatusCode::NOT_FOUND)
+            .status(k7s_deps::http::StatusCode::NOT_FOUND)
             .body(axum::body::Body::empty())
             .expect("Response::builder with hardcoded status and body is infallible");
     }

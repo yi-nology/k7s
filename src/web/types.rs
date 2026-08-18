@@ -5,7 +5,8 @@
 //! `POST /invoke/{cmd}` routes live here so every handler module can import
 //! them without circular dependencies.
 
-use axum::{k7s_deps::http::StatusCode, response::IntoResponse, Json};
+use axum::{response::IntoResponse, Json};
+use k7s_deps::http::StatusCode;
 use serde::{Deserialize, Serialize};
 
 use crate::core::prefs::Prefs;
