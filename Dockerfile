@@ -65,21 +65,21 @@ WORKDIR /src
 
 # Cache the dependency graph first. Copying only Cargo.{toml,lock}
 # lets Docker cache the registry + sccache layer even when src/* changes.
-COPY src-tauri/Cargo.toml src-tauri/Cargo.lock ./src-tauri/
+COPY Cargo.toml Cargo.lock ./
 # Stub the source so `cargo fetch` can resolve the [lib] / [[bin]] targets
 # declared in Cargo.toml without us having to copy src/ yet.
-RUN mkdir -p src-tauri/src \
- && echo "fn main() {}" > src-tauri/src/main.rs \
- && echo "" > src-tauri/src/lib.rs \
- && cd src-tauri && cargo fetch
+RUN mkdir -p src \
+ && echo "fn main() {}" > src/main.rs \
+ && echo "" > src/lib.rs \
+ && cargo fetch
 
 # Now the real source. Copy dist/ for rust-embed to embed frontend assets.
-COPY src-tauri ./src-tauri
+COPY src ./src
+COPY build.rs ./
 COPY dist ./dist
 
 # Release build with the `web` feature. Strip symbols to shave a few MB.
-RUN cd src-tauri \
- && cargo build --release \
+RUN cargo build --release \
       --features web --bin k7s-web \
  && strip target/release/k7s-web
 
