@@ -61,6 +61,9 @@ jobs:
           name: frontend-dist
           path: dist
 
+      - name: move dist to k7s-desktop
+        run: cp -r dist k7s-desktop/dist
+
       - name: free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
