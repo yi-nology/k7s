@@ -52,7 +52,7 @@ The sidebar is a 5-section rail (registry in `src/lib/sections.tsx`); the conten
 | 存储 Storage | Grouped SubNav (Storage) + resource table |
 | 运维工具 Tools | Tool catalog — categorized cards (metrics, Helm, images, security, network, cluster tools) |
 
-- **First-run wizard**: on a fresh profile the app auto-opens a 3-step onboarding wizard (import kubeconfig → verify connection → preferences). Finishing it writes `localStorage['k7s.onboarded']`; dismissing with Esc re-opens it next launch.
+- **First-run wizard**: on a fresh profile the app auto-opens a 3-step onboarding wizard (import kubeconfig → verify connection → preferences). Finishing it *or* dismissing it (Esc / backdrop) writes `localStorage['k7s.onboarded']`, so it never nags twice.
 - **Empty state**: with no cluster connected, the overview shows an "import cluster" CTA that opens the same wizard.
 - **Locale**: Chinese (zh) is the default; switch in Settings. The choice is cached at `localStorage['k7s.locale']`.
 

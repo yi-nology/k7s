@@ -1,10 +1,11 @@
 /**
  * The onboarding "finished" flag (Task 9).
  *
- * `localStorage['k7s.onboarded']` marks that the user completed the first-run
- * wizard; while it is absent the App auto-opens the wizard. Only the wizard's
- * `finish()` writes it — Esc/backdrop dismissal must not, so an interrupted
- * run re-opens on the next launch.
+ * `localStorage['k7s.onboarded']` marks that the user has been through (or
+ * dismissed) the first-run wizard; while it is absent the App auto-opens the
+ * wizard. Every wizard close path writes it — `finish()` and Esc/backdrop
+ * dismissal alike — because the key is new: pre-upgrade installs would
+ * otherwise be nagged on every launch.
  *
  * Same shape as `cachedLocale` / `cachedTheme`: read `window.localStorage`
  * first (the one the browser actually uses), and swallow storage failures —
@@ -27,7 +28,7 @@ export function isOnboarded(): boolean {
   }
 }
 
-/** Persist the finished marker (called only from the wizard's finish()). */
+/** Persist the finished marker (every wizard close path calls this). */
 export function markOnboarded(): void {
   const store =
     typeof window !== 'undefined' && window.localStorage ? window.localStorage : null;

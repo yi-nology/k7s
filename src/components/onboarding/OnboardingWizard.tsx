@@ -4,13 +4,14 @@
  *
  * All cluster access goes through the DataProvider abstraction
  * (`getProvider().importKubeconfig()` — desktop opens the native picker, web
- * uploads a file), so the wizard is the same code in both shells.
+ * uploads a file), so the wizard is same code in both shells.
  *
- * Completion contract: only `finish()` writes the `k7s.onboarded` flag (via
- * {@link markOnboarded}), sets the default namespace, and closes the dialog.
- * Esc / backdrop dismissal closes *without* the flag, so an interrupted wizard
- * re-opens on the next launch (the App auto-opens it whenever the flag is
- * absent).
+ * Completion contract: every close path writes the `k7s.onboarded` flag (via
+ * {@link markOnboarded}). `finish()` additionally applies the prefs; Esc /
+ * backdrop dismissal skips the prefs but still marks onboarding done — the
+ * wizard must never nag twice, and a user who dismisses is deemed onboarded
+ * (the `k7s.onboarded` key is new, so pre-upgrade installs would otherwise
+ * see the wizard on every launch).
  */
 
 import { useEffect, useState } from 'react';
@@ -28,25 +29,34 @@ export function OnboardingWizard() {
   const [defaultNs, setDefaultNs] = useState('default');
   const { t } = useTranslation();
 
+  /** Close + mark done. Every dismissal path funnels through here so the
+   *  wizard can never re-open on the next launch (see the docblock). */
+  const dismiss = () => {
+    markOnboarded();
+    setOpen(false);
+  };
+
   // Esc closes, matching every other dismissible surface in the app (the
-  // settings panel / palette contract). Runs only while open, and never
-  // writes the finished flag — see the component docblock.
+  // settings panel / palette contract). Runs only while open.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopImmediatePropagation();
-        setOpen(false);
+        dismiss();
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
+    // `dismiss` is a close+mark helper over stable store setters; listing it
+    // would rebind the listener every render for no behavioural change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, setOpen]);
 
   // Hooks above stay unconditional (hook order must not depend on `open`).
   if (!open) return null;
 
-  /** Apply the prefs and mark onboarding as done — the only flag writer. */
+  /** Apply the prefs and mark onboarding as done. */
   const finish = () => {
     markOnboarded();
     useStore.getState().setNamespace(defaultNs);
@@ -73,8 +83,8 @@ export function OnboardingWizard() {
 
   return (
     // Click the scrim (not the dialog) → close. Same contract as the settings
-    // modal: Esc or outside, and no flag write on either.
-    <div className={styles.backdrop} onClick={() => setOpen(false)}>
+    // modal: Esc or outside, both marking onboarding done.
+    <div className={styles.backdrop} onClick={dismiss}>
       <div
         className={styles.dialog}
         role="dialog"
@@ -89,7 +99,7 @@ export function OnboardingWizard() {
         </div>
         {step === 0 && (
           <div>
-            <p className={styles.hint}>{t('onboarding.import.hint', 'Pick a kubeconfig file or paste its contents.')}</p>
+            <p className={styles.hint}>{t('onboarding.import.hint', 'Pick a kubeconfig file to get started.')}</p>
             <button type="button" className={styles.primary} onClick={() => void pick()}>
               {t('onboarding.import.pick', 'Choose file…')}
             </button>

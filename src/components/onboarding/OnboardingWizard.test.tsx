@@ -3,8 +3,10 @@
  *
  * Covers: step-1 rendering when open, nothing when closed, the step-2 gate on
  * connection.phase === 'connected', finish() writing the 'k7s.onboarded' flag +
- * default namespace + closing, and Esc/backdrop dismissal NOT writing the flag
- * (so an interrupted wizard re-opens on the next launch).
+ * default namespace + closing, and Esc/backdrop dismissal ALSO writing the
+ * flag (dismissal marks onboarding done — the wizard must never nag twice,
+ * which matters because the flag key is new and pre-upgrade installs would
+ * otherwise see the wizard on every launch).
  *
  * These tests assert localized copy, so they pin the locale to "en"
  * explicitly (same contract as the global setup pin — kept explicit so the
@@ -147,22 +149,27 @@ describe('OnboardingWizard', () => {
     expect(useStore.getState().onboardingOpen).toBe(false);
   });
 
-  it('Esc closes without writing the onboarded flag', async () => {
+  it('Esc dismissal marks onboarding done and closes the wizard', async () => {
     view = render(<OnboardingWizard />);
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });
     expect(useStore.getState().onboardingOpen).toBe(false);
-    expect(window.localStorage.getItem(ONBOARDED_STORAGE_KEY)).toBeNull();
+    // Dismissal is completion: the flag is written so the wizard never
+    // re-opens on the next launch.
+    expect(window.localStorage.getItem(ONBOARDED_STORAGE_KEY)).toBe('1');
+    // And it stays closed (no re-open path once the flag is set).
+    view = render(<OnboardingWizard />);
+    expect(view.container.innerHTML).toBe('');
   });
 
-  it('backdrop click closes without writing the onboarded flag', async () => {
+  it('backdrop dismissal marks onboarding done and closes the wizard', async () => {
     await goToStep('conn');
     // The backdrop is the wizard's outermost element; the dialog stops
     // propagation so only an actual backdrop click dismisses.
     const backdrop = view.container.firstElementChild as HTMLElement;
     view.click(backdrop);
     expect(useStore.getState().onboardingOpen).toBe(false);
-    expect(window.localStorage.getItem(ONBOARDED_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(ONBOARDED_STORAGE_KEY)).toBe('1');
   });
 });
