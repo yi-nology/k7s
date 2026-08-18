@@ -53,12 +53,13 @@ import {
   listTemplates,
   renderTemplate,
   type Template,
-  type TemplateExtras,
 } from '../../lib/templates';
 import { useTranslation } from '../../hooks/useI18n';
 import { useStore } from '../../store';
 import { CodeEditor } from '../detail/CodeEditor';
 import styles from './TemplatePicker.module.css';
+import { ExtrasSection } from './ExtrasSection';
+import { YamlReview } from './YamlReview';
 
 /**
  * The values dict the render function gets. The renderer's signature is
@@ -83,7 +84,7 @@ function initialValuesFor(t: Template): TemplateValues {
 
 // parseLabelDraft moved to ./parseLabelDraft.ts (kept this file component-only for
 // react-refresh). Imported here for internal use by the LabelsEditor below.
-import { parseLabelDraft } from './parseLabelDraft';
+// import { parseLabelDraft } from './parseLabelDraft';
 
 export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
@@ -482,196 +483,7 @@ export function TemplatePicker({ onClose }: { onClose?: () => void }) {
   );
 }
 
-/**
- * The structured "extras" — labels (chip list) and resource requests
- * (CPU + memory inputs). Rendered as their own section card.
- */
-function ExtrasSection({
-  extras,
-  labels,
-  resources,
-  onLabelsChange,
-  onResourcesChange,
-}: {
-  extras: TemplateExtras;
-  labels: Record<string, string>;
-  resources: { cpu?: string; memory?: string };
-  onLabelsChange: (labels: Record<string, string>) => void;
-  onResourcesChange: (r: { cpu?: string; memory?: string }) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <>
-      {extras.labels && (
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>{t('tpl.extras.labels', 'Labels')}</h3>
-          <LabelsEditor labels={labels} onChange={onLabelsChange} />
-        </section>
-      )}
-      {extras.resources && (
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>{t('tpl.extras.resources', 'Resource requests')}</h3>
-          <div className={styles.resourcesRow}>
-            <label className={styles.resourceField}>
-              <span className={styles.fieldLabel}>{t('tpl.extras.cpu', 'CPU')}</span>
-              <input
-                type="text"
-                value={resources.cpu ?? ''}
-                placeholder={extras.resources.default.cpu ?? '100m'}
-                onChange={(e) => onResourcesChange({ ...resources, cpu: e.target.value })}
-              />
-            </label>
-            <label className={styles.resourceField}>
-              <span className={styles.fieldLabel}>{t('tpl.extras.memory', 'Memory')}</span>
-              <input
-                type="text"
-                value={resources.memory ?? ''}
-                placeholder={extras.resources.default.memory ?? '128Mi'}
-                onChange={(e) => onResourcesChange({ ...resources, memory: e.target.value })}
-              />
-            </label>
-          </div>
-        </section>
-      )}
-    </>
-  );
-}
-
-/**
- * Chip-style labels editor. Each label is a removable pill showing
- * `key: value`; a single text input below accepts `key=value` (or
- * just `key`) and adds it on Enter / `+`. An empty key is dropped
- * silently so a half-typed line never produces invalid YAML.
- *
- * Why chip pattern over the prior `key = value [×]` rows:
- *  - Reading "10 labels" at a glance is easier with chips than with
- *    a 10-row table.
- *  - Removal is one click on a single × (not "find the right row,
- *    click the × at the end").
- *  - The `key=value` input is the same shape kubectl users know,
- *    and works with paste.
- */
-function LabelsEditor({
-  labels,
-  onChange,
-}: {
-  labels: Record<string, string>;
-  onChange: (labels: Record<string, string>) => void;
-}) {
-  const { t } = useTranslation();
-  // Insertion order matters: chips appear in the order the user added
-  // them, not sorted alphabetically. Object key order in JS is
-  // insertion order for string keys, so we just iterate.
-  const entries = Object.entries(labels);
-  const [draft, setDraft] = useState('');
-
-  const commit = () => {
-    const parsed = parseLabelDraft(draft);
-    if (!parsed) return;
-    onChange({ ...labels, [parsed.key]: parsed.value });
-    setDraft('');
-  };
-
-  return (
-    <div className={styles.labelsWrap}>
-      {entries.length > 0 && (
-        <div className={styles.chipList}>
-          {entries.map(([k, v]) => (
-            <span key={k} className={styles.chip}>
-              <span className={styles.chipKey}>{k}</span>
-              {v !== '' && (
-                <>
-                  <span className={styles.chipSep}>:</span>
-                  <span className={styles.chipVal}>{v}</span>
-                </>
-              )}
-              <button
-                type="button"
-                className={styles.chipX}
-                onClick={() => {
-                  const next = { ...labels };
-                  delete next[k];
-                  onChange(next);
-                }}
-                aria-label={t('tpl.extras.remove', 'remove')}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <div className={styles.labelAdd}>
-        <input
-          type="text"
-          value={draft}
-          placeholder={t('tpl.extras.addPlaceholder', 'key=value, then ⏎')}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              commit();
-            }
-          }}
-        />
-        <button
-          type="button"
-          className={styles.labelAddBtn}
-          onClick={commit}
-          disabled={!draft.trim()}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Per-document review of a bundle dry run (YAML-import mode). Each doc is a
- * row: a header showing `kind/name` (green if the server accepted it, red if
- * it errored) and the proposed manifest below. Errored docs show the server's
- * message verbatim — the whole value of the dry run is surfacing admission
- * rejections before a real apply.
- *
- * This is the create-side counterpart to YamlTab's DiffView. Where DiffView
- * shows a current-vs-proposed diff (editing an existing object), a create has
- * no `current`, so we show the full proposed manifest: "here's what will be
- * created." Collapsible per doc so a 5-doc bundle doesn't bury an error.
- */
-function YamlReview({ review }: { review: DocDryRun[] }) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState<Record<number, boolean>>({});
-  return (
-    <div className={styles.review}>
-      {review.map((d, i) => {
-        const ok = !d.error;
-        const label = d.error
-          ? t('tpl.yaml.docErr', '{kind}/{name} — {error}')
-              .replace('{kind}', d.kind || '?')
-              .replace('{name}', d.name || '?')
-              .replace('{error}', d.error)
-          : t('tpl.yaml.docOk', '{kind}/{name}')
-              .replace('{kind}', d.kind || '?')
-              .replace('{name}', d.name || '?');
-        const isOpen = open[i] ?? ok;
-        return (
-          <div key={i} className={styles.reviewDoc} data-ok={ok ? 'true' : 'false'}>
-            <button
-              type="button"
-              className={styles.reviewHead}
-              onClick={() => setOpen((o) => ({ ...o, [i]: !isOpen }))}
-              aria-expanded={isOpen}
-            >
-              <span className={styles.reviewChevron} data-open={isOpen}>
-                ▾
-              </span>
-              <span className={ok ? styles.reviewOk : styles.reviewErr}>{label}</span>
-            </button>
-            {isOpen && <pre className={styles.reviewBody}>{d.proposed ?? d.error ?? ''}</pre>}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+// Components extracted to separate files:
+// - ExtrasSection: ./ExtrasSection.tsx
+// - LabelsEditor: ./LabelsEditor.tsx
+// - YamlReview: ./YamlReview.tsx
