@@ -56,7 +56,9 @@ RUN mkdir -p k7s-server/src k7s-core/src k7s-deps/src \
 COPY k7s-server/src ./k7s-server/src
 COPY k7s-core/src ./k7s-core/src
 COPY k7s-deps/src ./k7s-deps/src
-COPY dist ./k7s-server/dist
+# rust-embed #[folder = "../dist"]] is relative to Cargo.toml (k7s-server/),
+# so it looks for /src/dist/ — copy the frontend there.
+COPY dist ./dist
 
 # Release build with the `web` feature.
 RUN cd k7s-server \
