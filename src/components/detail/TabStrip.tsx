@@ -13,6 +13,7 @@ import { cx } from '../../lib/cx';
 import { kindMeta, type KindId } from '../../lib/kinds';
 import { useTranslation } from '../../hooks/useI18n';
 import styles from './TabStrip.module.css';
+import { useCustomKinds } from '../../hooks/useStoreHooks';
 
 export function TabStrip() {
   const { t } = useTranslation();
@@ -20,7 +21,7 @@ export function TabStrip() {
   const activeUid = useStore((s) => s.activeDetailTabUid);
   const setActive = useStore((s) => s.setActiveDetailTab);
   const closeTab = useStore((s) => s.closeDetailTab);
-  const customKinds = useStore((s) => s.customKinds);
+  const customKinds = useCustomKinds();
 
   // Hide when 0 or 1 tabs — single-panel mode is the default.
   if (tabs.length <= 1) return null;
