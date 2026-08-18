@@ -161,7 +161,10 @@ export function SettingsPanel() {
             hint={t('chrome.settings.advancedHint')}
             startOpen={section === 'advanced'}
           >
-            {/* Terminal settings */}
+            {/* Terminal & Editor settings */}
+            <div className={styles.subsectionTitle}>
+              {t('chrome.settings.terminalEditor', 'Terminal & Editor')}
+            </div>
             <Row
               label={t('settings.terminalFontSize.label', 'Terminal font size')}
               hint={t('settings.terminalFontSize.hint', 'Font size for terminal (9–18px)')}
@@ -217,6 +220,10 @@ export function SettingsPanel() {
               />
             </Row>
 
+            {/* Polling settings */}
+            <div className={styles.subsectionTitle}>
+              {t('chrome.settings.polling', 'Polling')}
+            </div>
             <Row
               label={t('settings.metricsPoll.label')}
               hint={t(
@@ -255,6 +262,10 @@ export function SettingsPanel() {
               />
             </Row>
 
+            {/* Shell & Integrations */}
+            <div className={styles.subsectionTitle}>
+              {t('chrome.settings.integrations', 'Shell & Integrations')}
+            </div>
             <Row label={t('settings.shellCommand.label')} hint={t('settings.shellCommand.hint')}>
               <input
                 className={styles.text}
