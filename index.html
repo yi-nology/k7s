@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -32,12 +32,13 @@
         }
         // Mirror the cached UI language onto <html lang> so screen readers and
         // the browser's own widgets (e.g. spell-check) pick the right one before
-        // the bundle runs. Defaults to "en" when the cache is empty or invalid.
+        // the bundle runs. Defaults to "zh" (the app's default locale) when the
+        // cache is empty or invalid; a cached "en" still wins.
         try {
           var lang = localStorage.getItem("k7s.locale");
-          document.documentElement.lang = lang === "zh" ? "zh" : "en";
+          document.documentElement.lang = lang === "en" ? "en" : "zh";
         } catch (e) {
-          document.documentElement.lang = "en";
+          document.documentElement.lang = "zh";
         }
       })();
     </script>

@@ -80,6 +80,15 @@ export interface Dictionary {
         plugins: string;
       };
     };
+    /** The 5-section rail (P1 IA) — one label per SectionId in SECTION_ORDER,
+     *  keyed by section id ("chrome.sections.overview", …). */
+    sections: {
+      overview: string;
+      workloads: string;
+      config: string;
+      storage: string;
+      tools: string;
+    };
     topbar: {
       nsPrefix: string;
       searchPlaceholder: string;
@@ -165,6 +174,97 @@ export interface Dictionary {
     };
   };
 
+  /** The web-mode login gate (Task 8) — first-run password setup and the
+   *  sign-in form shown when the k7s-web server requires a session. Desktop
+   *  (Tauri) never sees any of this copy. */
+  auth: {
+    login: {
+      title: string;
+      submit: string;
+    };
+    setup: {
+      title: string;
+      hint: string;
+      submit: string;
+    };
+    err: {
+      configured: string;
+      short: string;
+      wrong: string;
+    };
+  };
+
+  /** The per-section SubNav (P1 IA) — group headings inside a section's kind
+   *  tab strip, keyed by SECTION_SUBGROUPS group id ("subnav.group.config", …)
+   *  plus 'custom' for the CRD group appended from useCustomKinds. */
+  subnav: {
+    group: {
+      config: string;
+      network: string;
+      access: string;
+      cluster: string;
+      custom: string;
+      storage: string;
+    };
+  };
+
+  /** The ToolsPage catalog (P1 IA) — category headings above each card grid,
+   *  keyed by the catalog's category id ("tools.category.observability", …).
+   *  Card labels reuse the chrome.sidebar.tools.* entries. */
+  tools: {
+    category: {
+      observability: string;
+      helm: string;
+      images: string;
+      security: string;
+      network: string;
+      cluster: string;
+    };
+  };
+
+  /** The overview home page (P1 IA) — the page-mode title, the no-cluster
+   *  empty state the unconnected boot lands on, and the quick-entry strip
+   *  rendered at the top of the connected dashboard. */
+  overview: {
+    title: string;
+    empty: {
+      title: string;
+      hint: string;
+      /** Primary action — opens the kubeconfig onboarding flow. */
+      import: string;
+      /** Secondary action — skip onboarding, browse without a cluster. */
+      browse: string;
+    };
+    quick: {
+      workloads: string;
+      metrics: string;
+      alerts: string;
+      create: string;
+    };
+  };
+
+  /** The first-run 3-step wizard (Task 9) — step titles, the import step,
+   * the connection-check step, and the preferences step. */
+  onboarding: {
+    step1: string;
+    step2: string;
+    step3: string;
+    import: {
+      hint: string;
+      pick: string;
+    };
+    conn: {
+      /** "Connected: {cluster}" — the component `.replace()`s the placeholder. */
+      ok: string;
+      wait: string;
+    };
+    next: string;
+    prefs: {
+      ns: string;
+    };
+    done: string;
+  };
+
   /** Settings panel rows and their option lists. */
   settings: {
     theme: { label: string; hint: string; system: string; dark: string; light: string };
@@ -244,6 +344,13 @@ export interface Dictionary {
      * saying "no resources match filter" would be a lie.
      */
     emptyNone: string;
+    /**
+     * CTA button in the workload empty state — shown only when the filter
+     * input is empty and the kind belongs to the workloads section, so an
+     * empty Deployments page offers the way out ("create one") instead of a
+     * dead end.
+     */
+    emptyCta: string;
     /** Shown when a kind's watch returns 403 Forbidden (RBAC). */
     forbidden: string;
     /** "N selected" chip shown when multi-select has > 1 row picked. */

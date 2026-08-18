@@ -14,6 +14,10 @@ let view: RenderResult;
 function resetStore() {
   useStore.setState({
     nav: 'dashboard',
+    section: 'overview',
+    // Pin the locale: the assertions below match English copy, and the store
+    // boots from whatever localStorage cached in a previous test file.
+    settings: { ...useStore.getState().settings, language: 'en' },
     connection: { phase: 'connected', context: 'test-cluster', clusterName: 'test-cluster' },
     rows: {
       pods: [createMockRow({ name: 'nginx' })],
@@ -29,6 +33,8 @@ function resetStore() {
       resourcequotas: [],
     },
     nodeMetrics: {},
+    overlay: null,
+    onboardingOpen: false,
     setNav: vi.fn(),
     closeOverlay: vi.fn(),
   });
@@ -103,5 +109,47 @@ describe('Dashboard', () => {
     const closeBtn = view.queryByText('Close');
     if (closeBtn) view.click(closeBtn);
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('renders without onClose (page mode)', () => {
+    view = render(<Dashboard />);
+    // Page mode still needs an accessible name — the overview heading.
+    expect(view.getByText(/Overview|概览/i)).not.toBeNull();
+    // And no overlay close button leaks into the page.
+    expect(view.queryByText('Close')).toBeNull();
+  });
+
+  it('shows the no-cluster empty state with an import button when disconnected', () => {
+    useStore.setState({
+      connection: { ...useStore.getState().connection, phase: 'error' },
+    });
+    view = render(<Dashboard />);
+    const importBtn = view.getByText(/Import cluster|导入集群/i);
+    expect(importBtn).not.toBeNull();
+    // The empty state replaces the connected dashboard, not just overlays it.
+    expect(view.queryByText('Cluster')).toBeNull();
+    // Clicking import flips the onboarding flag (Task 9 renders the wizard).
+    view.click(importBtn);
+    expect(useStore.getState().onboardingOpen).toBe(true);
+  });
+
+  it('quick entries route to sections and overlays when connected', () => {
+    view = render(<Dashboard />);
+    for (const label of [
+      /Workloads|工作负载/,
+      /Metrics|指标查询/,
+      /Alerts|告警/,
+      /Create workload|创建工作负载/,
+    ]) {
+      expect(view.getByText(label)).not.toBeNull();
+    }
+    view.click(view.getByText(/Workloads|工作负载/));
+    expect(useStore.getState().section).toBe('workloads');
+    view.click(view.getByText(/Metrics|指标查询/));
+    expect(useStore.getState().overlay).toBe('metrics');
+    view.click(view.getByText(/Alerts|告警/));
+    expect(useStore.getState().overlay).toBe('alerting');
+    view.click(view.getByText(/Create workload|创建工作负载/));
+    expect(useStore.getState().overlay).toBe('templates');
   });
 });

@@ -19,6 +19,7 @@ import { useTranslation } from '../../hooks/useI18n';
 import { useNav, useNamespace, useTableFilter, useEventsSince, useSort, useSelection, useCustomKinds } from '../../hooks/useStoreHooks';
 import { toneColor } from '../../lib/tone';
 import { isClusterScoped, isRolloutKind, kindMeta, navIdForKind } from '../../lib/kinds';
+import { sectionForKind } from '../../lib/sections';
 import { toCsv, downloadCsv } from '../../lib/exportCsv';
 import { sortRows } from '../../lib/sort';
 import { parseFilter, matchesFilter } from '../../lib/filter';
@@ -459,9 +460,26 @@ export function ResourceTable() {
                 only when the user typed a filter; otherwise the cause is the
                 namespace picker (or an empty kind) and we don't claim a filter
                 was at fault. */}
-            {tableFilter.trim() === ''
-              ? t('table.emptyNone', 'no resources')
-              : t('table.empty', 'no resources match filter')}
+            <span>
+              {tableFilter.trim() === ''
+                ? t('table.emptyNone', 'no resources')
+                : t('table.empty', 'no resources match filter')}
+            </span>
+            {/* Empty workload kind with no filter: the empty state is the real
+                problem ("nothing to look at"), so offer the way out. Kinds in
+                the workloads section only — an empty ConfigMap list is normal,
+                not something to create your way out of. */}
+            {tableFilter.trim() === '' && sectionForKind(nav) === 'workloads' && (
+              // P2: switch this to the create wizard once it lands.
+              <button
+                type="button"
+                className={styles.emptyCta}
+                data-testid="empty-cta"
+                onClick={() => openOverlay('templates')}
+              >
+                {t('table.emptyCta', 'Create your first workload')}
+              </button>
+            )}
           </div>
         ) : null}
       </div>

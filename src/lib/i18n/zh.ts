@@ -62,6 +62,13 @@ export const zh: Dictionary = {
         plugins: '插件',
       },
     },
+    sections: {
+      overview: '概览',
+      workloads: '工作负载',
+      config: '配置与网络',
+      storage: '存储',
+      tools: '运维工具',
+    },
     topbar: {
       nsPrefix: '命名空间:',
       searchPlaceholder: '搜索任何内容…',
@@ -137,6 +144,80 @@ export const zh: Dictionary = {
       actionHintView: '视图',
       actionHintTool: '工具',
     },
+  },
+
+  auth: {
+    login: {
+      title: '登录',
+      submit: '登录',
+    },
+    setup: {
+      title: '设置访问密码',
+      hint: '首次使用,请为这个实例设置一个管理密码(至少 8 位)。',
+      submit: '保存并进入',
+    },
+    err: {
+      configured: '密码已设置,请直接登录',
+      short: '密码至少 8 位',
+      wrong: '密码错误',
+    },
+  },
+
+  subnav: {
+    group: {
+      config: '配置',
+      network: '网络',
+      access: '访问控制',
+      cluster: '集群',
+      custom: '自定义资源',
+      storage: '存储',
+    },
+  },
+
+  tools: {
+    category: {
+      observability: '可观测性',
+      helm: 'Helm 应用',
+      images: '镜像',
+      security: '安全合规',
+      network: '网络诊断',
+      cluster: '集群工具',
+    },
+  },
+
+  overview: {
+    title: '概览',
+    empty: {
+      title: '还没有连接任何集群',
+      hint: '导入 kubeconfig 后即可开始浏览与操作集群资源。',
+      import: '导入集群',
+      browse: '先随便看看',
+    },
+    quick: {
+      workloads: '工作负载',
+      metrics: '指标查询',
+      alerts: '告警',
+      create: '创建工作负载',
+    },
+  },
+
+  onboarding: {
+    step1: '导入集群',
+    step2: '连接确认',
+    step3: '偏好设置',
+    import: {
+      hint: '选择一个 kubeconfig 文件开始导入。',
+      pick: '选择文件…',
+    },
+    conn: {
+      ok: '已连接:{cluster}',
+      wait: '连接中…若长时间未成功,请检查 kubeconfig。',
+    },
+    next: '下一步',
+    prefs: {
+      ns: '默认命名空间',
+    },
+    done: '进入概览',
   },
 
   settings: {
@@ -253,6 +334,7 @@ export const zh: Dictionary = {
     filterPlaceholder: '过滤… (名称或 key=value)',
     empty: '无匹配资源',
     emptyNone: '无资源',
+    emptyCta: '创建第一个工作负载',
     forbidden: '当前账户无权查看此资源 (RBAC Forbidden)',
     selected: '已选',
     new: '新建',

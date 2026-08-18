@@ -52,10 +52,10 @@ describe('asLocale', () => {
     expect(asLocale('zh')).toBe('zh');
   });
 
-  it("defaults anything else to 'en'", () => {
-    expect(asLocale('fr')).toBe('en');
-    expect(asLocale(undefined)).toBe('en');
-    expect(asLocale(42)).toBe('en');
+  it("defaults anything else to 'zh', the default locale", () => {
+    expect(asLocale('fr')).toBe('zh');
+    expect(asLocale(undefined)).toBe('zh');
+    expect(asLocale(42)).toBe('zh');
   });
 });
 
@@ -187,6 +187,7 @@ describe('dictionary key coverage', () => {
     // Table empty states
     ['table.empty', 'no resources match filter', '无匹配资源'],
     ['table.emptyNone', 'no resources', '无资源'],
+    ['table.emptyCta', 'Create your first workload', '创建第一个工作负载'],
 
     // Alerting panel
     ['alerts.empty.alerts', 'No active alerts', '无活动告警'],
@@ -362,8 +363,8 @@ describe('cacheLocale / cachedLocale', () => {
     delete (window as any).localStorage;
   });
 
-  it('returns "en" when nothing is stored', () => {
-    expect(cachedLocale()).toBe('en');
+  it('returns "zh" (the default locale) when nothing is stored — a fresh install boots in Chinese', () => {
+    expect(cachedLocale()).toBe('zh');
   });
 
   it('round-trips through cacheLocale', () => {
@@ -373,9 +374,9 @@ describe('cacheLocale / cachedLocale', () => {
     expect(cachedLocale()).toBe('en');
   });
 
-  it('treats an unrecognised stored value as English', () => {
+  it("treats an unrecognised stored value as the default ('zh')", () => {
     window.localStorage.setItem('k7s.locale', ' Klingon ');
-    expect(cachedLocale()).toBe('en');
+    expect(cachedLocale()).toBe('zh');
   });
 });
 

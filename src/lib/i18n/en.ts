@@ -62,6 +62,13 @@ export const en: Dictionary = {
         plugins: 'Plugins',
       },
     },
+    sections: {
+      overview: 'Overview',
+      workloads: 'Workloads',
+      config: 'Config & Network',
+      storage: 'Storage',
+      tools: 'Ops Tools',
+    },
     topbar: {
       nsPrefix: 'ns:',
       searchPlaceholder: 'Search anything…',
@@ -132,6 +139,80 @@ export const en: Dictionary = {
       actionHintView: 'view',
       actionHintTool: 'tool',
     },
+  },
+
+  auth: {
+    login: {
+      title: 'Sign in',
+      submit: 'Sign in',
+    },
+    setup: {
+      title: 'Set an access password',
+      hint: 'First run: set an admin password for this instance (8+ characters).',
+      submit: 'Save and continue',
+    },
+    err: {
+      configured: 'Password already configured — sign in instead',
+      short: 'Password must be at least 8 characters',
+      wrong: 'Wrong password',
+    },
+  },
+
+  subnav: {
+    group: {
+      config: 'Configuration',
+      network: 'Network',
+      access: 'Access Control',
+      cluster: 'Cluster',
+      custom: 'Custom Resources',
+      storage: 'Storage',
+    },
+  },
+
+  tools: {
+    category: {
+      observability: 'Observability',
+      helm: 'Helm',
+      images: 'Images',
+      security: 'Security',
+      network: 'Network',
+      cluster: 'Cluster Tools',
+    },
+  },
+
+  overview: {
+    title: 'Overview',
+    empty: {
+      title: 'No cluster connected yet',
+      hint: 'Import a kubeconfig to start browsing and operating cluster resources.',
+      import: 'Import cluster',
+      browse: 'Just look around',
+    },
+    quick: {
+      workloads: 'Workloads',
+      metrics: 'Metrics',
+      alerts: 'Alerts',
+      create: 'Create workload',
+    },
+  },
+
+  onboarding: {
+    step1: 'Import cluster',
+    step2: 'Connection check',
+    step3: 'Preferences',
+    import: {
+      hint: 'Pick a kubeconfig file to get started.',
+      pick: 'Choose file…',
+    },
+    conn: {
+      ok: 'Connected: {cluster}',
+      wait: 'Connecting… if this takes long, check your kubeconfig.',
+    },
+    next: 'Next',
+    prefs: {
+      ns: 'Default namespace',
+    },
+    done: 'Go to overview',
   },
 
   settings: {
@@ -248,6 +329,7 @@ export const en: Dictionary = {
     filterPlaceholder: 'filter… (name or key=value)',
     empty: 'no resources match filter',
     emptyNone: 'no resources',
+    emptyCta: 'Create your first workload',
     forbidden: 'No permission to view this resource (RBAC Forbidden)',
     selected: 'selected',
     new: 'New',

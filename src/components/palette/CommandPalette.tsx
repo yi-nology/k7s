@@ -213,6 +213,10 @@ function runAction(id: ActionId) {
     case 'keyboard-shortcuts':
       s.setShortcutsOpen(true);
       break;
+    // Dashboard is the overview section's inline content now (P1 IA) — not an overlay.
+    case 'dashboard':
+      s.setSection('overview');
+      break;
     // Overlay views and tools — open the corresponding sidebar panel.
     default:
       s.openOverlay(id as import('../../store').OverlayKey);

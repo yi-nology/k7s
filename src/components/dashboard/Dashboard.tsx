@@ -1,8 +1,15 @@
 /**
  * Dashboard — the cluster overview page.
  *
- * The first thing the user sees when they connect: a glanceable summary
- * of the active cluster. The pieces:
+ * Doubles as a full page and an overlay (P1 IA):
+ *
+ *   - Page mode (no `onClose`): the overview section's home content. When
+ *     no cluster is connected it shows an onboarding empty state instead of
+ *     a wall of zeroes; when connected it leads with a quick-entry strip.
+ *   - Overlay mode (`onClose` provided): the classic Dashboard panel with a
+ *     header + close button, rendered above the resource table.
+ *
+ * The connected pieces:
  *
  *   - Cluster info card (name, version, context, server).
  *   - CPU / memory utilisation bars fed by the live poller in the
@@ -11,9 +18,6 @@
  *     corresponding table.
  *   - The cluster's recent events, so a `CrashLoopBackOff` or a
  *     `FailedScheduling` doesn't get missed.
- *
- * Why a separate route rather than a sidebar entry: the dashboard
- * *is* the home view, set as the default `nav` when the app boots.
  */
 import { useMemo, useState } from 'react';
 import { useStore } from '../../store';
@@ -73,6 +77,9 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
   const nodeMetrics = useNodeMetrics();
   const setNav = useStore((s) => s.setNav);
   const closeOverlay = useStore((s) => s.closeOverlay);
+  const setSection = useStore((s) => s.setSection);
+  const openOverlay = useStore((s) => s.openOverlay);
+  const setOnboardingOpen = useStore((s) => s.setOnboardingOpen);
 
   // Recent events come straight from the live watcher snapshot in the store
   // (the same feed the Cluster → Events table renders), not from a one-shot
@@ -128,16 +135,71 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
   );
   const [checksExpanded, setChecksExpanded] = useState(false);
 
+  // No cluster yet — as the home page the overview shows an onboarding empty
+  // state rather than a dashboard full of zeroes. Covers every non-connected
+  // phase (idle / connecting / error). Must sit after the hooks above so the
+  // hook order stays identical between the two branches.
+  if (connection.phase !== 'connected') {
+    return (
+      <div className={styles.emptyState}>
+        <div className={styles.emptyCard}>
+          <h2>{t('overview.empty.title', 'No cluster connected yet')}</h2>
+          <p>
+            {t(
+              'overview.empty.hint',
+              'Import a kubeconfig to start browsing and operating cluster resources.'
+            )}
+          </p>
+          <div className={styles.emptyActions}>
+            <button
+              type="button"
+              className={styles.primary}
+              onClick={() => setOnboardingOpen(true)}
+            >
+              {t('overview.empty.import', 'Import cluster')}
+            </button>
+            <button type="button" className={styles.ghost} onClick={() => setSection('workloads')}>
+              {t('overview.empty.browse', 'Just look around')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.dashboard}>
-      {onClose && (
-        <header className={styles.header}>
-          <h2>{t('dashboard.title', 'Dashboard')}</h2>
+      <header className={styles.header}>
+        {/* Overlay mode keeps the classic title + close; page mode gets the
+            overview heading so the section has an accessible name. */}
+        <h2>{onClose ? t('dashboard.title', 'Dashboard') : t('overview.title', 'Overview')}</h2>
+        {onClose && (
           <button className={styles.close} onClick={onClose}>
             {t('dashboard.close', 'Close')}
           </button>
-        </header>
-      )}
+        )}
+      </header>
+
+      {/* Quick entries — the one-click paths off the home page. */}
+      <div className={styles.quickEntries}>
+        <button type="button" className={styles.quickEntry} onClick={() => setSection('workloads')}>
+          {t('overview.quick.workloads', 'Workloads')}
+        </button>
+        <button type="button" className={styles.quickEntry} onClick={() => openOverlay('metrics')}>
+          {t('overview.quick.metrics', 'Metrics')}
+        </button>
+        <button type="button" className={styles.quickEntry} onClick={() => openOverlay('alerting')}>
+          {t('overview.quick.alerts', 'Alerts')}
+        </button>
+        <button
+          type="button"
+          className={styles.quickEntry}
+          onClick={() => openOverlay('templates')}
+        >
+          {t('overview.quick.create', 'Create workload')}
+        </button>
+      </div>
+
       <div className={styles.infoCard}>
         <div>
           <div className={styles.infoLabel}>{t('dashboard.cluster', 'Cluster')}</div>

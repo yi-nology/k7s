@@ -21,6 +21,7 @@ export const useStore = create<AppState>()((set, get, api) => ({
   systemDark: prefersDark(),
   settingsOpen: false,
   settingsSection: null,
+  onboardingOpen: false,
   selection: EMPTY_SELECTION,
   shortcutsOpen: false,
   aiPanelOpen: false,
@@ -39,6 +40,7 @@ export const useStore = create<AppState>()((set, get, api) => ({
     }),
   setSettingsOpen: (open: boolean, section?: string) =>
     set({ settingsOpen: open, settingsSection: open ? (section ?? null) : null }),
+  setOnboardingOpen: (open: boolean) => set({ onboardingOpen: open }),
   setSystemDark: (dark: boolean) => set({ systemDark: dark }),
   setSelection: (selection: { selected: string[]; anchor: string | null }) => set({ selection }),
   clearSelection: () => set({ selection: EMPTY_SELECTION }),

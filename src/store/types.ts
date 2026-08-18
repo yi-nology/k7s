@@ -19,6 +19,7 @@ import type {
 } from '../providers/types';
 import type { SinceOption } from '../lib/logview';
 import type { Settings } from '../lib/settings';
+import type { SectionId } from '../lib/sections';
 
 /**
  * Intercepted navigation intent while YAML is dirty.
@@ -150,6 +151,8 @@ export interface AppState {
 
   // navigation & filtering
   nav: KindId;
+  /** Active top-level section of the 5-section IA (P1). Derived on setNav. */
+  section: SectionId;
   namespace: string;
   tableFilter: string;
   sortCol: number | null;
@@ -170,6 +173,9 @@ export interface AppState {
   /** When settings opens, optionally scroll to a named section (e.g. 'ai').
    *  Cleared after the panel consumes it. null = no requested section. */
   settingsSection: string | null;
+  /** Onboarding wizard (kubeconfig import) visibility. Set by the overview
+   *  page's no-cluster empty state; the wizard itself renders off this flag. */
+  onboardingOpen: boolean;
   paletteOpen: boolean;
   shortcutsOpen: boolean;
   podMetrics: PodMetricsMap;
@@ -211,6 +217,7 @@ export interface AppState {
 
   // actions
   setNav: (kind: KindId) => void;
+  setSection: (section: SectionId) => void;
   setNamespace: (ns: string) => void;
   setTableFilter: (q: string) => void;
   toggleSort: (col: number) => void;
@@ -244,6 +251,7 @@ export interface AppState {
    *  panel scroll to / highlight a named block (currently 'ai' or 'advanced')
    *  — used by the "enable AI" affordances to drop the user right at the config. */
   setSettingsOpen: (open: boolean, section?: string) => void;
+  setOnboardingOpen: (open: boolean) => void;
   setPaletteOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
   jumpTo: (kind: KindId, row?: Row) => void;

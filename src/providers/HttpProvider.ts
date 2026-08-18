@@ -27,10 +27,13 @@
  * What's still stubbed (rejects with a clear error so the UI can show it):
  * - Port forwards (`startPortForward` / `startServicePortForward` /
  *   `listPortForwards`). Bidirectional framing over SSE isn't built yet.
- * - The Tauri-specific bits (`setWindowTheme`, `importKubeconfig` from disk).
+ * - The Tauri-specific bits (`setWindowTheme`). `importKubeconfig` is NOT
+ *   stubbed — web mode opens a hidden file input and posts the picked file's
+ *   contents via `import_kubeconfig_content` (the onboarding wizard depends
+ *   on it).
  */
 
-import { httpInvoke, httpSubscribe } from './transport';
+import { IS_TAURI, httpInvoke, httpSubscribe } from './transport';
 import { BaseRpcProvider } from './BaseRpcProvider';
 import type {
   ApplyResult,
@@ -87,6 +90,16 @@ import type {
 function notImplemented(method: string): Promise<never> {
   return Promise.reject(new Error(`${method} is not bridged through the browser shell yet`));
 }
+
+/**
+ * True when the UI runs in the browser shell (talking to the k7s-web server)
+ * rather than the Tauri desktop app. Reuses {@link IS_TAURI} so the runtime
+ * detection lives in exactly one place. The LoginGate (and any other web-only
+ * chrome) consults this instead of sniffing `window.__TAURI_INTERNALS__`
+ * itself. Note: demo mode (VITE_DEMO=1) also runs in a browser tab, so this
+ * returns true there — web-only features that need a server must fail open.
+ */
+export const isHttpMode = () => !IS_TAURI;
 
 /** Features that require the native desktop runtime (skopeo, containerd import).
  *  Kept distinct from `notImplemented`: these are intentionally desktop-only by

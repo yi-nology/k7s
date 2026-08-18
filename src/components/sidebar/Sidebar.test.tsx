@@ -1,7 +1,11 @@
 /**
- * Tests for Sidebar — the sidebar composition (Design §1).
+ * Tests for Sidebar — the 5-section rail (P1 IA rework).
  *
- * Covers rendering: brand mark, cluster switcher, nav list, watch footer.
+ * The sidebar no longer enumerates resource kinds (NavList is gone); it renders
+ * exactly one button per section in SECTION_ORDER, marks the store's active
+ * section, and keeps the ClusterSwitcher / WatchFooter chrome. Labels are
+ * asserted in Chinese, so each test pins the locale to zh first (the default
+ * is zh since the Task 6 locale flip, but the pin keeps that explicit).
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -14,6 +18,7 @@ let view: RenderResult;
 function resetStore() {
   useStore.setState({
     nav: 'pods',
+    section: 'overview',
     namespace: 'all',
     connection: { phase: 'idle', context: null, clusterName: null },
     watchCount: 0,
@@ -21,7 +26,7 @@ function resetStore() {
     customKinds: [],
     watchStatus: {},
     overlay: null,
-    settings: useStore.getState().settings,
+    settings: { ...useStore.getState().settings, language: 'zh' },
   });
 }
 
@@ -33,50 +38,31 @@ afterEach(() => {
   cleanup();
 });
 
-describe('Sidebar', () => {
-  it('renders the brand mark', () => {
-    view = render(<Sidebar />);
-    expect(view.queryByText('k7')).not.toBeNull();
+describe('Sidebar (5-section rail)', () => {
+  it('renders exactly the 5 sections', () => {
+    view = render(<Sidebar open onClose={() => {}} onToggle={() => {}} />);
+    for (const label of ['概览', '工作负载', '配置与网络', '存储', '运维工具']) {
+      expect(view.querySelector(`[title="${label}"]`)).not.toBeNull();
+    }
+    // "Exactly" — the rail holds one button per section, nothing else.
+    expect(view.querySelectorAll('button[class*="railItem"]').length).toBe(5);
   });
 
-  it('renders the brand name', () => {
-    view = render(<Sidebar />);
-    expect(view.queryByText('k7s')).not.toBeNull();
+  it('marks the active section', () => {
+    useStore.setState({ section: 'workloads' });
+    view = render(<Sidebar open onClose={() => {}} onToggle={() => {}} />);
+    const active = view.querySelector('[title="工作负载"]');
+    expect(active).not.toBeNull();
+    expect((active as HTMLElement).className).toContain('active');
+    // Only the active section carries the state.
+    expect(view.querySelector('[title="概览"]')?.className).not.toContain('active');
   });
 
-  it('renders the brand subtitle', () => {
-    view = render(<Sidebar />);
-    expect(view.queryByText('kubernetes manager')).not.toBeNull();
-  });
-
-  it('renders resource group headers', () => {
-    view = render(<Sidebar />);
-    // Workloads is the first group
-    expect(view.queryByText('Workloads')).not.toBeNull();
-  });
-
-  it('renders resource kind items', () => {
-    view = render(<Sidebar />);
-    // Pods is always present
-    expect(view.queryByText('Pods')).not.toBeNull();
-  });
-
-  it('has the panel data-surface attribute', () => {
-    view = render(<Sidebar />);
-    const sidebar = view.container.querySelector('[data-surface="panel"]');
-    expect(sidebar).not.toBeNull();
-  });
-
-  it('renders the Dashboard overlay entry', () => {
-    view = render(<Sidebar />);
-    expect(view.queryByText('Dashboard')).not.toBeNull();
-  });
-
-  it('marks the active nav item', () => {
-    useStore.setState({ nav: 'pods' });
-    view = render(<Sidebar />);
-    // The active item should have the navItemActive class
-    const activeItems = view.container.querySelectorAll('[class*="navItemActive"]');
-    expect(activeItems.length).toBeGreaterThanOrEqual(0);
+  it('labels the nav landmark with the localized aria-label', () => {
+    view = render(<Sidebar open onClose={() => {}} onToggle={() => {}} />);
+    const nav = view.querySelector('nav');
+    expect(nav).not.toBeNull();
+    // zh locale → the sidebar.mainNav dictionary value, not hardcoded English.
+    expect(nav?.getAttribute('aria-label')).toBe('主导航');
   });
 });

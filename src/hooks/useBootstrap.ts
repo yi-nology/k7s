@@ -14,6 +14,7 @@ import { connectTo } from '../lib/connect';
 import { reconcileClusterStatus } from '../lib/clusterStatus';
 import { isCustomKind, KIND_META } from '../lib/kinds';
 import { sanitizeSettings } from '../lib/settings';
+import { sectionForKind } from '../lib/sections';
 
 export function useBootstrap(): void {
   useEffect(() => {
@@ -114,10 +115,13 @@ export function useBootstrap(): void {
           // to have that CRD, the table just renders empty (B15).
           if (prefs.nav && (prefs.nav in KIND_META || isCustomKind(prefs.nav))) {
             restore.nav = prefs.nav;
+            // A restored kind implies its section (App routes content by it);
+            // sectionForKind keeps the sidebar rail in sync on first paint.
+            restore.section = sectionForKind(prefs.nav);
           } else {
-            // No persisted nav preference: land on the Dashboard overlay instead
-            // of defaulting to the Pods table.
-            restore.overlay = 'dashboard';
+            // No persisted nav preference: land on the overview section
+            // (Dashboard renders inline there) instead of the Pods table.
+            restore.section = 'overview';
           }
           // Where you left off wins; the configured default is what a fresh
           // profile (or a cleared namespace) falls back to.
@@ -130,8 +134,9 @@ export function useBootstrap(): void {
           if (Array.isArray(prefs.hotbar)) restore.hotbar = prefs.hotbar;
           if (Object.keys(restore).length) useStore.setState(restore);
         } else {
-          // No prefs at all (first launch): land on the Dashboard overlay.
-          useStore.setState({ overlay: 'dashboard' });
+          // No prefs at all (first launch): land on the overview section
+          // (Dashboard renders inline there).
+          useStore.setState({ section: 'overview' });
         }
 
         // Prefer the saved context if it still exists, else the current-context.

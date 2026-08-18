@@ -8,6 +8,24 @@
 import '@testing-library/jest-dom/vitest';
 
 // ---------------------------------------------------------------------------
+// Pin the locale to English for component tests.
+//
+// The app's default locale is zh (Task 6), but the component suites assert
+// English chrome text. Pinning the store's `settings.language` to "en" here
+// gives every test file the same starting point an existing user gets (a
+// saved preference wins over the default). Tests that want Chinese set it
+// explicitly via `useStore.setState` (see Sidebar.test.tsx); the i18n and
+// settings suites test the true zh default without rendering components.
+//
+// Imported here (not in each suite) because the store's initial state is
+// computed at module load from the paint-time cache, which is unavailable in
+// this environment — so the pin has to happen right after the first import.
+// ---------------------------------------------------------------------------
+import { useStore } from '../store';
+
+useStore.setState({ settings: { ...useStore.getState().settings, language: 'en' } });
+
+// ---------------------------------------------------------------------------
 // Suppress known-safe "not wrapped in act(...)" warnings.
 //
 // Many components fire async effects (provider calls) on mount that resolve
