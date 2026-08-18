@@ -161,32 +161,34 @@ fn config_dir() -> Option<PathBuf> {
     // `dirs::config_dir()` would be the cross-platform answer, but we already
     // hand-roll platform paths in commands.rs; doing the same here keeps the
     // project free of an extra dependency for a single call.
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    return std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h).join("Library/Application Support/k7s"));
-    #[cfg(target_os = "linux")]
-    return std::env::var_os("XDG_CONFIG_HOME")
-        .map(|p| PathBuf::from(p).join("k7s"))
-        .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config/k7s")));
-    #[cfg(target_os = "windows")]
-    {
+    if cfg!(any(target_os = "macos", target_os = "ios")) {
+        std::env::var_os("HOME")
+            .map(|h| PathBuf::from(h).join("Library/Application Support/k7s"))
+    } else if cfg!(any(target_os = "linux", target_os = "android")) {
+        std::env::var_os("XDG_CONFIG_HOME")
+            .map(|p| PathBuf::from(p).join("k7s"))
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config/k7s")))
+    } else if cfg!(target_os = "windows") {
         std::env::var_os("APPDATA").map(|p| PathBuf::from(p).join("k7s"))
+    } else {
+        None
     }
 }
 
 pub(crate) fn cache_dir() -> Option<PathBuf> {
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
-    return std::env::var_os("HOME")
-        .map(|h| PathBuf::from(h).join("Library/Caches/k7s/helm-index"));
-    #[cfg(target_os = "linux")]
-    return std::env::var_os("XDG_CACHE_HOME")
-        .map(|p| PathBuf::from(p).join("k7s/helm-index"))
-        .or_else(|| {
-            std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/k7s/helm-index"))
-        });
-    #[cfg(target_os = "windows")]
-    {
+    if cfg!(any(target_os = "macos", target_os = "ios")) {
+        std::env::var_os("HOME")
+            .map(|h| PathBuf::from(h).join("Library/Caches/k7s/helm-index"))
+    } else if cfg!(any(target_os = "linux", target_os = "android")) {
+        std::env::var_os("XDG_CACHE_HOME")
+            .map(|p| PathBuf::from(p).join("k7s/helm-index"))
+            .or_else(|| {
+                std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache/k7s/helm-index"))
+            })
+    } else if cfg!(target_os = "windows") {
         std::env::var_os("LOCALAPPDATA").map(|p| PathBuf::from(p).join("k7s/cache/helm-index"))
+    } else {
+        None
     }
 }
 
