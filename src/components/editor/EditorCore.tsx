@@ -281,7 +281,7 @@ export function EditorCore({
   const isDirty = dirtyRef.current;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden' }}>
       {!hideToolbar && (
         <EditorToolbar
           fontSize={effectiveFontSize}

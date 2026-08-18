@@ -322,7 +322,7 @@ export function YamlTab() {
       {yamlEditing && review ? (
         // Review mode: editor left + server diff right
         <div className={styles.editorWrap} style={{ display: 'flex' }}>
-          <div className={styles.editing} style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+          <div className={styles.editing} style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex' }}>
             <EditorCore
               key={`edit:${row.uid}`}
               value={yamlText}
@@ -340,7 +340,7 @@ export function YamlTab() {
       ) : yamlEditing ? (
         // Edit mode: editor left + live local diff right
         <div className={styles.editorWrap} style={{ display: 'flex' }}>
-          <div className={styles.editing} style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+          <div className={styles.editing} style={{ flex: 1, minWidth: 0, minHeight: 0, display: 'flex' }}>
             <EditorCore
               key={`edit:${row.uid}`}
               value={yamlText}
