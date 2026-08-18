@@ -1,12 +1,16 @@
 /**
- * Tests for CreateWorkloadWizard — the 4-step create-workload wizard (P2 Task 3).
+ * Tests for CreateWorkloadWizard — the 4-step create-workload wizard (P2 Task 3
+ * + Task 4).
  *
  * Covers: step-0 basics rendering, the step-0 Next gate
  * (validateWorkloadForm — name+image required, name must be a legal k8s name),
- * full 4-step navigation to the read-only YAML preview (apply/dry-run are
- * Task 4), prev-step navigation, array-row add/remove (ports/env/mounts)
- * flowing into the generated YAML, and the Esc-close contract shared with
- * OnboardingWizard.
+ * full 4-step navigation to the YAML review step, prev-step navigation,
+ * array-row add/remove (ports/env/mounts) flowing into the generated YAML,
+ * the Esc-close contract shared with OnboardingWizard, and the Task-4 apply
+ * gate: apply is disabled until a clean bundle dry-run exists, a draft edit
+ * invalidates a clean run (stale), and a clean apply calls applyYamlBundle
+ * with the draft and closes. Also the 从 YAML 回填表单 backfill button
+ * (success regenerates the preview; unparseable drafts surface a message).
  *
  * Step transitions are asserted on step-specific content (add buttons, args
  * hint, preview) rather than the stepper — the stepper shows all four labels
@@ -25,20 +29,85 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 import { createMockSettings } from '../../test/types';
 import { CreateWorkloadWizard } from './CreateWorkloadWizard';
 
+// Mock the provider's bundle operations (Task 1 surface). vi.hoisted so the
+// vi.mock factory (hoisted to the top of the file) can reference the fns.
+const bundleMocks = vi.hoisted(() => ({
+  dryRunYamlBundle: vi.fn(),
+  applyYamlBundle: vi.fn(),
+}));
+vi.mock('../../providers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers')>();
+  return {
+    ...actual,
+    getProvider: () => ({
+      dryRunYamlBundle: bundleMocks.dryRunYamlBundle,
+      applyYamlBundle: bundleMocks.applyYamlBundle,
+    }),
+  };
+});
+
 // The review step renders the shared CodeMirror wrapper; mock it down to a
-// plain <pre> so jsdom can assert on the generated YAML without CodeMirror.
+// plain element so jsdom can assert on / edit the draft without CodeMirror:
+// read-only mounts render a <pre> (textContent assertions), editable mounts
+// render a <textarea> — NOT an <input>, whose value silently strips newlines
+// (that would flatten the YAML into one unparseable line).
 // Same approach as HelmInstallWizard.test's EditorCore mock.
 vi.mock('../detail/CodeEditor', () => ({
-  CodeEditor: ({ value }: { value: string }) =>
-    React.createElement('pre', { 'data-testid': 'wizard-yaml' }, value),
+  CodeEditor: ({
+    value,
+    editable,
+    onChange,
+  }: {
+    value: string;
+    editable: boolean;
+    onChange?: (v: string) => void;
+  }) =>
+    editable
+      ? React.createElement('textarea', {
+          'data-testid': 'wizard-yaml',
+          value,
+          onChange: (e: { target: { value: string } }) => onChange?.(e.target.value),
+        })
+      : React.createElement('pre', { 'data-testid': 'wizard-yaml' }, value),
 }));
 
 let view: RenderResult;
 const onClose = vi.fn();
 
+/** Let pending provider promises resolve and their state updates land. */
+const flush = () => new Promise((r) => setTimeout(r, 20));
+
+/** The review-step draft text (input value when editable, textContent when not). */
+function draftText(): string {
+  const el = view.getByTestId('wizard-yaml') as HTMLTextAreaElement;
+  return el.value ?? el.textContent ?? '';
+}
+
+/** Edit the mocked draft editor. The harness's change() drives the
+ * HTMLInputElement value setter, which throws on a <textarea> — so drive the
+ * textarea setter directly, same trick, right prototype. */
+function changeDraft(text: string) {
+  const el = view.getByTestId('wizard-yaml') as HTMLTextAreaElement;
+  act(() => {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      'value'
+    )?.set;
+    setter?.call(el, text);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
+/** The 应用 (Apply) footer button on step 4. */
+function applyButton(): HTMLButtonElement {
+  return view.getByText('应用') as HTMLButtonElement;
+}
+
 /** Pin zh (production default) and simulate the wizard overlay being open. */
 beforeEach(() => {
   onClose.mockReset();
+  bundleMocks.dryRunYamlBundle.mockReset();
+  bundleMocks.applyYamlBundle.mockReset();
   useStore.setState({
     overlay: 'wizard',
     settings: createMockSettings({ language: 'zh' }),
@@ -56,6 +125,14 @@ function nextButton(): HTMLElement | null {
 function fillBasics() {
   view.change(view.getByTestId('wizard-name'), 'nginx');
   view.change(view.getByTestId('wizard-image'), 'nginx:1.27');
+}
+
+/** Walk a freshly-filled form to step 4 (review & apply). */
+function reachReview() {
+  fillBasics();
+  view.click(view.getByText('下一步'));
+  view.click(view.getByText('下一步'));
+  view.click(view.getByText('下一步'));
 }
 
 describe('CreateWorkloadWizard', () => {
@@ -89,7 +166,7 @@ describe('CreateWorkloadWizard', () => {
     expect(view.queryByTestId('wizard-errors')).toBeNull();
   });
 
-  it('walks all four steps to the read-only YAML preview', () => {
+  it('walks all four steps to the editable YAML review', () => {
     view = render(<CreateWorkloadWizard onClose={onClose} />);
     fillBasics();
 
@@ -104,16 +181,17 @@ describe('CreateWorkloadWizard', () => {
     expect(view.queryByText(/添加挂载/)).not.toBeNull();
     expect(view.queryByText(/添加端口/)).toBeNull();
 
-    // Step 4 — read-only preview of the generated YAML; no Next button.
+    // Step 4 — editable draft seeded from the form; no Next button.
     view.click(view.getByText('下一步'));
     expect(view.queryByText(/预览与应用/)).not.toBeNull();
-    const yaml = view.getByTestId('wizard-yaml').textContent ?? '';
-    expect(yaml).toContain('kind: Deployment');
-    expect(yaml).toContain('name: nginx');
-    expect(yaml).toContain('image: nginx:1.27');
+    expect(draftText()).toContain('kind: Deployment');
+    expect(draftText()).toContain('name: nginx');
+    expect(draftText()).toContain('image: nginx:1.27');
     expect(nextButton()).toBeNull();
-    // The last-step footer is prev + close only.
+    // The last-step footer: prev + check + apply (gated) + close.
     expect(view.queryByText('上一步')).not.toBeNull();
+    expect(view.queryByText('检查')).not.toBeNull();
+    expect(applyButton().hasAttribute('disabled')).toBe(true);
     expect(view.queryByText('关闭')).not.toBeNull();
 
     // 上一步 walks back exactly one step.
@@ -143,7 +221,7 @@ describe('CreateWorkloadWizard', () => {
 
     // Step 4 — all three blocks present in the preview.
     view.click(view.getByText('下一步'));
-    const yaml = view.getByTestId('wizard-yaml').textContent ?? '';
+    const yaml = draftText();
     expect(yaml).toContain('- name: http');
     expect(yaml).toContain('containerPort: 8080');
     expect(yaml).toContain('value: "prod"');
@@ -173,6 +251,116 @@ describe('CreateWorkloadWizard', () => {
     const ids = view.querySelectorAll('[id^="wizard-"]').map((el) => el.id);
     expect(ids.length).toBeGreaterThan(0);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('apply is gated on a clean dry-run', async () => {
+    // First check: the server rejects the doc (e.g. missing namespace).
+    bundleMocks.dryRunYamlBundle.mockResolvedValueOnce([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        proposed: null,
+        error: 'namespaces "x" not found',
+      },
+    ]);
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+
+    // No dry-run yet → apply disabled.
+    expect(applyButton().hasAttribute('disabled')).toBe(true);
+    view.click(view.getByText('检查'));
+    await flush();
+
+    // The per-doc error row is visible and apply stays disabled.
+    expect(bundleMocks.dryRunYamlBundle).toHaveBeenCalledTimes(1);
+    expect(bundleMocks.dryRunYamlBundle).toHaveBeenCalledWith(
+      expect.stringContaining('name: nginx')
+    );
+    expect(view.queryByText(/namespaces "x" not found/)).not.toBeNull();
+    expect(applyButton().hasAttribute('disabled')).toBe(true);
+
+    // Re-check with a clean result → apply opens up.
+    bundleMocks.dryRunYamlBundle.mockResolvedValueOnce([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        proposed: 'apiVersion: apps/v1\nkind: Deployment\n',
+        error: null,
+      },
+    ]);
+    view.click(view.getByText('检查'));
+    await flush();
+    expect(view.queryByText('检查通过')).not.toBeNull();
+    expect(applyButton().hasAttribute('disabled')).toBe(false);
+
+    // Apply → applyYamlBundle receives the draft, onClose fires on success.
+    bundleMocks.applyYamlBundle.mockResolvedValueOnce([
+      { kind: 'Deployment', namespace: 'default', name: 'nginx', action: 'created', error: null },
+    ]);
+    view.click(applyButton());
+    await flush();
+    expect(bundleMocks.applyYamlBundle).toHaveBeenCalledTimes(1);
+    expect(bundleMocks.applyYamlBundle).toHaveBeenCalledWith(
+      expect.stringContaining('name: nginx')
+    );
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('a draft edit after a clean dry-run re-gates apply (stale)', async () => {
+    bundleMocks.dryRunYamlBundle.mockResolvedValue([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        proposed: 'apiVersion: apps/v1\n',
+        error: null,
+      },
+    ]);
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+    view.click(view.getByText('检查'));
+    await flush();
+    expect(applyButton().hasAttribute('disabled')).toBe(false);
+
+    // Edit the draft: the clean run is invalidated — review rows disappear,
+    // stale hint appears, apply closes again until re-checked.
+    changeDraft(draftText().replace('nginx', 'web'));
+    expect(applyButton().hasAttribute('disabled')).toBe(true);
+    expect(view.queryByText(/检查通过/)).toBeNull();
+    expect(view.queryByText(/编辑/)).not.toBeNull(); // stale hint
+
+    // Re-check against the edited draft re-opens apply.
+    view.click(view.getByText('检查'));
+    await flush();
+    expect(bundleMocks.dryRunYamlBundle).toHaveBeenLastCalledWith(
+      expect.stringContaining('name: web')
+    );
+    expect(applyButton().hasAttribute('disabled')).toBe(false);
+  });
+
+  it('backfills the form from an edited draft and regenerates the preview', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+    changeDraft(draftText().replace('name: nginx', 'name: web'));
+    view.click(view.getByText('从 YAML 回填表单'));
+
+    // The merged form regenerates the draft (fresh preview, gate re-closed).
+    expect(draftText()).toContain('name: web');
+    expect(view.queryByText(/无法解析/)).toBeNull();
+    expect(applyButton().hasAttribute('disabled')).toBe(true);
+  });
+
+  it('shows a parse message when the draft is not a workload', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+    // A Service doc parses as YAML but not as a Deployment/STS/DS.
+    changeDraft('apiVersion: v1\nkind: Service\nmetadata:\n  name: s\n');
+    view.click(view.getByText('从 YAML 回填表单'));
+    expect(view.queryByText('无法解析为工作负载')).not.toBeNull();
+    // The draft is untouched (still the Service doc) — the user can fix it.
+    expect(draftText()).toContain('kind: Service');
   });
 
   it('closes on Esc (document keydown), the OnboardingWizard contract', () => {

@@ -240,7 +240,7 @@
   gap: 10px;
 }
 
-/* ---------- step 4 preview ---------- */
+/* ---------- step 4 review & apply (Task 4) ---------- */
 
 .preview {
   flex: 1;
@@ -250,6 +250,14 @@
   gap: 8px;
 }
 
+/* Hint + 「从 YAML 回填表单」 action on one row above the editor. */
+.previewBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .previewEditor {
   flex: 1;
   min-height: 0;
@@ -257,6 +265,42 @@
   overflow: hidden;
   border: 1px solid var(--border-subtle, var(--border));
   border-radius: var(--radius-sm);
+}
+
+/* Dry-run status line. Errors reuse .error; this is the green counterpart. */
+.statusOk {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--status-ok);
+}
+
+/* Same shape as TemplatePicker's stale hint: a quiet accent-bordered note. */
+.staleHint {
+  margin: 0;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  background: var(--bg-panel);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+/* Failed apply rows (mirrors TemplatePicker's results list). */
+.results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.resultErr {
+  color: var(--status-err);
 }
 
 /* ---------- footer ---------- */

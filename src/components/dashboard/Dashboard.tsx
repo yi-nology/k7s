@@ -191,10 +191,13 @@ export function Dashboard({ onClose }: { onClose?: () => void } = {}) {
         <button type="button" className={styles.quickEntry} onClick={() => openOverlay('alerting')}>
           {t('overview.quick.alerts', 'Alerts')}
         </button>
+        {/* Create-workload quick entry → the create wizard (P2): the label
+            says "workload", so it opens the workload wizard, not the generic
+            template picker. */}
         <button
           type="button"
           className={styles.quickEntry}
-          onClick={() => openOverlay('templates')}
+          onClick={() => openOverlay('wizard')}
         >
           {t('overview.quick.create', 'Create workload')}
         </button>

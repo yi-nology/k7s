@@ -340,11 +340,22 @@ export function ResourceTable() {
         {/* "New" affordance. Mirrors the sidebar Tools → Templates entry so the
             create path is reachable from any kind page, not only via the
             sidebar. The icon matches the sidebar's `✚` so the two surfaces
-            feel like one feature, not two. */}
+            feel like one feature, not two. Routing (P2): workload kinds get
+            the create-workload wizard, ingresses get the ingress editor
+            (form-create capable, previously unreachable), everything else
+            keeps the generic template picker. */}
         <button
           type="button"
           className={styles.newBtn}
-          onClick={() => openOverlay('templates')}
+          onClick={() =>
+            openOverlay(
+              nav === 'ingresses'
+                ? 'ingress-editor'
+                : sectionForKind(nav) === 'workloads'
+                  ? 'wizard'
+                  : 'templates'
+            )
+          }
           title={t('table.newTitle', 'Create a resource from a YAML template')}
           data-testid="new-resource"
         >
@@ -470,12 +481,11 @@ export function ResourceTable() {
                 the workloads section only — an empty ConfigMap list is normal,
                 not something to create your way out of. */}
             {tableFilter.trim() === '' && sectionForKind(nav) === 'workloads' && (
-              // P2: switch this to the create wizard once it lands.
               <button
                 type="button"
                 className={styles.emptyCta}
                 data-testid="empty-cta"
-                onClick={() => openOverlay('templates')}
+                onClick={() => openOverlay('wizard')}
               >
                 {t('table.emptyCta', 'Create your first workload')}
               </button>

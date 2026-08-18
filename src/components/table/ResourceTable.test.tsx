@@ -185,12 +185,25 @@ describe('ResourceTable', () => {
       expect(btn).not.toBeNull();
     });
 
-    it('opens the templates overlay on click', () => {
+    it('routes a workload kind to the create-workload wizard', () => {
+      useStore.setState({ nav: 'pods' }); // pods is in the workloads section
       view = render(<ResourceTable />);
-      const btn = view.queryByTestId('new-resource');
-      expect(btn).not.toBeNull();
-      view.click(btn!);
+      view.click(view.getByTestId('new-resource'));
+      expect(useStore.getState().overlay).toBe('wizard');
+    });
+
+    it('routes a non-workload kind to the template picker', () => {
+      useStore.setState({ nav: 'configmaps' });
+      view = render(<ResourceTable />);
+      view.click(view.getByTestId('new-resource'));
       expect(useStore.getState().overlay).toBe('templates');
+    });
+
+    it('routes the ingresses kind to the ingress editor', () => {
+      useStore.setState({ nav: 'ingresses' });
+      view = render(<ResourceTable />);
+      view.click(view.getByTestId('new-resource'));
+      expect(useStore.getState().overlay).toBe('ingress-editor');
     });
   });
 
@@ -208,7 +221,7 @@ describe('ResourceTable', () => {
       expect(cta!.textContent).toBe('Create your first workload');
     });
 
-    it('opens the templates overlay on click', () => {
+    it('opens the create-workload wizard on click', () => {
       useStore.setState({
         nav: 'deployments',
         tableFilter: '',
@@ -216,7 +229,7 @@ describe('ResourceTable', () => {
       });
       view = render(<ResourceTable />);
       view.click(view.getByTestId('empty-cta'));
-      expect(useStore.getState().overlay).toBe('templates');
+      expect(useStore.getState().overlay).toBe('wizard');
     });
 
     it('does not show the CTA when a filter is set', () => {

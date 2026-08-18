@@ -1524,6 +1524,25 @@ export interface Dictionary {
     next: string;
     prev: string;
     close: string;
+    /** Step-4 dry-run / apply actions (P2 Task 4). */
+    /** Run the bundle dry run against the current draft. */
+    check: string;
+    checking: string;
+    apply: string;
+    applying: string;
+    /** Status line when a dry run passed on every doc. */
+    checkOk: string;
+    /** Status line when any doc in the dry run errored. */
+    hasErrors: string;
+    /** Draft edited after a dry run — re-check before applying. */
+    stale: string;
+    /** Parse the edited draft back into the wizard form. */
+    backfill: string;
+    /** The draft is not parseable as a Deployment/StatefulSet/DaemonSet. */
+    parseFail: string;
+    /** Toast titles for the apply outcome. */
+    applyOk: string;
+    applyFail: string;
   };
 }
 
