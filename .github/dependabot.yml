@@ -1,27 +1,5 @@
 version: 2
 updates:
-  # Rust (Cargo) dependencies
-  - package-ecosystem: "cargo"
-    directory: "/src-tauri"
-    schedule:
-      interval: "weekly"
-    ignore:
-      # GTK3 bindings unmaintained — transitive deps from Tauri on Linux.
-      # Cannot be fixed until Tauri migrates to GTK4. Ignore all advisories
-      # in the gtk-rs / unic-* families.
-      - dependency-name: "gtk*"
-      - dependency-name: "gdk*"
-      - dependency-name: "atk*"
-      - dependency-name: "glib*"
-      - dependency-name: "pango*"
-      - dependency-name: "cairo*"
-      - dependency-name: "gio*"
-      - dependency-name: "soup*"
-      - dependency-name: "webkit*"
-      - dependency-name: "javascriptcore*"
-      - dependency-name: "unic-*"
-      - dependency-name: "proc-macro-error"
-
   # npm (pnpm) dependencies
   - package-ecosystem: "npm"
     directory: "/"
@@ -31,3 +9,11 @@ updates:
       # ESLint 8 → 10 is a major breaking change; manage manually.
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Rust dependencies are now managed in k7s-desktop, k7s-core, k7s-deps repos
