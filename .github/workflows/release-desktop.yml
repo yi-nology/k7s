@@ -1,0 +1,130 @@
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-frontend:
+    name: build frontend
+    runs-on: ubuntu-22.04
+    steps:
+      - name: checkout k7s-frontend
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-frontend
+          path: k7s-frontend
+
+      - name: setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+
+      - name: install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: build frontend
+        run: |
+          cd k7s-frontend
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: k7s-frontend/dist
+          retention-days: 1
+
+  release:
+    name: desktop (${{ matrix.os }})
+    needs: build-frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            rust: stable
+          - os: ubuntu-22.04-arm
+            rust: stable
+          - os: macos-latest
+            rust: stable
+          - os: windows-latest
+            rust: stable
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: checkout k7s-desktop
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-desktop
+          path: k7s-desktop
+
+      - name: download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
+
+      - name: cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: k7s-desktop -> target
+
+      - name: install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            build-essential \
+            file
+
+      - name: build & release desktop
+        id: tauri
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'k7s ${{ github.ref_name }}'
+          releaseDraft: false
+          prerelease: false
+          projectPath: k7s-desktop
+
+      - name: build k7s-web
+        run: cargo build --release --features web --bin k7s-web
+        working-directory: k7s-desktop
+
+      - name: rename and upload k7s-web
+        shell: bash
+        run: |
+          cd k7s-desktop/target/release
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            cp k7s-web.exe k7s-web-windows-x64.exe
+          elif [ "${{ runner.os }}" = "macOS" ]; then
+            cp k7s-web k7s-web-macos-$(uname -m)
+          else
+            cp k7s-web k7s-web-linux-$(uname -m)
+          fi
+
+      - name: upload k7s-web
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            k7s-desktop/target/release/k7s-web-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

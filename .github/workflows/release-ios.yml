@@ -1,0 +1,85 @@
+name: Release iOS
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-frontend:
+    name: build frontend
+    runs-on: ubuntu-22.04
+    steps:
+      - name: checkout k7s-frontend
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-frontend
+          path: k7s-frontend
+
+      - name: setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+
+      - name: install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: build frontend
+        run: |
+          cd k7s-frontend
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: k7s-frontend/dist
+          retention-days: 1
+
+  release:
+    name: ios
+    needs: build-frontend
+    runs-on: macos-latest
+    steps:
+      - name: checkout k7s-ios
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-ios
+          path: k7s-ios
+
+      - name: download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist
+
+      - name: install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,x86_64-apple-ios
+
+      - name: cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: k7s-ios -> target
+
+      - name: install Tauri CLI
+        run: cargo install tauri-cli
+
+      - name: build iOS
+        run: |
+          cd k7s-ios
+          cargo tauri ios build
+
+      - name: upload iOS artifacts
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            k7s-ios/target/release/**/*.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
