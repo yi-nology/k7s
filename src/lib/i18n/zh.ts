@@ -201,6 +201,25 @@ export const zh: Dictionary = {
     },
   },
 
+  onboarding: {
+    step1: '导入集群',
+    step2: '连接确认',
+    step3: '偏好设置',
+    import: {
+      hint: '选择一个 kubeconfig 文件,或粘贴其内容。',
+      pick: '选择文件…',
+    },
+    conn: {
+      ok: '已连接:{cluster}',
+      wait: '连接中…若长时间未成功,请检查 kubeconfig。',
+    },
+    next: '下一步',
+    prefs: {
+      ns: '默认命名空间',
+    },
+    done: '进入概览',
+  },
+
   settings: {
     theme: {
       label: '颜色',

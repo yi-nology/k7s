@@ -196,6 +196,25 @@ export const en: Dictionary = {
     },
   },
 
+  onboarding: {
+    step1: 'Import cluster',
+    step2: 'Connection check',
+    step3: 'Preferences',
+    import: {
+      hint: 'Pick a kubeconfig file or paste its contents.',
+      pick: 'Choose file…',
+    },
+    conn: {
+      ok: 'Connected: {cluster}',
+      wait: 'Connecting… if this takes long, check your kubeconfig.',
+    },
+    next: 'Next',
+    prefs: {
+      ns: 'Default namespace',
+    },
+    done: 'Go to overview',
+  },
+
   settings: {
     theme: {
       label: 'Theme',

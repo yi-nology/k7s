@@ -27,15 +27,17 @@ import { DetailPanel } from './components/detail/DetailPanel';
 import { ForwardsBar } from './components/forwards/ForwardsBar';
 import { SettingsPanel } from './components/settings/SettingsPanel';
 import { CommandPalette } from './components/palette/CommandPalette';
+import { OnboardingWizard } from './components/onboarding/OnboardingWizard';
 import { EditGuardDialog } from './components/detail/EditGuardDialog';
 import { ShortcutsHelp } from './components/common/ShortcutsHelp';
 import { useStore } from './store';
+import { isOnboarded } from './lib/onboarded';
 // The AI panel drags in react-markdown + shiki (the heaviest dep in the app).
 // It only renders when the user opens it, so it's lazy — non-AI sessions never
 // download those chunks.
 const AiChat = lazy(() => import('./components/ai/AiChat').then((m) => ({ default: m.AiChat })));
 import { usePlugins } from './hooks/usePlugins';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ComponentType } from 'react';
 import type { OverlayKey } from './store';
 import { AI_ENABLED, IPADOS_HIDDEN_OVERLAYS } from './lib/platform';
@@ -115,6 +117,18 @@ export default function App() {
   const { toasts, showError, dismissToast } = useErrorToast();
   // Sidebar drawer toggle (iPadOS only — desktop sidebar is always visible).
   const sidebar = useSidebarToggle();
+  // First-run onboarding (Task 9): auto-open the wizard unless the user
+  // finished it before. The boot phase is captured on the first render
+  // because useBootstrap's effect (registered first, runs first) immediately
+  // flips it to 'connecting' — reading the live phase inside this effect
+  // would never see 'idle'. The captured value is constant for the app's
+  // lifetime, so the effect still runs exactly once.
+  const bootPhase = useRef(useStore.getState().connection.phase).current;
+  useEffect(() => {
+    if (!isOnboarded() && bootPhase === 'idle') {
+      useStore.getState().setOnboardingOpen(true);
+    }
+  }, [bootPhase]);
   // Register the reporter as an effect (not during render) — `showError` is a
   // stable useCallback identity, so this runs once; running it during render
   // is a side-effect-in-render React violation.
@@ -259,6 +273,9 @@ export default function App() {
               everything — ⌘K works from anywhere, including the settings panel. */}
           <SettingsPanel />
           <CommandPalette />
+          {/* First-run onboarding wizard (Task 9) — auto-opened by the effect
+              above until the user finishes it once. */}
+          <OnboardingWizard />
           <EditGuardDialog />
           <ShortcutsHelpPanel />
           {/* Error toasts — rendered above everything else. */}

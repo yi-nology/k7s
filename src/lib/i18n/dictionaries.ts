@@ -243,6 +243,28 @@ export interface Dictionary {
     };
   };
 
+  /** The first-run 3-step wizard (Task 9) — step titles, the import step,
+   * the connection-check step, and the preferences step. */
+  onboarding: {
+    step1: string;
+    step2: string;
+    step3: string;
+    import: {
+      hint: string;
+      pick: string;
+    };
+    conn: {
+      /** "Connected: {cluster}" — the component `.replace()`s the placeholder. */
+      ok: string;
+      wait: string;
+    };
+    next: string;
+    prefs: {
+      ns: string;
+    };
+    done: string;
+  };
+
   /** Settings panel rows and their option lists. */
   settings: {
     theme: { label: string; hint: string; system: string; dark: string; light: string };
