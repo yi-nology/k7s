@@ -74,6 +74,7 @@ RUN mkdir -p src \
  && cargo fetch
 
 # Now the real source. Copy dist/ for rust-embed to embed frontend assets.
+COPY tauri.conf.json ./
 COPY src ./src
 COPY build.rs ./
 COPY dist ./dist
