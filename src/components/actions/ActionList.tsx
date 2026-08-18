@@ -34,6 +34,7 @@ import {
 import type { KindId, ResourceRef, Row } from '../../providers/types';
 import { ModifyImageForm } from './ModifyImageForm';
 import { HelmRollbackForm } from './HelmRollbackForm';
+import { currentReplicas, defaultPort, copyToClipboard, downloadText, yamlFilename, confirmLabel } from './actionUtils';
 
 interface ActionListProps {
   kind: KindId;
@@ -53,62 +54,12 @@ interface ActionListProps {
 
 type Mode = { kind: 'menu' } | { kind: 'confirm'; id: ActionId } | { kind: 'form'; id: ActionId };
 
-/** Replicas shown as the starting value: the desired count from a "3/3" cell. */
-function currentReplicas(row: Row): number {
-  for (const cell of row.cells) {
-    const m = /^(\d+)\/(\d+)$/.exec(cell.text.trim());
-    if (m) return Number(m[2]);
-  }
-  return 1;
-}
-
-/** A sensible default port: the service's first, else the usual HTTP guess. */
-function defaultPort(row: Row, kind: KindId): number {
-  if (kind === 'services') {
-    for (const cell of row.cells) {
-      const m = /(\d{2,5})/.exec(cell.text);
-      if (m) return Number(m[1]);
-    }
-  }
-  return 8080;
-}
-
-async function copyToClipboard(text: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    /* clipboard unavailable — the forward still works, it just isn't copied */
-  }
-}
-
-/**
- * Trigger a browser download of `text` as `filename`. The pod-files panel does
- * the same dance with `URL.createObjectURL` + a synthetic `<a download>` click
- * (B47) — the only client-side save path that works in both the Tauri webview
- * and the `k7s-web` server build without a backend round-trip.
- *
- * Revokes the object URL on the next tick so the click has time to register
- * but the URL doesn't leak. Synchronous click because `URL.revokeObjectURL`
- * is permitted to invalidate the URL immediately after the click handler
- * returns — the browser has already snapshotted the blob reference.
- */
-function downloadText(filename: string, text: string): void {
-  const blob = new Blob([text], { type: 'application/x-yaml' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-/** Filename for a single resource: `kind-namespace-name.yaml` for namespaced
- *  kinds, `kind-name.yaml` for cluster-scoped ones. Mirrors the path scheme
- *  YamlTab uses (kinds.ts), so the file a user downloads matches the path
- *  they see in the Yaml editor. */
-function yamlFilename(kind: KindId, row: Row): string {
-  return row.namespace ? `${kind}/${row.namespace}/${row.name}.yaml` : `${kind}/${row.name}.yaml`;
-}
+// Utility functions extracted to ./actionUtils.ts:
+// - currentReplicas: get current replicas from row
+// - defaultPort: get default port for service
+// - copyToClipboard: copy text to clipboard
+// - downloadText: trigger browser download
+// - yamlFilename: generate YAML filename
 
 export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListProps) {
   const setPortForwards = useStore((s) => s.setPortForwards);
@@ -490,22 +441,4 @@ export function ActionList({ kind, rows, onError, onClose, onGone }: ActionListP
   );
 }
 
-/** The confirm button's verb — the menu label minus its trailing ellipsis. */
-function confirmLabel(id: ActionId, locale: import('../../lib/i18n').Locale): string {
-  const dict: Record<ActionId, string> = {
-    'view-pods': 'actions.labels.viewPods',
-    forward: 'actions.labels.forward',
-    scale: 'actions.labels.scale',
-    restart: 'actions.labels.restart',
-    rollback: 'actions.labels.rollback',
-    cordon: 'actions.labels.cordon',
-    uncordon: 'actions.labels.uncordon',
-    drain: 'actions.labels.drain',
-    delete: 'actions.labels.delete',
-    'download-yaml': 'actions.labels.downloadYaml',
-    'modify-image': 'actions.labels.modifyImage',
-    files: 'actions.labels.files',
-    'edit-ingress': 'actions.labels.editIngress',
-  };
-  return translate(locale, dict[id]).replace(/…$/, '').trim();
-}
+// confirmLabel function extracted to ./actionUtils.ts
