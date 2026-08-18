@@ -16,6 +16,7 @@ import { rowsFor, useStore } from '../../store';
 import { useNow } from '../../hooks/useNow';
 import { useTableKeys } from '../../hooks/useTableKeys';
 import { useTranslation } from '../../hooks/useI18n';
+import { useNav, useNamespace, useTableFilter, useEventsSince, useSort, useSelection, useCustomKinds } from '../../hooks/useStoreHooks';
 import { toneColor } from '../../lib/tone';
 import { formatAge, formatCpu, formatMem } from '../../lib/format';
 import { isClusterScoped, isRolloutKind, kindMeta, navIdForKind, type KindId } from '../../lib/kinds';
@@ -40,15 +41,11 @@ const EMPTY_NODE_METRICS: NodeMetricsMap = {};
 const EMPTY_POD_ROWS: Row[] = [];
 
 export function ResourceTable() {
-  const nav = useStore((s) => s.nav);
-  const namespace = useStore((s) => s.namespace);
-  const tableFilter = useStore((s) => s.tableFilter);
-  const setTableFilter = useStore((s) => s.setTableFilter);
-  const eventsSince = useStore((s) => s.eventsSince);
-  const setEventsSince = useStore((s) => s.setEventsSince);
-  const sortCol = useStore((s) => s.sortCol);
-  const sortDir = useStore((s) => s.sortDir);
-  const toggleSort = useStore((s) => s.toggleSort);
+  const nav = useNav();
+  const namespace = useNamespace();
+  const { tableFilter, setTableFilter } = useTableFilter();
+  const { eventsSince, setEventsSince } = useEventsSince();
+  const { sortCol, sortDir, toggleSort } = useSort();
   const allRows = useStore((s) => rowsFor(s.rows, nav));
   // Only subscribe to the metrics that the current nav kind actually uses.
   // podMetrics/nodeMetrics change every ~15s (metrics poll); skipping the
@@ -64,12 +61,12 @@ export function ResourceTable() {
   const podRows = useStore((s) => (needsPodRows ? s.rows.pods : EMPTY_POD_ROWS));
   const selectedUid = useStore((s) => s.selectedRow?.uid ?? null);
   const selectRow = useStore((s) => s.selectRow);
-  const selection = useStore((s) => s.selection);
+  const selection = useSelection();
   const setSelection = useStore((s) => s.setSelection);
   const clearSelection = useStore((s) => s.clearSelection);
   const navigateTo = useStore((s) => s.navigateTo);
   const openDetailTab = useStore((s) => s.openDetailTab);
-  const customKinds = useStore((s) => s.customKinds);
+  const customKinds = useCustomKinds();
   // Open the create-from-template overlay. Lives on the generic toolbar so any
   // kind page (Deployments, Pods, Nodes, …) gets the affordance — the picker
   // itself filters to the templates available for the cluster (Bxx).
