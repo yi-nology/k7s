@@ -79,15 +79,23 @@ jobs:
           cp -r ../dist ../k7s-ios/../dist 2>/dev/null || true
           cargo tauri ios init
 
-      - name: build iOS
+      - name: build iOS (skip signing)
         run: |
           cd k7s-ios
-          cargo tauri ios build
+          cargo tauri ios build -- \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="-" \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES
+        env:
+          # Prevent Tauri from requesting a signing identity
+          APPLE_SIGNING_IDENTITY: ""
 
       - name: upload iOS artifacts
+        if: success()
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            k7s-ios/target/release/**/*.ipa
+            k7s-ios/target/**/*.ipa
+            k7s-ios/gen/apple/build/**/*.ipa
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
