@@ -2542,8 +2542,8 @@ name = "k7s"
 version = "0.3.6"
 dependencies = [
  "http-body-util",
- "k7s-core 0.3.6 (git+https://github.com/yi-nology/k7s-core.git)",
- "k7s-deps 0.1.0 (git+https://github.com/yi-nology/k7s-deps.git)",
+ "k7s-core",
+ "k7s-deps",
  "k7s-server",
  "proptest",
  "serde",
@@ -2560,57 +2560,13 @@ dependencies = [
 [[package]]
 name = "k7s-core"
 version = "0.3.6"
-dependencies = [
- "k7s-deps 0.1.0 (git+https://github.com/yi-nology/k7s-deps.git)",
- "serde",
- "thiserror 2.0.20",
- "tokio",
-]
-
-[[package]]
-name = "k7s-core"
-version = "0.3.6"
 source = "git+https://github.com/yi-nology/k7s-core.git#249b738d31f1127b80afca27bd121f8f228c2223"
 dependencies = [
- "k7s-deps 0.1.0 (git+https://github.com/yi-nology/k7s-deps.git)",
+ "k7s-deps",
  "serde",
  "tauri",
  "thiserror 2.0.20",
  "tokio",
-]
-
-[[package]]
-name = "k7s-deps"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-stream",
- "async-trait",
- "base64 0.23.1",
- "chrono",
- "dirs 5.0.1",
- "dunce",
- "flate2",
- "futures",
- "http",
- "jiff",
- "k8s-openapi",
- "keyring",
- "kube",
- "rand 0.10.2",
- "regex",
- "reqwest",
- "rustls",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-subscriber",
- "urlencoding",
- "uuid",
- "yaml_serde",
 ]
 
 [[package]]
@@ -2651,10 +2607,11 @@ dependencies = [
 [[package]]
 name = "k7s-server"
 version = "0.3.6"
+source = "git+https://github.com/yi-nology/k7s-server.git#49357bb394f30b6731adee030e747198e14cb3ed"
 dependencies = [
  "axum",
- "k7s-core 0.3.6",
- "k7s-deps 0.1.0",
+ "k7s-core",
+ "k7s-deps",
  "mime_guess",
  "open",
  "rmcp",
