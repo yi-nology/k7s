@@ -43,7 +43,7 @@
 **macOS (Apple Silicon) / Linux — 一行命令：**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yi-nology/k7s/main/install.sh | bash
 ```
 
 脚本自动检测操作系统和架构，下载最新版本并安装：
@@ -58,11 +58,11 @@ curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | ba
 ```bash
 docker run -d --name k7s -p 8080:8080 \
   -v ~/.kube/config:/home/k7s/.kube/config:ro \
-  ghcr.io/zy84338719/k7s:latest
+  ghcr.io/yi-nology/k7s:latest
 # → 打开 http://localhost:8080
 ```
 
-**Windows / macOS Intel：** 从 [GitHub Releases](https://github.com/zy84338719/k7s/releases) 下载对应安装包。Windows 用户请参阅 [Windows / 网页服务器模式](#-windows--网页服务器模式)。
+**Windows / macOS Intel：** 从 [GitHub Releases](https://github.com/yi-nology/k7s/releases) 下载对应安装包。Windows 用户请参阅 [Windows / 网页服务器模式](#-windows--网页服务器模式)。
 
 ---
 
@@ -419,7 +419,7 @@ k7s-mcp
 # 或通过 Docker
 docker run -d --name k7s-mcp \
   -v ~/.kube/config:/home/k7s/.kube/config:ro \
-  ghcr.io/zy84338719/k7s:latest \
+  ghcr.io/yi-nology/k7s:latest \
   k7s-mcp
 ```
 
@@ -693,8 +693,8 @@ MIT License
 
 ## 👤 作者
 
-**Murphy Yi** — [GitHub](https://github.com/zy84338719)
+**Murphy Yi** — [GitHub](https://github.com/yi-nology)
 
 ---
 
-> 💡 **提示**：k7s 仍在积极开发中。如有问题或建议，欢迎提交 [Issue](https://github.com/zy84338719/k7s/issues) 或 [PR](https://github.com/zy84338719/k7s/pulls)。
+> 💡 **提示**：k7s 仍在积极开发中。如有问题或建议，欢迎提交 [Issue](https://github.com/yi-nology/k7s/issues) 或 [PR](https://github.com/yi-nology/k7s/pulls)。

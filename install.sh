@@ -2,14 +2,14 @@
 # install.sh — One-click installer for k7s (Kubernetes desktop dashboard).
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/yi-nology/k7s/main/install.sh | bash
 #
 # Supports: macOS (Apple Silicon), Linux (amd64/arm64), Windows (Git Bash/WSL).
 # Unmatched platforms get a friendly message with build-from-source instructions.
 
 set -euo pipefail
 
-REPO="zy84338719/k7s"
+REPO="yi-nology/k7s"
 BINARY="k7s"
 
 # ── Helpers ──────────────────────────────────────────────────────────────────

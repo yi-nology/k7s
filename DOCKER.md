@@ -26,7 +26,7 @@ open http://localhost:8080
 
 ```bash
 # 拉取镜像
-docker pull ghcr.io/zy84338719/k7s:latest
+docker pull ghcr.io/yi-nology/k7s:latest
 
 # 运行容器
 docker run -d \
@@ -34,7 +34,7 @@ docker run -d \
   -p 8080:8080 \
   -v $HOME/.kube/config:/home/k7s/.kube/config:ro \
   -e KUBECONFIG=/home/k7s/.kube/config \
-  ghcr.io/zy84338719/k7s:latest
+  ghcr.io/yi-nology/k7s:latest
 ```
 
 ## 多架构支持
@@ -206,5 +206,5 @@ docker inspect --format='{{.State.Health.Status}}' k7s-web
 
 ## 相关链接
 
-- [GitHub 仓库](https://github.com/zy84338719/k7s)
-- [Docker 镜像](https://ghcr.io/zy84338719/k7s)
+- [GitHub 仓库](https://github.com/yi-nology/k7s)
+- [Docker 镜像](https://ghcr.io/yi-nology/k7s)

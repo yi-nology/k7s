@@ -6,7 +6,7 @@
 
 services:
   k7s:
-    image: ghcr.io/zy84338719/k7s:latest
+    image: ghcr.io/yi-nology/k7s:latest
     build:
       context: .
       dockerfile: Dockerfile

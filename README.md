@@ -43,7 +43,7 @@ Targets **macOS** and **Linux** (desktop), runs in **any browser** via `k7s-web`
 **macOS (Apple Silicon) / Linux — one-liner:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zy84338719/k7s/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/yi-nology/k7s/main/install.sh | bash
 ```
 
 The script auto-detects OS + arch, downloads the latest release, and installs it:
@@ -59,11 +59,11 @@ The script auto-detects OS + arch, downloads the latest release, and installs it
 ```bash
 docker run -d --name k7s -p 8080:8080 \
   -v ~/.kube/config:/home/k7s/.kube/config:ro \
-  ghcr.io/zy84338719/k7s:latest
+  ghcr.io/yi-nology/k7s:latest
 # → open http://localhost:8080
 ```
 
-**Windows / macOS Intel:** grab the installer from [GitHub Releases](https://github.com/zy84338719/k7s/releases). Windows users: see [Windows / web server mode](#-windows--web-server-mode).
+**Windows / macOS Intel:** grab the installer from [GitHub Releases](https://github.com/yi-nology/k7s/releases). Windows users: see [Windows / web server mode](#-windows--web-server-mode).
 
 ---
 
@@ -699,7 +699,7 @@ Tagging `v*` triggers the [release workflow](.github/workflows/release.yml), whi
 
 - **9 desktop bundles**: `.deb` + `.rpm` + `.AppImage` (arm64 + amd64), `.dmg` (aarch64), `.exe` setup + `.msi` (x64), plus `latest.json` for the Tauri auto-updater
 - **3 `k7s-web` binaries**: `k7s-web-{windows-x64,macos-$arch,linux-$arch}`
-- **1 multi-arch container image**: `ghcr.io/zy84338719/k7s:{version}/{major}.{minor}/latest` (linux/amd64 + linux/arm64)
+- **1 multi-arch container image**: `ghcr.io/yi-nology/k7s:{version}/{major}.{minor}/latest` (linux/amd64 + linux/arm64)
 
 ---
 
@@ -760,7 +760,7 @@ docker compose up -d           # → http://localhost:8080
 
 The k7s desktop app is built on Tauri 2 (WebView2), which needs **Windows 10+**. Windows users can also use the **`k7s-web`** standalone server — the full k7s feature set, accessed through any browser.
 
-1. Download `k7s-web-windows-x64.exe` from [Releases](https://github.com/zy84338719/k7s/releases).
+1. Download `k7s-web-windows-x64.exe` from [Releases](https://github.com/yi-nology/k7s/releases).
 2. Double-click to run.
 3. Your default browser opens the k7s UI automatically.
 
@@ -837,4 +837,4 @@ MIT
 
 ## 👤 Author
 
-[Murphy-Yi](https://github.com/Murphy-Yi) — zy84338719@hotmail.com
+[Murphy-Yi](https://github.com/Murphy-Yi) — yi-nology@hotmail.com

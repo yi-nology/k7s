@@ -11,13 +11,13 @@
 #
 # Build:
 #   pnpm build  # Build frontend first
-#   docker build -t ghcr.io/zy84338719/k7s:latest .
+#   docker build -t ghcr.io/yi-nology/k7s:latest .
 #
 # Run:
 #   docker run --rm -p 8080:8080 \
 #     -v $HOME/.kube/config:/home/k7s/.kube/config:ro \
 #     -e KUBECONFIG=/home/k7s/.kube/config \
-#     ghcr.io/zy84338719/k7s:latest
+#     ghcr.io/yi-nology/k7s:latest
 #
 # Or use docker compose.
 
