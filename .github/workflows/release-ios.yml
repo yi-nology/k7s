@@ -73,6 +73,12 @@ jobs:
       - name: install Tauri CLI
         run: cargo install tauri-cli
 
+      - name: init iOS project
+        run: |
+          cd k7s-ios
+          cp -r ../dist ../k7s-ios/../dist 2>/dev/null || true
+          cargo tauri ios init
+
       - name: build iOS
         run: |
           cd k7s-ios

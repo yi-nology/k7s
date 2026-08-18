@@ -82,6 +82,12 @@ jobs:
       - name: install Tauri CLI
         run: cargo install tauri-cli
 
+      - name: init Android project
+        run: |
+          cd k7s-android
+          cp -r ../dist ../k7s-android/../dist 2>/dev/null || true
+          cargo tauri android init
+
       - name: build Android
         run: |
           cd k7s-android
