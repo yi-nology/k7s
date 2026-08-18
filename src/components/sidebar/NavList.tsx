@@ -108,6 +108,7 @@ export function NavList({ onNavigate }: { onNavigate?: () => void } = {}) {
         ) : (
           <ResourceGroupSection
             key={group}
+            group={group}
             header={groupLabel(group, locale)}
             active={isGroupActive(group, nav, customKinds)}
           >

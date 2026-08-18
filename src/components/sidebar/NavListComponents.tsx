@@ -29,7 +29,7 @@ import { cx } from '../../lib/cx';
 import { useTranslation } from '../../hooks/useI18n';
 import { IPADOS_HIDDEN_OVERLAYS } from '../../lib/platform';
 import type { OverlayKey } from '../../store';
-import type { CustomKind, NavGroup, ResourceKind } from '../../lib/kinds';
+import { DEFAULT_OPEN_GROUPS, type CustomKind, type NavGroup, type ResourceKind } from '../../lib/kinds';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -195,15 +195,17 @@ export function ToolsSection({
 }
 
 export function ResourceGroupSection({
+  group,
   header,
   active,
   children,
 }: {
+  group: NavGroup;
   header: string;
   active: boolean;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState<boolean>(true);
+  const [open, setOpen] = useState<boolean>(DEFAULT_OPEN_GROUPS.has(group));
   useEffect(() => {
     if (active) setOpen(true);
   }, [active]);
@@ -282,89 +284,111 @@ export function CustomSection({
   const [filter, setFilter] = useState('');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
 
+  // Match on the whole id so both "argo" (group) and "application" (kind) hit.
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return kinds;
-    return kinds.filter(
-      (k) =>
-        k.kind.toLowerCase().includes(q) ||
-        k.plural.toLowerCase().includes(q) ||
-        k.group.toLowerCase().includes(q)
-    );
+    return kinds.filter((k) => k.id.toLowerCase().includes(q) || k.kind.toLowerCase().includes(q));
   }, [kinds, filter]);
 
-  const toggle = useCallback((id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
-  }, []);
+  // Bucket by API group, preserving the discovered order (sorted by id, so groups
+  // come out alphabetically and kinds are sorted within each).
+  const groups = useMemo(() => {
+    const byGroup = new Map<string, CustomKind[]>();
+    for (const k of visible) {
+      const list = byGroup.get(k.group);
+      if (list) list.push(k);
+      else byGroup.set(k.group, [k]);
+    }
+    return [...byGroup];
+  }, [visible]);
+
+  // Open the group holding the active kind, so a selection restored from prefs
+  // (or made before a reconnect) is visible rather than hidden inside a fold.
+  const activeGroup = kinds.find((k) => k.id === nav)?.group;
+  useEffect(() => {
+    if (!activeGroup) return;
+    setExpanded((prev) => (prev.has(activeGroup) ? prev : new Set(prev).add(activeGroup)));
+  }, [activeGroup]);
+
+  const toggle = useCallback(
+    (group: string) =>
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        if (!next.delete(group)) next.add(group);
+        return next;
+      }),
+    []
+  );
+
+  // While filtering, show every match: folds would hide the thing being searched for.
+  const filtering = filter.trim() !== '';
 
   return (
     <div>
-      <div className={styles.customHeader}>
-        <span className={styles.navGroupLabel}>{customHeaderLabel}</span>
-        <span className={styles.navCount}>{kinds.length}</span>
+      <div className={styles.sectionHeader}>
+        {customHeaderLabel}
+        <span className={styles.sectionCount}>{kinds.length}</span>
       </div>
-      {kinds.length > 5 && (
+
+      {/* Only worth a filter box once the list is long enough to hunt through. */}
+      {kinds.length > 8 && (
         <input
-          type="text"
-          className={styles.filterInput}
-          placeholder={filterPlaceholder}
+          className={styles.navFilter}
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
+          placeholder={filterPlaceholder}
+          aria-label={filterPlaceholder}
         />
       )}
-      {visible.length === 0 ? (
-        <div className={styles.empty}>{emptyLabel}</div>
-      ) : (
-        visible.map((k) => {
-          const id = k.plural;
-          const isActive = nav === id;
-          const isExpanded = expanded.has(id);
-          return (
-            <div key={id}>
-              <div
-                className={cx(styles.navItem, isActive && styles.navItemActive)}
-                onClick={() => setNav(id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    setNav(id);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                aria-pressed={isActive}
-              >
-                <span className={styles.navIcon}>📦</span>
-                <span className={styles.navLabel}>{k.kind}</span>
-                {k.namespaced && (
-                  <button
-                    type="button"
-                    className={styles.expandBtn}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggle(id);
+
+      {groups.map(([group, groupKinds]) => {
+        const open = filtering || expanded.has(group);
+        return (
+          <div key={group}>
+            <button
+              type="button"
+              className={styles.navGroup}
+              onClick={() => toggle(group)}
+              title={group}
+              aria-expanded={open}
+              aria-label={group}
+            >
+              <span className={styles.navGroupChevron} aria-hidden="true">
+                {open ? '⌄' : '›'}
+              </span>
+              <span className={styles.navGroupLabel}>{group}</span>
+              <span className={styles.navCount}>{groupKinds.length}</span>
+            </button>
+            {open &&
+              groupKinds.map((ck) => {
+                const active = nav === ck.id;
+                return (
+                  <div
+                    key={ck.id}
+                    className={`${styles.navItem} ${styles.navItemNested} ${active ? styles.navItemActive : ''}`}
+                    onClick={() => setNav(ck.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setNav(ck.id);
+                      }
                     }}
-                    aria-expanded={isExpanded}
+                    title={`${ck.kind} · ${ck.group}/${ck.version}`}
+                    role="link"
+                    aria-current={active ? 'page' : undefined}
+                    aria-label={ck.kind}
+                    tabIndex={0}
                   >
-                    {isExpanded ? '▾' : '▸'}
-                  </button>
-                )}
-              </div>
-              {isExpanded && k.namespaced && (
-                <div className={styles.nested}>
-                  <div className={styles.navItem} onClick={() => setNav(id)}>
-                    <span className={styles.navLabel}>All Namespaces</span>
+                    <span className={styles.navLabel}>{ck.kind}</span>
                   </div>
-                </div>
-              )}
-            </div>
-          );
-        })
-      )}
+                );
+              })}
+          </div>
+        );
+      })}
+
+      {groups.length === 0 && <div className={styles.navEmpty}>{emptyLabel}</div>}
     </div>
   );
 }
