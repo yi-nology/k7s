@@ -12,10 +12,10 @@
 //! tunnel — proving a Service forward carries real traffic without the caller
 //! naming a pod.
 
-use k7s_lib::kube::portforward;
 use k7s_deps::kube::Client;
 use k7s_deps::tokio::io::{AsyncReadExt, AsyncWriteExt};
 use k7s_deps::tokio::sync::{mpsc, oneshot};
+use k7s_lib::kube::portforward;
 
 #[k7s_deps::tokio::main]
 async fn main() -> k7s_deps::anyhow::Result<()> {
@@ -39,7 +39,8 @@ async fn main() -> k7s_deps::anyhow::Result<()> {
     );
 
     // Selector-less Service: must fail with a readable message, not a panic.
-    match portforward::resolve_service(client.clone(), "default", "k7s_deps::kubernetes", 443).await {
+    match portforward::resolve_service(client.clone(), "default", "k7s_deps::kubernetes", 443).await
+    {
         Ok(_) => panic!("selector-less service should not resolve"),
         Err(e) => println!("k7s_deps::kubernetes:443 → correctly refused: {e}"),
     }

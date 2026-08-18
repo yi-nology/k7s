@@ -18,11 +18,11 @@
 //! Even then it targets a Ready node, cleans up on every exit path, and the pod
 //! carries `activeDeadlineSeconds` as a backstop.
 
-use k7s_lib::kube::nodeshell;
 use k7s_deps::k8s_openapi::api::core::v1::{Node, Pod};
 use k7s_deps::kube::api::{Api, AttachParams, DeleteParams, ListParams, PostParams};
 use k7s_deps::kube::{Client, ResourceExt};
 use k7s_deps::tokio::io::AsyncReadExt;
+use k7s_lib::kube::nodeshell;
 
 /// First node reporting Ready. A NotReady node never starts the pod, so pointing
 /// the check at one would prove nothing about the feature.
@@ -176,13 +176,19 @@ async fn run_live_checks(api: &Api<Pod>, name: &str, node: &str) -> k7s_deps::an
 }
 
 /// Run a command in the debug container and collect its stdout.
-async fn exec_capture(api: &Api<Pod>, name: &str, cmd: Vec<&str>) -> k7s_deps::anyhow::Result<String> {
+async fn exec_capture(
+    api: &Api<Pod>,
+    name: &str,
+    cmd: Vec<&str>,
+) -> k7s_deps::anyhow::Result<String> {
     let ap = AttachParams::default()
         .stdout(true)
         .stderr(false)
         .container("debug");
     let mut proc = api.exec(name, cmd, &ap).await?;
-    let mut stdout = proc.stdout().ok_or_else(|| k7s_deps::anyhow::anyhow!("no stdout"))?;
+    let mut stdout = proc
+        .stdout()
+        .ok_or_else(|| k7s_deps::anyhow::anyhow!("no stdout"))?;
     let mut buf = String::new();
     stdout.read_to_string(&mut buf).await?;
     Ok(buf)

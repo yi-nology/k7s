@@ -12,6 +12,7 @@
 //!   KUBECONFIG=~/.k7s_deps::kube/k7s-dev.kubeconfig \
 //!     cargo test --test ai_e2e_real_llm -- --nocapture --ignored
 
+use k7s_deps::tokio::sync::oneshot;
 use k7s_lib::ai::agent::{AgentEvent, AgentLoop, ChatRequest, EventSink};
 use k7s_lib::ai::config::PermissionMode;
 use k7s_lib::ai::llm::OpenAiClient;
@@ -20,7 +21,6 @@ use k7s_lib::ai::LlmClient;
 use k7s_lib::core::events::mcp_sink;
 use k7s_lib::kube::manager::ClientManager;
 use std::sync::{Arc, Mutex, Once};
-use k7s_deps::tokio::sync::oneshot;
 
 static CRYPTO_INIT: Once = Once::new();
 fn ensure_crypto() {

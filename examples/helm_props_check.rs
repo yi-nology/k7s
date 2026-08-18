@@ -8,11 +8,11 @@
 //! revision Secrets and that no value under a credential key is present in the
 //! rendered Values.
 
-use k7s_lib::kube::helm::{decode_release, RELEASE_SECRET_TYPE};
-use k7s_lib::kube::properties::{gather, Body};
 use k7s_deps::k8s_openapi::api::core::v1::Secret;
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::Client;
+use k7s_lib::kube::helm::{decode_release, RELEASE_SECRET_TYPE};
+use k7s_lib::kube::properties::{gather, Body};
 use std::collections::BTreeSet;
 
 #[k7s_deps::tokio::main]

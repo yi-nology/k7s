@@ -8,15 +8,15 @@
 //! points at an object that actually exists, resolving each one against the API.
 //! A link to a 404 would be worse than the plain text it replaced.
 
-use k7s_lib::kube::dto::NavTarget;
-use k7s_lib::kube::mappers::{map_replicaset, map_storageclass};
-use k7s_lib::kube::properties::{gather, Body};
 use k7s_deps::k8s_openapi::api::apps::v1::ReplicaSet;
 use k7s_deps::k8s_openapi::api::core::v1::Pod;
 use k7s_deps::k8s_openapi::api::storage::v1::StorageClass;
 use k7s_deps::kube::api::{Api, ApiResource, DynamicObject, ListParams};
 use k7s_deps::kube::core::GroupVersionKind;
 use k7s_deps::kube::{Client, ResourceExt};
+use k7s_lib::kube::dto::NavTarget;
+use k7s_lib::kube::mappers::{map_replicaset, map_storageclass};
+use k7s_lib::kube::properties::{gather, Body};
 
 /// The GVK behind each nav id we can emit, for resolving a target back to a real
 /// object. Mirrors `resource_for` in commands.rs.

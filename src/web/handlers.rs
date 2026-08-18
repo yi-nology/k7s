@@ -795,14 +795,15 @@ pub async fn ai_save_config_handler(
         }
     };
     let dir = state.core.data_dir.clone();
-    let result =
-        match k7s_deps::tokio::task::spawn_blocking(move || crate::ai::config::save(Some(&dir), &config))
-            .await
-        {
-            Ok(Ok(())) => Ok::<(), crate::error::AppError>(()),
-            Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
-            Err(e) => Err(crate::error::AppError::Other(e.to_string())),
-        };
+    let result = match k7s_deps::tokio::task::spawn_blocking(move || {
+        crate::ai::config::save(Some(&dir), &config)
+    })
+    .await
+    {
+        Ok(Ok(())) => Ok::<(), crate::error::AppError>(()),
+        Ok(Err(e)) => Err(crate::error::AppError::Other(e.to_string())),
+        Err(e) => Err(crate::error::AppError::Other(e.to_string())),
+    };
     respond(result)
 }
 
@@ -833,12 +834,16 @@ pub async fn ai_save_api_key_handler(
 pub async fn ai_test_connection_handler(State(state): State<WebState>) -> axum::response::Response {
     use crate::ai::llm::LlmClient;
     let dir = state.core.data_dir.clone();
-    let view = match k7s_deps::tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir))).await
-    {
-        Ok(Ok(v)) => v,
-        Ok(Err(e)) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
-        Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
-    };
+    let view =
+        match k7s_deps::tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir)))
+            .await
+        {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => {
+                return respond::<String>(Err(crate::error::AppError::Other(e.to_string())))
+            }
+            Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
+        };
     let cfg = view.config;
     let (base, model, key) = match crate::ai::config::resolve(&cfg, Some(&state.core.data_dir)) {
         Ok(t) => t,
@@ -873,15 +878,18 @@ pub async fn ai_test_connection_handler(State(state): State<WebState>) -> axum::
 struct WebAiSink {
     event_tx: k7s_deps::tokio::sync::broadcast::Sender<crate::core::events::WebEvent>,
     run_id: String,
-    events_store:
-        std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<k7s_deps::serde_json::Value>>>>,
+    events_store: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<String, Vec<k7s_deps::serde_json::Value>>>,
+    >,
     /// Per-call approval senders. `await_approval` inserts one; the
     /// `/api/invoke/ai_approve_tool_call` handler resolves it. If the handler
     /// never runs (or the run is cancelled), the sender is dropped and the
     /// receiver errors — which the agent loop treats as **deny** (the safe
     /// default).
     pending_approvals: std::sync::Arc<
-        std::sync::Mutex<std::collections::HashMap<String, k7s_deps::tokio::sync::oneshot::Sender<bool>>>,
+        std::sync::Mutex<
+            std::collections::HashMap<String, k7s_deps::tokio::sync::oneshot::Sender<bool>>,
+        >,
     >,
 }
 
@@ -942,12 +950,16 @@ pub async fn ai_chat_handler(
 
     // Load config.
     let dir = state.core.data_dir.clone();
-    let view = match k7s_deps::tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir))).await
-    {
-        Ok(Ok(v)) => v,
-        Ok(Err(e)) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
-        Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
-    };
+    let view =
+        match k7s_deps::tokio::task::spawn_blocking(move || crate::ai::config::load(Some(&dir)))
+            .await
+        {
+            Ok(Ok(v)) => v,
+            Ok(Err(e)) => {
+                return respond::<String>(Err(crate::error::AppError::Other(e.to_string())))
+            }
+            Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
+        };
     let cfg = view.config;
     let data_dir = state.core.data_dir.clone();
 
@@ -1041,7 +1053,9 @@ pub async fn ai_chat_handler(
 }
 
 /// POST /invoke/ai_cancel — cancel a running AI chat.
-pub async fn ai_cancel_handler(Json(body): Json<k7s_deps::serde_json::Value>) -> axum::response::Response {
+pub async fn ai_cancel_handler(
+    Json(body): Json<k7s_deps::serde_json::Value>,
+) -> axum::response::Response {
     // In web mode, cancellation is best-effort. The agent loop checks
     // is_cancelled() between steps. A production implementation would
     // store a CancellationToken per run_id.
@@ -1088,11 +1102,13 @@ pub async fn ai_poll_events_handler(
                         .and_then(|t| t.as_str())
                         == Some("error")
             });
-            respond(Ok::<_, crate::error::AppError>(k7s_deps::serde_json::json!({
-                "events": new_events,
-                "done": done,
-                "total": events.len()
-            })))
+            respond(Ok::<_, crate::error::AppError>(
+                k7s_deps::serde_json::json!({
+                    "events": new_events,
+                    "done": done,
+                    "total": events.len()
+                }),
+            ))
         }
         None => respond(Ok::<_, crate::error::AppError>(
             k7s_deps::serde_json::json!({"events": [], "done": true}),
@@ -1119,17 +1135,21 @@ pub async fn ai_approve_tool_call_handler(
     if let Ok(mut map) = state.pending_approvals.lock() {
         if let Some(tx) = map.remove(&call_id) {
             let _ = tx.send(approved);
-            return respond(Ok::<_, crate::error::AppError>(k7s_deps::serde_json::json!({
-                "ok": true,
-                "resolved": true
-            })));
+            return respond(Ok::<_, crate::error::AppError>(
+                k7s_deps::serde_json::json!({
+                    "ok": true,
+                    "resolved": true
+                }),
+            ));
         }
     }
     // No pending approval for that call_id — either unknown or already settled.
-    respond(Ok::<_, crate::error::AppError>(k7s_deps::serde_json::json!({
-        "ok": true,
-        "resolved": false
-    })))
+    respond(Ok::<_, crate::error::AppError>(
+        k7s_deps::serde_json::json!({
+            "ok": true,
+            "resolved": false
+        }),
+    ))
 }
 
 /// GET /api/web-token — return the auth token so the same-origin SPA can

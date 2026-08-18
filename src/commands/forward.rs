@@ -6,10 +6,10 @@ use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
 use crate::kube::manager::{ClientManager, ForwardDto};
 use crate::kube::portforward;
+use k7s_deps::tokio::sync::{mpsc, oneshot};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use tauri::State;
-use k7s_deps::tokio::sync::{mpsc, oneshot};
 
 /// Start forwarding a pod port to a local TCP port; returns the forward (with the
 /// chosen local port). Errors if the pod doesn't exist or the listener can't bind.

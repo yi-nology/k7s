@@ -12,8 +12,12 @@
 use std::sync::Arc;
 
 use k7s_deps::k8s_openapi::api::core::v1::Pod;
-use k7s_deps::kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
+use k7s_deps::kube::api::{
+    Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams,
+};
 use k7s_deps::kube::ResourceExt;
+use k7s_deps::tokio::sync::mpsc;
+use k7s_deps::tokio::task::JoinHandle;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
@@ -21,8 +25,6 @@ use rmcp::model::{
 };
 use rmcp::{tool, tool_handler, tool_router, ServiceExt};
 use serde::Serialize;
-use k7s_deps::tokio::sync::mpsc;
-use k7s_deps::tokio::task::JoinHandle;
 
 use crate::core::events::mcp_sink;
 use crate::core::shell_common::validate_apply_yaml;
@@ -404,7 +406,8 @@ impl K7sMcpServer {
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let patch = Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "replicas": p.replicas } }));
+        let patch =
+            Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "replicas": p.replicas } }));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
@@ -427,8 +430,9 @@ impl K7sMcpServer {
         let (api, _is_helm) = kube_api::dynamic_api(client, "nodes", "", &self.manager())
             .await
             .map_err(tool_error)?;
-        let patch =
-            Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "unschedulable": p.unschedulable } }));
+        let patch = Patch::Merge(
+            k7s_deps::serde_json::json!({ "spec": { "unschedulable": p.unschedulable } }),
+        );
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
@@ -1664,10 +1668,11 @@ impl K7sMcpServer {
         let mut issues: Vec<k7s_deps::serde_json::Value> = Vec::new();
 
         // Check nodes
-        let nodes = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Node>::all(client.clone())
-            .list(&Default::default())
-            .await
-            .map_err(tool_error)?;
+        let nodes =
+            k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Node>::all(client.clone())
+                .list(&Default::default())
+                .await
+                .map_err(tool_error)?;
         for node in &nodes.items {
             let name = node.metadata.name.clone().unwrap_or_default();
             let conditions = node.status.as_ref().and_then(|s| s.conditions.as_ref());
@@ -1692,10 +1697,11 @@ impl K7sMcpServer {
         }
 
         // Check pods
-        let pods = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Pod>::all(client.clone())
-            .list(&Default::default())
-            .await
-            .map_err(tool_error)?;
+        let pods =
+            k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Pod>::all(client.clone())
+                .list(&Default::default())
+                .await
+                .map_err(tool_error)?;
         let mut failed_count = 0;
         for pod in &pods.items {
             let phase = pod
@@ -1740,7 +1746,10 @@ impl K7sMcpServer {
         }
 
         // Check deployments
-        let deployments = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::apps::v1::Deployment>::all(client.clone())
+        let deployments =
+            k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::apps::v1::Deployment>::all(
+                client.clone(),
+            )
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
@@ -1788,8 +1797,8 @@ impl K7sMcpServer {
         let yaml = kube_api::get_resource_yaml(&manager, &kind_id, ns, &p.name)
             .await
             .map_err(tool_error)?;
-        let val: k7s_deps::serde_json::Value =
-            k7s_deps::yaml_serde::from_str(&yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let val: k7s_deps::serde_json::Value = k7s_deps::yaml_serde::from_str(&yaml)
+            .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         // Get events
         let events = kube_api::get_events(&self.manager(), &kind_id, ns, &p.name)
@@ -1882,8 +1891,9 @@ impl K7sMcpServer {
         &self,
         Parameters(p): Parameters<CreateSilenceParams>,
     ) -> Result<CallToolResult, McpError> {
-        let ends_at = (k7s_deps::chrono::Utc::now() + k7s_deps::chrono::Duration::hours(p.duration_hours.unwrap_or(4)))
-            .to_rfc3339();
+        let ends_at = (k7s_deps::chrono::Utc::now()
+            + k7s_deps::chrono::Duration::hours(p.duration_hours.unwrap_or(4)))
+        .to_rfc3339();
         let request = alerting::CreateSilenceRequest {
             matchers: p
                 .matchers
@@ -2028,15 +2038,20 @@ impl K7sMcpServer {
             .await
             .map_err(tool_error)?;
 
-        let nodes = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Node>::all(client.clone())
-            .list(&Default::default())
-            .await
-            .map_err(tool_error)?;
-        let pods = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Pod>::all(client.clone())
-            .list(&Default::default())
-            .await
-            .map_err(tool_error)?;
-        let deployments = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::apps::v1::Deployment>::all(client.clone())
+        let nodes =
+            k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Node>::all(client.clone())
+                .list(&Default::default())
+                .await
+                .map_err(tool_error)?;
+        let pods =
+            k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Pod>::all(client.clone())
+                .list(&Default::default())
+                .await
+                .map_err(tool_error)?;
+        let deployments =
+            k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::apps::v1::Deployment>::all(
+                client.clone(),
+            )
             .list(&Default::default())
             .await
             .map_err(tool_error)?;

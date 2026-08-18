@@ -186,7 +186,10 @@ pub async fn stop_node_shell(
         state.core.manager.remove_shell(&args.stream_id).await;
         if let Some(client) = state.core.manager.client().await {
             let api: k7s_deps::kube::api::Api<k7s_deps::k8s_openapi::api::core::v1::Pod> =
-                k7s_deps::kube::api::Api::namespaced(client, crate::kube::nodeshell::DEBUG_NAMESPACE);
+                k7s_deps::kube::api::Api::namespaced(
+                    client,
+                    crate::kube::nodeshell::DEBUG_NAMESPACE,
+                );
             crate::kube::nodeshell::delete_debug_pod(&api, &args.pod).await;
         }
         Ok(())

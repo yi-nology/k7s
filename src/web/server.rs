@@ -484,7 +484,9 @@ fn cors_layer(addr: SocketAddr) -> CorsLayer {
             match HeaderValue::from_str(trimmed) {
                 Ok(v) => origins.push(v),
                 Err(e) => {
-                    k7s_deps::tracing::warn!("ignoring invalid K7S_ALLOWED_ORIGINS entry '{trimmed}': {e}")
+                    k7s_deps::tracing::warn!(
+                        "ignoring invalid K7S_ALLOWED_ORIGINS entry '{trimmed}': {e}"
+                    )
                 }
             }
         }

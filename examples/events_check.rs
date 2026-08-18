@@ -6,10 +6,10 @@
 //!
 //! Confirms the column contract, the Warnings-first/newest ordering, and the cap.
 
-use k7s_lib::kube::mappers;
 use k7s_deps::k8s_openapi::api::core::v1::Event;
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::Client;
+use k7s_lib::kube::mappers;
 
 /// Same cap the watcher applies (see watchers::EVENTS_CAP).
 const CAP: usize = 500;

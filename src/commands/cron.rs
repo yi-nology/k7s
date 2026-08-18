@@ -30,10 +30,7 @@ pub async fn ai_cron_add(task: CronTask, state: State<'_, Arc<CoreState>>) -> Ap
 }
 
 #[tauri::command]
-pub async fn ai_cron_update(
-    task: CronTask,
-    state: State<'_, Arc<CoreState>>,
-) -> AppResult<bool> {
+pub async fn ai_cron_update(task: CronTask, state: State<'_, Arc<CoreState>>) -> AppResult<bool> {
     Ok(scheduler(&state).update(&task).await)
 }
 

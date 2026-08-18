@@ -7,10 +7,10 @@
 //! storage format makes easy to get wrong: one row per release (not per revision
 //! Secret), and no Secret values leaking through a rendered manifest.
 
-use k7s_lib::kube::helm;
 use k7s_deps::k8s_openapi::api::core::v1::Secret;
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::Client;
+use k7s_lib::kube::helm;
 
 #[k7s_deps::tokio::main]
 async fn main() -> k7s_deps::anyhow::Result<()> {

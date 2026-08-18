@@ -8,10 +8,10 @@
 //! that every claim/volume pair agrees — a bound PVC's VOLUME is a PV we listed,
 //! and that PV's CLAIM points back at the claim.
 
-use k7s_lib::kube::mappers::{map_pv, map_pvc};
 use k7s_deps::k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::Client;
+use k7s_lib::kube::mappers::{map_pv, map_pvc};
 use std::collections::HashMap;
 
 #[k7s_deps::tokio::main]

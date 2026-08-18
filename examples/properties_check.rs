@@ -8,11 +8,11 @@
 //! names actually appear (ReplicaSets + conditions for Deployments, endpoints for
 //! Services, taints + capacity for Nodes).
 
-use k7s_lib::kube::properties::{self, Body, Properties};
 use k7s_deps::k8s_openapi::api::apps::v1::{Deployment, StatefulSet};
 use k7s_deps::k8s_openapi::api::core::v1::{Node, Pod, Service};
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::{Client, ResourceExt};
+use k7s_lib::kube::properties::{self, Body, Properties};
 
 #[k7s_deps::tokio::main]
 async fn main() -> k7s_deps::anyhow::Result<()> {
@@ -69,7 +69,10 @@ async fn main() -> k7s_deps::anyhow::Result<()> {
 /// The first object of kind `K` in the cluster, as (namespace, name).
 async fn first_named<K>(client: &Client) -> Option<(String, String)>
 where
-    K: k7s_deps::kube::Resource<DynamicType = ()> + Clone + serde::de::DeserializeOwned + std::fmt::Debug,
+    K: k7s_deps::kube::Resource<DynamicType = ()>
+        + Clone
+        + serde::de::DeserializeOwned
+        + std::fmt::Debug,
 {
     let api: Api<K> = Api::all(client.clone());
     let list = api.list(&ListParams::default().limit(1)).await.ok()?;

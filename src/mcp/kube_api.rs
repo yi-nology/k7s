@@ -208,7 +208,9 @@ fn humanize_duration(mut secs: i64) -> String {
     format!("{}d{}", secs / 86_400, (secs % 86_400) / 3600)
 }
 
-fn conditions_summary(s: &k7s_deps::serde_json::Map<String, k7s_deps::serde_json::Value>) -> Option<String> {
+fn conditions_summary(
+    s: &k7s_deps::serde_json::Map<String, k7s_deps::serde_json::Value>,
+) -> Option<String> {
     let arr = s.get("conditions")?.as_array()?;
     let mut states: Vec<&str> = arr
         .iter()

@@ -215,7 +215,10 @@ async fn status_returns_disconnected_when_no_cluster() {
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
     // Response is wrapped in {ok, data} envelope
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(true)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(true))
+    );
     let data = json.get("data").expect("response should have data field");
     // Should indicate disconnected state (no cluster in test env)
     assert_eq!(
@@ -250,7 +253,10 @@ async fn prefs_round_trip() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok").unwrap(), &k7s_deps::serde_json::Value::Bool(true));
+    assert_eq!(
+        json.get("ok").unwrap(),
+        &k7s_deps::serde_json::Value::Bool(true)
+    );
 
     // Load prefs
     let response = app
@@ -267,7 +273,10 @@ async fn prefs_round_trip() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok").unwrap(), &k7s_deps::serde_json::Value::Bool(true));
+    assert_eq!(
+        json.get("ok").unwrap(),
+        &k7s_deps::serde_json::Value::Bool(true)
+    );
     // The prefs data should be present
     assert!(json.get("data").is_some());
 }
@@ -298,7 +307,10 @@ async fn unimplemented_endpoint_returns_ok_false() {
     // The catch-all handler returns 200 with { ok: false, error: "..." }
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok").unwrap(), &k7s_deps::serde_json::Value::Bool(false));
+    assert_eq!(
+        json.get("ok").unwrap(),
+        &k7s_deps::serde_json::Value::Bool(false)
+    );
     assert!(json.get("error").is_some());
 }
 
@@ -341,7 +353,10 @@ async fn import_kubeconfig_parses_valid_yaml() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(true)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(true))
+    );
     // Response should contain the parsed context list
     let data = json.get("data").expect("response should have data field");
     assert!(data.get("contexts").is_some(), "data should have contexts");
@@ -374,7 +389,10 @@ async fn import_kubeconfig_rejects_invalid_yaml() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
     assert!(json.get("error").is_some());
 }
 
@@ -404,7 +422,10 @@ async fn connect_without_kubeconfig_returns_error() {
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
     // Should fail since the context doesn't exist in the test env
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
     assert!(json.get("error").is_some());
 }
 
@@ -435,7 +456,10 @@ async fn get_yaml_without_connection_returns_error() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
 }
 
 #[k7s_deps::tokio::test]
@@ -461,7 +485,10 @@ async fn get_events_without_connection_returns_error() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
 }
 
 #[k7s_deps::tokio::test]
@@ -487,7 +514,10 @@ async fn get_properties_without_connection_returns_error() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
 }
 
 #[k7s_deps::tokio::test]
@@ -511,7 +541,10 @@ async fn get_secret_data_without_connection_returns_error() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -541,7 +574,10 @@ async fn apply_yaml_without_connection_returns_error() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
     assert!(json.get("error").is_some());
 }
 
@@ -568,7 +604,10 @@ async fn delete_resource_without_connection_returns_error() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
 }
 
 #[k7s_deps::tokio::test]
@@ -594,7 +633,10 @@ async fn scale_resource_without_connection_returns_error() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -653,7 +695,10 @@ async fn default_kubeconfig_path_returns_value() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(true)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(true))
+    );
     assert!(json.get("data").is_some(), "should return the default path");
 }
 
@@ -682,5 +727,8 @@ async fn list_endpoints_without_connection_returns_error() {
 
     assert_eq!(response.status(), StatusCode::OK);
     let json = body_json(response).await;
-    assert_eq!(json.get("ok"), Some(&k7s_deps::serde_json::Value::Bool(false)));
+    assert_eq!(
+        json.get("ok"),
+        Some(&k7s_deps::serde_json::Value::Bool(false))
+    );
 }

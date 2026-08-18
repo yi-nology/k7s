@@ -8,11 +8,11 @@
 //! watcher for one kind and prints the rows exactly as the table would show them.
 
 use k7s_deps::futures::StreamExt;
-use k7s_lib::kube::{discovery, mappers};
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::core::DynamicObject;
 use k7s_deps::kube::runtime::{reflector, watcher, WatchStreamExt};
 use k7s_deps::kube::Client;
+use k7s_lib::kube::{discovery, mappers};
 use std::time::Duration;
 
 #[k7s_deps::tokio::main]

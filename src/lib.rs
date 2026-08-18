@@ -6,7 +6,7 @@
 
 mod commands;
 // Re-export core modules from k7s-core instead of duplicating them
-pub use k7s_core::{core, error, kube, ai};
+pub use k7s_core::{ai, core, error, kube};
 
 // The web shell (axum HTTP server, k7s-web binary). `pub` because the binary
 // entry point lives in src/bin/ and needs to import the router; everything
@@ -294,9 +294,9 @@ fn save_window_state_on_sigterm(app: tauri::AppHandle) {
     use tauri_plugin_window_state::{AppHandleExt, StateFlags};
 
     tauri::async_runtime::spawn(async move {
-        let Ok(mut term) =
-            k7s_deps::tokio::signal::unix::signal(k7s_deps::tokio::signal::unix::SignalKind::terminate())
-        else {
+        let Ok(mut term) = k7s_deps::tokio::signal::unix::signal(
+            k7s_deps::tokio::signal::unix::SignalKind::terminate(),
+        ) else {
             // Nothing to do if the handler can't be installed; the app still exits
             // on SIGTERM, just without remembering where it was.
             return;

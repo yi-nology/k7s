@@ -16,10 +16,10 @@ use crate::ai::llm::{LlmClient, Message, OpenAiClient};
 use crate::ai::{AgentLoop, ChatRequest, ToolRegistry};
 use crate::core::CoreState;
 use crate::error::AppResult;
+use k7s_deps::tokio::sync::{oneshot, Mutex};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
-use k7s_deps::tokio::sync::{oneshot, Mutex};
 
 /// The Tauri event name the frontend listens on for [`AgentEvent`]s.
 pub const AI_EVENT: &str = "ai_event";
@@ -146,14 +146,16 @@ pub async fn ai_save_config(
     state: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
     let dir = state.data_dir.clone();
-    k7s_deps::tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input)).await??;
+    k7s_deps::tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input))
+        .await??;
     Ok(())
 }
 
 #[tauri::command]
 pub async fn ai_save_api_key(api_key: String, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
     let dir = state.data_dir.clone();
-    k7s_deps::tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key)).await??;
+    k7s_deps::tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key))
+        .await??;
     Ok(())
 }
 

@@ -3,9 +3,9 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
+use k7s_deps::tokio::sync::mpsc;
 use rmcp::model::{CallToolResult, ContentBlock, ErrorData as McpError};
 use serde::Serialize;
-use k7s_deps::tokio::sync::mpsc;
 
 use crate::error::AppError;
 use crate::kube::{
@@ -93,7 +93,13 @@ pub async fn spawn_forward(
     let p = pod.clone();
     let task = k7s_deps::tokio::spawn(async move {
         crate::kube::portforward::run_port_forward(
-            client, ns, p, remote_port, local_port, ready_tx, err_tx,
+            client,
+            ns,
+            p,
+            remote_port,
+            local_port,
+            ready_tx,
+            err_tx,
         )
         .await;
     });

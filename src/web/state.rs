@@ -27,7 +27,8 @@ pub struct WebState {
     /// Per-run pending write-tool approvals: call_id → approval sender.
     /// The agent loop's `await_approval` awaits the receiver; the
     /// `/api/invoke/ai_approve_tool_call` handler resolves the sender.
-    pub pending_approvals: Arc<Mutex<HashMap<String, k7s_deps::tokio::sync::oneshot::Sender<bool>>>>,
+    pub pending_approvals:
+        Arc<Mutex<HashMap<String, k7s_deps::tokio::sync::oneshot::Sender<bool>>>>,
     /// Bearer token every `/api/invoke/*` + `/hooks/*` request must carry.
     /// Resolved from `K7S_WEB_TOKEN` or a persisted random secret — see
     /// [`super::auth::resolve_token`].

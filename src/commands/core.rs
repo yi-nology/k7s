@@ -491,7 +491,8 @@ pub async fn diagnose_pod(
 ) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, &namespace, &pod).await?;
-    k7s_deps::serde_json::to_value(diagnosis).map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    k7s_deps::serde_json::to_value(diagnosis)
+        .map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// An event as shown in the detail panel's Events tab.
@@ -595,10 +596,13 @@ pub async fn configmap_snapshot_yaml(
 /// Build a dependency graph of resources: Deployments -> ReplicaSets -> Pods,
 /// Services -> Pods (via selector), Ingresses -> Services (via backend rules).
 #[tauri::command]
-pub async fn dependency_graph(mgr: State<'_, Arc<CoreState>>) -> AppResult<k7s_deps::serde_json::Value> {
+pub async fn dependency_graph(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let graph = crate::kube::dependency_graph::build_dependency_graph(client).await?;
-    k7s_deps::serde_json::to_value(graph).map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    k7s_deps::serde_json::to_value(graph)
+        .map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// Debug an Ingress's routing chain: trace rules through Services to endpoint

@@ -6,13 +6,13 @@
 //! Takes several real samples of each Ready node and prints them as the plots
 //! would draw them, so the numbers can be sanity-checked against the machine.
 
-use k7s_lib::kube::exporter::{self, Sampler};
-use k7s_lib::kube::nodestats;
 use k7s_deps::k8s_openapi::api::core::v1::Node;
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::{Client, ResourceExt};
-use std::time::Duration;
 use k7s_deps::tokio::sync::{mpsc, oneshot};
+use k7s_lib::kube::exporter::{self, Sampler};
+use k7s_lib::kube::nodestats;
+use std::time::Duration;
 
 #[k7s_deps::tokio::main]
 async fn main() -> k7s_deps::anyhow::Result<()> {

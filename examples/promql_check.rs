@@ -6,10 +6,10 @@
 //! it, and checks the samples are actually plottable — the point of the feature
 //! is a chart that opens populated, so empty-but-successful is a failure here.
 
-use k7s_lib::kube::promql;
 use k7s_deps::k8s_openapi::api::core::v1::Node;
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::{Client, ResourceExt};
+use k7s_lib::kube::promql;
 
 #[k7s_deps::tokio::main]
 async fn main() -> k7s_deps::anyhow::Result<()> {
