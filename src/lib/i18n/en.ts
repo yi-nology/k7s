@@ -329,6 +329,7 @@ export const en: Dictionary = {
     filterPlaceholder: 'filter… (name or key=value)',
     empty: 'no resources match filter',
     emptyNone: 'no resources',
+    emptyCta: 'Create your first workload',
     forbidden: 'No permission to view this resource (RBAC Forbidden)',
     selected: 'selected',
     new: 'New',

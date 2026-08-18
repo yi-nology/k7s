@@ -344,6 +344,13 @@ export interface Dictionary {
      * saying "no resources match filter" would be a lie.
      */
     emptyNone: string;
+    /**
+     * CTA button in the workload empty state — shown only when the filter
+     * input is empty and the kind belongs to the workloads section, so an
+     * empty Deployments page offers the way out ("create one") instead of a
+     * dead end.
+     */
+    emptyCta: string;
     /** Shown when a kind's watch returns 403 Forbidden (RBAC). */
     forbidden: string;
     /** "N selected" chip shown when multi-select has > 1 row picked. */

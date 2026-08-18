@@ -194,6 +194,53 @@ describe('ResourceTable', () => {
     });
   });
 
+  describe('empty-state CTA', () => {
+    it('shows a create CTA for an empty workload kind with no filter', () => {
+      useStore.setState({
+        nav: 'deployments',
+        tableFilter: '',
+        section: 'workloads',
+        rows: { ...useStore.getState().rows, deployments: [] },
+      });
+      view = render(<ResourceTable />);
+      const cta = view.queryByTestId('empty-cta');
+      expect(cta).not.toBeNull();
+      expect(cta!.textContent).toBe('Create your first workload');
+    });
+
+    it('opens the templates overlay on click', () => {
+      useStore.setState({
+        nav: 'deployments',
+        tableFilter: '',
+        rows: { ...useStore.getState().rows, deployments: [] },
+      });
+      view = render(<ResourceTable />);
+      view.click(view.getByTestId('empty-cta'));
+      expect(useStore.getState().overlay).toBe('templates');
+    });
+
+    it('does not show the CTA when a filter is set', () => {
+      useStore.setState({
+        nav: 'deployments',
+        tableFilter: 'nonexistent',
+        rows: { ...useStore.getState().rows, deployments: [] },
+      });
+      view = render(<ResourceTable />);
+      expect(view.queryByTestId('empty-cta')).toBeNull();
+      expect(view.queryByText('Create your first workload')).toBeNull();
+    });
+
+    it('does not show the CTA for a non-workload kind', () => {
+      useStore.setState({
+        nav: 'configmaps',
+        tableFilter: '',
+        rows: { ...useStore.getState().rows, configmaps: [] },
+      });
+      view = render(<ResourceTable />);
+      expect(view.queryByTestId('empty-cta')).toBeNull();
+    });
+  });
+
   describe('row click', () => {
     it('selects a row on click', () => {
       const row = createMockRow({ uid: 'p1', name: 'my-pod' });

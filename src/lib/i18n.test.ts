@@ -187,6 +187,7 @@ describe('dictionary key coverage', () => {
     // Table empty states
     ['table.empty', 'no resources match filter', '无匹配资源'],
     ['table.emptyNone', 'no resources', '无资源'],
+    ['table.emptyCta', 'Create your first workload', '创建第一个工作负载'],
 
     // Alerting panel
     ['alerts.empty.alerts', 'No active alerts', '无活动告警'],

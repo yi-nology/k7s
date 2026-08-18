@@ -343,6 +343,25 @@
   font-size: var(--text-md);
   color: var(--text-faint);
 }
+/* Filled-accent CTA in the empty state — the workload empty table's primary
+   path. Same visual language as Dashboard's .primary (solid accent, radius,
+   padding) so the two surfaces read as one design. Block + auto margins put
+   it below the message, centered by the parent's text-align. */
+.emptyCta {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  display: block;
+  font-family: var(--font-ui);
+  font-size: var(--text-md);
+  margin: 16px auto 0;
+  padding: 8px 16px;
+}
+.emptyCta:hover {
+  background: var(--accent-hover);
+}
 /* RBAC forbidden state: lock icon + message. */
 .forbidden {
   display: flex;

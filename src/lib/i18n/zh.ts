@@ -334,6 +334,7 @@ export const zh: Dictionary = {
     filterPlaceholder: '过滤… (名称或 key=value)',
     empty: '无匹配资源',
     emptyNone: '无资源',
+    emptyCta: '创建第一个工作负载',
     forbidden: '当前账户无权查看此资源 (RBAC Forbidden)',
     selected: '已选',
     new: '新建',
