@@ -27,11 +27,28 @@ const WORKLOAD_KINDS: KindId[] = [
   'helm',
 ];
 
-/** 配置与网络分区的副导航分组(组名即 SubNav 的分组标题)。 */
+/** 配置与网络分区的副导航分组(组名即 SubNav 的分组标题)。
+ *  Coverage contract: every KIND_META kind must appear in exactly one curated
+ *  list below (or sit on the exclusion allowlist in sections.test.ts) — the
+ *  registry test there fails when a new kind ships without a section home.
+ *  Group choice follows KIND_META's own grouping, except the webhook configs
+ *  and APIServices which KIND_META files under `config` but read better next
+ *  to the other cluster-scoped plumbing in the `cluster` subgroup. */
 export const SECTION_SUBGROUPS = {
   config: [
-    { id: 'config', kinds: ['configmaps', 'secrets'] as KindId[] },
-    { id: 'network', kinds: ['services', 'ingresses', 'ingressclasses'] as KindId[] },
+    {
+      id: 'config',
+      kinds: [
+        'configmaps',
+        'secrets',
+        // Workload tuning: HPA / quotas / limits / PDB (KIND_META group 'config').
+        'horizontalpodautoscalers',
+        'resourcequotas',
+        'limitranges',
+        'poddisruptionbudgets',
+      ] as KindId[],
+    },
+    { id: 'network', kinds: ['services', 'ingresses', 'ingressclasses', 'networkpolicies'] as KindId[] },
     {
       id: 'access',
       kinds: [
@@ -42,7 +59,18 @@ export const SECTION_SUBGROUPS = {
         'clusterrolebindings',
       ] as KindId[],
     },
-    { id: 'cluster', kinds: ['nodes', 'namespaces', 'events'] as KindId[] },
+    {
+      id: 'cluster',
+      kinds: [
+        'nodes',
+        'namespaces',
+        // Cluster-scoped admission/aggregation plumbing.
+        'mutatingwebhookconfigurations',
+        'validatingwebhookconfigurations',
+        'apiservices',
+        'events',
+      ] as KindId[],
+    },
   ],
   storage: [
     {
