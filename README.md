@@ -40,12 +40,36 @@ All backend communication goes through the `DataProvider` interface. Three imple
 | `HttpProvider` | HTTP fetch + SSE | Browser (talks to k7s-web server) |
 | `MockProvider` | Static data | Demo mode (`VITE_DEMO=1`) |
 
+## Navigation & First-Run UX (P1)
+
+The sidebar is a 5-section rail (registry in `src/lib/sections.tsx`); the content area routes by section:
+
+| Section | Content |
+|---------|---------|
+| 概览 Overview | Home page — dashboard, or an empty-state CTA when no cluster is connected |
+| 工作负载 Workloads | SubNav strip (Deployments, StatefulSets, DaemonSets, Jobs, CronJobs, Pods, Helm releases) + resource table |
+| 配置与网络 Config & Network | Grouped SubNav (Configuration / Network / Access Control / Cluster) + resource table |
+| 存储 Storage | Grouped SubNav (Storage) + resource table |
+| 运维工具 Tools | Tool catalog — categorized cards (metrics, Helm, images, security, network, cluster tools) |
+
+- **First-run wizard**: on a fresh profile the app auto-opens a 3-step onboarding wizard (import kubeconfig → verify connection → preferences). Finishing it writes `localStorage['k7s.onboarded']`; dismissing with Esc re-opens it next launch.
+- **Empty state**: with no cluster connected, the overview shows an "import cluster" CTA that opens the same wizard.
+- **Locale**: Chinese (zh) is the default; switch in Settings. The choice is cached at `localStorage['k7s.locale']`.
+
+### Web-mode login gate (`HttpProvider` only)
+
+`k7s-web` exposes the full Kubernetes control surface over HTTP, so `/api/invoke/*` is always gated:
+
+- **Loopback binds (default `127.0.0.1`)**: no password. The server publishes a per-install random token at `GET /api/web-token` (same-origin only) which the SPA picks up automatically — zero config.
+- **Non-loopback binds**: `/api/web-token` is not published, so the operator must set `K7S_WEB_TOKEN` (still honored as the bearer token for scripted clients). Once a password is configured via `POST /api/auth/setup`, `/api/auth/status` reports `authRequired: true` and browsers get the sign-in form (`k7s_session` cookie, sliding renewal). Without credentials, API calls return 401.
+
 ## Development
 
 ```bash
 pnpm install
 pnpm dev          # Start Vite dev server (port 1420)
 pnpm test         # Run unit tests (Vitest)
+pnpm test:e2e     # Playwright smoke against the dev server (no backend needed)
 pnpm lint         # ESLint
 pnpm format       # Prettier
 ```
@@ -54,7 +78,7 @@ pnpm format       # Prettier
 
 ```bash
 # In another terminal, start the web server:
-cd ../k7s && cargo run --features web --bin k7s-web
+cd ../k7s-server && cargo run --features web --bin k7s-web
 
 # The Vite dev server proxies /api/* to http://127.0.0.1:7180
 ```
@@ -75,7 +99,7 @@ The built assets are embedded into the `k7s-web` binary via `rust-embed`, or can
 
 ## i18n
 
-Two locales supported: English (en) and Simplified Chinese (zh). Translations are in `src/lib/i18n/dictionaries.ts`.
+Two locales supported: English (en) and Simplified Chinese (zh, the default). Translations are in `src/lib/i18n/` (`zh.ts`, `en.ts`, keyed by `dictionaries.ts`).
 
 ## License
 
