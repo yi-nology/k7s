@@ -14,6 +14,7 @@ import { useTranslation } from '../../hooks/useI18n';
 import { cx } from '../../lib/cx';
 import { hasPrevious, sinceSeconds, SINCE_OPTIONS } from '../../lib/logview';
 import type { LogLine } from '../../providers/types';
+import { useSelectedRow } from '../../hooks/useStoreHooks';
 
 /** Color per log level for the level column. */
 const LEVEL_COLOR: Record<string, string> = {
@@ -64,7 +65,7 @@ export function LogsTab() {
   // Drive the stream for as long as this tab is mounted.
   useLogStream();
 
-  const pod = useStore((s) => s.selectedRow);
+  const pod = useSelectedRow();
   const logBuffer = useStore((s) => s.logBuffer);
   const logSearch = useStore((s) => s.logSearch);
   const setLogSearch = useStore((s) => s.setLogSearch);
