@@ -1460,6 +1460,71 @@ export interface Dictionary {
     medium: string;
     low: string;
   };
+
+  /** Create-workload wizard (P2) — step titles, form field labels, actions.
+   *  The form model + validation live in `components/wizard/workloadSpec.ts`;
+   *  these keys only cover copy. */
+  wizard: {
+    title: string;
+    step: {
+      basics: string;
+      container: string;
+      storage: string;
+      review: string;
+    };
+    field: {
+      name: string;
+      namespace: string;
+      type: string;
+      replicas: string;
+      image: string;
+      imagePullPolicy: string;
+      /** Command & args block header (the <details> summary on step 2). */
+      commandArgs: string;
+      command: string;
+      args: string;
+      /** Hint under the args input: tokens are split on whitespace. */
+      argsHint: string;
+      ports: string;
+      portName: string;
+      portNumber: string;
+      protocol: string;
+      env: string;
+      envKey: string;
+      envValue: string;
+      /** Resources block header (the <details> summary on step 2). */
+      resources: string;
+      cpuRequest: string;
+      memRequest: string;
+      cpuLimit: string;
+      memLimit: string;
+      readinessProbe: string;
+      livenessProbe: string;
+      enabled: string;
+      path: string;
+      port: string;
+      initialDelay: string;
+      /** PVC mounts section header on step 3. */
+      mounts: string;
+      mountPvc: string;
+      mountPath: string;
+      readOnly: string;
+    };
+    addPort: string;
+    addEnv: string;
+    addMount: string;
+    /** Accessible name for the per-row × remove buttons. */
+    removeRow: string;
+    /** Inline hints for the two pattern-validated basics fields. */
+    invalidName: string;
+    invalidNamespace: string;
+    /** Shown next to the disabled Next button on step 1. */
+    fixErrors: string;
+    preview: string;
+    next: string;
+    prev: string;
+    close: string;
+  };
 }
 
 /** English (default). */
