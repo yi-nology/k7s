@@ -74,10 +74,13 @@ RUN mkdir -p src \
  && cargo fetch
 
 # Now the real source. Copy dist/ for rust-embed to embed frontend assets.
+# The #[folder = "../dist"] in the code expects dist/ at the parent of the
+# crate root, so we create a symlink.
 COPY tauri.conf.json ./
 COPY src ./src
 COPY build.rs ./
 COPY dist ./dist
+RUN mkdir -p ../dist && cp -r dist/* ../dist/
 
 # Release build with the `web` feature. Strip symbols to shave a few MB.
 RUN cargo build --release \
