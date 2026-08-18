@@ -132,10 +132,23 @@ fn cookie_token(req: &axum::http::Request<axum::body::Body>) -> Option<String> {
 
 // ---- handlers ----
 
-pub async fn auth_status(State(state): State<WebState>) -> Response {
+/// Session-aware: `authRequired` is only true on non-loopback binds *without* a
+/// valid `k7s_session` cookie. The matrix: loopback → always false (the token
+/// flow is unchanged); non-loopback fresh install → true + `configured: false`
+/// (the SPA shows the setup form); non-loopback configured, no/expired cookie →
+/// true (login form); valid cookie → false (straight into the app). Reporting
+/// `configured` separately lets the SPA pick setup-vs-login while this stays
+/// the single gate bit.
+pub async fn auth_status(
+    State(state): State<WebState>,
+    req: axum::http::Request<axum::body::Body>,
+) -> Response {
     let pa = state.password_auth.lock().unwrap_or_else(|e| e.into_inner());
+    let authenticated = cookie_token(&req)
+        .map(|t| pa.check_session(&t))
+        .unwrap_or(false);
     Json(json!({
-        "authRequired": !state.is_loopback && pa.configured(),
+        "authRequired": !state.is_loopback && !authenticated,
         "configured": pa.configured(),
     }))
     .into_response()
@@ -228,10 +241,16 @@ mod tests {
         use tower::ServiceExt;
 
         fn test_state(tag: &str) -> WebState {
+            test_state_at(tag, "127.0.0.1:7180")
+        }
+
+        /// Same as [`test_state`], but with an arbitrary bind address — the
+        /// non-loopback status tests need `is_loopback: false`.
+        fn test_state_at(tag: &str, addr: &str) -> WebState {
             let dir = std::env::temp_dir().join(format!("k7s-auth-router-{tag}"));
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).unwrap();
-            let addr: std::net::SocketAddr = "127.0.0.1:7180".parse().unwrap();
+            let addr: std::net::SocketAddr = addr.parse().unwrap();
             WebState::new(dir, addr)
         }
 
@@ -262,6 +281,22 @@ mod tests {
                 .to_string()
         }
 
+        /// GET /api/auth/status (optionally with a cookie) → parsed body.
+        async fn status(app: &axum::Router, cookie: Option<&str>) -> k7s_deps::serde_json::Value {
+            let mut b = Request::builder().uri("/api/auth/status");
+            if let Some(c) = cookie {
+                b = b.header(header::COOKIE, c);
+            }
+            let resp = app
+                .clone()
+                .oneshot(b.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+            k7s_deps::serde_json::from_slice(&bytes).unwrap()
+        }
+
         #[tokio::test]
         async fn auth_flow_over_http() {
             let state = test_state("flow");
@@ -279,6 +314,10 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(resp.status(), StatusCode::OK);
+            // Loopback never gates, even configured and cookie-less — the
+            // published-token flow is unchanged.
+            let st = status(&app, None).await;
+            assert_eq!(st["authRequired"], json!(false), "loopback must never require auth");
             let resp = app
                 .clone()
                 .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
@@ -380,6 +419,50 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+        }
+
+        /// The full auth-status matrix on a non-loopback bind: unconfigured →
+        /// authRequired (setup form), valid session → pass, logout → gated
+        /// again. This is the contract the SPA's LoginGate polls; getting it
+        /// wrong is what caused the infinite login loop.
+        #[tokio::test]
+        async fn auth_status_honors_session_cookie_non_loopback() {
+            let addr: std::net::SocketAddr = "10.10.0.1:7180".parse().unwrap();
+            let state = test_state_at("status-nl", "10.10.0.1:7180");
+            assert!(!state.is_loopback, "test premise: non-loopback bind");
+            let app = server::router(state, Some(static_dir("status-nl")), false, addr);
+
+            // (a) Fresh install, no cookie: gated, and `configured: false` so
+            // the SPA shows the *setup* form (not login).
+            let st = status(&app, None).await;
+            assert_eq!(st["authRequired"], json!(true));
+            assert_eq!(st["configured"], json!(false));
+
+            // (b) Setup issues a session; carrying the Set-Cookie pair clears
+            // the gate while `configured` flips to true.
+            let resp = app
+                .clone()
+                .oneshot(post_json("/api/auth/setup", None, json!({"password": "correct-horse-battery"}).to_string()))
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            let pair = set_cookie(&resp).split(';').next().unwrap().to_string();
+            let st = status(&app, Some(&pair)).await;
+            assert_eq!(st["authRequired"], json!(false), "valid session must clear the gate");
+            assert_eq!(st["configured"], json!(true));
+
+            // (c) Logout drops the session server-side; the same cookie (the
+            // one the browser would still hold until the clearing Set-Cookie
+            // lands) re-gates — configured stays true → login form.
+            let resp = app
+                .clone()
+                .oneshot(post_json("/api/auth/logout", Some(&pair), String::new()))
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            let st = status(&app, Some(&pair)).await;
+            assert_eq!(st["authRequired"], json!(true), "dropped session must re-gate");
+            assert_eq!(st["configured"], json!(true));
         }
     }
 }
