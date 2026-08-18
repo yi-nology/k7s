@@ -23,6 +23,7 @@ import { formatError, getProvider } from '../../providers';
 import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import { useTranslation } from '../../hooks/useI18n';
 import { EditorCore } from '../editor/EditorCore';
+import { useSelectedRow, useNav } from '../../hooks/useStoreHooks';
 import { diffLines, diffStat, hasChanges, hunks } from '../../lib/diff';
 import type { ResourceRef, YamlDiff } from '../../providers/types';
 import { YAML_EDITOR_ENABLED, AI_ENABLED } from '../../lib/platform';
@@ -142,8 +143,8 @@ const ServerDiffView = React.memo(function ServerDiffView({ diff }: { diff: Yaml
 });
 
 export function YamlTab() {
-  const row = useStore((s) => s.selectedRow);
-  const kind = useStore((s) => s.nav);
+  const row = useSelectedRow();
+  const kind = useNav();
   const yamlEditing = useStore((s) => s.yamlEditing);
   const yamlDraft = useStore((s) => s.yamlDraft);
   const startYamlEdit = useStore((s) => s.startYamlEdit);
