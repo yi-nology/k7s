@@ -26,14 +26,16 @@ import { useTranslation } from '../../hooks/useI18n';
 import { McpPanel } from './McpPanel';
 import { ScannerPanel } from './ScannerPanel';
 import { AiSettingsPanel } from '../ai/AiSettingsPanel';
+import { useSettings, useConnection } from '../../hooks/useStoreHooks';
 
 export function SettingsPanel() {
   const open = useStore((s) => s.settingsOpen);
   const setOpen = useStore((s) => s.setSettingsOpen);
   const section = useStore((s) => s.settingsSection);
-  const settings = useStore((s) => s.settings);
+  const settings = useSettings();
   const setSettings = useStore((s) => s.setSettings);
-  const connected = useStore((s) => s.connection.phase === 'connected');
+  const connection = useConnection();
+  const connected = connection.phase === 'connected';
   const { t } = useTranslation();
 
   // The AI config block — given an id + ref so a `settingsSection='ai'` request
