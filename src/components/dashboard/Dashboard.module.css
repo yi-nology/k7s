@@ -533,3 +533,84 @@
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
+
+/* ---- No-cluster empty state (page mode home) ---- */
+
+.emptyState {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+}
+
+.emptyCard {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  max-width: 420px;
+  padding: 32px;
+  text-align: center;
+}
+
+.emptyCard h2 {
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin: 0 0 8px 0;
+}
+
+.emptyCard p {
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  margin: 0;
+}
+
+.emptyActions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* Filled accent action — the empty state's primary path. */
+.primary {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 8px 16px;
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+/* Same geometry as .primary, surface instead of accent — the secondary
+   action and the quick-entry strip. */
+.ghost,
+.quickEntry {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 8px 16px;
+}
+
+.ghost:hover,
+.quickEntry:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+/* ---- Quick entries (connected home) ---- */
+
+.quickEntries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

@@ -163,6 +163,22 @@ export const en: Dictionary = {
     },
   },
 
+  overview: {
+    title: 'Overview',
+    empty: {
+      title: 'No cluster connected yet',
+      hint: 'Import a kubeconfig to start browsing and operating cluster resources.',
+      import: 'Import cluster',
+      browse: 'Just look around',
+    },
+    quick: {
+      workloads: 'Workloads',
+      metrics: 'Metrics',
+      alerts: 'Alerts',
+      create: 'Create workload',
+    },
+  },
+
   settings: {
     theme: {
       label: 'Theme',

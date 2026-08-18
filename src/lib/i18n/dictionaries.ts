@@ -202,6 +202,27 @@ export interface Dictionary {
     };
   };
 
+  /** The overview home page (P1 IA) — the page-mode title, the no-cluster
+   *  empty state the unconnected boot lands on, and the quick-entry strip
+   *  rendered at the top of the connected dashboard. */
+  overview: {
+    title: string;
+    empty: {
+      title: string;
+      hint: string;
+      /** Primary action — opens the kubeconfig onboarding flow. */
+      import: string;
+      /** Secondary action — skip onboarding, browse without a cluster. */
+      browse: string;
+    };
+    quick: {
+      workloads: string;
+      metrics: string;
+      alerts: string;
+      create: string;
+    };
+  };
+
   /** Settings panel rows and their option lists. */
   settings: {
     theme: { label: string; hint: string; system: string; dark: string; light: string };

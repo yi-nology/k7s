@@ -168,6 +168,22 @@ export const zh: Dictionary = {
     },
   },
 
+  overview: {
+    title: '概览',
+    empty: {
+      title: '还没有连接任何集群',
+      hint: '导入 kubeconfig 后即可开始浏览与操作集群资源。',
+      import: '导入集群',
+      browse: '先随便看看',
+    },
+    quick: {
+      workloads: '工作负载',
+      metrics: '指标查询',
+      alerts: '告警',
+      create: '创建工作负载',
+    },
+  },
+
   settings: {
     theme: {
       label: '颜色',

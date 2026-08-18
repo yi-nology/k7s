@@ -173,6 +173,9 @@ export interface AppState {
   /** When settings opens, optionally scroll to a named section (e.g. 'ai').
    *  Cleared after the panel consumes it. null = no requested section. */
   settingsSection: string | null;
+  /** Onboarding wizard (kubeconfig import) visibility. Set by the overview
+   *  page's no-cluster empty state; the wizard itself renders off this flag. */
+  onboardingOpen: boolean;
   paletteOpen: boolean;
   shortcutsOpen: boolean;
   podMetrics: PodMetricsMap;
@@ -248,6 +251,7 @@ export interface AppState {
    *  panel scroll to / highlight a named block (currently 'ai' or 'advanced')
    *  — used by the "enable AI" affordances to drop the user right at the config. */
   setSettingsOpen: (open: boolean, section?: string) => void;
+  setOnboardingOpen: (open: boolean) => void;
   setPaletteOpen: (open: boolean) => void;
   setShortcutsOpen: (open: boolean) => void;
   jumpTo: (kind: KindId, row?: Row) => void;
