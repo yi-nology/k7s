@@ -49,20 +49,29 @@ jobs:
     needs: build-frontend
     runs-on: ubuntu-22.04
     steps:
-      - name: checkout k7s-desktop
+      - name: checkout k7s-server
         uses: actions/checkout@v4
         with:
-          repository: yi-nology/k7s-desktop
-          path: k7s-desktop
+          repository: yi-nology/k7s-server
+          path: k7s-server
+
+      - name: checkout k7s-core
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-core
+          path: k7s-core
+
+      - name: checkout k7s-deps
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-deps
+          path: k7s-deps
 
       - name: download frontend artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: dist
-
-      - name: move dist to k7s-desktop
-        run: cp -r dist k7s-desktop/dist
 
       - name: free disk space
         run: |
@@ -100,8 +109,8 @@ jobs:
       - name: build & push multi-arch
         uses: docker/build-push-action@v7
         with:
-          context: k7s-desktop
-          file: k7s-desktop/Dockerfile
+          context: .
+          file: k7s-server/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
