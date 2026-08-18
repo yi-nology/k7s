@@ -32,7 +32,7 @@ tauri-plugin-window-state = "2"
 k7s-deps = { git = "https://github.com/yi-nology/k7s-deps.git" }
 
 # --- Shared core library ---
-k7s-core = { path = "../k7s-core", features = ["tauri"] }
+k7s-core = { git = "https://github.com/yi-nology/k7s-core.git", features = ["tauri"] }
 
 # --- Proc-macro dependencies (must be in extern prelude) ---
 # serde: #[derive(Serialize)] generates code that references serde::Serialize
