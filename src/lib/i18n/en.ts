@@ -201,7 +201,7 @@ export const en: Dictionary = {
     step2: 'Connection check',
     step3: 'Preferences',
     import: {
-      hint: 'Pick a kubeconfig file or paste its contents.',
+      hint: 'Pick a kubeconfig file to get started.',
       pick: 'Choose file…',
     },
     conn: {

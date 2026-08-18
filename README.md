@@ -61,7 +61,7 @@ The sidebar is a 5-section rail (registry in `src/lib/sections.tsx`); the conten
 `k7s-web` exposes the full Kubernetes control surface over HTTP, so `/api/invoke/*` is always gated:
 
 - **Loopback binds (default `127.0.0.1`)**: no password. The server publishes a per-install random token at `GET /api/web-token` (same-origin only) which the SPA picks up automatically — zero config.
-- **Non-loopback binds**: `/api/web-token` is not published, so the operator must set `K7S_WEB_TOKEN` (still honored as the bearer token for scripted clients). Once a password is configured via `POST /api/auth/setup`, `/api/auth/status` reports `authRequired: true` and browsers get the sign-in form (`k7s_session` cookie, sliding renewal). Without credentials, API calls return 401.
+- **Non-loopback binds**: `/api/web-token` is not published, so the operator must set `K7S_WEB_TOKEN` (still honored as the bearer token for scripted clients). `/api/auth/status` is session-aware: it reports `authRequired: true` only while there is no valid `k7s_session` cookie, plus `configured` so the SPA knows whether to show the setup form (first run — set the password via `POST /api/auth/setup`, which also logs you in with a 7-day sliding cookie) or the sign-in form (`POST /api/auth/login`). With a valid session the gate opens; `POST /api/auth/logout` drops it. Without credentials, API calls return 401.
 
 ## Development
 

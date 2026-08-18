@@ -328,29 +328,6 @@ const CLUSTER_SCOPED: ReadonlySet<string> = new Set<string>([
   'apiservices',
 ]);
 
-/** Groups in sidebar order (resource groups only — tools are rendered separately). */
-export const GROUP_ORDER: NavGroup[] = [
-  'workloads',
-  'network',
-  'storage',
-  'config',
-  'access',
-  'helm',
-  'cluster',
-  'custom',
-];
-
-/** Resource groups that start expanded in the sidebar. The high-frequency
- *  groups (Workloads, Network, Config) are open by default; the rest (Storage,
- *  Access, Images, Helm, Cluster) fold away to keep the first view focused.
- *  'custom' is managed separately (collapsible per API group). A group holding
- *  the active nav or overlay opens itself regardless of this default. */
-export const DEFAULT_OPEN_GROUPS: ReadonlySet<NavGroup> = new Set<NavGroup>([
-  'workloads',
-  'network',
-  'config',
-]);
-
 /**
  * Kinds with a properties gatherer (B13, B18). Must match the `match` in
  * src-tauri/src/kube/properties.rs `gather` — a kind listed here without a

@@ -206,7 +206,7 @@ export const zh: Dictionary = {
     step2: '连接确认',
     step3: '偏好设置',
     import: {
-      hint: '选择一个 kubeconfig 文件,或粘贴其内容。',
+      hint: '选择一个 kubeconfig 文件开始导入。',
       pick: '选择文件…',
     },
     conn: {

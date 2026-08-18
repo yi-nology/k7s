@@ -27,7 +27,10 @@
  * What's still stubbed (rejects with a clear error so the UI can show it):
  * - Port forwards (`startPortForward` / `startServicePortForward` /
  *   `listPortForwards`). Bidirectional framing over SSE isn't built yet.
- * - The Tauri-specific bits (`setWindowTheme`, `importKubeconfig` from disk).
+ * - The Tauri-specific bits (`setWindowTheme`). `importKubeconfig` is NOT
+ *   stubbed — web mode opens a hidden file input and posts the picked file's
+ *   contents via `import_kubeconfig_content` (the onboarding wizard depends
+ *   on it).
  */
 
 import { IS_TAURI, httpInvoke, httpSubscribe } from './transport';
