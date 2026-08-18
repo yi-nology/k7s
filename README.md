@@ -159,8 +159,11 @@ Where **KubePi pulls ahead**: **multi-tenant SSO** (OIDC/SAML/LDAP/MFA), **built
 
 ### Core shell
 
+- **Five-section navigation** — 概览 (Overview) / 工作负载 (Workloads) / 配置与网络 (Config & Network) / 存储 (Storage) / 运维工具 (Ops Tools); resource kinds switch via an in-page sub-nav (CRDs land in a "Custom Resources" group), all tool panels live in a categorized catalog page
+- **Overview home page** — the default landing view: cluster info card, **health ring + score** with expandable checks, CPU/MEM utilisation bars, 9 resource-count cards (click-through), and a paginated recent-events feed
+- **First-run onboarding** — a 3-step wizard (import kubeconfig → connection check → preferences) appears on first launch; dismissing it marks onboarding complete
 - **Multi-cluster** — kubeconfig context switcher with on-the-fly import (native OS file picker; remembers imported files)
-- **Cluster switcher + Hotbar** — live connection dot + API version status line; up to 8 pinned-favorite clusters, click-to-switch, right-click-to-remove
+- **Cluster switcher** — live connection dot + API version status line; click-to-switch across every kubeconfig context
 - **Dashboard** — the home view: cluster info card, **health ring + score** with expandable checks, CPU/MEM utilisation bars, 9 resource-count cards (click-through), **Resource Quotas** progress bars, and a paginated recent-events feed
 - **StatusBar** — connection dot + cluster name, API latency (ms), nodes ready X/Y, cluster CPU% / MEM%, active context
 - **Command palette** (⌘K / `:`) — fuzzy-find a kind, an object, or an app command; reads already-loaded rows, instant
@@ -241,7 +244,7 @@ Bulk-aware context menus shared between the detail "⋯" menu and the table righ
 ### Cross-cutting
 
 - **Theme** — dark / light / follow system; chrome (titlebar, scrollbars, controls) follows the OS when on "system"; no theme/locale flash (inline pre-paint script reads `localStorage`)
-- **i18n** — English and Simplified Chinese, switchable from the top bar or Settings; `<html lang>` updates live; group/kind/tab labels all translated
+- **i18n** — Simplified Chinese is the default language, switchable to English from the top bar or Settings; `<html lang>` updates live; group/kind/tab labels all translated
 - **Error handling** — global `ErrorBoundary` + error-toast surface
 
 ---
@@ -446,7 +449,8 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":
 ### Safety notes
 
 - `k7s-mcp` has the **full authority of your current kubeconfig** — it honours your K8s RBAC, but its tools can trigger delete, drain, exec and other high-impact actions. Run it under a dedicated context / service account.
-- HTTP mode exposes `/mcp` with **no built-in auth**; put it behind a trusted network or reverse proxy.
+- **k7s-web auth (single-user password gate)**: loopback binds (the default) stay token-free; non-loopback binds prompt you to set an admin password (argon2-hashed on disk) and use an HttpOnly session cookie (7-day sliding expiry). `K7S_WEB_TOKEN` still works for API/script access. Sessions are in-memory — restarting k7s-web logs you back in.
+- HTTP mode exposes `/mcp`; put it behind a trusted network or reverse proxy.
 - The exec tool runs **arbitrary shell commands** — grant with care.
 
 ---

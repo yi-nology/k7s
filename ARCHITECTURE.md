@@ -70,7 +70,8 @@ Response → UI Update
 - `k7s`（Tauri 桌面端）— `commands/` 经 Tauri IPC 暴露。
 - `k7s-web`（axum）— `web/` 经 HTTP 暴露，`/api/invoke/*` 与 `/hooks/*`
   需 Bearer token（loopback 自动生成并经 `GET /api/web-token` 发布给同源
-  SPA；非 loopback 需设 `K7S_WEB_TOKEN`）。
+  SPA；非 loopback 需设 `K7S_WEB_TOKEN`）**或**有效会话 cookie——非 loopback
+  绑定时前端呈现单用户密码门（argon2 哈希落盘，HttpOnly 会话 7 天滑动续期）。
 - `k7s-mcp`（stdio）— `mcp/` 经 MCP 协议暴露给 AI 客户端。
 
 ### AI 路径

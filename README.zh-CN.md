@@ -157,13 +157,16 @@ k7s、[Lens](https://k8slens.dev/)、[KubePi](https://github.com/1Panel-dev/Kube
 ## ✨ 功能
 
 ### 核心 Shell
+- **五分区导航** —— 概览 / 工作负载 / 配置与网络 / 存储 / 运维工具;资源分区内用页内副导航切换 kind(CRD 自动归入「自定义资源」组),运维工具收进分类目录页
+- **概览首页** —— 默认落地页:集群信息卡、健康评分环 + 可展开检查项、CPU/内存水位、9 张资源计数卡片(可点击跳转)、分页的最近事件流
+- **首次引导** —— 三步向导(导入 kubeconfig → 连接确认 → 偏好设置),首次启动自动出现,关闭后不再打扰
 - **多集群** —— kubeconfig 上下文切换，支持即时导入
 - **CRD 发现** —— 自定义（CRD 支撑的）kind 自动按 API group 折叠，风格对齐 Lens
 - **虚拟滚动表格** —— 行数超过 200 时自动开启；过滤、排序、指标叠加、色调着色在完整数据集上依然可用
 - **命令面板**（⌘K）—— 模糊搜索 kind、对象或应用命令
 - **设置** —— 日志缓冲上限、轮询间隔、默认 namespace、shell 命令、node-shell 镜像、主题、语言 —— 全部持久化，大多数立即生效
 - **主题** —— dark / light / 跟随系统；选择「system」时标题栏、滚动条与控件也跟随系统
-- **i18n** —— 英文与简体中文，可在顶栏或 Settings 里切换；与其它偏好一起持久化；`<html lang>` 实时同步
+- **i18n** —— 简体中文为默认语言，可切换英文（顶栏或 Settings）；与其它偏好一起持久化；`<html lang>` 实时同步
 
 ### 资源浏览
 - **Live 资源表** —— 覆盖所有常见内置资源：Pods、Deployments、ReplicaSets、StatefulSets、DaemonSets、Jobs、CronJobs、Services、Ingresses、IngressClasses、ConfigMaps、Secrets、ServiceAccounts、PersistentVolumes、PersistentVolumeClaims、StorageClasses、Nodes、Namespaces、Events、Helm Releases
@@ -384,10 +387,12 @@ curl -X POST http://localhost:8080/mcp \
 
 ### 安全注意事项
 
-⚠️ **k7s-web 没有内置认证**。绑定到 `0.0.0.0` 时，任何能访问该端口的客户端都有完整的集群控制权。建议：
-- 仅绑定 `127.0.0.1`（默认）
-- 如需远程访问，使用反向代理 + 认证
-- Docker compose 默认绑定 `127.0.0.1`
+**k7s-web 认证（单用户密码门）**：
+
+- **loopback 绑定**（默认 `127.0.0.1`）：自动 token 免登，本地开发无感
+- **非 loopback 绑定**：首次访问引导设置管理密码（≥8 位，argon2 哈希落盘 `web-password`，权限 0600），登录后以 HttpOnly / SameSite=Strict 会话 cookie 访问（7 天滑动有效期）
+- `K7S_WEB_TOKEN` 环境变量仍然兼容（API / 脚本场景）
+- 会话仅存内存：重启 k7s-web 后需重新登录；多用户 / RBAC / 审计不在当前范围
 
 ---
 
