@@ -9,122 +9,18 @@ import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useStore } from '../../store';
 import { isValidK8sName, isValidNamespace } from '../../lib/security';
+import {
+  type IngressPath,
+  type IngressForm,
+  emptyPath,
+  emptyRule,
+  emptyForm,
+  generateYaml,
+} from './ingressUtils';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface IngressPath {
-  path: string;
-  pathType: 'Prefix' | 'Exact' | 'ImplementationSpecific';
-  serviceName: string;
-  servicePort: number;
-}
-
-interface IngressRule {
-  host: string;
-  paths: IngressPath[];
-}
-
-interface IngressTls {
-  secretName: string;
-  hosts: string[];
-}
-
-interface Annotation {
-  key: string;
-  value: string;
-}
-
-interface IngressForm {
-  name: string;
-  namespace: string;
-  ingressClass: string;
-  rules: IngressRule[];
-  tls: IngressTls[];
-  annotations: Annotation[];
-}
-
-const emptyPath = (): IngressPath => ({
-  path: '/',
-  pathType: 'Prefix',
-  serviceName: '',
-  servicePort: 80,
-});
-
-const emptyRule = (): IngressRule => ({
-  host: '',
-  paths: [emptyPath()],
-});
-
-const emptyForm: IngressForm = {
-  name: '',
-  namespace: 'default',
-  ingressClass: '',
-  rules: [emptyRule()],
-  tls: [],
-  annotations: [],
-};
-
-// ---------------------------------------------------------------------------
-// YAML generation
-// ---------------------------------------------------------------------------
-
-function generateYaml(form: IngressForm): string {
-  const lines: string[] = [];
-  lines.push('apiVersion: networking.k8s.io/v1');
-  lines.push('kind: Ingress');
-  lines.push('metadata:');
-  lines.push(`  name: ${form.name || 'my-ingress'}`);
-  if (form.namespace && form.namespace !== 'default') {
-    lines.push(`  namespace: ${form.namespace}`);
-  }
-  if (form.annotations.length > 0 || form.ingressClass) {
-    lines.push('  annotations:');
-    if (form.ingressClass) {
-      lines.push(`    kubernetes.io/ingress.class: "${form.ingressClass}"`);
-    }
-    for (const a of form.annotations) {
-      if (a.key) lines.push(`    ${a.key}: "${a.value}"`);
-    }
-  }
-  lines.push('spec:');
-  if (form.ingressClass) {
-    lines.push(`  ingressClassName: ${form.ingressClass}`);
-  }
-  if (form.tls.length > 0) {
-    lines.push('  tls:');
-    for (const t of form.tls) {
-      lines.push(`  - secretName: ${t.secretName || 'tls-secret'}`);
-      if (t.hosts.length > 0) {
-        lines.push('    hosts:');
-        for (const h of t.hosts) {
-          if (h) lines.push(`    - ${h}`);
-        }
-      }
-    }
-  }
-  if (form.rules.length > 0) {
-    lines.push('  rules:');
-    for (const r of form.rules) {
-      if (r.host) {
-        lines.push(`  - host: ${r.host}`);
-      }
-      lines.push('    http:');
-      lines.push('      paths:');
-      for (const p of r.paths) {
-        lines.push(`      - path: ${p.path || '/'}`);
-        lines.push(`        pathType: ${p.pathType}`);
-        lines.push('        backend:');
-        lines.push('          service:');
-        lines.push(`            name: ${p.serviceName || 'my-service'}`);
-        lines.push(`            port:`);
-        lines.push(`              number: ${p.servicePort || 80}`);
-      }
-    }
-  }
-  return lines.join('\n');
-}
+// Utility functions extracted to ./ingressUtils.ts:
+// - emptyPath, emptyRule, emptyForm: factory functions
+// - generateYaml: YAML generation from form data
 
 // ---------------------------------------------------------------------------
 // Component
