@@ -13,7 +13,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use kube::config::Kubeconfig;
+use k7s_deps::kube::config::Kubeconfig;
 use std::sync::Arc;
 
 use crate::core::prefs::{self, Prefs};
@@ -86,7 +86,7 @@ pub async fn status(State(state): State<WebState>) -> axum::response::Response {
 pub async fn load_prefs(State(state): State<WebState>) -> axum::response::Response {
     let path = state.core.data_dir.join("prefs.json");
     let text = std::fs::read_to_string(&path).ok();
-    let prefs: Option<Prefs> = text.and_then(|t| serde_json::from_str(&t).ok());
+    let prefs: Option<Prefs> = text.and_then(|t| k7s_deps::serde_json::from_str(&t).ok());
     respond(Ok(prefs))
 }
 
@@ -241,10 +241,10 @@ pub async fn not_implemented() -> axum::response::Response {
 
 // ---------------------------------------------------------------------------
 // Helpers (re-implementations of the small bits commands.rs's connect/get_yaml
-// need that aren't already in `kube::`).
+// need that aren't already in `k7s_deps::kube::`).
 // ---------------------------------------------------------------------------
 
-pub(super) async fn core_client(core: &Arc<CoreState>) -> AppResult<kube::Client> {
+pub(super) async fn core_client(core: &Arc<CoreState>) -> AppResult<k7s_deps::kube::Client> {
     // `Disconnected` (not `NotFound`) is intentional: the front-end wants to
     // detect this case and route to a "pick a cluster" flow, not treat it as
     // "the object you asked for doesn't exist". String-matching would be
@@ -262,7 +262,7 @@ pub(super) async fn core_client(core: &Arc<CoreState>) -> AppResult<kube::Client
 /// `POST /api/sbom/image` — Generate SBOM for a container image.
 pub async fn sbom_generate_image(
     State(state): State<WebState>,
-    Json(req): Json<serde_json::Value>,
+    Json(req): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let image_ref = req["image_ref"].as_str().unwrap_or("").to_string();
     let format_str = req["format"].as_str().unwrap_or("cyclonedx");
@@ -306,7 +306,7 @@ pub async fn sbom_get(
 /// Reads `id` from the JSON body instead of the URL path.
 pub async fn sbom_get_invoke(
     State(state): State<WebState>,
-    Json(req): Json<serde_json::Value>,
+    Json(req): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let id = req["id"].as_str().unwrap_or("").to_string();
     let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
@@ -316,7 +316,7 @@ pub async fn sbom_get_invoke(
 /// `POST /api/invoke/sbom_generate_cluster` — Generate cluster-wide SBOM.
 pub async fn sbom_generate_cluster(
     State(state): State<WebState>,
-    Json(req): Json<serde_json::Value>,
+    Json(req): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let format_str = req["format"].as_str().unwrap_or("cyclonedx");
     let _format = crate::kube::sbom::SbomFormat::parse(format_str)
@@ -336,7 +336,7 @@ pub async fn sbom_generate_cluster(
 /// `POST /api/invoke/sbom_export` — Export an SBOM to a file.
 pub async fn sbom_export(
     State(state): State<WebState>,
-    Json(req): Json<serde_json::Value>,
+    Json(req): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let id = req["id"].as_str().unwrap_or("").to_string();
     let output_path = req["output_path"].as_str().unwrap_or("").to_string();
@@ -347,7 +347,7 @@ pub async fn sbom_export(
 
         let storage = crate::kube::sbom_storage::SbomStorage::new(&state.core.data_dir);
         let sbom = storage.load(&id)?;
-        let content = serde_json::to_string_pretty(&sbom)
+        let content = k7s_deps::serde_json::to_string_pretty(&sbom)
             .map_err(|e| crate::error::AppError::Other(format!("serialize sbom: {e}")))?;
         std::fs::write(&canonical_path, content)
             .map_err(|e| crate::error::AppError::Other(format!("write file: {e}")))?;
@@ -430,7 +430,7 @@ pub async fn scanner_status(State(state): State<WebState>) -> axum::response::Re
 
 // ---------------------------------------------------------------------------
 // Helpers (re-implementations of the small bits commands.rs's connect/get_yaml
-// need that aren't already in `kube::`).
+// need that aren't already in `k7s_deps::kube::`).
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -442,7 +442,7 @@ pub async fn scanner_status(State(state): State<WebState>) -> axum::response::Re
 pub async fn hook_wake(
     State(_state): State<WebState>,
     headers: axum::http::HeaderMap,
-    axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
+    axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     // Hooks are enabled only when a token is configured (fail-closed).
     let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
@@ -454,7 +454,7 @@ pub async fn hook_wake(
     let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
     if !crate::ai::hooks::verify_hook(&hook_config, auth) {
         return axum::response::Json(
-            serde_json::json!({"success": false, "message": "unauthorized"}),
+            k7s_deps::serde_json::json!({"success": false, "message": "unauthorized"}),
         )
         .into_response();
     }
@@ -462,8 +462,8 @@ pub async fn hook_wake(
         .get("message")
         .and_then(|v| v.as_str())
         .unwrap_or("health check");
-    tracing::info!(message = message, "hook/wake triggered");
-    axum::response::Json(serde_json::json!({
+    k7s_deps::tracing::info!(message = message, "hook/wake triggered");
+    axum::response::Json(k7s_deps::serde_json::json!({
         "success": true,
         "message": format!("received: {}", message),
     }))
@@ -476,7 +476,7 @@ pub async fn hook_wake(
 pub async fn hook_agent(
     State(_state): State<WebState>,
     headers: axum::http::HeaderMap,
-    axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
+    axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     // Hooks are enabled only when a token is configured (fail-closed).
     let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
@@ -488,16 +488,16 @@ pub async fn hook_agent(
     let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
     if !crate::ai::hooks::verify_hook(&hook_config, auth) {
         return axum::response::Json(
-            serde_json::json!({"success": false, "message": "unauthorized"}),
+            k7s_deps::serde_json::json!({"success": false, "message": "unauthorized"}),
         )
         .into_response();
     }
     let message = body.get("message").and_then(|v| v.as_str()).unwrap_or("");
     let skill_id = body.get("skillId").and_then(|v| v.as_str());
-    tracing::info!(message = message, skill = skill_id, "hook/agent triggered");
+    k7s_deps::tracing::info!(message = message, skill = skill_id, "hook/agent triggered");
     // Full integration: construct ChatRequest, run AgentLoop, return response.
     // For now, acknowledge receipt.
-    axum::response::Json(serde_json::json!({
+    axum::response::Json(k7s_deps::serde_json::json!({
         "success": true,
         "message": format!("agent received: '{}' (full agent integration pending)", message),
     }))
@@ -508,7 +508,7 @@ pub async fn hook_agent(
 pub async fn hook_event(
     State(_state): State<WebState>,
     headers: axum::http::HeaderMap,
-    axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
+    axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     // Hooks are enabled only when a token is configured (fail-closed).
     let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
@@ -520,7 +520,7 @@ pub async fn hook_event(
     let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
     if !crate::ai::hooks::verify_hook(&hook_config, auth) {
         return axum::response::Json(
-            serde_json::json!({"success": false, "message": "unauthorized"}),
+            k7s_deps::serde_json::json!({"success": false, "message": "unauthorized"}),
         )
         .into_response();
     }
@@ -536,14 +536,14 @@ pub async fn hook_event(
         .get("description")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    tracing::info!(
+    k7s_deps::tracing::info!(
         event_type = event_type,
         severity = severity,
         description = description,
         "hook/event received"
     );
     // Full integration: store the event, trigger agent analysis if severity >= warning.
-    axum::response::Json(serde_json::json!({
+    axum::response::Json(k7s_deps::serde_json::json!({
         "success": true,
         "message": format!("event received: {} ({})", event_type, severity),
     }))
@@ -595,7 +595,7 @@ pub async fn ai_list_skills_handler(State(state): State<WebState>) -> axum::resp
 /// POST /invoke/ai_memory_list
 pub async fn ai_memory_list_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let kube_context = args
         .get("kubeContext")
@@ -610,7 +610,7 @@ pub async fn ai_memory_list_handler(
 /// POST /invoke/ai_memory_search
 pub async fn ai_memory_search_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let kube_context = args
         .get("kubeContext")
@@ -625,7 +625,7 @@ pub async fn ai_memory_search_handler(
 /// POST /invoke/ai_memory_add
 pub async fn ai_memory_add_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let kube_context = args
         .get("kubeContext")
@@ -652,7 +652,7 @@ pub async fn ai_memory_add_handler(
     };
     let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
     store.add(tier, content, tags, crate::ai::memory::MemorySource::User);
-    respond(Ok(serde_json::json!({"ok": true})))
+    respond(Ok(k7s_deps::serde_json::json!({"ok": true})))
 }
 
 /// POST /invoke/ai_cron_list
@@ -674,7 +674,7 @@ pub async fn ai_evolution_strategies_handler(
 /// POST /invoke/ai_memory_preferences
 pub async fn ai_memory_preferences_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let kube_context = args
         .get("kubeContext")
@@ -688,7 +688,7 @@ pub async fn ai_memory_preferences_handler(
 /// POST /invoke/ai_memory_delete
 pub async fn ai_memory_delete_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let kube_context = args
         .get("kubeContext")
@@ -697,13 +697,13 @@ pub async fn ai_memory_delete_handler(
     let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
     let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
     let deleted = store.delete(id);
-    respond(Ok(serde_json::json!({ "deleted": deleted })))
+    respond(Ok(k7s_deps::serde_json::json!({ "deleted": deleted })))
 }
 
 /// POST /invoke/ai_memory_clear
 pub async fn ai_memory_clear_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let kube_context = args
         .get("kubeContext")
@@ -718,13 +718,13 @@ pub async fn ai_memory_clear_handler(
     });
     let mut store = crate::ai::memory::MemoryStore::open(&state.core.data_dir, kube_context);
     store.clear(tier);
-    respond(Ok(serde_json::json!({ "ok": true })))
+    respond(Ok(k7s_deps::serde_json::json!({ "ok": true })))
 }
 
 /// POST /invoke/ai_memory_search_vault
 pub async fn ai_memory_search_vault_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let kube_context = args
         .get("kubeContext")
@@ -739,37 +739,37 @@ pub async fn ai_memory_search_vault_handler(
 /// POST /invoke/ai_cron_add
 pub async fn ai_cron_add_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
-    let task: crate::ai::cron::CronTask = match serde_json::from_value(args) {
+    let task: crate::ai::cron::CronTask = match k7s_deps::serde_json::from_value(args) {
         Ok(t) => t,
         Err(e) => return respond::<()>(Err(crate::error::AppError::Other(e.to_string()))),
     };
     let scheduler = crate::ai::cron::CronScheduler::new(state.core.data_dir.clone());
     scheduler.add(task).await;
-    respond(Ok(serde_json::json!({ "ok": true })))
+    respond(Ok(k7s_deps::serde_json::json!({ "ok": true })))
 }
 
 /// POST /invoke/ai_cron_toggle
 pub async fn ai_cron_toggle_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
     let scheduler = crate::ai::cron::CronScheduler::new(state.core.data_dir.clone());
     let toggled = scheduler.toggle(id).await;
-    respond(Ok(serde_json::json!({ "toggled": toggled })))
+    respond(Ok(k7s_deps::serde_json::json!({ "toggled": toggled })))
 }
 
 /// POST /invoke/ai_cron_delete
 pub async fn ai_cron_delete_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let id = args.get("id").and_then(|v| v.as_str()).unwrap_or("");
     let scheduler = crate::ai::cron::CronScheduler::new(state.core.data_dir.clone());
     let deleted = scheduler.delete(id).await;
-    respond(Ok(serde_json::json!({ "deleted": deleted })))
+    respond(Ok(k7s_deps::serde_json::json!({ "deleted": deleted })))
 }
 
 /// POST /invoke/ai_cron_presets
@@ -780,13 +780,13 @@ pub async fn ai_cron_presets_handler() -> axum::response::Response {
 /// POST /invoke/ai_save_config
 pub async fn ai_save_config_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let config_input = args
         .get("configInput")
         .cloned()
-        .unwrap_or(serde_json::Value::Null);
-    let config: crate::ai::config::AiConfig = match serde_json::from_value(config_input) {
+        .unwrap_or(k7s_deps::serde_json::Value::Null);
+    let config: crate::ai::config::AiConfig = match k7s_deps::serde_json::from_value(config_input) {
         Ok(c) => c,
         Err(e) => {
             return respond::<()>(Err(crate::error::AppError::Other(format!(
@@ -809,7 +809,7 @@ pub async fn ai_save_config_handler(
 /// POST /invoke/ai_save_api_key
 pub async fn ai_save_api_key_handler(
     State(state): State<WebState>,
-    Json(args): Json<serde_json::Value>,
+    Json(args): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let api_key = args
         .get("apiKey")
@@ -845,7 +845,7 @@ pub async fn ai_test_connection_handler(State(state): State<WebState>) -> axum::
         Err(e) => return respond::<String>(Err(crate::error::AppError::Other(e.to_string()))),
     };
     let client = crate::ai::llm::OpenAiClient::new(base, model, key, cfg.provider.temperature);
-    use futures::StreamExt;
+    use k7s_deps::futures::StreamExt;
     let mut stream = client.chat_stream(
         &[crate::ai::llm::Message::System {
             content: "Reply with the single word: ok".into(),
@@ -874,7 +874,7 @@ struct WebAiSink {
     event_tx: tokio::sync::broadcast::Sender<crate::core::events::WebEvent>,
     run_id: String,
     events_store:
-        std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<serde_json::Value>>>>,
+        std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Vec<k7s_deps::serde_json::Value>>>>,
     /// Per-call approval senders. `await_approval` inserts one; the
     /// `/api/invoke/ai_approve_tool_call` handler resolves it. If the handler
     /// never runs (or the run is cancelled), the sender is dropped and the
@@ -887,7 +887,7 @@ struct WebAiSink {
 
 impl crate::ai::agent::EventSink for WebAiSink {
     fn emit(&self, ev: crate::ai::agent::AgentEvent) {
-        let data = serde_json::json!({ "runId": self.run_id, "event": ev });
+        let data = k7s_deps::serde_json::json!({ "runId": self.run_id, "event": ev });
         // Store for polling.
         if let Ok(mut store) = self.events_store.lock() {
             if let Some(events) = store.get_mut(&self.run_id) {
@@ -924,13 +924,13 @@ impl crate::ai::agent::EventSink for WebAiSink {
 /// events arrive via SSE on the `ai_event` channel.
 pub async fn ai_chat_handler(
     State(state): State<WebState>,
-    Json(body): Json<serde_json::Value>,
+    Json(body): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     // Parse request.
-    let request: crate::ai::agent::ChatRequest = match serde_json::from_value(
+    let request: crate::ai::agent::ChatRequest = match k7s_deps::serde_json::from_value(
         body.get("request")
             .cloned()
-            .unwrap_or(serde_json::Value::Null),
+            .unwrap_or(k7s_deps::serde_json::Value::Null),
     ) {
         Ok(r) => r,
         Err(e) => {
@@ -971,7 +971,7 @@ pub async fn ai_chat_handler(
         },
     };
 
-    let run_id = uuid::Uuid::new_v4().to_string();
+    let run_id = k7s_deps::uuid::Uuid::new_v4().to_string();
     let temperature = cfg.provider.temperature;
 
     let llm_factory: std::sync::Arc<dyn Fn() -> Box<dyn crate::ai::llm::LlmClient> + Send + Sync> =
@@ -1005,7 +1005,7 @@ pub async fn ai_chat_handler(
     let mode = if cfg.permission == crate::ai::config::PermissionMode::ReadOnly {
         cfg.permission
     } else {
-        tracing::warn!(
+        k7s_deps::tracing::warn!(
             "web ai_chat: downgrading permission mode {:?} to ReadOnly (web mode safety default)",
             cfg.permission
         );
@@ -1041,7 +1041,7 @@ pub async fn ai_chat_handler(
 }
 
 /// POST /invoke/ai_cancel — cancel a running AI chat.
-pub async fn ai_cancel_handler(Json(body): Json<serde_json::Value>) -> axum::response::Response {
+pub async fn ai_cancel_handler(Json(body): Json<k7s_deps::serde_json::Value>) -> axum::response::Response {
     // In web mode, cancellation is best-effort. The agent loop checks
     // is_cancelled() between steps. A production implementation would
     // store a CancellationToken per run_id.
@@ -1054,20 +1054,20 @@ pub async fn ai_cancel_handler(Json(body): Json<serde_json::Value>) -> axum::res
 /// loop after sending a message, avoiding SSE connection-limit issues.
 pub async fn ai_poll_events_handler(
     State(state): State<WebState>,
-    Json(body): Json<serde_json::Value>,
+    Json(body): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let run_id = body.get("runId").and_then(|v| v.as_str()).unwrap_or("");
     let after_index = body.get("afterIndex").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
     if run_id.is_empty() {
         return respond(Ok::<_, crate::error::AppError>(
-            serde_json::json!({"events": [], "done": true}),
+            k7s_deps::serde_json::json!({"events": [], "done": true}),
         ));
     }
     let store = match state.ai_runs.lock() {
         Ok(s) => s,
         Err(_) => {
             return respond(Ok::<_, crate::error::AppError>(
-                serde_json::json!({"events": [], "done": true}),
+                k7s_deps::serde_json::json!({"events": [], "done": true}),
             ))
         }
     };
@@ -1088,14 +1088,14 @@ pub async fn ai_poll_events_handler(
                         .and_then(|t| t.as_str())
                         == Some("error")
             });
-            respond(Ok::<_, crate::error::AppError>(serde_json::json!({
+            respond(Ok::<_, crate::error::AppError>(k7s_deps::serde_json::json!({
                 "events": new_events,
                 "done": done,
                 "total": events.len()
             })))
         }
         None => respond(Ok::<_, crate::error::AppError>(
-            serde_json::json!({"events": [], "done": true}),
+            k7s_deps::serde_json::json!({"events": [], "done": true}),
         )),
     }
 }
@@ -1103,7 +1103,7 @@ pub async fn ai_poll_events_handler(
 /// POST /invoke/ai_approve_tool_call — approve/deny a pending write tool.
 pub async fn ai_approve_tool_call_handler(
     State(state): State<WebState>,
-    Json(body): Json<serde_json::Value>,
+    Json(body): Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
     let call_id = body
         .get("callId")
@@ -1119,14 +1119,14 @@ pub async fn ai_approve_tool_call_handler(
     if let Ok(mut map) = state.pending_approvals.lock() {
         if let Some(tx) = map.remove(&call_id) {
             let _ = tx.send(approved);
-            return respond(Ok::<_, crate::error::AppError>(serde_json::json!({
+            return respond(Ok::<_, crate::error::AppError>(k7s_deps::serde_json::json!({
                 "ok": true,
                 "resolved": true
             })));
         }
     }
     // No pending approval for that call_id — either unknown or already settled.
-    respond(Ok::<_, crate::error::AppError>(serde_json::json!({
+    respond(Ok::<_, crate::error::AppError>(k7s_deps::serde_json::json!({
         "ok": true,
         "resolved": false
     })))
@@ -1144,5 +1144,5 @@ pub async fn web_token(State(state): State<WebState>) -> axum::response::Respons
             .body(axum::body::Body::empty())
             .expect("Response::builder with hardcoded status and body is infallible");
     }
-    Json(serde_json::json!({ "token": *state.web_token })).into_response()
+    Json(k7s_deps::serde_json::json!({ "token": *state.web_token })).into_response()
 }

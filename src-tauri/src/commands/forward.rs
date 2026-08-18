@@ -63,7 +63,7 @@ pub async fn start_service_port_forward(
 /// pod forward.
 async fn spawn_forward(
     manager: Arc<ClientManager>,
-    client: kube::Client,
+    client: k7s_deps::kube::Client,
     namespace: String,
     pod: String,
     // For a Service forward: its name and the port the user asked for.

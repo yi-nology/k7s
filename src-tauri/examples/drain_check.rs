@@ -8,12 +8,12 @@
 //! be checked against a live node without disrupting it. Draining a real node is
 //! a decision for the operator, not for a test harness.
 
-use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::api::{Api, ListParams};
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::{Node, Pod};
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::{Client, ResourceExt};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     let nodes: Api<Node> = Api::all(client.clone());

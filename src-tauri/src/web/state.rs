@@ -23,7 +23,7 @@ pub struct WebState {
     /// receiver.
     pub event_tx: tokio::sync::broadcast::Sender<WebEvent>,
     /// Per-run event store for polling. Maps run_id → list of events.
-    pub ai_runs: Arc<Mutex<HashMap<String, Vec<serde_json::Value>>>>,
+    pub ai_runs: Arc<Mutex<HashMap<String, Vec<k7s_deps::serde_json::Value>>>>,
     /// Per-run pending write-tool approvals: call_id → approval sender.
     /// The agent loop's `await_approval` awaits the receiver; the
     /// `/api/invoke/ai_approve_tool_call` handler resolves the sender.
@@ -79,7 +79,7 @@ impl WebState {
 
     /// Emit an event to all connected SSE clients. Used by the AI chat handler
     /// to push `ai_event` frames.
-    pub fn emit_event(&self, name: impl Into<String>, data: serde_json::Value) {
+    pub fn emit_event(&self, name: impl Into<String>, data: k7s_deps::serde_json::Value) {
         let _ = self.event_tx.send(WebEvent {
             name: name.into(),
             data,

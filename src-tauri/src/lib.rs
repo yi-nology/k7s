@@ -26,12 +26,12 @@ use tauri::Manager;
 
 pub fn run() {
     // Install rustls crypto provider before any TLS operations
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
 
-    tracing_subscriber::fmt()
+    k7s_deps::tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            k7s_deps::tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| k7s_deps::tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
 
@@ -237,7 +237,7 @@ fn save_window_state_on_sigterm(app: tauri::AppHandle) {
         };
         term.recv().await;
         if let Err(e) = app.save_window_state(StateFlags::all()) {
-            tracing::warn!("could not save window state on SIGTERM: {e}");
+            k7s_deps::tracing::warn!("could not save window state on SIGTERM: {e}");
         }
         app.exit(0);
     });

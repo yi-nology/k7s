@@ -90,8 +90,8 @@ pub async fn pod_files_upload(
     tar_b64: String,
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<()> {
-    use base64::Engine;
-    let bytes = base64::engine::general_purpose::STANDARD
+    use k7s_deps::base64::Engine;
+    let bytes = k7s_deps::base64::engine::general_purpose::STANDARD
         .decode(&tar_b64)
         .map_err(|e| AppError::Other(format!("base64 decode: {e}")))?;
     let client = require_client(&mgr.manager).await?;

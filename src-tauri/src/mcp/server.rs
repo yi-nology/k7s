@@ -11,9 +11,9 @@
 
 use std::sync::Arc;
 
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
-use kube::ResourceExt;
+use k7s_deps::k8s_openapi::api::core::v1::Pod;
+use k7s_deps::kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
+use k7s_deps::kube::ResourceExt;
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{
@@ -301,7 +301,7 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(&p.yaml)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
         let namespaced = kube_api::kind_is_namespaced(&p.kind, &self.manager()).await;
         validate_apply_yaml(&obj, &p.kind, &p.name, &p.namespace, namespaced)
@@ -330,7 +330,7 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(&p.yaml)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
         let namespaced = kube_api::kind_is_namespaced(&p.kind, &self.manager()).await;
         validate_apply_yaml(&obj, &p.kind, &p.name, &p.namespace, namespaced)
@@ -355,9 +355,9 @@ impl K7sMcpServer {
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
         proposed.metadata.managed_fields = None;
 
-        let current_yaml = serde_yaml::to_string(&current)
+        let current_yaml = k7s_deps::yaml_serde::to_string(&current)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
-        let proposed_yaml = serde_yaml::to_string(&proposed)
+        let proposed_yaml = k7s_deps::yaml_serde::to_string(&proposed)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         #[derive(Serialize)]
@@ -404,7 +404,7 @@ impl K7sMcpServer {
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": p.replicas } }));
+        let patch = Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "replicas": p.replicas } }));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
@@ -428,7 +428,7 @@ impl K7sMcpServer {
             .await
             .map_err(tool_error)?;
         let patch =
-            Patch::Merge(serde_json::json!({ "spec": { "unschedulable": p.unschedulable } }));
+            Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "unschedulable": p.unschedulable } }));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
@@ -508,7 +508,7 @@ impl K7sMcpServer {
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = k7s_deps::chrono::Utc::now().to_rfc3339();
         let patch = Patch::Merge(restart::restart_patch(&now));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
@@ -921,7 +921,7 @@ impl K7sMcpServer {
         let out: Vec<_> = custom
             .into_iter()
             .map(|c| {
-                serde_json::json!({
+                k7s_deps::serde_json::json!({
                     "id": c.id,
                     "group": c.group,
                     "version": c.version,
@@ -1168,7 +1168,7 @@ impl K7sMcpServer {
         &self,
         Parameters(p): Parameters<PodFileParams>,
     ) -> Result<CallToolResult, McpError> {
-        use base64::Engine;
+        use k7s_deps::base64::Engine;
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
@@ -1180,7 +1180,7 @@ impl K7sMcpServer {
         let bytes = pod_files::download_path(client, &p.namespace, &p.pod, container, &p.path)
             .await
             .map_err(tool_error)?;
-        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let b64 = k7s_deps::base64::engine::general_purpose::STANDARD.encode(&bytes);
         Ok(CallToolResult::success(vec![ContentBlock::text(b64)]))
     }
 
@@ -1191,11 +1191,11 @@ impl K7sMcpServer {
         &self,
         Parameters(p): Parameters<PodFileUploadParams>,
     ) -> Result<CallToolResult, McpError> {
-        use base64::Engine;
+        use k7s_deps::base64::Engine;
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let bytes = base64::engine::general_purpose::STANDARD
+        let bytes = k7s_deps::base64::engine::general_purpose::STANDARD
             .decode(&p.tar_b64)
             .map_err(|e| tool_error(AppError::Other(format!("base64 decode: {e}"))))?;
         let container = if p.container.is_empty() {
@@ -1223,7 +1223,7 @@ impl K7sMcpServer {
         Parameters(p): Parameters<ImportKubeconfigParams>,
     ) -> Result<CallToolResult, McpError> {
         let manager = self.manager();
-        let kc = kube::config::Kubeconfig::from_yaml(&p.contents)
+        let kc = k7s_deps::kube::config::Kubeconfig::from_yaml(&p.contents)
             .map_err(|e| tool_error(AppError::Kubeconfig(format!("parse kubeconfig: {e}"))))?;
         for ctx in &kc.contexts {
             let cluster = ctx
@@ -1661,10 +1661,10 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let mut issues: Vec<serde_json::Value> = Vec::new();
+        let mut issues: Vec<k7s_deps::serde_json::Value> = Vec::new();
 
         // Check nodes
-        let nodes = kube::Api::<k8s_openapi::api::core::v1::Node>::all(client.clone())
+        let nodes = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Node>::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
@@ -1674,7 +1674,7 @@ impl K7sMcpServer {
             if let Some(conds) = conditions {
                 for c in conds {
                     if c.type_ == "Ready" && c.status != "True" {
-                        issues.push(serde_json::json!({
+                        issues.push(k7s_deps::serde_json::json!({
                             "severity": "critical", "kind": "Node", "name": name,
                             "issue": "NotReady", "message": c.message.as_deref().unwrap_or("")
                         }));
@@ -1682,7 +1682,7 @@ impl K7sMcpServer {
                     if (c.type_ == "DiskPressure" || c.type_ == "MemoryPressure")
                         && c.status == "True"
                     {
-                        issues.push(serde_json::json!({
+                        issues.push(k7s_deps::serde_json::json!({
                             "severity": "warning", "kind": "Node", "name": name,
                             "issue": c.type_, "message": c.message.as_deref().unwrap_or("")
                         }));
@@ -1692,7 +1692,7 @@ impl K7sMcpServer {
         }
 
         // Check pods
-        let pods = kube::Api::<k8s_openapi::api::core::v1::Pod>::all(client.clone())
+        let pods = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Pod>::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
@@ -1719,7 +1719,7 @@ impl K7sMcpServer {
                                     || reason == "ImagePullBackOff"
                                     || reason == "ErrImagePull"
                                 {
-                                    issues.push(serde_json::json!({
+                                    issues.push(k7s_deps::serde_json::json!({
                                         "severity": "critical", "kind": "Pod",
                                         "name": format!("{}/{}", pod.metadata.namespace.as_deref().unwrap_or(""), pod.metadata.name.as_deref().unwrap_or("?")),
                                         "issue": reason,
@@ -1733,14 +1733,14 @@ impl K7sMcpServer {
             }
         }
         if failed_count > 0 {
-            issues.push(serde_json::json!({
+            issues.push(k7s_deps::serde_json::json!({
                 "severity": "warning", "kind": "Pods", "name": "cluster-wide",
                 "issue": "FailedPods", "message": format!("{failed_count} pods in Failed phase")
             }));
         }
 
         // Check deployments
-        let deployments = kube::Api::<k8s_openapi::api::apps::v1::Deployment>::all(client.clone())
+        let deployments = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::apps::v1::Deployment>::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
@@ -1754,7 +1754,7 @@ impl K7sMcpServer {
                 .and_then(|s| s.ready_replicas)
                 .unwrap_or(0);
             if ready < spec_replicas {
-                issues.push(serde_json::json!({
+                issues.push(k7s_deps::serde_json::json!({
                     "severity": "warning", "kind": "Deployment",
                     "name": format!("{ns}/{name}"),
                     "issue": "Unavailable",
@@ -1763,7 +1763,7 @@ impl K7sMcpServer {
             }
         }
 
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "totalIssues": issues.len(),
             "issues": issues
         }))
@@ -1788,15 +1788,15 @@ impl K7sMcpServer {
         let yaml = kube_api::get_resource_yaml(&manager, &kind_id, ns, &p.name)
             .await
             .map_err(tool_error)?;
-        let val: serde_json::Value =
-            serde_yaml::from_str(&yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let val: k7s_deps::serde_json::Value =
+            k7s_deps::yaml_serde::from_str(&yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         // Get events
         let events = kube_api::get_events(&self.manager(), &kind_id, ns, &p.name)
             .await
             .unwrap_or_default();
 
-        let mut suggestions: Vec<serde_json::Value> = Vec::new();
+        let mut suggestions: Vec<k7s_deps::serde_json::Value> = Vec::new();
 
         // Check container statuses for common issues
         if let Some(statuses) = val
@@ -1809,16 +1809,16 @@ impl K7sMcpServer {
                     let reason = waiting.get("reason").and_then(|r| r.as_str()).unwrap_or("");
                     match reason {
                         "CrashLoopBackOff" => {
-                            suggestions.push(serde_json::json!({
+                            suggestions.push(k7s_deps::serde_json::json!({
                                 "action": "check_logs", "description": "Container is crash-looping. Check logs for the exit reason.",
                                 "command": format!("kubectl logs {}/{} --previous", ns, p.name)
                             }));
-                            suggestions.push(serde_json::json!({
+                            suggestions.push(k7s_deps::serde_json::json!({
                                 "action": "rollback", "description": "If this started after a recent change, rollback to the previous revision."
                             }));
                         }
                         "ImagePullBackOff" | "ErrImagePull" => {
-                            suggestions.push(serde_json::json!({
+                            suggestions.push(k7s_deps::serde_json::json!({
                                 "action": "check_image", "description": "Image pull failed. Verify the image name, tag, and registry credentials."
                             }));
                         }
@@ -1828,7 +1828,7 @@ impl K7sMcpServer {
                                 .and_then(|r| r.as_str())
                                 == Some("OOMKilled") =>
                         {
-                            suggestions.push(serde_json::json!({
+                            suggestions.push(k7s_deps::serde_json::json!({
                                 "action": "increase_memory", "description": "Container was OOMKilled. Increase memory limits in the pod spec."
                             }));
                         }
@@ -1841,19 +1841,19 @@ impl K7sMcpServer {
         // Check for warning events
         let warning_events: Vec<_> = events.iter().filter(|e| e.ty == "Warning").collect();
         if !warning_events.is_empty() {
-            suggestions.push(serde_json::json!({
+            suggestions.push(k7s_deps::serde_json::json!({
                 "action": "check_events",
                 "description": format!("{} warning event(s) found. Most recent: {}", warning_events.len(), warning_events.first().map(|e| e.message.as_str()).unwrap_or(""))
             }));
         }
 
         if suggestions.is_empty() {
-            suggestions.push(serde_json::json!({
+            suggestions.push(k7s_deps::serde_json::json!({
                 "action": "none", "description": "No obvious issues detected. The resource appears healthy."
             }));
         }
 
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "kind": kind_id, "name": p.name, "namespace": ns,
             "suggestions": suggestions
         }))
@@ -1872,7 +1872,7 @@ impl K7sMcpServer {
         let results = kube_api::list_resources(&manager, &kind_id, ns, Some(&p.selector))
             .await
             .map_err(tool_error)?;
-        json_result(&serde_json::json!({ "count": results.len(), "items": results }))
+        json_result(&k7s_deps::serde_json::json!({ "count": results.len(), "items": results }))
     }
 
     #[tool(
@@ -1882,7 +1882,7 @@ impl K7sMcpServer {
         &self,
         Parameters(p): Parameters<CreateSilenceParams>,
     ) -> Result<CallToolResult, McpError> {
-        let ends_at = (chrono::Utc::now() + chrono::Duration::hours(p.duration_hours.unwrap_or(4)))
+        let ends_at = (k7s_deps::chrono::Utc::now() + k7s_deps::chrono::Duration::hours(p.duration_hours.unwrap_or(4)))
             .to_rfc3339();
         let request = alerting::CreateSilenceRequest {
             matchers: p
@@ -1902,7 +1902,7 @@ impl K7sMcpServer {
         let id = alerting::create_silence(&p.instance, &request)
             .await
             .map_err(tool_error)?;
-        json_result(&serde_json::json!({ "silenceId": id }))
+        json_result(&k7s_deps::serde_json::json!({ "silenceId": id }))
     }
 
     #[tool(
@@ -1915,7 +1915,7 @@ impl K7sMcpServer {
         alerting::delete_silence(&p.instance, &p.silence_id)
             .await
             .map_err(tool_error)?;
-        json_result(&serde_json::json!({ "deleted": true }))
+        json_result(&k7s_deps::serde_json::json!({ "deleted": true }))
     }
 
     #[tool(
@@ -1990,7 +1990,7 @@ impl K7sMcpServer {
             .map_err(tool_error)?;
         let storage = crate::kube::sbom_storage::SbomStorage::new(&self.core.data_dir);
         let _ = storage.save(&sbom);
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "id": sbom.id,
             "components": sbom.components.len(),
             "vulnerabilities": sbom.vulnerabilities.len(),
@@ -2017,7 +2017,7 @@ impl K7sMcpServer {
         let storage = crate::kube::sbom_storage::SbomStorage::new(&self.core.data_dir);
         let sbom = storage.load(&p.id).map_err(tool_error)?;
         // Serialize via serde to get consistent camelCase keys
-        json_result(&serde_json::to_value(&sbom).map_err(tool_error)?)
+        json_result(&k7s_deps::serde_json::to_value(&sbom).map_err(tool_error)?)
     }
 
     #[tool(
@@ -2028,15 +2028,15 @@ impl K7sMcpServer {
             .await
             .map_err(tool_error)?;
 
-        let nodes = kube::Api::<k8s_openapi::api::core::v1::Node>::all(client.clone())
+        let nodes = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Node>::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
-        let pods = kube::Api::<k8s_openapi::api::core::v1::Pod>::all(client.clone())
+        let pods = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Pod>::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
-        let deployments = kube::Api::<k8s_openapi::api::apps::v1::Deployment>::all(client.clone())
+        let deployments = k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::apps::v1::Deployment>::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
@@ -2062,7 +2062,7 @@ impl K7sMcpServer {
         let total_nodes = nodes.items.len();
         let total_pods = pods.items.len();
 
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "nodes": { "ready": ready_nodes, "total": total_nodes },
             "pods": { "running": running_pods, "total": total_pods },
             "deployments": deployments.items.len(),
@@ -2127,15 +2127,15 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let nps: kube::Api<k8s_openapi::api::networking::v1::NetworkPolicy> =
-            kube::Api::namespaced(client.clone(), &p.namespace);
+        let nps: k7s_deps::kube::Api<k7s_deps::k8s_openapi::api::networking::v1::NetworkPolicy> =
+            k7s_deps::kube::Api::namespaced(client.clone(), &p.namespace);
         let list = nps.list(&Default::default()).await.map_err(tool_error)?;
 
-        let pods: kube::Api<k8s_openapi::api::core::v1::Pod> =
-            kube::Api::namespaced(client, &p.namespace);
+        let pods: k7s_deps::kube::Api<k7s_deps::k8s_openapi::api::core::v1::Pod> =
+            k7s_deps::kube::Api::namespaced(client, &p.namespace);
         let pod_list = pods.list(&Default::default()).await.map_err(tool_error)?;
 
-        let mut policies: Vec<serde_json::Value> = Vec::new();
+        let mut policies: Vec<k7s_deps::serde_json::Value> = Vec::new();
         for np in &list {
             let name = np.metadata.name.clone().unwrap_or_default();
             let pod_selector = np
@@ -2166,7 +2166,7 @@ impl K7sMcpServer {
                 .and_then(|s| s.egress.as_ref())
                 .map(|r| r.len())
                 .unwrap_or(0);
-            policies.push(serde_json::json!({
+            policies.push(k7s_deps::serde_json::json!({
                 "name": name,
                 "podSelector": pod_selector,
                 "ingressRules": ingress_rules,
@@ -2175,7 +2175,7 @@ impl K7sMcpServer {
         }
 
         let _isolated_pod_count = pod_list.items.len(); // simplified
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "namespace": p.namespace,
             "policies": policies,
             "totalPods": pod_list.items.len(),
@@ -2195,11 +2195,11 @@ impl K7sMcpServer {
             .map_err(tool_error)?;
 
         // Check ClusterRoleBindings
-        let crbs: kube::Api<k8s_openapi::api::rbac::v1::ClusterRoleBinding> =
-            kube::Api::all(client.clone());
+        let crbs: k7s_deps::kube::Api<k7s_deps::k8s_openapi::api::rbac::v1::ClusterRoleBinding> =
+            k7s_deps::kube::Api::all(client.clone());
         let crb_list = crbs.list(&Default::default()).await.map_err(tool_error)?;
 
-        let mut matches: Vec<serde_json::Value> = Vec::new();
+        let mut matches: Vec<k7s_deps::serde_json::Value> = Vec::new();
         for crb in &crb_list {
             let role_ref = crb.role_ref.name.clone();
             let subjects: Vec<String> = crb
@@ -2212,7 +2212,7 @@ impl K7sMcpServer {
                 })
                 .unwrap_or_default();
             if !subjects.is_empty() {
-                matches.push(serde_json::json!({
+                matches.push(k7s_deps::serde_json::json!({
                     "binding": crb.metadata.name.clone().unwrap_or_default(),
                     "type": "ClusterRoleBinding",
                     "role": role_ref,
@@ -2223,8 +2223,8 @@ impl K7sMcpServer {
 
         // Check RoleBindings in namespace
         if !p.namespace.is_empty() {
-            let rbs: kube::Api<k8s_openapi::api::rbac::v1::RoleBinding> =
-                kube::Api::namespaced(client, &p.namespace);
+            let rbs: k7s_deps::kube::Api<k7s_deps::k8s_openapi::api::rbac::v1::RoleBinding> =
+                k7s_deps::kube::Api::namespaced(client, &p.namespace);
             let rb_list = rbs.list(&Default::default()).await.map_err(tool_error)?;
             for rb in &rb_list {
                 let role_ref = rb.role_ref.name.clone();
@@ -2238,7 +2238,7 @@ impl K7sMcpServer {
                     })
                     .unwrap_or_default();
                 if !subjects.is_empty() {
-                    matches.push(serde_json::json!({
+                    matches.push(k7s_deps::serde_json::json!({
                         "binding": rb.metadata.name.clone().unwrap_or_default(),
                         "type": "RoleBinding",
                         "namespace": p.namespace,
@@ -2249,7 +2249,7 @@ impl K7sMcpServer {
             }
         }
 
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "verb": p.verb,
             "resource": p.resource,
             "namespace": p.namespace,
@@ -2478,21 +2478,21 @@ impl K7sMcpServer {
             "custom" => self.list_custom_kinds().await,
             "all" => {
                 let builtin = vec![
-                    serde_json::json!({"id": "pods", "name": "Pods"}),
-                    serde_json::json!({"id": "deployments", "name": "Deployments"}),
-                    serde_json::json!({"id": "services", "name": "Services"}),
-                    serde_json::json!({"id": "nodes", "name": "Nodes"}),
-                    serde_json::json!({"id": "namespaces", "name": "Namespaces"}),
-                    serde_json::json!({"id": "configmaps", "name": "ConfigMaps"}),
-                    serde_json::json!({"id": "secrets", "name": "Secrets"}),
-                    serde_json::json!({"id": "statefulsets", "name": "StatefulSets"}),
-                    serde_json::json!({"id": "daemonsets", "name": "DaemonSets"}),
-                    serde_json::json!({"id": "jobs", "name": "Jobs"}),
-                    serde_json::json!({"id": "cronjobs", "name": "CronJobs"}),
-                    serde_json::json!({"id": "ingresses", "name": "Ingresses"}),
-                    serde_json::json!({"id": "persistentvolumeclaims", "name": "PVCs"}),
+                    k7s_deps::serde_json::json!({"id": "pods", "name": "Pods"}),
+                    k7s_deps::serde_json::json!({"id": "deployments", "name": "Deployments"}),
+                    k7s_deps::serde_json::json!({"id": "services", "name": "Services"}),
+                    k7s_deps::serde_json::json!({"id": "nodes", "name": "Nodes"}),
+                    k7s_deps::serde_json::json!({"id": "namespaces", "name": "Namespaces"}),
+                    k7s_deps::serde_json::json!({"id": "configmaps", "name": "ConfigMaps"}),
+                    k7s_deps::serde_json::json!({"id": "secrets", "name": "Secrets"}),
+                    k7s_deps::serde_json::json!({"id": "statefulsets", "name": "StatefulSets"}),
+                    k7s_deps::serde_json::json!({"id": "daemonsets", "name": "DaemonSets"}),
+                    k7s_deps::serde_json::json!({"id": "jobs", "name": "Jobs"}),
+                    k7s_deps::serde_json::json!({"id": "cronjobs", "name": "CronJobs"}),
+                    k7s_deps::serde_json::json!({"id": "ingresses", "name": "Ingresses"}),
+                    k7s_deps::serde_json::json!({"id": "persistentvolumeclaims", "name": "PVCs"}),
                 ];
-                json_result(&serde_json::json!({
+                json_result(&k7s_deps::serde_json::json!({
                     "builtin": builtin,
                 }))
             }
@@ -2513,13 +2513,13 @@ impl K7sMcpServer {
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let pods: kube::Api<k8s_openapi::api::core::v1::Pod> =
-            kube::Api::namespaced(client, &p.namespace);
+        let pods: k7s_deps::kube::Api<k7s_deps::k8s_openapi::api::core::v1::Pod> =
+            k7s_deps::kube::Api::namespaced(client, &p.namespace);
         let list = pods.list(&Default::default()).await.map_err(tool_error)?;
 
         let mut total_cpu_millis: i64 = 0;
         let mut total_mem_bytes: i64 = 0;
-        let mut pod_costs: Vec<serde_json::Value> = Vec::new();
+        let mut pod_costs: Vec<k7s_deps::serde_json::Value> = Vec::new();
 
         for pod in &list.items {
             let name = pod.metadata.name.clone().unwrap_or_default();
@@ -2541,7 +2541,7 @@ impl K7sMcpServer {
             }
             total_cpu_millis += cpu_millis;
             total_mem_bytes += mem_bytes;
-            pod_costs.push(serde_json::json!({
+            pod_costs.push(k7s_deps::serde_json::json!({
                 "name": name,
                 "cpuMillis": cpu_millis,
                 "memBytes": mem_bytes,
@@ -2553,7 +2553,7 @@ impl K7sMcpServer {
         let mem_gb_hours = total_mem_bytes as f64 / 1_073_741_824.0 / 3600.0 * 730.0;
         let estimated_monthly_usd = cpu_hours * 0.03 + mem_gb_hours * 0.004;
 
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "namespace": p.namespace,
             "podCount": list.items.len(),
             "totalCpuMillis": total_cpu_millis,

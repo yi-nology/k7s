@@ -12,7 +12,7 @@ use crate::kube::{
     manager::{ClientManager, ForwardDto},
     ResourceKind,
 };
-use kube::Client;
+use k7s_deps::kube::Client;
 
 // ---------------------------------------------------------------------------
 // Error / result helpers
@@ -30,7 +30,7 @@ pub fn tool_error(e: impl std::fmt::Display) -> McpError {
 /// text-content `CallToolResult`. AI clients that understand `structuredContent`
 /// (MCP `2026-07-28`) also see the same JSON there.
 pub fn json_result<T: Serialize>(value: &T) -> Result<CallToolResult, McpError> {
-    let text = serde_json::to_string_pretty(value).map_err(|e| tool_error(e))?;
+    let text = k7s_deps::serde_json::to_string_pretty(value).map_err(|e| tool_error(e))?;
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
 }
 

@@ -9,7 +9,7 @@
 
 use axum::extract::State;
 use axum::response::sse::{Event, Sse};
-use futures::stream::Stream;
+use k7s_deps::futures::stream::Stream;
 use std::convert::Infallible;
 
 use crate::core::events::WebEvent;
@@ -22,7 +22,7 @@ pub async fn events_handler(
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let mut rx = state.subscribe_sse();
 
-    let stream = async_stream::stream! {
+    let stream = k7s_deps::async_stream::stream! {
         loop {
             match rx.recv().await {
                 Ok(WebEvent { name, data }) => {
@@ -30,7 +30,7 @@ pub async fn events_handler(
                     // about the format — the browser just hands `data` to
                     // the EventSource listener as a string and we JSON-parse
                     // it on the front end.
-                    let payload = serde_json::to_string(&data)
+                    let payload = k7s_deps::serde_json::to_string(&data)
                         .unwrap_or_else(|_| "null".to_string());
                     yield Ok(Event::default().event(name).data(payload));
                 }

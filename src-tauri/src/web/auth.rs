@@ -26,7 +26,7 @@ use axum::http::{Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use serde_json::json;
+use k7s_deps::serde_json::json;
 
 use super::state::WebState;
 
@@ -54,13 +54,13 @@ pub fn resolve_token(data_dir: &Path) -> String {
         }
     }
     // Generate a fresh 32-byte secret. `OsRng` is the OS CSPRNG.
-    use base64::Engine;
-    use rand::Rng;
+    use k7s_deps::base64::Engine;
+    use k7s_deps::rand::Rng;
     let mut bytes = [0u8; 32];
-    rand::rng().fill_bytes(&mut bytes);
-    let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes);
+    k7s_deps::rand::rng().fill_bytes(&mut bytes);
+    let token = k7s_deps::base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(bytes);
     if let Err(e) = std::fs::write(&path, &token) {
-        tracing::warn!("could not persist web token to {}: {e}", path.display());
+        k7s_deps::tracing::warn!("could not persist web token to {}: {e}", path.display());
     }
     #[cfg(unix)]
     {
@@ -71,7 +71,7 @@ pub fn resolve_token(data_dir: &Path) -> String {
             let _ = std::fs::set_permissions(&path, perms);
         }
     }
-    tracing::info!(
+    k7s_deps::tracing::info!(
         "generated web auth token (loopback clients fetch it via GET /api/web-token); \
          set K7S_WEB_TOKEN to use your own"
     );

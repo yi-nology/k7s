@@ -72,7 +72,7 @@ impl EventSink for TauriEventSink {
     fn emit(&self, ev: AgentEvent) {
         let _ = self.app.emit(
             AI_EVENT,
-            serde_json::json!({ "runId": self.run_id, "event": ev }),
+            k7s_deps::serde_json::json!({ "runId": self.run_id, "event": ev }),
         );
     }
 
@@ -163,7 +163,7 @@ pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<S
     let cfg = view.config;
     let (base, model, key) = config::resolve(&cfg, Some(&state.data_dir))?;
     let client = OpenAiClient::new(base, model, key, cfg.provider.temperature);
-    use futures::StreamExt;
+    use k7s_deps::futures::StreamExt;
     let mut stream = client.chat_stream(
         &[Message::System {
             content: "Reply with the single word: ok".into(),
@@ -211,7 +211,7 @@ pub async fn ai_chat(
             match crate::ai::embedded_models::discover_ollama(None).await {
                 Some(models) if !models.is_empty() => {
                     let m = &models[0];
-                    tracing::info!(
+                    k7s_deps::tracing::info!(
                         "no API key configured, using local Ollama model: {}",
                         m.name
                     );
@@ -259,7 +259,7 @@ pub async fn ai_chat(
         }
     }
 
-    let run_id = uuid::Uuid::new_v4().to_string();
+    let run_id = k7s_deps::uuid::Uuid::new_v4().to_string();
     let run_id_for_task = run_id.clone();
     let temperature = cfg.provider.temperature;
 

@@ -14,7 +14,7 @@
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(&p.yaml)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
         api.replace(&p.name, &PostParams::default(), &obj)
             .await
@@ -40,7 +40,7 @@
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let obj: DynamicObject = serde_yaml::from_str(&p.yaml)
+        let obj: DynamicObject = k7s_deps::yaml_serde::from_str(&p.yaml)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         let mut current = api
@@ -59,9 +59,9 @@
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
         proposed.metadata.managed_fields = None;
 
-        let current_yaml = serde_yaml::to_string(&current)
+        let current_yaml = k7s_deps::yaml_serde::to_string(&current)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
-        let proposed_yaml = serde_yaml::to_string(&proposed)
+        let proposed_yaml = k7s_deps::yaml_serde::to_string(&proposed)
             .map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         #[derive(Serialize)]
@@ -108,7 +108,7 @@
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let patch = Patch::Merge(serde_json::json!({ "spec": { "replicas": p.replicas } }));
+        let patch = Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "replicas": p.replicas } }));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
@@ -132,7 +132,7 @@
             .await
             .map_err(tool_error)?;
         let patch =
-            Patch::Merge(serde_json::json!({ "spec": { "unschedulable": p.unschedulable } }));
+            Patch::Merge(k7s_deps::serde_json::json!({ "spec": { "unschedulable": p.unschedulable } }));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await
             .map_err(|e| tool_error(AppError::Kube(e.to_string())))?;
@@ -196,7 +196,7 @@
         let (api, _is_helm) = kube_api::dynamic_api(client, &p.kind, &p.namespace, &self.manager())
             .await
             .map_err(tool_error)?;
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = k7s_deps::chrono::Utc::now().to_rfc3339();
         let patch = Patch::Merge(restart::restart_patch(&now));
         api.patch(&p.name, &PatchParams::default(), &patch)
             .await

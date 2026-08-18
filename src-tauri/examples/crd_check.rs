@@ -7,16 +7,16 @@
 //! DynamicObject API the lazy watchers use, then drives a real reflector-backed
 //! watcher for one kind and prints the rows exactly as the table would show them.
 
-use futures::StreamExt;
+use k7s_deps::futures::StreamExt;
 use k7s_lib::kube::{discovery, mappers};
-use kube::api::{Api, ListParams};
-use kube::core::DynamicObject;
-use kube::runtime::{reflector, watcher, WatchStreamExt};
-use kube::Client;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::core::DynamicObject;
+use k7s_deps::kube::runtime::{reflector, watcher, WatchStreamExt};
+use k7s_deps::kube::Client;
 use std::time::Duration;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     let kinds = discovery::discover(&client).await;

@@ -25,7 +25,7 @@ use tokio::sync::oneshot;
 static CRYPTO_INIT: Once = Once::new();
 fn ensure_crypto() {
     CRYPTO_INIT.call_once(|| {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
     });
 }
 
@@ -364,11 +364,11 @@ async fn e2e_streaming_produces_text() {
     ensure_crypto();
     let api_key = std::env::var("XIAOMI_TOKEN_PLAN_API_KEY")
         .unwrap_or_else(|_| "tp-cjo7bh4wjx1gnvpimjqi2i391nkoo3slp6u1z0timf07ywcp".to_string());
-    let client = reqwest::Client::new();
+    let client = k7s_deps::reqwest::Client::new();
     let resp = client
         .post("https://token-plan-cn.xiaomimimo.com/v1/chat/completions")
         .bearer_auth(&api_key)
-        .json(&serde_json::json!({
+        .json(&k7s_deps::serde_json::json!({
             "model": "mimo-v2.5-pro",
             "messages": [{"role": "user", "content": "Say hi"}],
             "max_tokens": 200,
@@ -378,7 +378,7 @@ async fn e2e_streaming_produces_text() {
         .await
         .expect("request should succeed");
     assert!(resp.status().is_success(), "status: {}", resp.status());
-    use futures::StreamExt;
+    use k7s_deps::futures::StreamExt;
     let mut stream = resp.bytes_stream();
     let mut total_bytes = 0;
     let mut chunk_count = 0;
@@ -398,11 +398,11 @@ async fn e2e_chat_stream_debug() {
     ensure_crypto();
     let api_key = std::env::var("XIAOMI_TOKEN_PLAN_API_KEY")
         .unwrap_or_else(|_| "tp-cjo7bh4wjx1gnvpimjqi2i391nkoo3slp6u1z0timf07ywcp".to_string());
-    let client = reqwest::Client::new();
+    let client = k7s_deps::reqwest::Client::new();
     let resp = client
         .post("https://token-plan-cn.xiaomimimo.com/v1/chat/completions")
         .bearer_auth(&api_key)
-        .json(&serde_json::json!({
+        .json(&k7s_deps::serde_json::json!({
             "model": "mimo-v2.5-pro",
             "messages": [{"role": "user", "content": "Say hi"}],
             "max_tokens": 200,

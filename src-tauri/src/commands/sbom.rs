@@ -86,7 +86,7 @@ pub async fn sbom_export(
 
     let storage = get_storage(&mgr.data_dir);
     let sbom = storage.load(&id)?;
-    let content = serde_json::to_string_pretty(&sbom)
+    let content = k7s_deps::serde_json::to_string_pretty(&sbom)
         .map_err(|e| crate::error::AppError::Other(format!("serialize sbom: {e}")))?;
     std::fs::write(&canonical_path, content)
         .map_err(|e| crate::error::AppError::Other(format!("write file: {e}")))?;

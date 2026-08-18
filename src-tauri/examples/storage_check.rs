@@ -9,13 +9,13 @@
 //! and that PV's CLAIM points back at the claim.
 
 use k7s_lib::kube::mappers::{map_pv, map_pvc};
-use k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
-use kube::api::{Api, ListParams};
-use kube::Client;
+use k7s_deps::k8s_openapi::api::core::v1::{PersistentVolume, PersistentVolumeClaim};
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::Client;
 use std::collections::HashMap;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     // ---- PersistentVolumeClaims ----

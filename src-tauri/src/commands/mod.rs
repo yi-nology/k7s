@@ -1,6 +1,6 @@
 //! Tauri commands invoked by the frontend. These are the only entry points from
 //! the webview into Kubernetes. Live data (tables, metrics, status, logs) is
-//! pushed back via events (see kube::events); these commands cover the one-shot
+//! pushed back via events (see k7s_deps::kube::events); these commands cover the one-shot
 //! request/response operations plus starting/stopping log streams.
 
 pub mod ai;

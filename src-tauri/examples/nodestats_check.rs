@@ -8,14 +8,14 @@
 
 use k7s_lib::kube::exporter::{self, Sampler};
 use k7s_lib::kube::nodestats;
-use k8s_openapi::api::core::v1::Node;
-use kube::api::{Api, ListParams};
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::Node;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::{Client, ResourceExt};
 use std::time::Duration;
 use tokio::sync::{mpsc, oneshot};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     for node in Api::<Node>::all(client.clone())
@@ -56,9 +56,9 @@ async fn main() -> anyhow::Result<()> {
             ready_tx,
             err_tx,
         ));
-        let port = ready_rx.await?.map_err(anyhow::Error::msg)?;
+        let port = ready_rx.await?.map_err(k7s_deps::anyhow::Error::msg)?;
 
-        let http = reqwest::Client::new();
+        let http = k7s_deps::reqwest::Client::new();
         let url = format!("http://127.0.0.1:{port}/metrics");
         let mut sampler = Sampler::default();
 
@@ -75,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
             if i == 0 {
                 println!("  scrape: {} bytes", text.len());
             }
-            let raw = exporter::parse(&text, chrono::Utc::now().timestamp_millis());
+            let raw = exporter::parse(&text, k7s_deps::chrono::Utc::now().timestamp_millis());
             match sampler.push(raw) {
                 None => println!("  sample 0: (baseline only — counters need two scrapes)"),
                 Some(s) => println!(
@@ -102,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
             .await?
             .text()
             .await?;
-        let raw = exporter::parse(&text, chrono::Utc::now().timestamp_millis());
+        let raw = exporter::parse(&text, k7s_deps::chrono::Utc::now().timestamp_millis());
         if let Some(s) = sampler.push(raw) {
             println!("  filesystems:");
             for fs in &s.filesystems {

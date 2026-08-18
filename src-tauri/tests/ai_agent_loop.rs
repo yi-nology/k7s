@@ -21,7 +21,7 @@ use tokio::sync::oneshot;
 static CRYPTO_INIT: Once = Once::new();
 fn ensure_crypto() {
     CRYPTO_INIT.call_once(|| {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
     });
 }
 
@@ -88,7 +88,7 @@ impl LlmClient for MockLlm {
             }
         };
 
-        Box::pin(futures::stream::iter(events))
+        Box::pin(k7s_deps::futures::stream::iter(events))
     }
 }
 
@@ -189,7 +189,7 @@ async fn agent_loop_full_cycle() {
     for (i, ev) in events.iter().enumerate() {
         eprintln!(
             "  [{i}] {:?}",
-            serde_json::to_string(ev).unwrap_or_default()
+            k7s_deps::serde_json::to_string(ev).unwrap_or_default()
         );
     }
 
@@ -247,7 +247,7 @@ async fn agent_loop_write_approval() {
     struct ScaleLlm;
     impl LlmClient for ScaleLlm {
         fn chat_stream(&self, _messages: &[Message], _tools: &[FunctionDef]) -> ChatStream {
-            Box::pin(futures::stream::iter(vec![
+            Box::pin(k7s_deps::futures::stream::iter(vec![
                 Ok::<StreamEvent, k7s_lib::ai::AiError>(StreamEvent::TextDelta(
                     "I'll scale the nginx deployment to 3 replicas.".into(),
                 )),
@@ -297,7 +297,7 @@ async fn agent_loop_write_approval() {
     for (i, ev) in events.iter().enumerate() {
         eprintln!(
             "  [{i}] {:?}",
-            serde_json::to_string(ev).unwrap_or_default()
+            k7s_deps::serde_json::to_string(ev).unwrap_or_default()
         );
     }
 
@@ -338,7 +338,7 @@ async fn agent_loop_readonly_denies_writes() {
             // Only try to scale if the tool is available (it won't be in ReadOnly).
             let has_scale = tools.iter().any(|t| t.name == "scale_workload");
             if has_scale {
-                Box::pin(futures::stream::iter(vec![
+                Box::pin(k7s_deps::futures::stream::iter(vec![
                     Ok::<StreamEvent, k7s_lib::ai::AiError>(StreamEvent::Done {
                         tool_calls: vec![OutgoingToolCall {
                             id: "call1".into(),
@@ -350,7 +350,7 @@ async fn agent_loop_readonly_denies_writes() {
                 ]))
             } else {
                 // In ReadOnly, scale isn't available, so we just answer.
-                Box::pin(futures::stream::iter(vec![
+                Box::pin(k7s_deps::futures::stream::iter(vec![
                     Ok::<StreamEvent, k7s_lib::ai::AiError>(StreamEvent::TextDelta(
                         "I cannot scale because I'm in read-only mode.".into(),
                     )),
@@ -397,7 +397,7 @@ async fn agent_loop_readonly_denies_writes() {
     for (i, ev) in events.iter().enumerate() {
         eprintln!(
             "  [{i}] {:?}",
-            serde_json::to_string(ev).unwrap_or_default()
+            k7s_deps::serde_json::to_string(ev).unwrap_or_default()
         );
     }
 

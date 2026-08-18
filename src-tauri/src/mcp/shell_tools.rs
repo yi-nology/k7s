@@ -364,7 +364,7 @@
         let out: Vec<_> = custom
             .into_iter()
             .map(|c| {
-                serde_json::json!({
+                k7s_deps::serde_json::json!({
                     "id": c.id,
                     "group": c.group,
                     "version": c.version,
@@ -611,7 +611,7 @@
         &self,
         Parameters(p): Parameters<PodFileParams>,
     ) -> Result<CallToolResult, McpError> {
-        use base64::Engine;
+        use k7s_deps::base64::Engine;
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
@@ -623,7 +623,7 @@
         let bytes = pod_files::download_path(client, &p.namespace, &p.pod, container, &p.path)
             .await
             .map_err(tool_error)?;
-        let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+        let b64 = k7s_deps::base64::engine::general_purpose::STANDARD.encode(&bytes);
         Ok(CallToolResult::success(vec![Content::text(b64)]))
     }
 
@@ -634,11 +634,11 @@
         &self,
         Parameters(p): Parameters<PodFileUploadParams>,
     ) -> Result<CallToolResult, McpError> {
-        use base64::Engine;
+        use k7s_deps::base64::Engine;
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let bytes = base64::engine::general_purpose::STANDARD
+        let bytes = k7s_deps::base64::engine::general_purpose::STANDARD
             .decode(&p.tar_b64)
             .map_err(|e| tool_error(AppError::Other(format!("base64 decode: {e}"))))?;
         let container = if p.container.is_empty() {
@@ -664,7 +664,7 @@
         Parameters(p): Parameters<ImportKubeconfigParams>,
     ) -> Result<CallToolResult, McpError> {
         let manager = self.manager();
-        let kc = kube::config::Kubeconfig::from_yaml(&p.contents)
+        let kc = k7s_deps::kube::config::Kubeconfig::from_yaml(&p.contents)
             .map_err(|e| tool_error(AppError::Kubeconfig(format!("parse kubeconfig: {e}"))))?;
         for ctx in &kc.contexts {
             let cluster = ctx

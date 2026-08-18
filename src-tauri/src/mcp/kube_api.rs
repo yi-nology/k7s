@@ -5,7 +5,7 @@
 //! This module is a near copy of the helpers in `web::handlers` (and a few
 //! from `commands`), trimmed of their Tauri-specific surface (`State<…>`,
 //! `Json<…>`, `tauri::AppHandle`) so the MCP server can call them directly
-//! with just a `kube::Client` and the manager's custom-kind registry. The
+//! with just a `k7s_deps::kube::Client` and the manager's custom-kind registry. The
 //! two implementations need to stay in sync — a kind that resolves here but
 //! not in the web shell would be a hidden half-feature.
 //!
@@ -16,11 +16,11 @@
 
 use crate::error::{AppError, AppResult};
 use crate::kube::{client, helm, manager::ClientManager, properties, ResourceKind};
-use k8s_openapi::api::core::v1::{Event, Secret};
-use kube::api::{Api, ApiResource, DynamicObject, ListParams, ObjectList};
-use kube::config::{Config, KubeConfigOptions, Kubeconfig};
-use kube::core::GroupVersionKind;
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
+use k7s_deps::kube::api::{Api, ApiResource, DynamicObject, ListParams, ObjectList};
+use k7s_deps::kube::config::{Config, KubeConfigOptions, Kubeconfig};
+use k7s_deps::kube::core::GroupVersionKind;
+use k7s_deps::kube::{Client, ResourceExt};
 use serde::Serialize;
 
 /// Alias for the k8s row DTO. The MCP server speaks rows for two places:
@@ -54,7 +54,7 @@ pub struct ConnectionSummary {
     pub version: String,
 }
 
-/// Get a `kube::Client` from the manager, or return a `Disconnected` error the
+/// Get a `k7s_deps::kube::Client` from the manager, or return a `Disconnected` error the
 /// tools can convert to a "call connect first" message.
 pub async fn require_client(manager: &ClientManager) -> AppResult<Client> {
     manager.client().await.ok_or(AppError::Disconnected)
@@ -184,10 +184,10 @@ fn summarise_object(obj: &DynamicObject) -> String {
 }
 
 /// Compact "5m" / "3h" / "2d" age string from any k8s timestamp. Mirrors
-/// `kube::mappers::humanize_duration` so the AI sees the same string the
+/// `k7s_deps::kube::mappers::humanize_duration` so the AI sees the same string the
 /// UI does — duplicated here to keep the MCP module free of Tauri deps.
-fn humanize_age_dt(t: &k8s_openapi::jiff::Timestamp) -> String {
-    let now = k8s_openapi::jiff::Timestamp::now().as_second();
+fn humanize_age_dt(t: &k7s_deps::k8s_openapi::jiff::Timestamp) -> String {
+    let now = k7s_deps::k8s_openapi::jiff::Timestamp::now().as_second();
     let secs = (now - t.as_second()).max(0);
     humanize_duration(secs)
 }
@@ -208,7 +208,7 @@ fn humanize_duration(mut secs: i64) -> String {
     format!("{}d{}", secs / 86_400, (secs % 86_400) / 3600)
 }
 
-fn conditions_summary(s: &serde_json::Map<String, serde_json::Value>) -> Option<String> {
+fn conditions_summary(s: &k7s_deps::serde_json::Map<String, k7s_deps::serde_json::Value>) -> Option<String> {
     let arr = s.get("conditions")?.as_array()?;
     let mut states: Vec<&str> = arr
         .iter()
@@ -244,7 +244,7 @@ pub async fn get_resource_yaml(
     if kind == "secrets" {
         redact_secret(&mut obj);
     }
-    Ok(serde_yaml::to_string(&obj)?)
+    Ok(k7s_deps::yaml_serde::to_string(&obj)?)
 }
 
 /// Build the Properties panel for an object — same gather the Tauri
@@ -255,10 +255,10 @@ pub async fn describe_resource(
     kind: &str,
     namespace: &str,
     name: &str,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(manager).await?;
     let properties = properties::gather(client, kind, namespace, name).await?;
-    serde_json::to_value(properties).map_err(|e| AppError::Other(e.to_string()))
+    k7s_deps::serde_json::to_value(properties).map_err(|e| AppError::Other(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -350,8 +350,8 @@ pub async fn pod_logs(
     previous: bool,
 ) -> AppResult<String> {
     let client = require_client(manager).await?;
-    let pods: Api<k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, namespace);
-    let mut lp = kube::api::LogParams {
+    let pods: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> = Api::namespaced(client, namespace);
+    let mut lp = k7s_deps::kube::api::LogParams {
         follow: false,
         previous,
         ..Default::default()
@@ -390,7 +390,7 @@ async fn list_helm_rows(client: Client, namespace: &str) -> Vec<ResourceSummary>
     };
 
     // Keep the latest revision per (name, namespace). Mirrors `latest_only`
-    // in `kube::helm`.
+    // in `k7s_deps::kube::helm`.
     use std::collections::HashMap;
     let mut latest: HashMap<(String, String), Row> = HashMap::new();
     for s in list {
@@ -599,9 +599,9 @@ pub async fn build_client_from_kubeconfig(
 
 pub fn redact_secret(obj: &mut DynamicObject) {
     for field in ["data", "stringData"] {
-        if let Some(serde_json::Value::Object(map)) = obj.data.get_mut(field) {
+        if let Some(k7s_deps::serde_json::Value::Object(map)) = obj.data.get_mut(field) {
             for v in map.values_mut() {
-                if let serde_json::Value::String(s) = v {
+                if let k7s_deps::serde_json::Value::String(s) = v {
                     *s = format!("<redacted: {} bytes>", s.len());
                 }
             }
@@ -624,11 +624,11 @@ pub async fn exec_capture(
     container: Option<&str>,
     argv: Vec<String>,
 ) -> AppResult<String> {
-    use k8s_openapi::api::core::v1::Pod;
+    use k7s_deps::k8s_openapi::api::core::v1::Pod;
     use tokio::io::AsyncReadExt;
 
     let api: Api<Pod> = Api::namespaced(client.clone(), namespace);
-    let mut ap = kube::api::AttachParams::default()
+    let mut ap = k7s_deps::kube::api::AttachParams::default()
         .stdin(false)
         .stdout(true)
         .stderr(true)
@@ -730,7 +730,7 @@ pub async fn rollout_status(
     let (api, _) = dynamic_api(client, kind, namespace, manager).await?;
     let obj = api.get(name).await?;
     let status = obj.data.get("status").cloned().unwrap_or_default();
-    let s = serde_json::json!(status);
+    let s = k7s_deps::serde_json::json!(status);
 
     let i64_field = |key: &str| -> i64 { s.get(key).and_then(|v| v.as_i64()).unwrap_or(0) };
     let desired = i64_field("replicas");
@@ -869,7 +869,7 @@ pub async fn top_pods(client: &Client, namespace: Option<&str>) -> AppResult<Vec
         Some(ns) if !ns.is_empty() => format!("/apis/metrics.k8s.io/v1beta1/namespaces/{ns}/pods"),
         _ => "/apis/metrics.k8s.io/v1beta1/pods".to_string(),
     };
-    let req = http::Request::get(path)
+    let req = k7s_deps::http::Request::get(path)
         .body(Vec::new())
         .map_err(|e| AppError::Kube(e.to_string()))?;
     let list: MetricsList<PodMetric> = client.request(req).await?;
@@ -902,9 +902,9 @@ pub async fn top_pods(client: &Client, namespace: Option<&str>) -> AppResult<Vec
 
 /// Snapshot of node usage + capacity from metrics.k8s.io and the Node objects.
 pub async fn top_nodes(client: &Client) -> AppResult<Vec<TopNode>> {
-    use k8s_openapi::api::core::v1::Node;
+    use k7s_deps::k8s_openapi::api::core::v1::Node;
 
-    let req = http::Request::get("/apis/metrics.k8s.io/v1beta1/nodes")
+    let req = k7s_deps::http::Request::get("/apis/metrics.k8s.io/v1beta1/nodes")
         .body(Vec::new())
         .map_err(|e| AppError::Kube(e.to_string()))?;
     let list: MetricsList<NodeMetric> = client.request(req).await?;
@@ -983,7 +983,7 @@ pub struct ApiResourceInfo {
 
 /// Discover every resource the API server serves, like `kubectl api-resources`.
 pub async fn list_api_resources(client: &Client) -> AppResult<Vec<ApiResourceInfo>> {
-    let groups = kube::discovery::Discovery::new(client.clone())
+    let groups = k7s_deps::kube::discovery::Discovery::new(client.clone())
         .run()
         .await
         .map_err(|e| AppError::Kube(e.to_string()))?;
@@ -1012,7 +1012,7 @@ pub async fn list_api_resources(client: &Client) -> AppResult<Vec<ApiResourceInf
                 group: group.name().to_string(),
                 version: ar.version.clone(),
                 kind: ar.kind.clone(),
-                namespaced: caps.scope == kube::discovery::Scope::Namespaced,
+                namespaced: caps.scope == k7s_deps::kube::discovery::Scope::Namespaced,
                 verbs: caps.operations.clone(),
             });
         }
@@ -1028,13 +1028,13 @@ pub async fn list_api_resources(client: &Client) -> AppResult<Vec<ApiResourceInf
 /// Manually create a Job from a CronJob (like `kubectl create job
 /// --from=cronjob/<name>`). Returns the new Job's name.
 pub async fn trigger_cronjob(client: &Client, namespace: &str, name: &str) -> AppResult<String> {
-    use k8s_openapi::api::batch::v1::{CronJob, Job};
-    use k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference};
-    use kube::api::PostParams;
+    use k7s_deps::k8s_openapi::api::batch::v1::{CronJob, Job};
+    use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference};
+    use k7s_deps::kube::api::PostParams;
 
     let cj_api: Api<CronJob> = Api::namespaced(client.clone(), namespace);
     let cj = cj_api.get(name).await?;
-    let job_name = format!("{name}-manual-{}", chrono::Utc::now().timestamp());
+    let job_name = format!("{name}-manual-{}", k7s_deps::chrono::Utc::now().timestamp());
     let job = Job {
         metadata: ObjectMeta {
             name: Some(job_name.clone()),

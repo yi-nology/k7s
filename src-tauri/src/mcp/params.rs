@@ -558,7 +558,7 @@ pub struct SbomGetParams {
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BatchGetParams {
-    pub requests: Vec<serde_json::Value>,
+    pub requests: Vec<k7s_deps::serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, schemars::JsonSchema)]

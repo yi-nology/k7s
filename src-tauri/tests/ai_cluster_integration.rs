@@ -23,7 +23,7 @@ use std::sync::Once;
 static CRYPTO_INIT: Once = Once::new();
 fn ensure_crypto() {
     CRYPTO_INIT.call_once(|| {
-        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
     });
 }
 
@@ -68,7 +68,7 @@ async fn list_resources_returns_nodes() {
         .dispatch(
             "list_resources",
             &ctx,
-            serde_json::json!({ "kind": "nodes" }),
+            k7s_deps::serde_json::json!({ "kind": "nodes" }),
         )
         .await
         .expect("list_resources on nodes");
@@ -88,7 +88,7 @@ async fn get_cluster_health_runs() {
     };
     let reg = ToolRegistry::new();
     let res = reg
-        .dispatch("get_cluster_health", &ctx, serde_json::json!({}))
+        .dispatch("get_cluster_health", &ctx, k7s_deps::serde_json::json!({}))
         .await
         .expect("get_cluster_health");
     assert!(res.get("nodes_ready").is_some(), "res = {res}");
@@ -96,7 +96,7 @@ async fn get_cluster_health_runs() {
     assert!(res.get("pods_total").is_some(), "res = {res}");
     eprintln!(
         "[ai-integration] cluster health: {}",
-        serde_json::to_string_pretty(&res).unwrap()
+        k7s_deps::serde_json::to_string_pretty(&res).unwrap()
     );
 }
 
@@ -109,14 +109,14 @@ async fn diagnose_unhealthy_runs() {
     };
     let reg = ToolRegistry::new();
     let res = reg
-        .dispatch("diagnose_unhealthy", &ctx, serde_json::json!({}))
+        .dispatch("diagnose_unhealthy", &ctx, k7s_deps::serde_json::json!({}))
         .await
         .expect("diagnose_unhealthy");
     // Returns a { problems: [...] } envelope even when healthy.
     assert!(res.get("problems").is_some());
     eprintln!(
         "[ai-integration] diagnose: {}",
-        serde_json::to_string_pretty(&res).unwrap()
+        k7s_deps::serde_json::to_string_pretty(&res).unwrap()
     );
 }
 

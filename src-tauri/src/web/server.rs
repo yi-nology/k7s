@@ -484,7 +484,7 @@ fn cors_layer(addr: SocketAddr) -> CorsLayer {
             match HeaderValue::from_str(trimmed) {
                 Ok(v) => origins.push(v),
                 Err(e) => {
-                    tracing::warn!("ignoring invalid K7S_ALLOWED_ORIGINS entry '{trimmed}': {e}")
+                    k7s_deps::tracing::warn!("ignoring invalid K7S_ALLOWED_ORIGINS entry '{trimmed}': {e}")
                 }
             }
         }
@@ -514,7 +514,7 @@ pub async fn serve(
     } else {
         "dev-api"
     };
-    tracing::info!("k7s-web ({mode}) listening on http://{addr} (MCP: /mcp)");
+    k7s_deps::tracing::info!("k7s-web ({mode}) listening on http://{addr} (MCP: /mcp)");
 
     // k7s-web exposes the full Kubernetes control surface (apply/delete/drain/
     // exec, plaintext Secret reads). Every `/api/invoke/*` and `/hooks/*`
@@ -527,14 +527,14 @@ pub async fn serve(
             .map(|t| t.trim().is_empty())
             .unwrap_or(true)
         {
-            tracing::warn!(
+            k7s_deps::tracing::warn!(
                 "⚠️  k7s-web is bound to {addr} (non-loopback) and K7S_WEB_TOKEN is not set. \
                  A random token was generated and written to the data dir, but on a \
                  non-loopback bind you cannot read it via /api/web-token (that route is \
                  loopback-only). Set K7S_WEB_TOKEN explicitly so your clients know it."
             );
         }
-        tracing::warn!(
+        k7s_deps::tracing::warn!(
             "⚠️  k7s-web on {addr} is network-reachable. Any client that can reach this \
              port AND has the token has full cluster control. Prefer binding to 127.0.0.1 \
              or sitting behind an authenticating reverse proxy."

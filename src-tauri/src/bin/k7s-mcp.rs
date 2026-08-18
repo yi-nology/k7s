@@ -37,26 +37,26 @@ use k7s_lib::mcp::K7sMcpServer;
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     // Install the rustls crypto provider before any TLS connections.
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
 
     // Match the Tauri shell's default level so logs feel familiar; the host
     // sees the same severity structure as its own MCP servers.
-    tracing_subscriber::fmt()
+    k7s_deps::tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            k7s_deps::tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| k7s_deps::tracing_subscriber::EnvFilter::new("info")),
         )
         .with_writer(std::io::stderr)
         .init();
 
     let data_dir = default_data_dir();
     if let Err(e) = std::fs::create_dir_all(&data_dir) {
-        tracing::warn!("could not create {}: {e}", data_dir.display());
+        k7s_deps::tracing::warn!("could not create {}: {e}", data_dir.display());
     }
 
     let server = K7sMcpServer::new(data_dir);
     if let Err(e) = k7s_lib::mcp::server::serve_stdio(server).await {
-        tracing::error!("k7s-mcp exiting: {e}");
+        k7s_deps::tracing::error!("k7s-mcp exiting: {e}");
         return Err(std::io::Error::other(e.to_string()));
     }
     Ok(())

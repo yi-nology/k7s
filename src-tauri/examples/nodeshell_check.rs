@@ -19,14 +19,14 @@
 //! carries `activeDeadlineSeconds` as a backstop.
 
 use k7s_lib::kube::nodeshell;
-use k8s_openapi::api::core::v1::{Node, Pod};
-use kube::api::{Api, AttachParams, DeleteParams, ListParams, PostParams};
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::{Node, Pod};
+use k7s_deps::kube::api::{Api, AttachParams, DeleteParams, ListParams, PostParams};
+use k7s_deps::kube::{Client, ResourceExt};
 use tokio::io::AsyncReadExt;
 
 /// First node reporting Ready. A NotReady node never starts the pod, so pointing
 /// the check at one would prove nothing about the feature.
-async fn ready_node(client: &Client) -> anyhow::Result<String> {
+async fn ready_node(client: &Client) -> k7s_deps::anyhow::Result<String> {
     let nodes: Api<Node> = Api::all(client.clone());
     for node in nodes.list(&ListParams::default()).await?.items {
         let ready = node
@@ -39,11 +39,11 @@ async fn ready_node(client: &Client) -> anyhow::Result<String> {
             return Ok(node.name_any());
         }
     }
-    anyhow::bail!("no Ready node to test against")
+    k7s_deps::anyhow::bail!("no Ready node to test against")
 }
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let for_real = std::env::args().any(|a| a == "--for-real");
     let client = Client::try_default().await?;
     let node = ready_node(&client).await?;
@@ -120,11 +120,11 @@ async fn main() -> anyhow::Result<()> {
         }
     }
     outcome?;
-    anyhow::bail!("pod {name} still exists after delete — clean it up by hand")
+    k7s_deps::anyhow::bail!("pod {name} still exists after delete — clean it up by hand")
 }
 
 /// Wait for Running, then prove the shell really escapes into the host.
-async fn run_live_checks(api: &Api<Pod>, name: &str, node: &str) -> anyhow::Result<()> {
+async fn run_live_checks(api: &Api<Pod>, name: &str, node: &str) -> k7s_deps::anyhow::Result<()> {
     for i in 0..120 {
         let pod = api.get(name).await?;
         let phase = pod.status.and_then(|s| s.phase).unwrap_or_default();
@@ -133,7 +133,7 @@ async fn run_live_checks(api: &Api<Pod>, name: &str, node: &str) -> anyhow::Resu
             break;
         }
         if i == 119 {
-            anyhow::bail!("pod never reached Running (last phase: {phase})");
+            k7s_deps::anyhow::bail!("pod never reached Running (last phase: {phase})");
         }
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
@@ -176,13 +176,13 @@ async fn run_live_checks(api: &Api<Pod>, name: &str, node: &str) -> anyhow::Resu
 }
 
 /// Run a command in the debug container and collect its stdout.
-async fn exec_capture(api: &Api<Pod>, name: &str, cmd: Vec<&str>) -> anyhow::Result<String> {
+async fn exec_capture(api: &Api<Pod>, name: &str, cmd: Vec<&str>) -> k7s_deps::anyhow::Result<String> {
     let ap = AttachParams::default()
         .stdout(true)
         .stderr(false)
         .container("debug");
     let mut proc = api.exec(name, cmd, &ap).await?;
-    let mut stdout = proc.stdout().ok_or_else(|| anyhow::anyhow!("no stdout"))?;
+    let mut stdout = proc.stdout().ok_or_else(|| k7s_deps::anyhow::anyhow!("no stdout"))?;
     let mut buf = String::new();
     stdout.read_to_string(&mut buf).await?;
     Ok(buf)

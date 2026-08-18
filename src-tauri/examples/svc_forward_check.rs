@@ -13,12 +13,12 @@
 //! naming a pod.
 
 use k7s_lib::kube::portforward;
-use kube::Client;
+use k7s_deps::kube::Client;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{mpsc, oneshot};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     // ---- resolution ----
@@ -64,7 +64,7 @@ async fn main() -> anyhow::Result<()> {
         err_tx,
     ));
 
-    let local = ready_rx.await?.map_err(anyhow::Error::msg)?;
+    let local = ready_rx.await?.map_err(k7s_deps::anyhow::Error::msg)?;
     println!("listening on localhost:{local}");
 
     let mut sock = tokio::net::TcpStream::connect(("127.0.0.1", local)).await?;

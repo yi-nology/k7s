@@ -6,13 +6,13 @@
 //! logic the Tauri shell uses.
 
 use axum::{extract::State, Json};
-use kube::ResourceExt;
+use k7s_deps::kube::ResourceExt;
 
 use crate::core::shell_common;
 use crate::error::{AppError, AppResult};
 use crate::kube::properties;
-use k8s_openapi::api::core::v1::{Event, Secret};
-use kube::api::{Api, ListParams};
+use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
+use k7s_deps::kube::api::{Api, ListParams};
 
 use super::handlers::core_client;
 use super::state::WebState;
@@ -123,7 +123,7 @@ pub async fn get_events(
             // missing timestamp can't crash the comparator.
             e.last_timestamp
                 .as_deref()
-                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .and_then(|s| k7s_deps::chrono::DateTime::parse_from_rfc3339(s).ok())
                 .map(|dt| dt.timestamp_millis())
                 .unwrap_or(0)
         });
@@ -406,11 +406,11 @@ pub async fn diagnose_pod(
     State(state): State<WebState>,
     Json(args): Json<DiagnosePodArgs>,
 ) -> axum::response::Response {
-    let result: AppResult<serde_json::Value> = (|| async {
+    let result: AppResult<k7s_deps::serde_json::Value> = (|| async {
         let client = core_client(&state.core).await?;
         let diagnosis =
             crate::kube::pod_diagnosis::diagnose_pod(client, &args.namespace, &args.pod).await?;
-        serde_json::to_value(diagnosis)
+        k7s_deps::serde_json::to_value(diagnosis)
             .map_err(|e| AppError::Other(format!("serialize error: {e}")))
     })()
     .await;
@@ -476,7 +476,7 @@ pub async fn helm_values_revision(
     State(state): State<WebState>,
     Json(args): Json<HelmValuesRevisionArgs>,
 ) -> axum::response::Response {
-    let result: AppResult<serde_json::Value> = (|| async {
+    let result: AppResult<k7s_deps::serde_json::Value> = (|| async {
         let client = core_client(&state.core).await?;
         crate::kube::helm::helm_values_revision(client, &args.namespace, &args.name, args.revision)
             .await

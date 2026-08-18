@@ -6,6 +6,8 @@ members = [
 ]
 exclude = [
     "crates/k7s-deps",
+    # Standalone probe binary with its own lockfile — not part of the workspace.
+    "crates/probe",
 ]
 
 [profile.release]

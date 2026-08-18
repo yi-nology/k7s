@@ -16,9 +16,11 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # --- k7s core (transport-agnostic business logic) ---
-# Provides: kube, serde, tokio, reqwest, chrono, uuid, tracing, thiserror,
-# anyhow, keyring, dirs, and all K8s/AI/core logic.
 k7s-core = { path = "../crates/k7s-core", features = ["tauri"] }
+
+# --- Shared dependencies (unified via k7s-deps re-exports) ---
+# Points at the in-repo submodule; the workspace stays self-contained.
+k7s-deps = { path = "../crates/k7s-deps" }
 
 # --- Tauri shell ---
 tauri = { version = "2", features = [] }
@@ -26,38 +28,19 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-window-state = "2"
 
-# --- Shell-specific dependencies (not in k7s-core) ---
-# tokio "signal" feature: SIGTERM handler for window-state save on dev/run.sh kill.
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "signal", "sync", "time"] }
-# tracing-subscriber: used by lib.rs::run() to init structured logging.
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-# Crates used directly by commands/web/mcp modules (via `use kube::*`, etc.)
+# --- Proc-macro dependencies (must be in extern prelude) ---
+# serde: #[derive(Serialize)] generates code that references serde::Serialize
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-serde_yaml = "0.9"
-kube = { version = "4", features = ["client", "config", "runtime", "ws"] }
-k8s-openapi = { version = "0.28", features = ["latest"] }
-tracing = "0.1"
-anyhow = "1"
+# thiserror: #[derive(Error)] generates code that references thiserror
 thiserror = "2"
-reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
-rustls = { version = "0.23", features = ["aws-lc-rs"] }
-chrono = { version = "0.4", features = ["serde"] }
-uuid = { version = "1", features = ["v4"] }
-async-trait = "0.1"
-keyring = "4"
-dirs = "5"
-http = "1"
-base64 = "0.23"
-futures = "0.3"
-rand = "0.10"
-tokio-stream = { version = "0.1", features = ["sync"] }
+# tokio: #[tokio::main] / #[tokio::test] generate code that references tokio.
+# "signal" feature: SIGTERM handler for window-state save on dev/run.sh kill.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "signal", "sync", "time"] }
 
 # --- Web mode (axum HTTP server, k7s-web binary) ---
 axum = { version = "0.8", optional = true }
 tower = { version = "0.5", optional = true }
 tower-http = { version = "0.6", features = ["cors", "trace", "fs"], optional = true }
-async-stream = "0.3"
 rust-embed = { version = "8", optional = true }
 open = { version = "5", optional = true }
 mime_guess = { version = "2", optional = true }

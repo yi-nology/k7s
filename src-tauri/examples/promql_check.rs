@@ -7,12 +7,12 @@
 //! is a chart that opens populated, so empty-but-successful is a failure here.
 
 use k7s_lib::kube::promql;
-use k8s_openapi::api::core::v1::Node;
-use kube::api::{Api, ListParams};
-use kube::{Client, ResourceExt};
+use k7s_deps::k8s_openapi::api::core::v1::Node;
+use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::{Client, ResourceExt};
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> k7s_deps::anyhow::Result<()> {
     let client = Client::try_default().await?;
 
     let Some(svc) = promql::discover(&client).await else {
@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         .expect("a Ready node");
     let name = ready.name_any();
 
-    let now = chrono::Utc::now().timestamp();
+    let now = k7s_deps::chrono::Utc::now().timestamp();
     let samples = promql::node_history(&client, &svc, &name, now, 3600, 30).await?;
     println!(
         "node {name}: {} backfilled sample(s) over the last hour\n",

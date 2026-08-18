@@ -20,13 +20,13 @@ async fn main() -> std::io::Result<()> {
     // Install the rustls crypto provider before any TLS connections are made.
     // The desktop binary gets this for free from Tauri's startup; the web
     // binary needs it explicitly.
-    let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+    let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
 
     // Match the Tauri shell's default level so logs feel familiar.
-    tracing_subscriber::fmt()
+    k7s_deps::tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            k7s_deps::tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| k7s_deps::tracing_subscriber::EnvFilter::new("info")),
         )
         .init();
 
@@ -44,13 +44,13 @@ async fn main() -> std::io::Result<()> {
     // Where prefs and any future state lives.
     let data_dir = default_data_dir();
     if let Err(e) = std::fs::create_dir_all(&data_dir) {
-        tracing::warn!("could not create {}: {e}", data_dir.display());
+        k7s_deps::tracing::warn!("could not create {}: {e}", data_dir.display());
     }
 
     // Validate --static if given.
     if let Some(dir) = &args.static_dir {
         if !dir.join("index.html").exists() {
-            tracing::error!(
+            k7s_deps::tracing::error!(
                 "{} does not contain index.html — did you `npm run build`?",
                 dir.display()
             );
@@ -66,7 +66,7 @@ async fn main() -> std::io::Result<()> {
 
     // Print the access URL prominently.
     let url = format!("http://{addr}");
-    tracing::info!("k7s-web listening on {url}");
+    k7s_deps::tracing::info!("k7s-web listening on {url}");
     println!();
     println!("  k7s-web is running at: {url}");
     println!();
@@ -74,7 +74,7 @@ async fn main() -> std::io::Result<()> {
     // ── Auto-open browser ────────────────────────────────────────────
     if !args.no_open {
         if let Err(e) = open::that(&url) {
-            tracing::warn!("failed to open browser: {e}");
+            k7s_deps::tracing::warn!("failed to open browser: {e}");
         }
     }
 
@@ -85,7 +85,7 @@ async fn main() -> std::io::Result<()> {
             result?;
         }
         _ = tokio::signal::ctrl_c() => {
-            tracing::info!("Ctrl+C received, shutting down");
+            k7s_deps::tracing::info!("Ctrl+C received, shutting down");
         }
     }
 
@@ -104,14 +104,14 @@ async fn pick_port(preferred: u16) -> SocketAddr {
     for port in (preferred + 1)..=(preferred + 100) {
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port);
         if StdTcpListener::bind(addr).is_ok() {
-            tracing::info!("port {preferred} busy, using {port}");
+            k7s_deps::tracing::info!("port {preferred} busy, using {port}");
             return addr;
         }
     }
     // Fall back to OS-assigned.
     let listener = StdTcpListener::bind("127.0.0.1:0").expect("bind to port 0");
     let addr = listener.local_addr().expect("get local addr");
-    tracing::info!("port {preferred}+ busy, OS assigned {addr}");
+    k7s_deps::tracing::info!("port {preferred}+ busy, OS assigned {addr}");
     addr
 }
 
@@ -161,7 +161,7 @@ fn parse_args() -> Args {
                 std::process::exit(0);
             }
             other => {
-                tracing::warn!("ignoring unknown arg: {other}");
+                k7s_deps::tracing::warn!("ignoring unknown arg: {other}");
             }
         }
     }

@@ -197,10 +197,10 @@
         let client = kube_api::require_client(&self.manager())
             .await
             .map_err(tool_error)?;
-        let mut issues: Vec<serde_json::Value> = Vec::new();
+        let mut issues: Vec<k7s_deps::serde_json::Value> = Vec::new();
 
         // Check nodes
-        let nodes: Vec<k8s_openapi::api::core::v1::Node> = kube::Api::all(client.clone())
+        let nodes: Vec<k7s_deps::k8s_openapi::api::core::v1::Node> = k7s_deps::kube::Api::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
@@ -210,7 +210,7 @@
             if let Some(conds) = conditions {
                 for c in conds {
                     if c.type_ == "Ready" && c.status != "True" {
-                        issues.push(serde_json::json!({
+                        issues.push(k7s_deps::serde_json::json!({
                             "severity": "critical", "kind": "Node", "name": name,
                             "issue": "NotReady", "message": c.message.as_deref().unwrap_or("")
                         }));
@@ -218,7 +218,7 @@
                     if (c.type_ == "DiskPressure" || c.type_ == "MemoryPressure")
                         && c.status == "True"
                     {
-                        issues.push(serde_json::json!({
+                        issues.push(k7s_deps::serde_json::json!({
                             "severity": "warning", "kind": "Node", "name": name,
                             "issue": c.type_, "message": c.message.as_deref().unwrap_or("")
                         }));
@@ -228,8 +228,8 @@
         }
 
         // Check pods
-        let pods: Vec<k8s_openapi::api::core::v1::Pod> =
-            kube::Api::<k8s_openapi::api::core::v1::Pod>::all(client.clone())
+        let pods: Vec<k7s_deps::k8s_openapi::api::core::v1::Pod> =
+            k7s_deps::kube::Api::<k7s_deps::k8s_openapi::api::core::v1::Pod>::all(client.clone())
                 .list(&Default::default())
                 .await
                 .map_err(tool_error)?;
@@ -255,7 +255,7 @@
                                 || reason == "ImagePullBackOff"
                                 || reason == "ErrImagePull"
                             {
-                                issues.push(serde_json::json!({
+                                issues.push(k7s_deps::serde_json::json!({
                                     "severity": "critical", "kind": "Pod",
                                     "name": format!("{}/{}", pod.metadata.namespace.as_deref().unwrap_or(""), pod.metadata.name.as_deref().unwrap_or("?")),
                                     "issue": reason,
@@ -268,15 +268,15 @@
             }
         }
         if failed_count > 0 {
-            issues.push(serde_json::json!({
+            issues.push(k7s_deps::serde_json::json!({
                 "severity": "warning", "kind": "Pods", "name": "cluster-wide",
                 "issue": "FailedPods", "message": format!("{failed_count} pods in Failed phase")
             }));
         }
 
         // Check deployments
-        let deployments: Vec<k8s_openapi::api::apps::v1::Deployment> =
-            kube::Api::all(client.clone())
+        let deployments: Vec<k7s_deps::k8s_openapi::api::apps::v1::Deployment> =
+            k7s_deps::kube::Api::all(client.clone())
                 .list(&Default::default())
                 .await
                 .map_err(tool_error)?;
@@ -290,7 +290,7 @@
                 .and_then(|s| s.ready_replicas)
                 .unwrap_or(0);
             if ready < spec_replicas {
-                issues.push(serde_json::json!({
+                issues.push(k7s_deps::serde_json::json!({
                     "severity": "warning", "kind": "Deployment",
                     "name": format!("{ns}/{name}"),
                     "issue": "Unavailable",
@@ -299,7 +299,7 @@
             }
         }
 
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "totalIssues": issues.len(),
             "issues": issues
         }))
@@ -322,15 +322,15 @@
         let yaml = kube_api::get_resource_yaml(&client, &kind_id, ns, &p.name)
             .await
             .map_err(tool_error)?;
-        let val: serde_json::Value =
-            serde_yaml::from_str(&yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
+        let val: k7s_deps::serde_json::Value =
+            k7s_deps::yaml_serde::from_str(&yaml).map_err(|e| tool_error(AppError::Other(e.to_string())))?;
 
         // Get events
         let events = kube_api::get_object_events(&client, &kind_id, ns, &p.name)
             .await
             .unwrap_or_default();
 
-        let mut suggestions: Vec<serde_json::Value> = Vec::new();
+        let mut suggestions: Vec<k7s_deps::serde_json::Value> = Vec::new();
 
         // Check container statuses for common issues
         if let Some(statuses) = val
@@ -343,16 +343,16 @@
                     let reason = waiting.get("reason").and_then(|r| r.as_str()).unwrap_or("");
                     match reason {
                         "CrashLoopBackOff" => {
-                            suggestions.push(serde_json::json!({
+                            suggestions.push(k7s_deps::serde_json::json!({
                                 "action": "check_logs", "description": "Container is crash-looping. Check logs for the exit reason.",
                                 "command": format!("kubectl logs {}/{} --previous", ns, p.name)
                             }));
-                            suggestions.push(serde_json::json!({
+                            suggestions.push(k7s_deps::serde_json::json!({
                                 "action": "rollback", "description": "If this started after a recent change, rollback to the previous revision."
                             }));
                         }
                         "ImagePullBackOff" | "ErrImagePull" => {
-                            suggestions.push(serde_json::json!({
+                            suggestions.push(k7s_deps::serde_json::json!({
                                 "action": "check_image", "description": "Image pull failed. Verify the image name, tag, and registry credentials."
                             }));
                         }
@@ -362,7 +362,7 @@
                                 .and_then(|r| r.as_str())
                                 == Some("OOMKilled") =>
                         {
-                            suggestions.push(serde_json::json!({
+                            suggestions.push(k7s_deps::serde_json::json!({
                                 "action": "increase_memory", "description": "Container was OOMKilled. Increase memory limits in the pod spec."
                             }));
                         }
@@ -375,19 +375,19 @@
         // Check for warning events
         let warning_events: Vec<_> = events.iter().filter(|e| e.0 == "Warning").collect();
         if !warning_events.is_empty() {
-            suggestions.push(serde_json::json!({
+            suggestions.push(k7s_deps::serde_json::json!({
                 "action": "check_events",
                 "description": format!("{} warning event(s) found. Most recent: {}", warning_events.len(), warning_events.first().map(|e| e.2.as_str()).unwrap_or(""))
             }));
         }
 
         if suggestions.is_empty() {
-            suggestions.push(serde_json::json!({
+            suggestions.push(k7s_deps::serde_json::json!({
                 "action": "none", "description": "No obvious issues detected. The resource appears healthy."
             }));
         }
 
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "kind": kind_id, "name": p.name, "namespace": ns,
             "suggestions": suggestions
         }))
@@ -406,7 +406,7 @@
         let results = kube_api::list_resources(&manager, &kind_id, ns, Some(&p.selector))
             .await
             .map_err(tool_error)?;
-        json_result(&serde_json::json!({ "count": results.len(), "items": results }))
+        json_result(&k7s_deps::serde_json::json!({ "count": results.len(), "items": results }))
     }
 
     #[tool(
@@ -416,7 +416,7 @@
         &self,
         Parameters(p): Parameters<CreateSilenceParams>,
     ) -> Result<CallToolResult, McpError> {
-        let ends_at = (chrono::Utc::now() + chrono::Duration::hours(p.duration_hours.unwrap_or(4)))
+        let ends_at = (k7s_deps::chrono::Utc::now() + k7s_deps::chrono::Duration::hours(p.duration_hours.unwrap_or(4)))
             .to_rfc3339();
         let request = alerting::CreateSilenceRequest {
             matchers: p
@@ -436,7 +436,7 @@
         let id = alerting::create_silence(&p.instance, &request)
             .await
             .map_err(tool_error)?;
-        json_result(&serde_json::json!({ "silenceId": id }))
+        json_result(&k7s_deps::serde_json::json!({ "silenceId": id }))
     }
 
     #[tool(
@@ -449,7 +449,7 @@
         alerting::delete_silence(&p.instance, &p.silence_id)
             .await
             .map_err(tool_error)?;
-        json_result(&serde_json::json!({ "deleted": true }))
+        json_result(&k7s_deps::serde_json::json!({ "deleted": true }))
     }
 
     #[tool(
@@ -507,16 +507,16 @@
             .await
             .map_err(tool_error)?;
 
-        let nodes: Vec<k8s_openapi::api::core::v1::Node> = kube::Api::all(client.clone())
+        let nodes: Vec<k7s_deps::k8s_openapi::api::core::v1::Node> = k7s_deps::kube::Api::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
-        let pods: Vec<k8s_openapi::api::core::v1::Pod> = kube::Api::all(client.clone())
+        let pods: Vec<k7s_deps::k8s_openapi::api::core::v1::Pod> = k7s_deps::kube::Api::all(client.clone())
             .list(&Default::default())
             .await
             .map_err(tool_error)?;
-        let deployments: Vec<k8s_openapi::api::apps::v1::Deployment> =
-            kube::Api::all(client.clone())
+        let deployments: Vec<k7s_deps::k8s_openapi::api::apps::v1::Deployment> =
+            k7s_deps::kube::Api::all(client.clone())
                 .list(&Default::default())
                 .await
                 .map_err(tool_error)?;
@@ -542,7 +542,7 @@
         let total_nodes = nodes.items.len();
         let total_pods = pods.items.len();
 
-        json_result(&serde_json::json!({
+        json_result(&k7s_deps::serde_json::json!({
             "nodes": { "ready": ready_nodes, "total": total_nodes },
             "pods": { "running": running_pods, "total": total_pods },
             "deployments": deployments.items.len(),
