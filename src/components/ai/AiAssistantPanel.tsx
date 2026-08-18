@@ -27,6 +27,7 @@ import { MemoryPanel } from './MemoryPanel';
 import { CronPanel } from './CronPanel';
 import { useTranslation } from '../../hooks/useI18n';
 import styles from './AiAssistantPanel.module.css';
+import { ToolCallCard } from './ToolCallCard';
 
 type Tab = 'chat' | 'skills' | 'memory' | 'cron';
 
@@ -341,62 +342,7 @@ export function AiAssistantPanel({ selectedContext, onClose }: Props) {
   );
 }
 
-/** A tool call rendered as a compact card with optional approval buttons. */
-function ToolCallCard({
-  name,
-  args,
-  isWrite,
-  state,
-  result,
-  onApprove,
-}: {
-  name: string;
-  args: unknown;
-  isWrite: boolean;
-  state: 'running' | 'ok' | 'err' | 'pending' | 'denied';
-  result?: unknown;
-  onApprove?: (approved: boolean) => void;
-}) {
-  const { t } = useTranslation();
-  const stateLabel = {
-    running: t('ai.chat.toolRunning'),
-    ok: t('ai.chat.toolDone'),
-    err: t('ai.chat.toolFailed'),
-    pending: t('ai.chat.toolAwaiting'),
-    denied: t('ai.chat.toolDenied'),
-  }[state];
-  return (
-    <div className={`${styles.toolCard} ${styles[`tool_${state}`]}`}>
-      <div className={styles.toolHeader}>
-        <span className={styles.toolIcon}>{isWrite ? '✎' : '👁'}</span>
-        <span className={styles.toolName}>{name}</span>
-        <span className={styles.toolState}>{stateLabel}</span>
-      </div>
-      <pre className={styles.toolArgs}>{JSON.stringify(args, null, 2)}</pre>
-      {state === 'pending' && onApprove && (
-        <div className={styles.approvalBar}>
-          <button
-            type="button"
-            className={styles.approveBtn}
-            onClick={() => onApprove(true)}
-          >
-            {t('ai.chat.approve')}
-          </button>
-          <button
-            type="button"
-            className={styles.denyBtn}
-            onClick={() => onApprove(false)}
-          >
-            {t('ai.chat.deny')}
-          </button>
-        </div>
-      )}
-      {result !== undefined && (
-        <pre className={styles.toolResult}>{JSON.stringify(result, null, 2)}</pre>
-      )}
-    </div>
-  );
-}
+// ToolCallCard component imported from ./ToolCallCard.tsx
 
 // Re-export for the settings panel to load config.
 export type { AiConfigView, OutgoingToolCall };
