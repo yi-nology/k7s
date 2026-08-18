@@ -91,6 +91,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "argon2"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c3610892ee6e0cbce8ae2700349fcf8f98adb0dbfbee85aec3c9179d29cc072"
+dependencies = [
+ "base64ct",
+ "blake2",
+ "cpufeatures 0.2.17",
+ "password-hash",
+]
+
+[[package]]
 name = "arraydeque"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -360,6 +372,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
+name = "base64ct"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -370,6 +388,15 @@ name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
+
+[[package]]
+name = "blake2"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
+dependencies = [
+ "digest 0.10.7",
+]
 
 [[package]]
 name = "block-buffer"
@@ -1633,47 +1660,12 @@ dependencies = [
 [[package]]
 name = "k7s-core"
 version = "0.3.6"
-source = "git+ssh://git@github.com/yi-nology/k7s-core.git#7138535065e26317c00ceac33f984251a93352ce"
+source = "git+https://github.com/yi-nology/k7s-core.git#7138535065e26317c00ceac33f984251a93352ce"
 dependencies = [
- "k7s-deps 0.1.0 (git+https://github.com/yi-nology/k7s-deps.git)",
+ "k7s-deps",
  "serde",
  "thiserror 2.0.20",
  "tokio",
-]
-
-[[package]]
-name = "k7s-deps"
-version = "0.1.0"
-source = "git+ssh://git@github.com/yi-nology/k7s-deps.git#1b331abf3b342f6dfc1e79b733de29d1f0f11adf"
-dependencies = [
- "anyhow",
- "async-stream",
- "async-trait",
- "base64 0.23.1",
- "chrono",
- "dirs",
- "dunce",
- "flate2",
- "futures",
- "http",
- "jiff",
- "k8s-openapi",
- "keyring",
- "kube",
- "rand 0.10.2",
- "regex",
- "reqwest",
- "rustls",
- "serde",
- "serde_json",
- "thiserror 2.0.20",
- "tokio",
- "tokio-stream",
- "tracing",
- "tracing-subscriber",
- "urlencoding",
- "uuid",
- "yaml_serde",
 ]
 
 [[package]]
@@ -1713,11 +1705,12 @@ dependencies = [
 
 [[package]]
 name = "k7s-server"
-version = "0.3.6"
+version = "0.3.8"
 dependencies = [
+ "argon2",
  "axum",
  "k7s-core",
- "k7s-deps 0.1.0 (git+ssh://git@github.com/yi-nology/k7s-deps.git)",
+ "k7s-deps",
  "mime_guess",
  "open",
  "rmcp",
@@ -2148,6 +2141,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "password-hash"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "346f04948ba92c43e8469c1ee6736c7563d71012b17d40745260fe106aac2166"
+dependencies = [
+ "base64ct",
+ "rand_core 0.6.4",
+ "subtle",
+]
+
+[[package]]
 name = "pastey"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2426,6 +2430,15 @@ checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
 dependencies = [
  "ppv-lite86",
  "rand_core 0.9.5",
+]
+
+[[package]]
+name = "rand_core"
+version = "0.6.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
+dependencies = [
+ "getrandom 0.2.17",
 ]
 
 [[package]]

@@ -101,11 +101,15 @@ pub async fn require_token(
     next: Next,
 ) -> Response {
     let path = req.uri().path();
-    // Public, side-effect-free endpoints — no auth required.
+    // Public, side-effect-free endpoints — no auth required. `/api/auth/*`
+    // are the password-gate endpoints themselves (status/setup/login/logout);
+    // they can't require what they issue. Static assets bypass this layer
+    // entirely (the `ServeDir`/embedded fallback is attached after it).
     let is_public = matches!(
         path,
         "/api/health" | "/health" | "/api/status" | "/api/events"
-    ) || (state.is_loopback && path == "/api/web-token");
+    ) || (state.is_loopback && path == "/api/web-token")
+        || path.starts_with("/api/auth/");
     if is_public {
         return next.run(req).await;
     }
@@ -128,6 +132,10 @@ pub async fn require_token(
     };
     if ok {
         next.run(req).await
+    } else if cookie_session(&req, &state).is_some() {
+        // Session cookie fallback: password login gate (P1). Loopback without
+        // a configured password keeps the original token-only behavior.
+        next.run(req).await
     } else {
         (
             StatusCode::UNAUTHORIZED,
@@ -135,6 +143,24 @@ pub async fn require_token(
         )
             .into_response()
     }
+}
+
+/// True when the request carries a live `k7s_session` cookie (sliding-renewal
+/// check lives in [`super::auth_password::PasswordAuth::check_session`]).
+fn cookie_session(req: &Request<Body>, state: &WebState) -> Option<()> {
+    let raw = req.headers().get(k7s_deps::http::header::COOKIE)?.to_str().ok()?;
+    let name = format!("{}=", super::auth_password::PasswordAuth::cookie_name());
+    let token = raw
+        .split(';')
+        .map(str::trim)
+        .find(|c| c.starts_with(&name))?
+        .strip_prefix(&name)?;
+    state
+        .password_auth
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .check_session(token)
+        .then_some(())
 }
 
 #[cfg(test)]

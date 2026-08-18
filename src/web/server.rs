@@ -38,6 +38,7 @@ use tower_http::cors::CorsLayer;
 use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
+use super::auth_password;
 use super::handlers;
 use super::resource_handlers;
 use super::shell_handlers;
@@ -401,6 +402,14 @@ pub fn api_router(state: WebState) -> Router {
         // self-serve it. The handler double-checks `is_loopback` and 404s
         // if the router is somehow reached on a non-loopback bind.
         .route("/api/web-token", get(handlers::web_token))
+        // Single-user password gate (P1): status/setup/login/logout. These
+        // are exempted from the bearer-token middleware inside
+        // `require_token` (`/api/auth/*` prefix) — they ARE the auth.
+        // Sessions are HttpOnly cookies; see `auth_password`.
+        .route("/api/auth/status", get(auth_password::auth_status))
+        .route("/api/auth/setup", post(auth_password::auth_setup))
+        .route("/api/auth/login", post(auth_password::auth_login))
+        .route("/api/auth/logout", post(auth_password::auth_logout))
         .with_state(state.clone())
         // Auth gate: every `/api/invoke/*` and `/hooks/*` request must carry
         // `Authorization: Bearer <token>`. Public endpoints (health/status/
