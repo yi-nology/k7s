@@ -141,6 +141,23 @@ export const en: Dictionary = {
     },
   },
 
+  auth: {
+    login: {
+      title: 'Sign in',
+      submit: 'Sign in',
+    },
+    setup: {
+      title: 'Set an access password',
+      hint: 'First run: set an admin password for this instance (8+ characters).',
+      submit: 'Save and continue',
+    },
+    err: {
+      configured: 'Password already configured — sign in instead',
+      short: 'Password must be at least 8 characters',
+      wrong: 'Wrong password',
+    },
+  },
+
   subnav: {
     group: {
       config: 'Configuration',

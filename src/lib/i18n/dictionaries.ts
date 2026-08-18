@@ -174,6 +174,26 @@ export interface Dictionary {
     };
   };
 
+  /** The web-mode login gate (Task 8) — first-run password setup and the
+   *  sign-in form shown when the k7s-web server requires a session. Desktop
+   *  (Tauri) never sees any of this copy. */
+  auth: {
+    login: {
+      title: string;
+      submit: string;
+    };
+    setup: {
+      title: string;
+      hint: string;
+      submit: string;
+    };
+    err: {
+      configured: string;
+      short: string;
+      wrong: string;
+    };
+  };
+
   /** The per-section SubNav (P1 IA) — group headings inside a section's kind
    *  tab strip, keyed by SECTION_SUBGROUPS group id ("subnav.group.config", …)
    *  plus 'custom' for the CRD group appended from useCustomKinds. */

@@ -146,6 +146,23 @@ export const zh: Dictionary = {
     },
   },
 
+  auth: {
+    login: {
+      title: '登录',
+      submit: '登录',
+    },
+    setup: {
+      title: '设置访问密码',
+      hint: '首次使用,请为这个实例设置一个管理密码(至少 8 位)。',
+      submit: '保存并进入',
+    },
+    err: {
+      configured: '密码已设置,请直接登录',
+      short: '密码至少 8 位',
+      wrong: '密码错误',
+    },
+  },
+
   subnav: {
     group: {
       config: '配置',

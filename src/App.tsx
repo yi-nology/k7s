@@ -15,6 +15,7 @@ import { useTheme } from './hooks/useTheme';
 import { useLocaleSync, useTranslation } from './hooks/useI18n';
 import { useErrorToast } from './hooks/useErrorToast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { LoginGate } from './components/auth/LoginGate';
 import { ErrorToast } from './components/common/ErrorToast';
 import { setErrorReporter } from './providers/errorHandler';
 import { Sidebar } from './components/sidebar/Sidebar';
@@ -136,129 +137,134 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <div className={styles.app}>
-        {/* iPadOS: scrim behind the sidebar drawer; click to close. */}
-        {sidebar.isMobile && sidebar.open && (
-          <div className={styles.sidebarScrim} onClick={sidebar.close} />
-        )}
-        <Sidebar open={sidebar.open} onClose={sidebar.close} onToggle={sidebar.toggle} />
-        <div className={styles.main}>
-          <TopBar onMenuToggle={sidebar.toggle} />
-          <div className={styles.content}>
-            {/* Section-based content routing (P1 IA): overview hosts the
-                Dashboard inline, tools hosts the ops-tool catalog, and the
-                three resource sections get the SubNav + table + detail panel.
-                Keep the section content mounted when an overlay opens — scroll
-                position, sort state, and selections survive the round-trip. */}
-            <div
-              className={styles.tableArea}
-              style={{ display: overlay === null ? 'flex' : 'none' }}
-            >
-              <div className={styles.sectionContent}>
-                {section === 'overview' ? (
+      {/* Web-mode auth gate (Task 8): passes children straight through on
+          desktop (Tauri) and while the auth status is unknown; only mounts
+          its form when the k7s-web server says authRequired. */}
+      <LoginGate>
+        <div className={styles.app}>
+          {/* iPadOS: scrim behind the sidebar drawer; click to close. */}
+          {sidebar.isMobile && sidebar.open && (
+            <div className={styles.sidebarScrim} onClick={sidebar.close} />
+          )}
+          <Sidebar open={sidebar.open} onClose={sidebar.close} onToggle={sidebar.toggle} />
+          <div className={styles.main}>
+            <TopBar onMenuToggle={sidebar.toggle} />
+            <div className={styles.content}>
+              {/* Section-based content routing (P1 IA): overview hosts the
+                  Dashboard inline, tools hosts the ops-tool catalog, and the
+                  three resource sections get the SubNav + table + detail panel.
+                  Keep the section content mounted when an overlay opens — scroll
+                  position, sort state, and selections survive the round-trip. */}
+              <div
+                className={styles.tableArea}
+                style={{ display: overlay === null ? 'flex' : 'none' }}
+              >
+                <div className={styles.sectionContent}>
+                  {section === 'overview' ? (
+                    <Suspense fallback={null}>
+                      <Dashboard />
+                    </Suspense>
+                  ) : section === 'tools' ? (
+                    <Suspense fallback={null}>
+                      <ToolsPage />
+                    </Suspense>
+                  ) : (
+                    <>
+                      <SubNav section={section} />
+                      <div className={styles.tableRow}>
+                        <ResourceTable />
+                        <DetailPanel />
+                      </div>
+                    </>
+                  )}
+                </div>
+                {aiOpen && AI_ENABLED && (
                   <Suspense fallback={null}>
-                    <Dashboard />
+                    <AiChat onClose={() => setAiOpen(false)} />
                   </Suspense>
-                ) : section === 'tools' ? (
-                  <Suspense fallback={null}>
-                    <ToolsPage />
-                  </Suspense>
-                ) : (
-                  <>
-                    <SubNav section={section} />
-                    <div className={styles.tableRow}>
-                      <ResourceTable />
-                      <DetailPanel />
-                    </div>
-                  </>
                 )}
               </div>
-              {aiOpen && AI_ENABLED && (
-                <Suspense fallback={null}>
-                  <AiChat onClose={() => setAiOpen(false)} />
-                </Suspense>
-              )}
-            </div>
-            {(() => {
-              if (overlay === null || overlay === 'pod-files') return null;
-              if (IPADOS_HIDDEN_OVERLAYS.has(overlay)) return null;
-              const Panel = overlayPanels[overlay];
-              if (!Panel) return null;
-              return (
+              {(() => {
+                if (overlay === null || overlay === 'pod-files') return null;
+                if (IPADOS_HIDDEN_OVERLAYS.has(overlay)) return null;
+                const Panel = overlayPanels[overlay];
+                if (!Panel) return null;
+                return (
+                  <div
+                    className={styles.overlayBackdrop}
+                    // Click the scrim (not the panel) → close. The same contract as
+                    // the settings modal and command palette, so every dismissible
+                    // surface in the app behaves identically: Esc, ×, or outside.
+                    onMouseDown={(e) => {
+                      if (e.target === e.currentTarget) closeOverlay();
+                    }}
+                  >
+                    <div className={styles.overlay} role="dialog" aria-modal="true">
+                      <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
+                        <Panel onClose={closeOverlay} />
+                      </Suspense>
+                    </div>
+                  </div>
+                );
+              })()}
+              {overlay === 'pod-files' && !IPADOS_HIDDEN_OVERLAYS.has('pod-files') && (
                 <div
                   className={styles.overlayBackdrop}
-                  // Click the scrim (not the panel) → close. The same contract as
-                  // the settings modal and command palette, so every dismissible
-                  // surface in the app behaves identically: Esc, ×, or outside.
                   onMouseDown={(e) => {
                     if (e.target === e.currentTarget) closeOverlay();
                   }}
                 >
                   <div className={styles.overlay} role="dialog" aria-modal="true">
                     <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
-                      <Panel onClose={closeOverlay} />
+                      {overlayPodRef ? (
+                        <PodFilesPanel
+                          ref={{
+                            kind: 'pods',
+                            namespace: overlayPodRef.namespace,
+                            name: overlayPodRef.name,
+                          }}
+                          container={overlayPodRef.container}
+                          onClose={closeOverlay}
+                        />
+                      ) : (
+                        // No pod picked yet — show a friendly empty state.
+                        <div className={styles.overlayEmpty}>
+                          {t('podFiles.noPod', "Open Pod Files from a Pod's row context menu.")}
+                        </div>
+                      )}
                     </Suspense>
                   </div>
                 </div>
-              );
-            })()}
-            {overlay === 'pod-files' && !IPADOS_HIDDEN_OVERLAYS.has('pod-files') && (
-              <div
-                className={styles.overlayBackdrop}
-                onMouseDown={(e) => {
-                  if (e.target === e.currentTarget) closeOverlay();
-                }}
+              )}
+            </div>
+            {/* Floating AI toggle — bottom-right of the content area. Hidden while
+                the panel is open (the panel has its own close button) and while a
+                feature overlay covers the table — the panel would open invisibly
+                behind it, and the click would look dead. */}
+            {!aiOpen && overlay === null && AI_ENABLED && (
+              <button
+                type="button"
+                className={styles.aiFab}
+                onClick={() => setAiOpen(true)}
+                aria-label={t('chrome.aiFab.open')}
+                title={t('chrome.aiFab.title')}
               >
-                <div className={styles.overlay} role="dialog" aria-modal="true">
-                  <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
-                    {overlayPodRef ? (
-                      <PodFilesPanel
-                        ref={{
-                          kind: 'pods',
-                          namespace: overlayPodRef.namespace,
-                          name: overlayPodRef.name,
-                        }}
-                        container={overlayPodRef.container}
-                        onClose={closeOverlay}
-                      />
-                    ) : (
-                      // No pod picked yet — show a friendly empty state.
-                      <div className={styles.overlayEmpty}>
-                        {t('podFiles.noPod', "Open Pod Files from a Pod's row context menu.")}
-                      </div>
-                    )}
-                  </Suspense>
-                </div>
-              </div>
+                ✦
+              </button>
             )}
+            <ForwardsBar />
+            <StatusBar />
           </div>
-          {/* Floating AI toggle — bottom-right of the content area. Hidden while
-              the panel is open (the panel has its own close button) and while a
-              feature overlay covers the table — the panel would open invisibly
-              behind it, and the click would look dead. */}
-          {!aiOpen && overlay === null && AI_ENABLED && (
-            <button
-              type="button"
-              className={styles.aiFab}
-              onClick={() => setAiOpen(true)}
-              aria-label={t('chrome.aiFab.open')}
-              title={t('chrome.aiFab.title')}
-            >
-              ✦
-            </button>
-          )}
-          <ForwardsBar />
-          <StatusBar />
+          {/* Modals, outside the layout flow. The palette is last so it layers over
+              everything — ⌘K works from anywhere, including the settings panel. */}
+          <SettingsPanel />
+          <CommandPalette />
+          <EditGuardDialog />
+          <ShortcutsHelpPanel />
+          {/* Error toasts — rendered above everything else. */}
+          <ErrorToast toasts={toasts} onDismiss={dismissToast} />
         </div>
-        {/* Modals, outside the layout flow. The palette is last so it layers over
-            everything — ⌘K works from anywhere, including the settings panel. */}
-        <SettingsPanel />
-        <CommandPalette />
-        <EditGuardDialog />
-        <ShortcutsHelpPanel />
-        {/* Error toasts — rendered above everything else. */}
-        <ErrorToast toasts={toasts} onDismiss={dismissToast} />
-      </div>
+      </LoginGate>
     </ErrorBoundary>
   );
 }
