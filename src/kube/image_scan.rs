@@ -645,6 +645,60 @@ struct LogLine<'a> {
 // Tests
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Scanner status types — used by web handlers and Tauri commands
+// ---------------------------------------------------------------------------
+
+/// Information about a single scanning engine.
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScannerEngineInfo {
+    /// Engine name: "trivy", "grype", or "native".
+    pub name: String,
+    /// Whether this engine is currently available (binary found or built-in).
+    pub available: bool,
+    /// Resolved binary path, or None for native (built-in).
+    pub path: Option<String>,
+    /// Whether the user can configure a custom path for this engine.
+    pub configurable: bool,
+    /// Source of the path: "configured" (user-set) or "auto-detected".
+    pub path_source: String,
+}
+
+/// Overall scanner status returned to the frontend.
+#[derive(Clone, Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScannerStatus {
+    /// All known engines, in fallback priority order.
+    pub engines: Vec<ScannerEngineInfo>,
+    /// The engine that would be used for the next scan: "trivy", "grype", or "native".
+    pub active_engine: String,
+    /// Configured timeout (e.g. "5m"), or the default.
+    pub timeout: String,
+}
+
+/// Resolve the trivy path: user-configured > auto-detected.
+pub fn resolve_trivy(prefs_trivy_path: Option<&str>) -> (Option<String>, String) {
+    if let Some(custom) = prefs_trivy_path {
+        let trimmed = custom.trim();
+        if !trimmed.is_empty() && std::path::Path::new(trimmed).is_file() {
+            return (Some(trimmed.to_string()), "configured".to_string());
+        }
+    }
+    (which_trivy(), "auto-detected".to_string())
+}
+
+/// Resolve the grype path: user-configured > auto-detected.
+pub fn resolve_grype(prefs_grype_path: Option<&str>) -> (Option<String>, String) {
+    if let Some(custom) = prefs_grype_path {
+        let trimmed = custom.trim();
+        if !trimmed.is_empty() && std::path::Path::new(trimmed).is_file() {
+            return (Some(trimmed.to_string()), "configured".to_string());
+        }
+    }
+    (which_grype(), "auto-detected".to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
