@@ -1,20 +1,13 @@
 name: CI & Release
 
 # ── Trigger summary ──────────────────────────────────────────────
-#   tag v*    →  release + docker jobs run (full bundle + container)
-#   push main →  frontend + backend jobs run (cheap CI gate)
-#   pull req  →  frontend + backend jobs run (same)
+#   tag v*    →  release + docker jobs run (desktop + container)
+#   push main →  frontend job runs (cheap CI gate)
+#   pull req  →  frontend job runs (same)
 #   dispatch  →  release + docker jobs run on demand
 #
-# Why no Tauri build on main pushes?  Building 3 OS matrix on every
-# commit eats 15-20 minutes of CI per push. The frontend + backend
-# jobs are the cheap gate that catches typecheck / vitest / cargo
-# failures fast. Anything that affects the actual bundle is
-# exercised on tag.
-#
-# Version sync requirement (for tag pushes):
-#   tag v0.2.3   →   package.json / tauri.conf.json / Cargo.toml all
-#                     say "0.2.3"  (tauri-action enforces this).
+# All build artifacts are published to k7s releases.
+# Desktop code lives in k7s-desktop, frontend in k7s-frontend.
 # ─────────────────────────────────────────────────────────────────
 
 on:
@@ -65,56 +58,7 @@ jobs:
         run: pnpm test -- --run
 
   # ────────────────────────────────────────────────────────────────
-  # 2) Backend gate: cargo check / clippy / fmt / test (Rust only).
-  # ────────────────────────────────────────────────────────────────
-  backend:
-    name: backend (ubuntu)
-    if: github.ref_type != 'tag'
-    runs-on: ubuntu-22.04
-    steps:
-      - name: checkout
-        uses: actions/checkout@v4
-
-      - name: install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy, rustfmt
-
-      - name: install Linux system deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            libwebkit2gtk-4.1-dev \
-            libsoup-3.0-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libssl-dev \
-            build-essential \
-            file
-
-      - name: cache Rust build
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri -> target
-
-      - name: cargo check
-        run: cargo check
-        working-directory: src-tauri
-
-      - name: cargo clippy
-        run: cargo clippy -- -D warnings
-        working-directory: src-tauri
-
-      - name: cargo fmt check
-        run: cargo fmt --check
-        working-directory: src-tauri
-
-      - name: cargo test
-        run: cargo test
-        working-directory: src-tauri
-
-  # ────────────────────────────────────────────────────────────────
-  # 3) Tag push → full Tauri bundle matrix + GitHub release.
+  # 2) Tag push → full Tauri bundle matrix + GitHub release.
   # ────────────────────────────────────────────────────────────────
   release:
     name: release (${{ matrix.os }})
@@ -133,8 +77,20 @@ jobs:
             rust: stable
     runs-on: ${{ matrix.os }}
     steps:
-      - name: checkout
+      - name: checkout k7s
         uses: actions/checkout@v4
+
+      - name: checkout k7s-desktop
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-desktop
+          path: k7s-desktop
+
+      - name: checkout k7s-frontend
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-frontend
+          path: k7s-frontend
 
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -144,7 +100,7 @@ jobs:
       - name: cache Rust build
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: k7s-desktop -> target
 
       - name: install Node
         uses: actions/setup-node@v4
@@ -167,13 +123,15 @@ jobs:
             build-essential \
             file
 
-      - name: install JS deps
-        run: pnpm install --frozen-lockfile
+      - name: build frontend
+        run: |
+          cd k7s-frontend
+          pnpm install --frozen-lockfile
+          pnpm build
+          # Copy dist to where k7s-desktop expects it
+          cp -r dist ../k7s-desktop/../dist
 
-      - name: run JS unit tests
-        run: pnpm test -- --run
-
-      - name: build & release
+      - name: build & release desktop
         id: tauri
         uses: tauri-apps/tauri-action@v1
         env:
@@ -183,54 +141,16 @@ jobs:
           releaseName: 'k7s ${{ github.ref_name }}'
           releaseDraft: false
           prerelease: false
-
-      - name: inject fix-gatekeeper into DMG
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          DMG=$(find src-tauri/target/release/bundle -name '*.dmg' | head -1)
-          if [[ -z "$DMG" ]]; then
-            echo "::warning::No DMG found, skipping Gatekeeper fix injection"
-            exit 0
-          fi
-          echo "Found DMG: $DMG"
-
-          # Convert compressed DMG to read-write sparse image
-          SPARSE="${DMG%.dmg}.sparseimage"
-          hdiutil convert "$DMG" -format UDSP -o "$SPARSE"
-
-          MOUNT_POINT=$(mktemp -d)
-          hdiutil attach "$SPARSE" -mountpoint "$MOUNT_POINT" -nobrowse -quiet
-
-          cp scripts/fix-gatekeeper.sh "$MOUNT_POINT/fix-gatekeeper.sh"
-          chmod +x "$MOUNT_POINT/fix-gatekeeper.sh"
-
-          hdiutil detach "$MOUNT_POINT" -quiet
-          rmdir "$MOUNT_POINT"
-
-          # Replace original DMG with the modified one
-          rm "$DMG"
-          hdiutil convert "$SPARSE" -format UDZO -o "$DMG"
-          rm "$SPARSE"
-
-          echo "fix-gatekeeper.sh injected into DMG"
-
-      - name: re-upload modified DMG
-        if: runner.os == 'macOS'
-        uses: softprops/action-gh-release@v3
-        with:
-          files: src-tauri/target/release/bundle/dmg/*.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          projectPath: k7s-desktop
 
       - name: build k7s-web
         run: cargo build --release --features web --bin k7s-web
-        working-directory: src-tauri
+        working-directory: k7s-desktop
 
       - name: rename and upload k7s-web
         shell: bash
         run: |
-          cd src-tauri/target/release
+          cd k7s-desktop/target/release
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp k7s-web.exe k7s-web-windows-x64.exe
           elif [ "${{ runner.os }}" = "macOS" ]; then
@@ -243,12 +163,12 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            src-tauri/target/release/k7s-web-*
+            k7s-desktop/target/release/k7s-web-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ────────────────────────────────────────────────────────────────
-  # 4) Tag push → container image (linux/amd64 + linux/arm64) to ghcr.io.
+  # 3) Tag push → container image (linux/amd64 + linux/arm64) to ghcr.io.
   # ────────────────────────────────────────────────────────────────
   docker:
     name: docker (multi-arch)
@@ -258,8 +178,20 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: checkout
+      - name: checkout k7s
         uses: actions/checkout@v4
+
+      - name: checkout k7s-desktop
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-desktop
+          path: k7s-desktop
+
+      - name: checkout k7s-frontend
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-frontend
+          path: k7s-frontend
 
       - name: free disk space
         run: |
@@ -272,8 +204,6 @@ jobs:
       - name: build frontend
         uses: actions/setup-node@v4
         with:
-          # Match the frontend/release jobs (which use "26") so the Docker
-          # image's bundled frontend is built with the same Node as CI.
           node-version: "26"
 
       - name: install pnpm
@@ -281,8 +211,11 @@ jobs:
 
       - name: install JS deps and build
         run: |
+          cd k7s-frontend
           pnpm install --frozen-lockfile
           pnpm build
+          # Copy dist to where k7s-desktop expects it
+          cp -r dist ../k7s-desktop/../dist
 
       - name: set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -312,8 +245,8 @@ jobs:
       - name: build & push multi-arch
         uses: docker/build-push-action@v7
         with:
-          context: .
-          file: ./Dockerfile
+          context: k7s-desktop
+          file: k7s-desktop/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
@@ -323,20 +256,17 @@ jobs:
           provenance: false
 
 # ─────────────────────────────────────────────────────────────────
-# What this produces
+# What this produces (all in k7s releases)
 # ─────────────────────────────────────────────────────────────────
 #
-#   tag v0.2.3   →  9 desktop bundles:
-#                    k7s_0.2.3_amd64.deb / .rpm / .AppImage
-#                    k7s_0.2.3_arm64.deb / .rpm / .AppImage
-#                    k7s_0.2.3_aarch64.dmg + k7s.app
-#                    k7s_0.2.3_x64-setup.exe + k7s_0.2.3_x64_en-US.msi
-#                    + latest.json (Tauri auto-updater manifest)
-#                  + ghcr.io/zy84338719/k7s:v0.2.3 / 0.2.3 / 0.2 / latest
+#   tag v0.3.7   →  9 desktop bundles:
+#                    k7s_0.3.7_amd64.deb / .rpm / .AppImage
+#                    k7s_0.3.7_arm64.deb / .rpm / .AppImage
+#                    k7s_0.3.7_aarch64.dmg + k7s.app
+#                    k7s_0.3.7_x64-setup.exe + k7s_0.3.7_x64_en-US.msi
+#                    + k7s-web binaries (linux/macos/windows)
+#                  + ghcr.io/zy84338719/k7s:v0.3.7 / 0.3.7 / 0.3 / latest
 #                    (multi-arch: linux/amd64 + linux/arm64)
 #
-#   push to main →  ~1 min frontend + backend runs, no Tauri build,
-#                  no image push. Catches typecheck + vitest + cargo
-#                  failures fast.
-#
+#   push to main →  ~1 min frontend run, no build.
 #   pull_request →  same as push to main.
