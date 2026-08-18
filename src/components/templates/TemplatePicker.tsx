@@ -49,7 +49,6 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { formatError, getProvider } from '../../providers';
 import type { ApplyResult, DocDryRun } from '../../providers/types';
 import {
-  defaultValuesFor,
   listTemplates,
   renderTemplate,
   type Template,
@@ -60,27 +59,7 @@ import { CodeEditor } from '../detail/CodeEditor';
 import styles from './TemplatePicker.module.css';
 import { ExtrasSection } from './ExtrasSection';
 import { YamlReview } from './YamlReview';
-
-/**
- * The values dict the render function gets. The renderer's signature is
- * `Record<string, unknown>`, so this is the source of truth on what the
- * wizard actually feeds in. The `labels` and `resources` keys are
- * conventional — none of the templates' `params` use these names.
- */
-interface TemplateValues {
-  [key: string]: string | Record<string, string> | { cpu?: string; memory?: string } | undefined;
-  labels?: Record<string, string>;
-  resources?: { cpu?: string; memory?: string };
-}
-
-/** Build the initial values for a template, including any `extras`. */
-function initialValuesFor(t: Template): TemplateValues {
-  return {
-    ...defaultValuesFor(t),
-    ...(t.extras?.labels ? { labels: { ...t.extras.labels.default } } : {}),
-    ...(t.extras?.resources ? { resources: { ...t.extras.resources.default } } : {}),
-  } as TemplateValues;
-}
+import { type TemplateValues, initialValuesFor } from './templateUtils';
 
 // parseLabelDraft moved to ./parseLabelDraft.ts (kept this file component-only for
 // react-refresh). Imported here for internal use by the LabelsEditor below.
