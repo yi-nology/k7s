@@ -23,6 +23,9 @@ tauri-plugin-dialog = "2"
 # generates code that references `serde::Serialize` by crate name, so the crate
 # must be in the extern prelude. k7s-deps re-exports serde for non-derive use.
 serde = { version = "1", features = ["derive"] }
+# apple-native-keyring-store: required on iOS — the keyring crate's default
+# features only enable keychain (macOS), not protected (iOS).
+apple-native-keyring-store = { version = "1", features = ["protected"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]

@@ -4,7 +4,9 @@
 use crate::commands::core::require_client;
 use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
-use crate::kube::{alerting, audit, endpoints, grafana, metrics_config, saved_queries};
+use crate::kube::{alerting, audit, endpoints, metrics_config, saved_queries};
+#[cfg(not(target_os = "ios"))]
+use crate::kube::grafana;
 use k7s_deps::kube::api::Api;
 use std::sync::Arc;
 use tauri::State;
@@ -151,67 +153,74 @@ pub async fn metrics_query_range(
 }
 
 // ---------------------------------------------------------------------------
-// Grafana (Phase 1 Tier-2 of KubePi parity).
+// Grafana (Phase 1 Tier-2 of KubePi parity) — excluded from iPadOS build.
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
-pub fn grafana_list() -> AppResult<Vec<grafana::GrafanaConfig>> {
-    grafana::list()
-}
+#[cfg(not(target_os = "ios"))]
+mod grafana_cmds {
+    use super::*;
 
-#[tauri::command]
-pub fn grafana_upsert(
-    name: String,
-    url: String,
-    username: String,
-    password: String,
-    api_token: String,
-    default_datasource: String,
-    description: String,
-) -> AppResult<grafana::GrafanaConfig> {
-    grafana::upsert(
-        &name,
-        &url,
-        &username,
-        &password,
-        &api_token,
-        &default_datasource,
-        &description,
-    )
-}
+    #[tauri::command]
+    pub fn grafana_list() -> AppResult<Vec<grafana::GrafanaConfig>> {
+        grafana::list()
+    }
 
-#[tauri::command]
-pub fn grafana_remove(name: String) -> AppResult<()> {
-    grafana::remove(&name)
-}
+    #[tauri::command]
+    pub fn grafana_upsert(
+        name: String,
+        url: String,
+        username: String,
+        password: String,
+        api_token: String,
+        default_datasource: String,
+        description: String,
+    ) -> AppResult<grafana::GrafanaConfig> {
+        grafana::upsert(
+            &name,
+            &url,
+            &username,
+            &password,
+            &api_token,
+            &default_datasource,
+            &description,
+        )
+    }
 
-#[tauri::command]
-pub async fn grafana_test(name: String) -> AppResult<()> {
-    grafana::test_connect(&name).await
-}
+    #[tauri::command]
+    pub fn grafana_remove(name: String) -> AppResult<()> {
+        grafana::remove(&name)
+    }
 
-#[tauri::command]
-pub fn grafana_presets() -> Vec<grafana::DashboardPreset> {
-    grafana::preset_dashboards()
-}
+    #[tauri::command]
+    pub async fn grafana_test(name: String) -> AppResult<()> {
+        grafana::test_connect(&name).await
+    }
 
-#[tauri::command]
-pub fn grafana_dashboard_url(
-    name: String,
-    uid: String,
-    from_ms: i64,
-    to_ms: i64,
-) -> AppResult<String> {
-    grafana::dashboard_url(&name, &uid, from_ms, to_ms)
-}
+    #[tauri::command]
+    pub fn grafana_presets() -> Vec<grafana::DashboardPreset> {
+        grafana::preset_dashboards()
+    }
 
-#[tauri::command]
-pub async fn grafana_search_dashboards(
-    name: String,
-    query: String,
-) -> AppResult<Vec<grafana::DashboardSearchResult>> {
-    grafana::search_dashboards(&name, &query).await
+    #[tauri::command]
+    pub fn grafana_dashboard_url(
+        name: String,
+        uid: String,
+        from_ms: i64,
+        to_ms: i64,
+    ) -> AppResult<String> {
+        grafana::dashboard_url(&name, &uid, from_ms, to_ms)
+    }
+
+    #[tauri::command]
+    pub async fn grafana_search_dashboards(
+        name: String,
+        query: String,
+    ) -> AppResult<Vec<grafana::DashboardSearchResult>> {
+        grafana::search_dashboards(&name, &query).await
+    }
 }
+#[cfg(not(target_os = "ios"))]
+pub use grafana_cmds::*;
 
 // ---------------------------------------------------------------------------
 // AlertManager (Phase 1 Tier-2 of KubePi parity).
