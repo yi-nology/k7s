@@ -1633,6 +1633,7 @@ dependencies = [
 [[package]]
 name = "k7s-core"
 version = "0.3.6"
+source = "git+ssh://git@github.com/yi-nology/k7s-core.git#7138535065e26317c00ceac33f984251a93352ce"
 dependencies = [
  "k7s-deps 0.1.0 (git+https://github.com/yi-nology/k7s-deps.git)",
  "serde",
@@ -1643,6 +1644,7 @@ dependencies = [
 [[package]]
 name = "k7s-deps"
 version = "0.1.0"
+source = "git+ssh://git@github.com/yi-nology/k7s-deps.git#1b331abf3b342f6dfc1e79b733de29d1f0f11adf"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -1715,7 +1717,7 @@ version = "0.3.6"
 dependencies = [
  "axum",
  "k7s-core",
- "k7s-deps 0.1.0",
+ "k7s-deps 0.1.0 (git+ssh://git@github.com/yi-nology/k7s-deps.git)",
  "mime_guess",
  "open",
  "rmcp",
