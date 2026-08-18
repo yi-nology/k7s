@@ -1,9 +1,7 @@
 name: Release Android
 
 on:
-  push:
-    tags:
-      - "v*"
+  # Android build has Tauri mobile_entry_point issue — run manually after fixing.
   workflow_dispatch:
 
 permissions:

@@ -1,9 +1,8 @@
 name: Release iOS
 
 on:
-  push:
-    tags:
-      - "v*"
+  # iOS requires Apple Developer signing — run manually after setting up secrets.
+  # See: https://tauri.app/distribute/sign/ios/
   workflow_dispatch:
 
 permissions:
