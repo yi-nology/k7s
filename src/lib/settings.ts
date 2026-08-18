@@ -32,8 +32,8 @@ export interface Settings {
   theme: Theme;
   /**
    * UI language for chrome (sidebar, top bar, tabs, settings). Defaults to
-   * "en"; an unrecognised value falls back to the same. Picked by the user
-   * and persisted like the other settings.
+   * "zh"; an unrecognised value falls back to the same. Picked by the user
+   * and persisted like the other settings — a saved choice always wins.
    */
   language: Locale;
   /**
@@ -71,10 +71,11 @@ export const DEFAULT_SETTINGS: Settings = {
   // Following the OS is the least surprising default, and it's what the app did
   // implicitly before there was a choice — for anyone on a dark desktop.
   theme: 'system',
-  // English is the source-of-truth locale: every dictionary is built from it
-  // and a missing key falls back to it. Picking "en" as the default also means
-  // older prefs files (pre-language) render in English until the user changes it.
-  language: 'en',
+  // Chinese is the default UI locale: the primary audience reads zh, and
+  // English remains the dictionary-level fallback for untranslated keys (see
+  // `translate`). Users who picked "en" have it persisted, so the default only
+  // affects fresh installs and prefs files that predate the language setting.
+  language: 'zh',
   nodeShellImage: '',
   scannerTrivyPath: '',
   scannerGrypePath: '',

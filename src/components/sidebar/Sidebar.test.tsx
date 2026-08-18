@@ -5,7 +5,7 @@
  * exactly one button per section in SECTION_ORDER, marks the store's active
  * section, and keeps the ClusterSwitcher / WatchFooter chrome. Labels are
  * asserted in Chinese, so each test pins the locale to zh first (the default
- * is en until the Task 6 locale flip).
+ * is zh since the Task 6 locale flip, but the pin keeps that explicit).
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

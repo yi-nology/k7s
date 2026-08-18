@@ -104,19 +104,24 @@ describe('theme and node-shell settings', () => {
 });
 
 describe('language setting', () => {
-  it('defaults to English when absent', () => {
-    expect(sanitizeSettings({}).language).toBe('en');
+  /** A fresh install (no prefs at all) boots in Chinese — the default locale. */
+  it('defaults the shipped settings to Chinese', () => {
+    expect(DEFAULT_SETTINGS.language).toBe('zh');
   });
 
-  it('keeps a valid locale', () => {
+  it('defaults to Chinese when absent', () => {
+    expect(sanitizeSettings({}).language).toBe('zh');
+  });
+
+  it('keeps a saved locale — an existing user is not flipped', () => {
     expect(sanitizeSettings({ language: 'zh' }).language).toBe('zh');
     expect(sanitizeSettings({ language: 'en' }).language).toBe('en');
   });
 
-  /** An unrecognised string falls back to English, the same rule as `theme`. */
-  it('falls back to English for anything else', () => {
-    expect(sanitizeSettings({ language: 'fr' }).language).toBe('en');
-    expect(sanitizeSettings({ language: 7 }).language).toBe('en');
-    expect(sanitizeSettings({ language: null }).language).toBe('en');
+  /** An unrecognised string falls back to the default (zh), the same rule as `theme`. */
+  it('falls back to Chinese for anything else', () => {
+    expect(sanitizeSettings({ language: 'fr' }).language).toBe('zh');
+    expect(sanitizeSettings({ language: 7 }).language).toBe('zh');
+    expect(sanitizeSettings({ language: null }).language).toBe('zh');
   });
 });

@@ -44,19 +44,21 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 export const LOCALE_STORAGE_KEY = 'k7s.locale';
 
 /**
- * Narrow arbitrary persisted junk to a Locale, defaulting to English.
+ * Narrow arbitrary persisted junk to a Locale, defaulting to Chinese.
  *
  * @param value - Any value (typically from persisted prefs or a form field).
- * @returns A valid {@link Locale}, or "en" for unrecognised input.
+ * @returns A valid {@link Locale}, or "zh" (the default locale) for unrecognised input.
  */
 export function asLocale(value: unknown): Locale {
-  return LOCALES.includes(value as Locale) ? (value as Locale) : 'en';
+  return LOCALES.includes(value as Locale) ? (value as Locale) : 'zh';
 }
 
 /**
- * Read the cached locale for the paint-time boot. Falls back to "en" if the
- * stored value is unrecognised or the storage API throws — this is the same
- * shape as `cachedTheme`, mirroring the inline script in `index.html`.
+ * Read the cached locale for the paint-time boot. Falls back to "zh" (the
+ * default locale) if the stored value is unrecognised or the storage API
+ * throws — this is the same shape as `cachedTheme`, mirroring the inline
+ * script in `index.html`. A cached "en" still wins: only the *fallback*
+ * flipped, so an existing user's saved choice is honoured.
  */
 export function cachedLocale(): Locale {
   // `window.localStorage` first: that's the one the browser actually uses, and
@@ -64,12 +66,12 @@ export function cachedLocale(): Locale {
   // `localStorage` falls back to a (possibly experimental) Node global in tests,
   // which is not what we want — we want to read the same key the page would.
   const store = typeof window !== 'undefined' && window.localStorage ? window.localStorage : null;
-  if (!store) return 'en';
+  if (!store) return 'zh';
   try {
     const v = store.getItem(LOCALE_STORAGE_KEY);
-    return v === 'zh' ? 'zh' : 'en';
+    return v === 'en' ? 'en' : 'zh';
   } catch {
-    return 'en';
+    return 'zh';
   }
 }
 

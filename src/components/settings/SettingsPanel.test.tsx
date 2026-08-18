@@ -27,7 +27,9 @@ let view: RenderResult;
 function resetStore() {
   useStore.setState({
     settingsOpen: false,
-    settings: { ...DEFAULT_SETTINGS },
+    // The suite asserts English chrome ("Reset", theme labels, …); the app's
+    // default locale is zh since Task 6, so pin the language explicitly.
+    settings: { ...DEFAULT_SETTINGS, language: 'en' },
     setSettingsOpen: (open: boolean) => useStore.setState({ settingsOpen: open }),
     setSettings: (patch: Partial<Settings>) =>
       useStore.setState((state) => ({ settings: { ...state.settings, ...patch } })),
@@ -134,7 +136,7 @@ describe('SettingsPanel', () => {
     it('resets settings to defaults on click', () => {
       useStore.setState({
         settingsOpen: true,
-        settings: { ...DEFAULT_SETTINGS, logBufferCap: 9999 },
+        settings: { ...DEFAULT_SETTINGS, language: 'en', logBufferCap: 9999 },
       });
       view = render(<SettingsPanel />);
       const resetBtn = view.queryByText(/Reset|reset/);
