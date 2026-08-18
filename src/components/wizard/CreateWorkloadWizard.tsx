@@ -75,9 +75,11 @@ export function CreateWorkloadWizard({ onClose }: { onClose?: () => void }) {
     t('wizard.step.review', 'Review & Apply'),
   ];
 
-  /** Per-doc dry run is clean when it ran, isn't invalidated by an edit, and
-   * every doc passed. Apply is gated on exactly this. */
-  const clean = dry !== null && !stale && dry.every((d) => !d.error);
+  /** Per-doc dry run is clean when it ran, isn't invalidated by an edit,
+   * produced at least one doc (an empty bundle — e.g. a cleared draft — must
+   * not pass vacuously; TemplatePicker's gate does the same), and every doc
+   * passed. Apply is gated on exactly this. */
+  const clean = dry !== null && dry.length > 0 && !stale && dry.every((d) => !d.error);
 
   /** Run the bundle dry run against the current draft (检查). Per-doc errors
    * land in `dry` (rendered as YamlReview rows); a thrown provider error is

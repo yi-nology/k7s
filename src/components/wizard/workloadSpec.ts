@@ -120,6 +120,21 @@ const escapeDq = (s: string): string => s.replace(/\\/g, '\\\\').replace(/"/g, '
 const dq = (s: string): string => `"${escapeDq(s)}"`;
 
 /**
+ * Split a command/args input line into tokens, honouring double quotes so an
+ * arg containing spaces stays one token (the args hint promises this:
+ * `空格分隔,含空格的参数请加引号`). `sh -c "echo hello"` →
+ * `['sh', '-c', 'echo hello']`. A trailing/leading quote swallows nothing —
+ * unbalanced quotes simply end at the string boundary — and empty tokens
+ * (stray whitespace) are dropped, so `'sh '` yields `['sh']`, not
+ * `['sh', '']`.
+ */
+function tokenize(s: string): string[] {
+  return (s.match(/[^\s"]+|"([^"]*)"/g) ?? []).map((tok) =>
+    tok.startsWith('"') ? tok.slice(1, -1) : tok
+  ).filter(Boolean);
+}
+
+/**
  * Render the workload (Deployment/StatefulSet/DaemonSet) as a single YAML
  * document. Only the workload itself — no Service. Empty optional blocks
  * (ports, env, resources, probes, mounts) are omitted entirely.
@@ -150,10 +165,10 @@ export function generateWorkloadYaml(f: WorkloadForm): string {
   push(10, `image: ${f.image}`);
   push(10, `imagePullPolicy: ${f.imagePullPolicy}`);
   if (f.command) {
-    push(10, `command: [${f.command.split(/\s+/).map(dq).join(', ')}]`);
+    push(10, `command: [${tokenize(f.command).map(dq).join(', ')}]`);
   }
   if (f.args) {
-    push(10, `args: [${f.args.split(/\s+/).map(dq).join(', ')}]`);
+    push(10, `args: [${tokenize(f.args).map(dq).join(', ')}]`);
   }
   if (f.ports.length) {
     push(10, 'ports:');

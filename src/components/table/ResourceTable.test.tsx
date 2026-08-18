@@ -185,11 +185,24 @@ describe('ResourceTable', () => {
       expect(btn).not.toBeNull();
     });
 
-    it('routes a workload kind to the create-workload wizard', () => {
-      useStore.setState({ nav: 'pods' }); // pods is in the workloads section
+    it('routes a wizard-buildable workload kind to the create-workload wizard', () => {
+      useStore.setState({ nav: 'deployments' });
       view = render(<ResourceTable />);
       view.click(view.getByTestId('new-resource'));
       expect(useStore.getState().overlay).toBe('wizard');
+    });
+
+    it('routes workload-section kinds the wizard cannot build to the template picker', () => {
+      // jobs/cronjobs/pods/helm sit in the workloads section, but the wizard
+      // only builds Deployment/StatefulSet/DaemonSet — their create entries
+      // must not open a builder for the wrong kind.
+      for (const nav of ['jobs', 'cronjobs', 'pods', 'helm']) {
+        useStore.setState({ nav, overlay: null });
+        view = render(<ResourceTable />);
+        view.click(view.getByTestId('new-resource'));
+        expect(useStore.getState().overlay).toBe('templates');
+        cleanup();
+      }
     });
 
     it('routes a non-workload kind to the template picker', () => {
@@ -251,6 +264,22 @@ describe('ResourceTable', () => {
       });
       view = render(<ResourceTable />);
       expect(view.queryByTestId('empty-cta')).toBeNull();
+    });
+
+    it('does not show the CTA for workload kinds the wizard cannot build', () => {
+      // An empty Jobs page is a workload-section kind, but the wizard only
+      // builds Deployment/STS/DS — the CTA would open the wrong builder.
+      useStore.setState({
+        nav: 'jobs',
+        tableFilter: '',
+        rows: { ...useStore.getState().rows, jobs: [] },
+      });
+      view = render(<ResourceTable />);
+      // The empty state itself renders (rows are explicitly empty) — only
+      // the CTA is withheld.
+      expect(view.queryByText('no resources')).not.toBeNull();
+      expect(view.queryByTestId('empty-cta')).toBeNull();
+      expect(view.queryByText('Create your first workload')).toBeNull();
     });
   });
 

@@ -19,7 +19,6 @@ import { useTranslation } from '../../hooks/useI18n';
 import { useNav, useNamespace, useTableFilter, useEventsSince, useSort, useSelection, useCustomKinds } from '../../hooks/useStoreHooks';
 import { toneColor } from '../../lib/tone';
 import { isClusterScoped, isRolloutKind, kindMeta, navIdForKind } from '../../lib/kinds';
-import { sectionForKind } from '../../lib/sections';
 import { toCsv, downloadCsv } from '../../lib/exportCsv';
 import { sortRows } from '../../lib/sort';
 import { parseFilter, matchesFilter } from '../../lib/filter';
@@ -41,6 +40,12 @@ import { useVirtualRows } from './useVirtualRows';
 const EMPTY_POD_METRICS: PodMetricsMap = {};
 const EMPTY_NODE_METRICS: NodeMetricsMap = {};
 const EMPTY_POD_ROWS: Row[] = [];
+
+/** Kinds the create-workload wizard can actually build (Deployment /
+ * StatefulSet / DaemonSet — see workloadSpec.ts KIND_OF). NOT every kind in
+ * the workloads section: jobs/cronjobs/pods/helm live there too, but routing
+ * them to the wizard would open a builder that cannot create their kind. */
+const WIZARD_KINDS = new Set(['deployments', 'statefulsets', 'daemonsets']);
 
 export function ResourceTable() {
   const nav = useNav();
@@ -340,10 +345,12 @@ export function ResourceTable() {
         {/* "New" affordance. Mirrors the sidebar Tools → Templates entry so the
             create path is reachable from any kind page, not only via the
             sidebar. The icon matches the sidebar's `✚` so the two surfaces
-            feel like one feature, not two. Routing (P2): workload kinds get
-            the create-workload wizard, ingresses get the ingress editor
-            (form-create capable, previously unreachable), everything else
-            keeps the generic template picker. */}
+            feel like one feature, not two. Routing (P2): the kinds the wizard
+            can build (WIZARD_KINDS — Deployment/STS/DS only) get the
+            create-workload wizard, ingresses get the ingress editor
+            (form-create capable, previously unreachable), everything else —
+            including jobs/cronjobs/pods/helm, which the wizard cannot
+            create — keeps the generic template picker. */}
         <button
           type="button"
           className={styles.newBtn}
@@ -351,7 +358,7 @@ export function ResourceTable() {
             openOverlay(
               nav === 'ingresses'
                 ? 'ingress-editor'
-                : sectionForKind(nav) === 'workloads'
+                : WIZARD_KINDS.has(nav)
                   ? 'wizard'
                   : 'templates'
             )
@@ -476,11 +483,13 @@ export function ResourceTable() {
                 ? t('table.emptyNone', 'no resources')
                 : t('table.empty', 'no resources match filter')}
             </span>
-            {/* Empty workload kind with no filter: the empty state is the real
-                problem ("nothing to look at"), so offer the way out. Kinds in
-                the workloads section only — an empty ConfigMap list is normal,
-                not something to create your way out of. */}
-            {tableFilter.trim() === '' && sectionForKind(nav) === 'workloads' && (
+            {/* Empty wizard-buildable kind with no filter: the empty state is
+                the real problem ("nothing to look at"), so offer the way out.
+                WIZARD_KINDS only — jobs/pods/helm are workload-section kinds
+                the wizard cannot build (they'd open a Deployment builder),
+                and an empty ConfigMap list is normal, not something to create
+                your way out of. */}
+            {tableFilter.trim() === '' && WIZARD_KINDS.has(nav) && (
               <button
                 type="button"
                 className={styles.emptyCta}

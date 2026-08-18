@@ -50,6 +50,17 @@ describe('generateWorkloadYaml', () => {
     expect(generateWorkloadYaml({ ...base, workloadType: 'statefulset', name: 'a', image: 'i' })).toContain('kind: StatefulSet');
     expect(generateWorkloadYaml({ ...base, workloadType: 'daemonset', name: 'a', image: 'i' })).toContain('kind: DaemonSet');
   });
+  it('tokenizes quoted command/args correctly and drops empty tokens', () => {
+    // The args hint promises `含空格的参数请加引号` — a quoted arg must stay
+    // one token, not be re-split on its inner spaces. Trailing whitespace
+    // must not produce an empty token ('sh ' → ["sh"], not ["sh", ""]).
+    const y = generateWorkloadYaml({
+      ...base, name: 'w', image: 'i',
+      command: 'sh ', args: '-c "echo hello" plain',
+    });
+    expect(y).toContain('command: ["sh"]');
+    expect(y).toContain('args: ["-c", "echo hello", "plain"]');
+  });
 });
 
 describe('parseWorkloadYaml (round-trip)', () => {

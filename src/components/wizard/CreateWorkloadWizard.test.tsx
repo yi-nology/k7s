@@ -308,6 +308,22 @@ describe('CreateWorkloadWizard', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('an empty dry-run result does not pass the gate vacuously', async () => {
+    // Clearing the draft entirely makes the bundle parse to zero docs —
+    // `dry.every(...)` would be vacuously true. The gate must treat a
+    // zero-doc run as not clean (TemplatePicker's `review.length > 0`
+    // precedent): no 检查通过, apply stays disabled.
+    bundleMocks.dryRunYamlBundle.mockResolvedValueOnce([]);
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+    changeDraft('');
+    view.click(view.getByText('检查'));
+    await flush();
+    expect(bundleMocks.dryRunYamlBundle).toHaveBeenCalledWith('');
+    expect(view.queryByText('检查通过')).toBeNull();
+    expect(applyButton().hasAttribute('disabled')).toBe(true);
+  });
+
   it('a draft edit after a clean dry-run re-gates apply (stale)', async () => {
     bundleMocks.dryRunYamlBundle.mockResolvedValue([
       {
