@@ -39,6 +39,7 @@
 
   /* ================ Borders ================ */
   --border-default: #23232c; /* default separators, panel borders */
+  --border-subtle: #1e1e26; /* softer than default; inset dividers */
   --border-strong: #2e2e3a; /* stronger separator (e.g. section divider) */
   --border-control: #2a2a35; /* control (button) borders */
   --border-menu: #363645; /* dropdown menu borders */
@@ -220,6 +221,7 @@
 
   /* ---- Borders ---- */
   --border-default: #e5e5ec;
+  --border-subtle: #e4e4ec; /* softer than default; inset dividers */
   --border-strong: #d5d5e0;
   --border-control: #ddddd4;
   --border-menu: #d0d0da;
@@ -323,6 +325,7 @@
   --bg-log-hover: #13131a;
 
   --border-default: #262630;
+  --border-subtle: #23232e; /* softer than default; inset dividers */
   --border-strong: #2f2f3a;
   --border-control: #2f2f3a;
   --border-menu: #3a3a48;

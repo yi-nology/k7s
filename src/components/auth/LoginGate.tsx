@@ -4,7 +4,7 @@
  * Only the browser shell sees it: on desktop (Tauri) the gate passes children
  * straight through without touching the network. In web mode it asks
  * `GET /api/auth/status` once on mount:
- * - `authRequired: false` (loopback, or password not set up yet) → children.
+ * - `authRequired: false` (loopback) → children.
  * - `authRequired: true, configured: false` → first-run setup form (POST
  *   `/api/auth/setup`).
  * - `authRequired: true, configured: true` → sign-in form (POST
