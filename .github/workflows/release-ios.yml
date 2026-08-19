@@ -78,6 +78,18 @@ jobs:
           cp -r ../dist ../k7s-ios/../dist 2>/dev/null || true
           cargo tauri ios init
 
+      - name: disable code signing
+        run: |
+          PROJ=$(find k7s-ios/gen/apple -name "project.pbxproj" | head -1)
+          if [ -n "$PROJ" ]; then
+            sed -i '' '/DEVELOPMENT_TEAM/d' "$PROJ"
+            sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development"/CODE_SIGN_IDENTITY = "-"/g' "$PROJ"
+            sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Distribution"/CODE_SIGN_IDENTITY = "-"/g' "$PROJ"
+            sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' "$PROJ"
+            sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' "$PROJ"
+            echo "Patched $PROJ"
+          fi
+
       - name: build iOS
         run: |
           cd k7s-ios
@@ -85,7 +97,6 @@ jobs:
         env:
           CODE_SIGNING_ALLOWED: "NO"
           CODE_SIGNING_REQUIRED: "NO"
-          APPLE_DEVELOPMENT_TEAM: ""
 
       - name: upload iOS artifacts
         if: success()
