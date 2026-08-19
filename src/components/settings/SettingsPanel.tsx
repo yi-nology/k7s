@@ -9,17 +9,18 @@
  * Settings that can't take effect until the next connect say so, rather than
  * quietly doing nothing.
  *
- * The Theme and Language rows are the only ones the user will care to change
- * mid-session: the rest feed backend poll intervals, which only take effect on
- * reconnect, and a change there benefits from a clear "applies on next connect"
- * hint. Theme + language, in contrast, are immediate — and we keep them at the
- * top so the user can see the effect while the panel is still open.
+ * The Theme, Density and Language rows are the only ones the user will care
+ * to change mid-session: the rest feed backend poll intervals, which only take
+ * effect on reconnect, and a change there benefits from a clear "applies on
+ * next connect" hint. Theme + density + language, in contrast, are immediate —
+ * and we keep them at the top so the user can see the effect while the panel
+ * is still open.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import styles from './SettingsPanel.module.css';
 import { useStore } from '../../store';
-import { LIMITS, DEFAULT_SETTINGS, sanitizeSettings, type Settings } from '../../lib/settings';
+import { LIMITS, DEFAULT_SETTINGS, sanitizeSettings, asTableDensity, type Settings, type TableDensity } from '../../lib/settings';
 import { asTheme, type Theme } from '../../lib/theme';
 import { asLocale, LOCALES, type Locale } from '../../lib/i18n';
 import { useTranslation } from '../../hooks/useI18n';
@@ -87,6 +88,12 @@ export function SettingsPanel() {
     value: l,
     label: t(`settings.language.${l}` as const),
   }));
+  // Density options follow the theme pattern: the <option value> is the stable
+  // pref-file value, the label is only what the user sees.
+  const densityOptions: { value: TableDensity; label: string }[] = [
+    { value: 'comfortable', label: t('settings.density.comfortable') },
+    { value: 'compact', label: t('settings.density.compact') },
+  ];
 
   return (
     // Clicking the backdrop closes; clicking the panel must not bubble up to it.
@@ -115,6 +122,22 @@ export function SettingsPanel() {
               onChange={(e) => update({ theme: asTheme(e.target.value) })}
             >
               {themeOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </Row>
+
+          {/* Density sits with theme/language — the appearance settings, all
+              applied immediately and visible while the panel is open. */}
+          <Row label={t('settings.density.label')} hint={t('settings.density.hint')}>
+            <select
+              className={styles.select}
+              value={settings.tableDensity}
+              onChange={(e) => update({ tableDensity: asTableDensity(e.target.value) })}
+            >
+              {densityOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>

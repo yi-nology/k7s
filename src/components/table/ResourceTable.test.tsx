@@ -8,6 +8,7 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
+import { DEFAULT_SETTINGS } from '../../lib/settings';
 import type { Row } from '../../providers/types';
 import { ResourceTable } from './ResourceTable';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
@@ -280,6 +281,25 @@ describe('ResourceTable', () => {
       expect(view.queryByText('no resources')).not.toBeNull();
       expect(view.queryByTestId('empty-cta')).toBeNull();
       expect(view.queryByText('Create your first workload')).toBeNull();
+    });
+  });
+
+  describe('table density', () => {
+    it('does not mark the container compact at the comfortable default', () => {
+      useStore.setState({
+        settings: { ...DEFAULT_SETTINGS, tableDensity: 'comfortable' },
+      });
+      view = render(<ResourceTable />);
+      expect(view.container.querySelector('[class*="compact"]')).toBeNull();
+    });
+
+    it('marks the container compact when the setting says so', () => {
+      useStore.setState({
+        settings: { ...DEFAULT_SETTINGS, tableDensity: 'compact' },
+      });
+      view = render(<ResourceTable />);
+      const compactEl = view.container.querySelector('[class*="compact"]');
+      expect(compactEl).not.toBeNull();
     });
   });
 

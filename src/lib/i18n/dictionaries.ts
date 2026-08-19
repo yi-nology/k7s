@@ -269,6 +269,8 @@ export interface Dictionary {
   settings: {
     theme: { label: string; hint: string; system: string; dark: string; light: string };
     language: { label: string; hint: string; en: string; zh: string };
+    /** Resource-table row density (P3) — comfortable / compact. */
+    density: { label: string; hint: string; comfortable: string; compact: string };
     logBuffer: { label: string; hint: (min: number, max: number) => string };
     metricsPoll: { label: string; hint: (min: number, max: number, applies: boolean) => string };
     statusPoll: { label: string; hint: (min: number, max: number, applies: boolean) => string };

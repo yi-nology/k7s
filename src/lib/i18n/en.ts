@@ -229,6 +229,12 @@ export const en: Dictionary = {
       en: 'English',
       zh: '中文',
     },
+    density: {
+      label: 'Table density',
+      hint: 'Compact rows fit more of large clusters',
+      comfortable: 'Comfortable',
+      compact: 'Compact',
+    },
     logBuffer: {
       label: 'Log buffer',
       hint: (min, max) => `lines kept in the log view (${min}–${max}); applies immediately`,

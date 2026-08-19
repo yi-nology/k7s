@@ -283,6 +283,7 @@ export function createMockSettings(overrides: MockSettings = {}): Settings {
     shellCommand: '',
     theme: 'system',
     language: 'en',
+    tableDensity: 'comfortable',
     nodeShellImage: '',
     scannerTrivyPath: '',
     scannerGrypePath: '',

@@ -126,6 +126,34 @@ describe('SettingsPanel', () => {
     });
   });
 
+  describe('table density', () => {
+    /** The density select sits with theme/language — pin English chrome. */
+    it('renders the density select with both options', () => {
+      useStore.setState({ settingsOpen: true });
+      view = render(<SettingsPanel />);
+      expect(view.queryByText('Table density')).not.toBeNull();
+      const density = Array.from(view.container.querySelectorAll('select')).find(
+        (s) => (s as HTMLSelectElement).value === 'comfortable'
+      );
+      expect(density).toBeDefined();
+      expect(view.queryByText('Comfortable')).not.toBeNull();
+      expect(view.queryByText('Compact')).not.toBeNull();
+    });
+
+    it('updates the store when density changes', () => {
+      useStore.setState({ settingsOpen: true });
+      view = render(<SettingsPanel />);
+      const density = Array.from(view.container.querySelectorAll('select')).find(
+        (s) => (s as HTMLSelectElement).value === 'comfortable'
+      ) as HTMLSelectElement;
+      act(() => {
+        density.value = 'compact';
+        density.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      expect(useStore.getState().settings.tableDensity).toBe('compact');
+    });
+  });
+
   describe('reset button', () => {
     it('renders reset button', () => {
       useStore.setState({ settingsOpen: true });

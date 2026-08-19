@@ -79,6 +79,10 @@ export function ResourceTable() {
   // itself filters to the templates available for the cluster (Bxx).
   const openOverlay = useStore((s) => s.openOverlay);
   const watchStatus = useStore((s) => s.watchStatus);
+  // Table density (P3): subscribed as a bare field so a density flip is the only
+  // settings change that re-renders the table — the compact class below carries
+  // the whole effect (see .compact in the CSS module).
+  const tableDensity = useStore((s) => s.settings.tableDensity);
   const { locale, t } = useTranslation();
 
   // Age columns re-render on a 30s tick.
@@ -281,7 +285,9 @@ export function ResourceTable() {
   }, [selectedUid, nav]);
 
   return (
-    <div className={styles.container}>
+    // compact (P3) halves the cell padding / pins the 26px row via the CSS
+    // module — added to this outer container so every rule scopes under it.
+    <div className={[styles.container, tableDensity === 'compact' ? styles.compact : ''].join(' ')}>
       <div className={styles.toolbar}>
         <div className={styles.search}>
           <span className={styles.searchIcon}>⌕</span>

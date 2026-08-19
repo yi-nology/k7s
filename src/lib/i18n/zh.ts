@@ -234,6 +234,12 @@ export const zh: Dictionary = {
       en: 'English',
       zh: '中文',
     },
+    density: {
+      label: '表格密度',
+      hint: '紧凑行高更适合大集群浏览',
+      comfortable: '舒适',
+      compact: '紧凑',
+    },
     logBuffer: {
       label: '日志缓冲',
       hint: (min, max) => `日志视图保留行数 (${min}–${max});立即生效`,

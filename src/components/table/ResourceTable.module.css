@@ -249,6 +249,28 @@
   white-space: nowrap;
 }
 
+/* Compact density (P3): halves the vertical cell padding (th 12px → 6px,
+   td 9px → 4.5px) and pins rows at the design's 26px so large clusters fit
+   more rows on screen. Horizontal padding is untouched — density is about
+   row height, not column width. Scoped under .compact on the component's
+   outer container; the comfortable default keeps the values above. */
+.compact .th {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.compact .td {
+  padding-top: 4.5px;
+  padding-bottom: 4.5px;
+  height: 26px;
+}
+/* Windowed rows are pinned inline to ROW_HEIGHT; re-assert their zeroed
+   padding at a specificity above .compact .td so a compact windowed row
+   can't stretch past the spacer math (B21). */
+.compact .rowFixed td {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 /* Cell tone variants. */
 .cellName {
   color: var(--text-primary);

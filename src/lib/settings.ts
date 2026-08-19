@@ -13,6 +13,19 @@ import { asTheme, type Theme } from './theme';
 import { asLocale, type Locale } from './i18n';
 import { isValidImageRef } from './security';
 
+/** Row density of the resource table (P3): "comfortable" is the roomier default. */
+export type TableDensity = 'comfortable' | 'compact';
+
+const TABLE_DENSITIES: TableDensity[] = ['comfortable', 'compact'];
+
+/** Narrow arbitrary persisted junk to a TableDensity, defaulting to "comfortable". */
+export function asTableDensity(value: unknown): TableDensity {
+  return TABLE_DENSITIES.includes(value as TableDensity)
+    ? (value as TableDensity)
+    : 'comfortable';
+}
+
+
 /** Everything the settings panel controls. */
 export interface Settings {
   /** Lines the log view retains (the design default is 200). */
@@ -36,6 +49,13 @@ export interface Settings {
    * and persisted like the other settings — a saved choice always wins.
    */
   language: Locale;
+  /**
+   * Row density of the resource table (P3). "compact" halves the cell padding
+   * and pins rows at the design's 26px — for large clusters where fitting more
+   * rows on screen beats breathing room. Scoped to the resource table only:
+   * detail panels and logs keep their own metrics.
+   */
+  tableDensity: TableDensity;
   /**
    * Image for the node debug shell (B53). Empty uses the built-in default.
    *
@@ -76,6 +96,9 @@ export const DEFAULT_SETTINGS: Settings = {
   // `translate`). Users who picked "en" have it persisted, so the default only
   // affects fresh installs and prefs files that predate the language setting.
   language: 'zh',
+  // Comfortable is the design's own row height — compact is an opt-in for
+  // browsing clusters with hundreds of rows.
+  tableDensity: 'comfortable',
   nodeShellImage: '',
   scannerTrivyPath: '',
   scannerGrypePath: '',
@@ -185,6 +208,7 @@ export function sanitizeSettings(raw: SettingsInput | null | undefined): Setting
     // nearest valid value, so it falls back to the default outright.
     theme: asTheme(s.theme),
     language: asLocale(s.language),
+    tableDensity: asTableDensity(s.tableDensity),
     nodeShellImage:
       typeof s.nodeShellImage === 'string' ? sanitizeNodeShellImage(s.nodeShellImage) : '',
     scannerTrivyPath:

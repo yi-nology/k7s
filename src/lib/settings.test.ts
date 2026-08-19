@@ -103,6 +103,26 @@ describe('theme and node-shell settings', () => {
   });
 });
 
+describe('table density setting', () => {
+  /** Fresh installs and old prefs files alike start at the roomier density. */
+  it('defaults to comfortable', () => {
+    expect(DEFAULT_SETTINGS.tableDensity).toBe('comfortable');
+    expect(sanitizeSettings({}).tableDensity).toBe('comfortable');
+  });
+
+  it('keeps a valid density', () => {
+    expect(sanitizeSettings({ tableDensity: 'compact' }).tableDensity).toBe('compact');
+    expect(sanitizeSettings({ tableDensity: 'comfortable' }).tableDensity).toBe('comfortable');
+  });
+
+  /** Same rule as theme: an unknown string has no nearest valid value. */
+  it('falls back to comfortable for anything else', () => {
+    expect(sanitizeSettings({ tableDensity: 'cozy' }).tableDensity).toBe('comfortable');
+    expect(sanitizeSettings({ tableDensity: 7 }).tableDensity).toBe('comfortable');
+    expect(sanitizeSettings({ tableDensity: null }).tableDensity).toBe('comfortable');
+  });
+});
+
 describe('language setting', () => {
   /** A fresh install (no prefs at all) boots in Chinese — the default locale. */
   it('defaults the shipped settings to Chinese', () => {
