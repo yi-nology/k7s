@@ -9,8 +9,10 @@
 //! Discovery is best-effort. A cluster whose RBAC forbids listing CRDs simply has
 //! no Custom section — the twelve built-in kinds are unaffected.
 
+use crate::error::AppResult;
+use k7s_deps::futures::StreamExt;
 use k7s_deps::k8s_openapi::apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition;
-use k7s_deps::kube::api::{Api, ListParams};
+use k7s_deps::kube::api::{Api, DynamicObject, ListParams};
 use k7s_deps::kube::core::{ApiResource, GroupVersionKind};
 use k7s_deps::kube::Client;
 use serde::Serialize;
@@ -86,6 +88,62 @@ fn storage_version(crd: &CustomResourceDefinition) -> Option<String> {
         .find(|v| v.storage)
         .or_else(|| versions.iter().find(|v| v.served))
         .map(|v| v.name.clone())
+}
+
+/// Instance count for one CRD-backed kind, keyed by the same "group/plural" id
+/// the frontend's custom-kinds list already carries.
+#[derive(Debug, Clone, Serialize)]
+pub struct CustomKindCount {
+    pub id: String,
+    pub count: u64,
+}
+
+/// One cheap LIST (limit=1, remainingItemCount) per discovered CRD.
+/// Best-effort per kind: RBAC-denied or failed kinds report count 0.
+/// Bounded concurrency (8) so 40+ CRDs don't stampede the API server.
+///
+/// The API server does the counting for us: with `limit=1` it returns one item
+/// plus `metadata.remainingItemCount`, so a cluster with 900 Argo Applications
+/// costs one row over the wire, not 900. Kinds whose list fails (RBAC denied,
+/// aggregated APIs that 503, a CRD whose served version vanished mid-flight)
+/// report 0 and the sweep continues — a missing badge is cosmetic, an error
+/// would block the whole custom-kinds section.
+pub async fn custom_kind_counts(client: &Client) -> AppResult<Vec<CustomKindCount>> {
+    let kinds = discover(client).await;
+    let mut counts: Vec<CustomKindCount> = k7s_deps::futures::stream::iter(kinds)
+        .map(|kind| {
+            let client = client.clone();
+            async move {
+                let api: Api<DynamicObject> = Api::all_with(client, &kind.api_resource());
+                let count = match api.list(&ListParams::default().limit(1)).await {
+                    Ok(list) => count_from_list(list.items.len(), list.metadata.remaining_item_count),
+                    Err(e) => {
+                        k7s_deps::tracing::debug!(
+                            kind = %kind.id,
+                            "custom kind count unavailable, reporting 0: {e}"
+                        );
+                        0
+                    }
+                };
+                CustomKindCount { id: kind.id, count }
+            }
+        })
+        // buffer_unordered completes in arrival order, so the sweep is gated by
+        // the slowest CRD, not by how many there are.
+        .buffer_unordered(8)
+        .collect()
+        .await;
+    // Re-sort: buffer_unordered yields in completion order; keep discover()'s
+    // stable id order so consecutive responses diff cleanly.
+    counts.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(counts)
+}
+
+/// Total from a chunked list: the items in this chunk plus the server-reported
+/// remainder. A negative remainder (malformed server response) clamps to 0 —
+/// `as u64` on a negative i64 would wrap to a astronomically wrong badge.
+fn count_from_list(items: usize, remaining: Option<i64>) -> u64 {
+    items as u64 + remaining.unwrap_or(0).max(0) as u64
 }
 
 #[cfg(test)]
@@ -194,5 +252,24 @@ mod tests {
         assert_eq!(ar.plural, "ingressroutes");
         assert_eq!(ar.kind, "IngressRoute");
         assert_eq!(ar.group, "traefik.io");
+    }
+
+    /// A limit=1 list with a remainder counts items + remainingItemCount.
+    #[test]
+    fn count_adds_remaining_items() {
+        assert_eq!(count_from_list(1, Some(899)), 900);
+    }
+
+    /// An unchunked (complete) list has no remainder — count is just the items.
+    #[test]
+    fn count_without_remainder() {
+        assert_eq!(count_from_list(7, None), 7);
+        assert_eq!(count_from_list(0, None), 0);
+    }
+
+    /// A malformed negative remainder clamps to 0 instead of wrapping u64.
+    #[test]
+    fn negative_remainder_clamps_to_zero() {
+        assert_eq!(count_from_list(3, Some(-5)), 3);
     }
 }
