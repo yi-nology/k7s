@@ -229,6 +229,12 @@ export const en: Dictionary = {
       en: 'English',
       zh: '中文',
     },
+    density: {
+      label: 'Table density',
+      hint: 'Compact rows fit more of large clusters',
+      comfortable: 'Comfortable',
+      compact: 'Compact',
+    },
     logBuffer: {
       label: 'Log buffer',
       hint: (min, max) => `lines kept in the log view (${min}–${max}); applies immediately`,
@@ -336,6 +342,10 @@ export const en: Dictionary = {
     newTitle: 'Create a resource from a YAML template',
     csvExportTitle: 'Export table as CSV',
     ariaLabel: 'Resource table',
+    quick: {
+      detail: 'Detail',
+      more: 'More actions',
+    },
   },
 
   actions: {
@@ -1226,6 +1236,13 @@ export const en: Dictionary = {
   notifications: {
     ariaLabel: 'Notifications',
     dismiss: 'Dismiss notification',
+  },
+
+  errors: {
+    connect: 'Cannot reach the cluster API — check the network and kubeconfig server address',
+    rbac: 'No permission for this action (RBAC denied) — contact the admin or switch context',
+    auth: 'Authentication expired — check the token or sign in again',
+    timeout: 'Request timed out — the cluster is slow to respond or the network is unstable',
   },
 
   propertiesExtra: {

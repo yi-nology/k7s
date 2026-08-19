@@ -24,6 +24,9 @@ export type ErrorReporter = (title: string, message: string) => void;
 /** Global error reporter instance. Set once at app startup. */
 let globalReporter: ErrorReporter | null = null;
 
+/** Global success reporter instance. Set once at app startup. */
+let globalSuccessReporter: ErrorReporter | null = null;
+
 /**
  * Set the global error reporter. Called once from the app root after
  * the toast system is initialized.
@@ -40,9 +43,32 @@ export function getErrorReporter(): ErrorReporter {
   return globalReporter ?? defaultReporter;
 }
 
+/**
+ * Set the global success reporter — the green-toast counterpart of
+ * {@link setErrorReporter}. Same `(title, message) => void` shape so callers
+ * (e.g. the wizard's apply-success path) read exactly like error reports.
+ * Called once from the app root after the toast system is initialized.
+ */
+export function setSuccessReporter(reporter: ErrorReporter): void {
+  globalSuccessReporter = reporter;
+}
+
+/**
+ * Get the current success reporter. Falls back to a console log if not yet
+ * initialized — a success report is never worth crashing over.
+ */
+export function getSuccessReporter(): ErrorReporter {
+  return globalSuccessReporter ?? defaultSuccessReporter;
+}
+
 /** Default reporter: logs to console (used before toast system is ready). */
 function defaultReporter(title: string, message: string): void {
   console.error(`[k7s] ${title}: ${message}`);
+}
+
+/** Default success reporter: console log until the toast system is ready. */
+function defaultSuccessReporter(title: string, message: string): void {
+  console.info(`[k7s] ${title}: ${message}`);
 }
 
 /**

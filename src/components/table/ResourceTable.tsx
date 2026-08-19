@@ -32,8 +32,9 @@ import {
   selectionForContextMenu,
 } from '../../lib/selection';
 import { RowContextMenu, type ContextMenuAt } from '../actions/RowContextMenu';
+import { RowQuickActions } from './RowQuickActions';
 import { headerHeight, columnWidth, renderCell, overlayMetrics } from './tableUtils';
-import { useVirtualRows } from './useVirtualRows';
+import { useVirtualRows, VIRTUAL_ROW_HEIGHT_COMPACT, VIRTUAL_ROW_HEIGHT_COMFORTABLE } from './useVirtualRows';
 
 /** Stable empty objects — used when a kind doesn't need metrics/podRows, so the
  *  selector returns the same reference every time and skips the rows recompute. */
@@ -79,7 +80,11 @@ export function ResourceTable() {
   // itself filters to the templates available for the cluster (Bxx).
   const openOverlay = useStore((s) => s.openOverlay);
   const watchStatus = useStore((s) => s.watchStatus);
-  const { t } = useTranslation();
+  // Table density (P3): subscribed as a bare field so a density flip is the only
+  // settings change that re-renders the table — the compact class below carries
+  // the whole effect (see .compact in the CSS module).
+  const tableDensity = useStore((s) => s.settings.tableDensity);
+  const { locale, t } = useTranslation();
 
   // Age columns re-render on a 30s tick.
   const now = useNow();
@@ -108,6 +113,11 @@ export function ResourceTable() {
     (row: Row): boolean => (nav === 'events' ? eventTarget(row) !== null : true),
     [nav, eventTarget]
   );
+
+  // Whether a row gets the hover-revealed quick actions (P3). Same gate as the
+  // context menu (see onRowContextMenu): events navigate rather than act, so
+  // the ⋯ half of the cluster would be a dead button there.
+  const quickActions = nav !== 'events';
 
   /**
    * The visible rows' uids, in display order.
@@ -221,19 +231,31 @@ export function ResourceTable() {
   /** The rows a context-menu action would apply to, in display order. */
   const menuRows = useMemo(() => selectedInOrder(selection, rows), [selection, rows]);
 
+  /**
+   * Open the row context menu at a viewport position. Shared by the right-click
+   * path below and the row's hover-revealed ⋯ button (P3) so the two entry
+   * points land in the exact same menu with the exact same selection rules.
+   */
+  const openMenuAt = useCallback(
+    (row: Row, at: ContextMenuAt) => {
+      // Outside the selection collapses to this row; inside it, the selection
+      // stands (see selectionForContextMenu). Read from the store for the same
+      // staleness reason as onSelect.
+      setSelection(selectionForContextMenu(useStore.getState().selection, row.uid));
+      setMenuError(null);
+      setMenuAt(at);
+    },
+    [setSelection]
+  );
+
   const onRowContextMenu = useCallback(
     (e: React.MouseEvent, row: Row) => {
       // Events navigate rather than act, so there is nothing to offer.
       if (nav === 'events') return;
       e.preventDefault();
-      // Right-clicking outside the selection collapses to this row; inside it,
-      // the selection stands (see selectionForContextMenu). Read from the store
-      // for the same staleness reason as onSelect.
-      setSelection(selectionForContextMenu(useStore.getState().selection, row.uid));
-      setMenuError(null);
-      setMenuAt({ x: e.clientX, y: e.clientY });
+      openMenuAt(row, { x: e.clientX, y: e.clientY });
     },
-    [nav, setSelection]
+    [nav, openMenuAt]
   );
 
   // Keyboard navigation: highlighted row index + `/`-to-focus the filter.
@@ -241,9 +263,14 @@ export function ResourceTable() {
   const highlight = useTableKeys(rows, onSelect, () => filterRef.current?.focus(), nav);
 
   // Windowing (B21). Sorting/filtering above still run over the full dataset;
-  // only what reaches the DOM is trimmed.
+  // only what reaches the DOM is trimmed. The windowed row height follows the
+  // density (P3) — the same value feeds the spacer math below (via the hook)
+  // and the inline pin on each windowed <tr>, so compact tables window at 26px
+  // and comfortable ones at 34px.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { virtual, window: win } = useVirtualRows(scrollRef, rows.length);
+  const rowHeight =
+    tableDensity === 'compact' ? VIRTUAL_ROW_HEIGHT_COMPACT : VIRTUAL_ROW_HEIGHT_COMFORTABLE;
+  const { virtual, window: win } = useVirtualRows(scrollRef, rows.length, rowHeight);
   const visible = virtual ? rows.slice(win.start, win.end) : rows;
 
   /** Bring row `index` on screen, whichever rendering mode is in play. */
@@ -254,14 +281,14 @@ export function ResourceTable() {
       if (virtual) {
         // A windowed row may not exist in the DOM at all, so its position is
         // computed rather than scrollIntoView'd.
-        const to = scrollToShow(index, el.scrollTop, el.clientHeight, ROW_HEIGHT, headerHeight(el));
+        const to = scrollToShow(index, el.scrollTop, el.clientHeight, rowHeight, headerHeight(el));
         if (to !== null) el.scrollTop = to;
       } else {
         // Natural row heights here, so let the browser measure it.
         el.querySelector(`[data-row-index="${index}"]`)?.scrollIntoView({ block: 'nearest' });
       }
     },
-    [virtual]
+    [virtual, rowHeight]
   );
 
   // Keep the keyboard highlight on screen.
@@ -281,7 +308,9 @@ export function ResourceTable() {
   }, [selectedUid, nav]);
 
   return (
-    <div className={styles.container}>
+    // compact (P3) halves the cell padding / pins the 26px row via the CSS
+    // module — added to this outer container so every rule scopes under it.
+    <div className={[styles.container, tableDensity === 'compact' ? styles.compact : ''].join(' ')}>
       <div className={styles.toolbar}>
         <div className={styles.search}>
           <span className={styles.searchIcon}>⌕</span>
@@ -436,29 +465,43 @@ export function ResourceTable() {
                     inSelection && !selected ? styles.rowInSelection : '',
                     index === highlight ? styles.rowHighlight : '',
                   ].join(' ')}
-                  // Height comes from the same constant the spacer math uses, so the
-                  // two cannot drift apart. Natural height when not windowed.
-                  style={virtual ? { height: ROW_HEIGHT } : undefined}
+                  // Windowed rows are pinned inline to the active density's
+                  // height — the exact value useVirtualRows consumed for the
+                  // spacer math, so the real layout and the scrollbar cannot
+                  // disagree. Natural height when not windowed.
+                  style={virtual ? { height: rowHeight } : undefined}
                   onClick={(e) => onSelect(row, e)}
                   onAuxClick={(e) => {
                     if (e.button === 1) onSelect(row, { ...e, button: 1 });
                   }}
                   onContextMenu={(e) => onRowContextMenu(e, row)}
                 >
-                  {row.cells.map((cell, j) => (
-                    // When the cell carries a status dot, renderCell returns a
-                    // fully-styled <span> that owns its own color — so the <td>
-                    // stays neutral and the pill stands out instead of being
-                    // tinted by the table's tone.
-                    <td
-                      key={j}
-                      role="gridcell"
-                      className={styles.td}
-                      style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
-                    >
-                      {renderCell(cell, now)}
-                    </td>
-                  ))}
+                  {row.cells.map((cell, j) => {
+                    // The LAST cell hosts the hover-revealed quick actions
+                    // (P3) when this kind has a context menu. The cluster is
+                    // absolutely positioned inside the cell (see .quick /
+                    // .tdQuick in the CSS module), so it overlays the cell's
+                    // tail without adding a column or shifting any width —
+                    // column alignment and the windowing math are untouched.
+                    const tail = quickActions && j === row.cells.length - 1;
+                    return (
+                      // When the cell carries a status dot, renderCell returns a
+                      // fully-styled <span> that owns its own color — so the <td>
+                      // stays neutral and the pill stands out instead of being
+                      // tinted by the table's tone.
+                      <td
+                        key={j}
+                        role="gridcell"
+                        className={tail ? `${styles.td} ${styles.tdQuick}` : styles.td}
+                        style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
+                      >
+                        {renderCell(cell, now, locale)}
+                        {tail && (
+                          <RowQuickActions row={row} onOpenDetail={onSelect} onOpenMenu={openMenuAt} />
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}
@@ -532,12 +575,9 @@ export function ResourceTable() {
   );
 }
 
-/**
- * Row height used by the windowing math (B21), and the single source of it: it's
- * applied to windowed rows inline, so the spacer arithmetic and the real layout
- * cannot disagree. The design's rows are 26px.
- */
-const ROW_HEIGHT = 26;
+// The windowed row heights live in ./useVirtualRows.ts (VIRTUAL_ROW_HEIGHT_*):
+// one exported constant per density, consumed there by the spacer math and here
+// by the inline pin on each windowed <tr>.
 
 // Utility functions extracted to ./tableUtils.ts:
 // - headerHeight: sticky header height calculation

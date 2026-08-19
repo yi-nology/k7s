@@ -46,6 +46,22 @@ vi.mock('../../providers', async (importOriginal) => {
   };
 });
 
+// Mock the error/success reporter channels (P3 Task 4) so the apply outcome's
+// routing is observable: a clean apply must toast through the SUCCESS channel,
+// failed docs through the ERROR channel.
+const reporterMocks = vi.hoisted(() => ({
+  errorReporter: vi.fn(),
+  successReporter: vi.fn(),
+}));
+vi.mock('../../providers/errorHandler', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers/errorHandler')>();
+  return {
+    ...actual,
+    getErrorReporter: () => reporterMocks.errorReporter,
+    getSuccessReporter: () => reporterMocks.successReporter,
+  };
+});
+
 // The review step renders the shared CodeMirror wrapper; mock it down to a
 // plain element so jsdom can assert on / edit the draft without CodeMirror:
 // read-only mounts render a <pre> (textContent assertions), editable mounts
@@ -108,6 +124,8 @@ beforeEach(() => {
   onClose.mockReset();
   bundleMocks.dryRunYamlBundle.mockReset();
   bundleMocks.applyYamlBundle.mockReset();
+  reporterMocks.errorReporter.mockReset();
+  reporterMocks.successReporter.mockReset();
   useStore.setState({
     overlay: 'wizard',
     settings: createMockSettings({ language: 'zh' }),
@@ -253,6 +271,82 @@ describe('CreateWorkloadWizard', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it('clearing the replicas field keeps it empty; blur resolves the default 1', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+
+    // Replicas still commits normally while it holds a number.
+    const replicas = view.queryByLabelText('副本数') as HTMLInputElement;
+    view.change(replicas, '3');
+    expect(replicas.value).toBe('3');
+
+    // Select-all + backspace: the field must STAY visually empty — the old
+    // clamping onChange coerced '' to the min the instant it was cleared,
+    // making clear-and-retype impossible.
+    view.change(replicas, '');
+    expect(replicas.value).toBe('');
+
+    // Blur commits the default (1) — the form model is numbers, and
+    // generateWorkloadYaml renders them verbatim, so ''/NaN must never land.
+    act(() => {
+      replicas.focus();
+      replicas.blur();
+    });
+    expect(replicas.value).toBe('1');
+
+    // The resolved number is what reaches the generated YAML.
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText('下一步'));
+    expect(draftText()).toContain('replicas: 1');
+  });
+
+  it('cleared probe numbers resolve to their per-probe defaults (port 80, delays 5/15)', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+    view.click(view.getByText('下一步')); // step 2 (container)
+
+    // Open both probe editors (checkboxes live inside the collapsed
+    // <details>, still in the DOM — the duplicate-id test does the same).
+    for (const cb of view.querySelectorAll('input[type="checkbox"]')) view.click(cb);
+
+    // Number inputs in DOM order: readiness port, readiness delay, liveness
+    // port, liveness delay. Move each off its default, then clear it, so the
+    // blur assertion proves the default was *committed*, not merely kept.
+    const nums = view.querySelectorAll('input[type="number"]');
+    expect(nums.length).toBe(4);
+    view.change(nums[0], '8080');
+    view.change(nums[1], '30');
+    view.change(nums[2], '9090');
+    view.change(nums[3], '45');
+    for (const n of nums) {
+      view.change(n, '');
+      expect((n as HTMLInputElement).value).toBe('');
+    }
+    // One blur per act, as in the browser: focus is exclusive, so blurs are
+    // always separate events with a re-render between them — each commit
+    // must see the previous one before building its patch.
+    for (const n of nums) {
+      act(() => {
+        n.focus();
+        n.blur();
+      });
+    }
+
+    // Review: readiness port 80 / delay 5, liveness port 80 / delay 15 —
+    // the emptyWorkloadForm defaults, not the last-typed numbers.
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText('下一步'));
+    const yaml = draftText();
+    expect(yaml).toContain('initialDelaySeconds: 5');
+    expect(yaml).toContain('initialDelaySeconds: 15');
+    // Both probes resolve the shared port default.
+    expect(yaml.match(/port: 80/g)?.length).toBe(2);
+    expect(yaml).not.toContain('port: 8080');
+    expect(yaml).not.toContain('port: 9090');
+    expect(yaml).not.toContain('NaN');
+  });
+
   it('apply is gated on a clean dry-run', async () => {
     // First check: the server rejects the doc (e.g. missing namespace).
     bundleMocks.dryRunYamlBundle.mockResolvedValueOnce([
@@ -306,6 +400,73 @@ describe('CreateWorkloadWizard', () => {
       expect.stringContaining('name: nginx')
     );
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('a clean apply toasts through the success channel, not the error channel', async () => {
+    bundleMocks.dryRunYamlBundle.mockResolvedValueOnce([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        proposed: 'apiVersion: apps/v1\n',
+        error: null,
+      },
+    ]);
+    bundleMocks.applyYamlBundle.mockResolvedValueOnce([
+      { kind: 'Deployment', namespace: 'default', name: 'nginx', action: 'created', error: null },
+    ]);
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+    view.click(view.getByText('检查'));
+    await flush();
+    view.click(applyButton());
+    await flush();
+
+    // Success goes out via getSuccessReporter() — a green toast, not red.
+    expect(reporterMocks.successReporter).toHaveBeenCalledTimes(1);
+    expect(reporterMocks.successReporter).toHaveBeenCalledWith(
+      '已应用',
+      expect.stringContaining('created Deployment/nginx')
+    );
+    expect(reporterMocks.errorReporter).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('failed docs at apply time still toast through the error channel and keep the dialog open', async () => {
+    bundleMocks.dryRunYamlBundle.mockResolvedValueOnce([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        proposed: 'apiVersion: apps/v1\n',
+        error: null,
+      },
+    ]);
+    bundleMocks.applyYamlBundle.mockResolvedValueOnce([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        action: 'failed',
+        error: 'conflict',
+      },
+    ]);
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+    view.click(view.getByText('检查'));
+    await flush();
+    view.click(applyButton());
+    await flush();
+
+    expect(reporterMocks.errorReporter).toHaveBeenCalledTimes(1);
+    expect(reporterMocks.errorReporter).toHaveBeenCalledWith(
+      '应用失败',
+      expect.stringContaining('Deployment/nginx')
+    );
+    expect(reporterMocks.successReporter).not.toHaveBeenCalled();
+    // The dialog stays open so the inline result rows are reachable.
+    expect(onClose).not.toHaveBeenCalled();
+    expect(view.queryByText(/conflict/)).not.toBeNull();
   });
 
   it('an empty dry-run result does not pass the gate vacuously', async () => {

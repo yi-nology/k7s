@@ -10,16 +10,77 @@
  * probes) collapse behind native `<details>` — zero JS, keyboard accessible.
  */
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from '../../hooks/useI18n';
 import { isValidK8sName, isValidNamespace } from '../../lib/security';
-import type { WorkloadForm, WorkloadType } from './workloadSpec';
+import { emptyWorkloadForm, type WorkloadForm, type WorkloadType } from './workloadSpec';
 import styles from './CreateWorkloadWizard.module.css';
+
+/** Blur defaults for cleared number fields — one definition, from the same
+ * factory that seeds the wizard's initial form (replicas 1, port 80,
+ * readiness delay 5, liveness delay 15). */
+const DEFAULTS = emptyWorkloadForm();
 
 /** Shared props: the whole form + an upward patch. */
 interface StepFieldsProps {
   form: WorkloadForm;
   onChange: (patch: Partial<WorkloadForm>) => void;
+}
+
+/**
+ * Number input that tolerates being cleared (P3 Task 5). The old clamping
+ * onChange — `Math.max(min, Number(v) || 0)` — coerced '' to the min the
+ * instant the field was cleared (a cleared probe port snapped back to 1), so
+ * select-all + retype was impossible. While the field holds a value,
+ * clamping is unchanged; a cleared field stays visually empty while the form
+ * keeps its last number, and blur commits `fallback`. WorkloadForm stays
+ * pure numbers — '' can never reach generateWorkloadYaml, which renders its
+ * values verbatim (a ''/NaN would land straight in the manifest).
+ */
+function NumberField({
+  value,
+  min,
+  fallback,
+  onCommit,
+  id,
+  className,
+}: {
+  value: number;
+  min: number;
+  /** Committed on blur when the user cleared the field. */
+  fallback: number;
+  onCommit: (n: number) => void;
+  id?: string;
+  className?: string;
+}) {
+  // True between the clearing keystroke and the blur — the only window in
+  // which the input is allowed to show ''.
+  const [cleared, setCleared] = useState(false);
+  return (
+    <input
+      id={id}
+      className={className}
+      type="number"
+      min={min}
+      value={cleared ? '' : value}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (raw === '') {
+          // Stay empty locally; the form keeps its last committed number.
+          setCleared(true);
+          return;
+        }
+        setCleared(false);
+        const n = Number(raw);
+        if (!Number.isNaN(n)) onCommit(Math.max(min, n));
+      }}
+      onBlur={() => {
+        if (!cleared) return;
+        setCleared(false);
+        onCommit(fallback);
+      }}
+    />
+  );
 }
 
 /** Unstyled add-row / remove-row buttons (the IngressEditor idiom). */
@@ -91,13 +152,13 @@ export function Basics({ form, onChange }: StepFieldsProps) {
       {form.workloadType !== 'daemonset' && (
         <label className={styles.field} htmlFor="wizard-replicas">
           {t('wizard.field.replicas', 'Replicas')}
-          <input
+          <NumberField
             id="wizard-replicas"
             className={styles.input}
-            type="number"
-            min={0}
             value={form.replicas}
-            onChange={(e) => onChange({ replicas: Math.max(0, Number(e.target.value) || 0) })}
+            min={0}
+            fallback={DEFAULTS.replicas}
+            onCommit={(replicas) => onChange({ replicas })}
           />
         </label>
       )}
@@ -145,9 +206,12 @@ function Advanced({ summary, children }: { summary: string; children: ReactNode 
 /** A probe editor (readiness/liveness share the same ProbeCfg shape). */
 function ProbeFields({
   probe,
+  delayFallback,
   onChange,
 }: {
   probe: WorkloadForm['readiness'];
+  /** Blur default for a cleared delay — readiness 5s, liveness 15s. */
+  delayFallback: number;
   onChange: (patch: Partial<WorkloadForm['readiness']>) => void;
 }) {
   const { t } = useTranslation();
@@ -177,22 +241,22 @@ function ProbeFields({
           </label>
           <label className={styles.field}>
             {t('wizard.field.port', 'Port')}
-            <input
+            <NumberField
               className={styles.input}
-              type="number"
-              min={1}
               value={probe.port}
-              onChange={(e) => onChange({ port: Math.max(1, Number(e.target.value) || 0) })}
+              min={1}
+              fallback={DEFAULTS.readiness.port}
+              onCommit={(port) => onChange({ port })}
             />
           </label>
           <label className={styles.field}>
             {t('wizard.field.initialDelay', 'Initial delay (s)')}
-            <input
+            <NumberField
               className={styles.input}
-              type="number"
-              min={0}
               value={probe.initialDelay}
-              onChange={(e) => onChange({ initialDelay: Math.max(0, Number(e.target.value) || 0) })}
+              min={0}
+              fallback={delayFallback}
+              onCommit={(initialDelay) => onChange({ initialDelay })}
             />
           </label>
         </>
@@ -232,12 +296,12 @@ export function Container({ form, onChange }: StepFieldsProps) {
             </label>
             <label className={styles.field}>
               {t('wizard.field.portNumber', 'Port')}
-              <input
+              <NumberField
                 className={styles.input}
-                type="number"
-                min={1}
                 value={p.port}
-                onChange={(e) => setPort(i, { port: Math.max(1, Number(e.target.value) || 0) })}
+                min={1}
+                fallback={DEFAULTS.readiness.port}
+                onCommit={(port) => setPort(i, { port })}
               />
             </label>
             <label className={styles.field}>
@@ -331,11 +395,19 @@ export function Container({ form, onChange }: StepFieldsProps) {
       </Advanced>
 
       <Advanced summary={t('wizard.field.readinessProbe', 'Readiness probe')}>
-        <ProbeFields probe={form.readiness} onChange={(patch) => onChange({ readiness: { ...form.readiness, ...patch } })} />
+        <ProbeFields
+          probe={form.readiness}
+          delayFallback={DEFAULTS.readiness.initialDelay}
+          onChange={(patch) => onChange({ readiness: { ...form.readiness, ...patch } })}
+        />
       </Advanced>
 
       <Advanced summary={t('wizard.field.livenessProbe', 'Liveness probe')}>
-        <ProbeFields probe={form.liveness} onChange={(patch) => onChange({ liveness: { ...form.liveness, ...patch } })} />
+        <ProbeFields
+          probe={form.liveness}
+          delayFallback={DEFAULTS.liveness.initialDelay}
+          onChange={(patch) => onChange({ liveness: { ...form.liveness, ...patch } })}
+        />
       </Advanced>
     </div>
   );

@@ -38,6 +38,17 @@
   animation: slideOut 0.2s ease-in forwards;
 }
 
+/* Success variant (P3 Task 4) — green accent via --status-ok, applied on top
+ * of `.toast`. Everything else (elevated bg, shadow, animation) is shared. */
+.success {
+  border-color: var(--status-ok);
+  border-left-color: var(--status-ok);
+}
+
+.success .icon {
+  color: var(--status-ok);
+}
+
 .icon {
   color: var(--status-err);
   flex-shrink: 0;

@@ -67,6 +67,13 @@ Workload kinds get a Kuboard-style 4-step wizard (component in `src/components/w
 
 Entry points: the 新建 button on any workload kind, the "create your first workload" empty-state CTA, and the overview's quick entry. Non-workload kinds route their 新建 button to the YAML template picker; ingresses route to the visual Ingress editor.
 
+### Table & feedback polish (P3)
+
+- **Localized status badges**: status pills show localized labels (运行中 / 等待中 / 失败, …) with a "raw status — cause hint" tooltip; unknown statuses keep showing the raw string rather than a guessed label (`src/lib/statusLabels.ts`).
+- **Table density**: Settings → 表格密度 switches between comfortable (default) and compact rows (26px, half the cell padding). Both modes apply to all tables, virtualized ones included — compact rows (26px) fit more of any cluster on screen, large ones included — and the choice is applied live and persisted with the other prefs.
+- **Hover quick actions**: hovering a table row floats a 详情 + ⋯ cluster over the row tail — one click opens the detail panel, ⋯ opens the row's context menu without first selecting the row.
+- **Humanized toasts**: known error families (connection refused, forbidden, unauthorized, …) get a localized toast title with the original raw error kept as the body so diagnostics survive; successful actions get a success-toast variant instead of silence.
+
 ### Web-mode login gate (`HttpProvider` only)
 
 `k7s-web` exposes the full Kubernetes control surface over HTTP, so `/api/invoke/*` is always gated:

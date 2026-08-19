@@ -2,14 +2,21 @@
  * Tests for ResourceTable — the generic resource table (Design §3).
  *
  * Covers rendering rows, filter input, empty/forbidden states, selection bar,
- * events time-range dropdown, and row click interaction via the store.
+ * events time-range dropdown, row click interaction via the store, and the
+ * density-driven row height on virtualized tables.
  */
 
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { useStore } from '../../store';
+import { DEFAULT_SETTINGS } from '../../lib/settings';
 import type { Row } from '../../providers/types';
 import { ResourceTable } from './ResourceTable';
+import {
+  VIRTUAL_ROW_HEIGHT_COMPACT,
+  VIRTUAL_ROW_HEIGHT_COMFORTABLE,
+  VIRTUAL_THRESHOLD,
+} from './useVirtualRows';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 
 let view: RenderResult;
@@ -29,6 +36,10 @@ function resetStore() {
     podMetrics: {},
     nodeMetrics: {},
     customKinds: [],
+    // Re-pin the locale the global setup chose: the density tests below swap
+    // the whole settings object for DEFAULT_SETTINGS (whose language is the
+    // zh default), which would otherwise leak 'zh' into every later test.
+    settings: { ...useStore.getState().settings, language: 'en' },
     rows: {
       ...useStore.getState().rows,
       pods: [],
@@ -283,6 +294,71 @@ describe('ResourceTable', () => {
     });
   });
 
+  describe('table density', () => {
+    it('does not mark the container compact at the comfortable default', () => {
+      useStore.setState({
+        settings: { ...DEFAULT_SETTINGS, tableDensity: 'comfortable' },
+      });
+      view = render(<ResourceTable />);
+      expect(view.container.querySelector('[class*="compact"]')).toBeNull();
+    });
+
+    it('marks the container compact when the setting says so', () => {
+      useStore.setState({
+        settings: { ...DEFAULT_SETTINGS, tableDensity: 'compact' },
+      });
+      view = render(<ResourceTable />);
+      const compactEl = view.container.querySelector('[class*="compact"]');
+      expect(compactEl).not.toBeNull();
+    });
+
+    it('pins windowed rows to the active density height and follows a live flip', () => {
+      // Past VIRTUAL_THRESHOLD the table windows (B21): row heights come from
+      // the inline <tr> pin rather than CSS, so the density must reach that
+      // pin or it is a no-op on exactly the large tables it exists for. jsdom
+      // has no layout, so the window starts at row 0 with an empty viewport.
+      const rows: Row[] = Array.from({ length: VIRTUAL_THRESHOLD + 50 }, (_, i) =>
+        createMockRow({ uid: `p${i}`, name: `pod-${i}` })
+      );
+      useStore.setState({
+        rows: { ...useStore.getState().rows, pods: rows },
+        settings: { ...DEFAULT_SETTINGS, tableDensity: 'comfortable', language: 'en' },
+      });
+      view = render(<ResourceTable />);
+
+      const comfortableRow = view.container.querySelector(
+        'tr[data-row-index="0"]'
+      ) as HTMLElement | null;
+      expect(comfortableRow).not.toBeNull();
+      expect(comfortableRow!.style.height).toBe(`${VIRTUAL_ROW_HEIGHT_COMFORTABLE}px`);
+
+      // Flip the density live — the windowed pin must follow the setting.
+      act(() => {
+        useStore.setState({
+          settings: { ...DEFAULT_SETTINGS, tableDensity: 'compact', language: 'en' },
+        });
+      });
+      const compactRow = view.container.querySelector(
+        'tr[data-row-index="0"]'
+      ) as HTMLElement | null;
+      expect(compactRow).not.toBeNull();
+      expect(compactRow!.style.height).toBe(`${VIRTUAL_ROW_HEIGHT_COMPACT}px`);
+    });
+
+    it('leaves small-table rows to their natural CSS height in both densities', () => {
+      // Below the threshold there is no window and no inline pin — the row
+      // height is whatever the CSS module renders.
+      useStore.setState({
+        settings: { ...DEFAULT_SETTINGS, tableDensity: 'compact', language: 'en' },
+        rows: { ...useStore.getState().rows, pods: [createMockRow({ uid: 'p1', name: 'pod-1' })] },
+      });
+      view = render(<ResourceTable />);
+      const tr = view.container.querySelector('tr[data-row-index="0"]') as HTMLElement | null;
+      expect(tr).not.toBeNull();
+      expect(tr!.style.height).toBe('');
+    });
+  });
+
   describe('row click', () => {
     it('selects a row on click', () => {
       const row = createMockRow({ uid: 'p1', name: 'my-pod' });
@@ -298,6 +374,78 @@ describe('ResourceTable', () => {
       expect(tr).not.toBeNull();
       view.click(tr!);
       expect(useStore.getState().selectedRow?.uid).toBe('p1');
+    });
+  });
+
+  describe('hover quick actions', () => {
+    it('renders the quick-action cluster inside each clickable row', () => {
+      const rows: Row[] = [
+        createMockRow({ uid: 'p1', name: 'pod-1' }),
+        createMockRow({ uid: 'p2', name: 'pod-2' }),
+      ];
+      useStore.setState({
+        nav: 'pods',
+        rows: { ...useStore.getState().rows, pods: rows },
+      });
+      view = render(<ResourceTable />);
+      for (const name of ['pod-1', 'pod-2']) {
+        const tr = view.queryByText(name)!.closest('tr')!;
+        const quick = tr.querySelector('[class*="quick"]');
+        expect(quick).not.toBeNull();
+        const buttons = quick!.querySelectorAll('button');
+        expect(buttons.length).toBe(2);
+        expect(buttons[0].getAttribute('aria-label')).toBe('Detail');
+        expect(buttons[1].getAttribute('aria-label')).toBe('More actions');
+      }
+    });
+
+    it('does not render the cluster for events rows', () => {
+      // Events have no context menu (they navigate instead), so the ⋯ half of
+      // the cluster would be a dead button — the whole cluster stays off, even
+      // for an event whose target would make its row clickable.
+      const row = createMockRow({
+        uid: 'e1',
+        name: 'event-1',
+        involved: { kind: 'Pod', namespace: 'default', name: 'pod-1' },
+      });
+      useStore.setState({
+        nav: 'events',
+        rows: { ...useStore.getState().rows, events: [row] },
+      });
+      view = render(<ResourceTable />);
+      const tr = view.queryByText('event-1')!.closest('tr')!;
+      expect(tr.querySelector('[class*="quick"]')).toBeNull();
+    });
+
+    it('clicking 详情 selects the row like a plain row click', () => {
+      const row = createMockRow({ uid: 'p1', name: 'my-pod' });
+      useStore.setState({
+        nav: 'pods',
+        rows: { ...useStore.getState().rows, pods: [row] },
+      });
+      view = render(<ResourceTable />);
+      const tr = view.queryByText('my-pod')!.closest('tr')!;
+      view.click(tr.querySelector('button[aria-label="Detail"]')!);
+      expect(useStore.getState().selectedRow?.uid).toBe('p1');
+    });
+
+    it('clicking ⋯ opens the row context menu without selecting the row', () => {
+      const row = createMockRow({ uid: 'p1', name: 'my-pod' });
+      useStore.setState({
+        nav: 'pods',
+        rows: { ...useStore.getState().rows, pods: [row] },
+      });
+      view = render(<ResourceTable />);
+      const tr = view.queryByText('my-pod')!.closest('tr')!;
+      view.click(tr.querySelector('button[aria-label="More actions"]')!);
+      // The click must not fall through to the row handler: opening a menu is
+      // not a selection, and the detail panel must not flip to this row.
+      expect(useStore.getState().selectedRow).toBeNull();
+      // …but the menu itself opened via the same path a right-click takes: the
+      // selection collapsed to this row and the portal menu mounted.
+      expect(useStore.getState().selection.selected).toContain('p1');
+      const portal = document.body.querySelector('[style*="position: fixed"]');
+      expect(portal).not.toBeNull();
     });
   });
 

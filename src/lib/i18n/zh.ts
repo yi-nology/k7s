@@ -234,6 +234,12 @@ export const zh: Dictionary = {
       en: 'English',
       zh: '中文',
     },
+    density: {
+      label: '表格密度',
+      hint: '紧凑行高更适合大集群浏览',
+      comfortable: '舒适',
+      compact: '紧凑',
+    },
     logBuffer: {
       label: '日志缓冲',
       hint: (min, max) => `日志视图保留行数 (${min}–${max});立即生效`,
@@ -341,6 +347,10 @@ export const zh: Dictionary = {
     newTitle: '从 YAML 模板创建资源',
     csvExportTitle: '导出表格为 CSV',
     ariaLabel: '资源表格',
+    quick: {
+      detail: '详情',
+      more: '更多操作',
+    },
   },
 
   actions: {
@@ -1220,6 +1230,13 @@ export const zh: Dictionary = {
   notifications: {
     ariaLabel: '通知',
     dismiss: '关闭通知',
+  },
+
+  errors: {
+    connect: '连不上集群 API,检查网络与 kubeconfig 服务器地址',
+    rbac: '当前身份无此操作权限(RBAC 拒绝),联系管理员或切换上下文',
+    auth: '认证失效,检查 token 或重新登录',
+    timeout: '请求超时,集群响应过慢或网络不稳',
   },
 
   propertiesExtra: {
