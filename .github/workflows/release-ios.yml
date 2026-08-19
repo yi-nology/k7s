@@ -97,6 +97,7 @@ jobs:
         env:
           CODE_SIGNING_ALLOWED: "NO"
           CODE_SIGNING_REQUIRED: "NO"
+          RUSTFLAGS: '--cfg mobile'
 
       - name: upload iOS artifacts
         if: success()

@@ -90,6 +90,8 @@ jobs:
         run: |
           cd k7s-android
           cargo tauri android build
+        env:
+          RUSTFLAGS: '--cfg mobile'
 
       - name: rename APK
         run: |
