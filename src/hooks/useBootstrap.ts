@@ -162,9 +162,15 @@ export function useBootstrap(): void {
         s.connection.context !== lastCountedCtx
       ) {
         lastCountedCtx = s.connection.context;
+        // Capture context so the .then() closure can verify the store
+        // still targets the same cluster (guards against a stale fetch
+        // from a previous context overwriting the new context's counts).
+        const ctxAtFetchTime = lastCountedCtx;
         provider
           .customKindCounts()
           .then((arr) => {
+            // Guard: discard stale fetch if user switched context in the meantime.
+            if (useStore.getState().connection.context !== ctxAtFetchTime) return;
             const map: Record<string, number> = {};
             for (const { id, count } of arr) map[id] = count;
             useStore.getState().setCustomKindCounts(map);
