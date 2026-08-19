@@ -1,4 +1,4 @@
-# Ensure the `mobile` cfg flag is set for all Android targets.
+# Ensure the `mobile` cfg flag is set for Android targets (64-bit only).
 # The Tauri Gradle plugin (cargo-ndk) sets CARGO_TARGET_*_RUSTFLAGS which
 # overrides shell-level RUSTFLAGS exports. A .cargo/config.toml target
 # section is the only reliable way to inject extra rustc flags that survive
@@ -9,11 +9,5 @@
 [target.aarch64-linux-android]
 rustflags = ["--cfg", "mobile"]
 
-[target.armv7-linux-androideabi]
-rustflags = ["--cfg", "mobile"]
-
 [target.x86_64-linux-android]
-rustflags = ["--cfg", "mobile"]
-
-[target.i686-linux-android]
 rustflags = ["--cfg", "mobile"]
