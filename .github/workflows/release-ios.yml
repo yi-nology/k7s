@@ -70,7 +70,7 @@ jobs:
           workspaces: k7s-ios -> target
 
       - name: install Tauri CLI
-        run: cargo install tauri-cli
+        run: cargo install tauri-cli --version "^2.11"
 
       - name: init iOS project
         run: |
