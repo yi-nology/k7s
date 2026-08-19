@@ -98,9 +98,10 @@ jobs:
           find . -name "*.apk" -exec mv {} k7s-${{ github.ref_name }}.apk \; || true
 
       - name: upload Android artifacts
-        uses: softprops/action-gh-release@v3
+        uses: actions/upload-artifact@v4
         with:
-          files: |
+          name: k7s-android-${{ github.ref_name }}
+          path: |
             k7s-android/gen/android/app/build/outputs/**/*.aab
             k7s-android/gen/android/app/build/outputs/**/*.apk
         env:
