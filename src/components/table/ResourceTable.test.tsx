@@ -2,7 +2,8 @@
  * Tests for ResourceTable — the generic resource table (Design §3).
  *
  * Covers rendering rows, filter input, empty/forbidden states, selection bar,
- * events time-range dropdown, and row click interaction via the store.
+ * events time-range dropdown, row click interaction via the store, and the
+ * density-driven row height on virtualized tables.
  */
 
 import { act } from 'react';
@@ -11,6 +12,11 @@ import { useStore } from '../../store';
 import { DEFAULT_SETTINGS } from '../../lib/settings';
 import type { Row } from '../../providers/types';
 import { ResourceTable } from './ResourceTable';
+import {
+  VIRTUAL_ROW_HEIGHT_COMPACT,
+  VIRTUAL_ROW_HEIGHT_COMFORTABLE,
+  VIRTUAL_THRESHOLD,
+} from './useVirtualRows';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
 
 let view: RenderResult;
@@ -304,6 +310,52 @@ describe('ResourceTable', () => {
       view = render(<ResourceTable />);
       const compactEl = view.container.querySelector('[class*="compact"]');
       expect(compactEl).not.toBeNull();
+    });
+
+    it('pins windowed rows to the active density height and follows a live flip', () => {
+      // Past VIRTUAL_THRESHOLD the table windows (B21): row heights come from
+      // the inline <tr> pin rather than CSS, so the density must reach that
+      // pin or it is a no-op on exactly the large tables it exists for. jsdom
+      // has no layout, so the window starts at row 0 with an empty viewport.
+      const rows: Row[] = Array.from({ length: VIRTUAL_THRESHOLD + 50 }, (_, i) =>
+        createMockRow({ uid: `p${i}`, name: `pod-${i}` })
+      );
+      useStore.setState({
+        rows: { ...useStore.getState().rows, pods: rows },
+        settings: { ...DEFAULT_SETTINGS, tableDensity: 'comfortable', language: 'en' },
+      });
+      view = render(<ResourceTable />);
+
+      const comfortableRow = view.container.querySelector(
+        'tr[data-row-index="0"]'
+      ) as HTMLElement | null;
+      expect(comfortableRow).not.toBeNull();
+      expect(comfortableRow!.style.height).toBe(`${VIRTUAL_ROW_HEIGHT_COMFORTABLE}px`);
+
+      // Flip the density live — the windowed pin must follow the setting.
+      act(() => {
+        useStore.setState({
+          settings: { ...DEFAULT_SETTINGS, tableDensity: 'compact', language: 'en' },
+        });
+      });
+      const compactRow = view.container.querySelector(
+        'tr[data-row-index="0"]'
+      ) as HTMLElement | null;
+      expect(compactRow).not.toBeNull();
+      expect(compactRow!.style.height).toBe(`${VIRTUAL_ROW_HEIGHT_COMPACT}px`);
+    });
+
+    it('leaves small-table rows to their natural CSS height in both densities', () => {
+      // Below the threshold there is no window and no inline pin — the row
+      // height is whatever the CSS module renders.
+      useStore.setState({
+        settings: { ...DEFAULT_SETTINGS, tableDensity: 'compact', language: 'en' },
+        rows: { ...useStore.getState().rows, pods: [createMockRow({ uid: 'p1', name: 'pod-1' })] },
+      });
+      view = render(<ResourceTable />);
+      const tr = view.container.querySelector('tr[data-row-index="0"]') as HTMLElement | null;
+      expect(tr).not.toBeNull();
+      expect(tr!.style.height).toBe('');
     });
   });
 

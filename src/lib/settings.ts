@@ -25,7 +25,6 @@ export function asTableDensity(value: unknown): TableDensity {
     : 'comfortable';
 }
 
-
 /** Everything the settings panel controls. */
 export interface Settings {
   /** Lines the log view retains (the design default is 200). */

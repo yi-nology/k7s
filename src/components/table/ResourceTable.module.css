@@ -214,8 +214,9 @@
 
 /* Windowed rows are pinned to exactly the height the spacer math assumes — a row
    even a pixel off would drift the window out of step with the scrollbar. The
-   height itself is set inline from ROW_HEIGHT rather than written here, so the
-   two can't disagree; this only stops the padding from stretching the row. */
+   height itself is set inline from the density's VIRTUAL_ROW_HEIGHT_* constant
+   (useVirtualRows.ts) rather than written here, so the two can't disagree; this
+   only stops the padding from stretching the row. */
 .rowFixed td {
   padding-top: 0;
   padding-bottom: 0;
@@ -263,7 +264,7 @@
   padding-bottom: 4.5px;
   height: 26px;
 }
-/* Windowed rows are pinned inline to ROW_HEIGHT; re-assert their zeroed
+/* Windowed rows are pinned inline to the density's VIRTUAL_ROW_HEIGHT_*; re-assert their zeroed
    padding at a specificity above .compact .td so a compact windowed row
    can't stretch past the spacer math (B21). */
 .compact .rowFixed td {

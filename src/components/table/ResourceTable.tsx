@@ -34,7 +34,7 @@ import {
 import { RowContextMenu, type ContextMenuAt } from '../actions/RowContextMenu';
 import { RowQuickActions } from './RowQuickActions';
 import { headerHeight, columnWidth, renderCell, overlayMetrics } from './tableUtils';
-import { useVirtualRows } from './useVirtualRows';
+import { useVirtualRows, VIRTUAL_ROW_HEIGHT_COMPACT, VIRTUAL_ROW_HEIGHT_COMFORTABLE } from './useVirtualRows';
 
 /** Stable empty objects — used when a kind doesn't need metrics/podRows, so the
  *  selector returns the same reference every time and skips the rows recompute. */
@@ -263,9 +263,14 @@ export function ResourceTable() {
   const highlight = useTableKeys(rows, onSelect, () => filterRef.current?.focus(), nav);
 
   // Windowing (B21). Sorting/filtering above still run over the full dataset;
-  // only what reaches the DOM is trimmed.
+  // only what reaches the DOM is trimmed. The windowed row height follows the
+  // density (P3) — the same value feeds the spacer math below (via the hook)
+  // and the inline pin on each windowed <tr>, so compact tables window at 26px
+  // and comfortable ones at 34px.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { virtual, window: win } = useVirtualRows(scrollRef, rows.length);
+  const rowHeight =
+    tableDensity === 'compact' ? VIRTUAL_ROW_HEIGHT_COMPACT : VIRTUAL_ROW_HEIGHT_COMFORTABLE;
+  const { virtual, window: win } = useVirtualRows(scrollRef, rows.length, rowHeight);
   const visible = virtual ? rows.slice(win.start, win.end) : rows;
 
   /** Bring row `index` on screen, whichever rendering mode is in play. */
@@ -276,14 +281,14 @@ export function ResourceTable() {
       if (virtual) {
         // A windowed row may not exist in the DOM at all, so its position is
         // computed rather than scrollIntoView'd.
-        const to = scrollToShow(index, el.scrollTop, el.clientHeight, ROW_HEIGHT, headerHeight(el));
+        const to = scrollToShow(index, el.scrollTop, el.clientHeight, rowHeight, headerHeight(el));
         if (to !== null) el.scrollTop = to;
       } else {
         // Natural row heights here, so let the browser measure it.
         el.querySelector(`[data-row-index="${index}"]`)?.scrollIntoView({ block: 'nearest' });
       }
     },
-    [virtual]
+    [virtual, rowHeight]
   );
 
   // Keep the keyboard highlight on screen.
@@ -460,9 +465,11 @@ export function ResourceTable() {
                     inSelection && !selected ? styles.rowInSelection : '',
                     index === highlight ? styles.rowHighlight : '',
                   ].join(' ')}
-                  // Height comes from the same constant the spacer math uses, so the
-                  // two cannot drift apart. Natural height when not windowed.
-                  style={virtual ? { height: ROW_HEIGHT } : undefined}
+                  // Windowed rows are pinned inline to the active density's
+                  // height — the exact value useVirtualRows consumed for the
+                  // spacer math, so the real layout and the scrollbar cannot
+                  // disagree. Natural height when not windowed.
+                  style={virtual ? { height: rowHeight } : undefined}
                   onClick={(e) => onSelect(row, e)}
                   onAuxClick={(e) => {
                     if (e.button === 1) onSelect(row, { ...e, button: 1 });
@@ -568,12 +575,9 @@ export function ResourceTable() {
   );
 }
 
-/**
- * Row height used by the windowing math (B21), and the single source of it: it's
- * applied to windowed rows inline, so the spacer arithmetic and the real layout
- * cannot disagree. The design's rows are 26px.
- */
-const ROW_HEIGHT = 26;
+// The windowed row heights live in ./useVirtualRows.ts (VIRTUAL_ROW_HEIGHT_*):
+// one exported constant per density, consumed there by the spacer math and here
+// by the inline pin on each windowed <tr>.
 
 // Utility functions extracted to ./tableUtils.ts:
 // - headerHeight: sticky header height calculation
