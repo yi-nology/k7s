@@ -76,7 +76,7 @@ describe('SubNav', () => {
     expect(view.queryByText('Custom Resources')).toBeNull();
   });
 
-  it('appends discovered CRD kinds under the Custom Resources group', () => {
+  it('collapses the Custom Resources group by default and expands on toggle', () => {
     useStore.setState({
       nav: 'configmaps',
       section: 'config',
@@ -92,14 +92,43 @@ describe('SubNav', () => {
       ],
     });
     view = render(<SubNav section="config" />);
-    expect(view.getByText('Custom Resources')).toBeTruthy();
+    // The group is a collapsed toggle (with its count) — the CRD kind tab
+    // itself is NOT rendered until the user expands it: operator-installed
+    // CRD definitions are noise next to ConfigMap/Secret by default.
+    const toggle = view.getByText('Custom Resources');
+    expect(toggle).toBeTruthy();
+    expect(view.queryByText('1')).toBeTruthy();
+    expect(view.queryByRole('tab', { name: 'Application' })).toBeNull();
+    view.click(toggle);
     const app = view.queryByRole('tab', { name: 'Application' });
     expect(app).not.toBeNull();
-    expect(app?.className).not.toContain('active');
     view.click(app!);
     expect(useStore.getState().nav).toBe('argoproj.io/applications');
     // Custom kinds default to the config section (sectionForKind).
     expect(useStore.getState().section).toBe('config');
+  });
+
+  it('auto-expands the Custom Resources group when a custom kind is active', () => {
+    useStore.setState({
+      nav: 'argoproj.io/applications',
+      section: 'config',
+      customKinds: [
+        {
+          id: 'argoproj.io/applications',
+          group: 'argoproj.io',
+          version: 'v1alpha1',
+          kind: 'Application',
+          plural: 'applications',
+          namespaced: true,
+        },
+      ],
+    });
+    view = render(<SubNav section="config" />);
+    // Deep links / palette navigation to a CRD kind must not hide the active
+    // tab behind a collapsed group.
+    const app = view.queryByRole('tab', { name: 'Application' });
+    expect(app).not.toBeNull();
+    expect(app?.className).toContain('active');
   });
 
   it('renders the storage section kinds as a single grouped strip', () => {

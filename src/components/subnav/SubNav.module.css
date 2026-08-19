@@ -24,6 +24,35 @@
   color: var(--text-faint);
   margin-right: 4px;
 }
+/* Collapsed-by-default toggle for the Custom Resources group. Reads like a
+   groupLabel but is a real button (▸/▾ + count); the CRD kind tabs render
+   only while expanded. */
+.groupToggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.groupToggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.chevron {
+  font-size: 9px;
+}
+.count {
+  color: var(--text-nav-inactive);
+}
 .tab {
   padding: 5px 10px;
   border: none;
