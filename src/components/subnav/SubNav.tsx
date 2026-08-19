@@ -10,6 +10,7 @@
  * section。Task 4 由 App.tsx 在各资源分区内容区顶部渲染本组件。
  */
 
+import { useState } from 'react';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
 import { useCustomKinds } from '../../hooks/useStoreHooks';
@@ -46,6 +47,14 @@ export function SubNav({ section }: { section: SectionId }) {
   const customKinds = useCustomKinds();
   const { locale, t } = useTranslation();
 
+  // The Custom Resources group starts collapsed: operator-installed CRD
+  // *definitions* (Envoy Gateway, cert-manager, …) are noise next to
+  // ConfigMap/Secret unless the user opts in — or is already viewing one
+  // (palette/deep-link navigation must not hide the active tab).
+  const [customOpen, setCustomOpen] = useState(false);
+  const activeIsCustom = customKinds.some((ck) => ck.id === nav);
+  const customExpanded = customOpen || activeIsCustom;
+
   const groups: SubNavGroup[] =
     section === 'workloads'
       ? [{ id: 'workloads', label: '', kinds: kindsForSection('workloads') }]
@@ -72,26 +81,42 @@ export function SubNav({ section }: { section: SectionId }) {
     <div className={styles.subnav} role="tablist">
       {groups.map((g) => (
         <div key={g.id} className={styles.group}>
-          {g.label && (
-            <span className={styles.groupLabel}>
-              {t(`subnav.group.${g.id}`, GROUP_FALLBACK[g.id] ?? g.id)}
-            </span>
-          )}
-          {g.kinds.map((k) => (
+          {g.id === 'custom' ? (
             <button
-              key={k}
               type="button"
-              role="tab"
-              aria-selected={nav === k}
-              className={cx(styles.tab, nav === k && styles.active)}
-              onClick={() => setNav(k)}
+              className={styles.groupToggle}
+              aria-expanded={customExpanded}
+              onClick={() => setCustomOpen((v) => !v)}
             >
-              {/* Localised label where the locale has one (TopBar breadcrumb
-                  parity); custom kinds show their CRD Kind name; the last
-                  resort is the static English registry label, then the id. */}
-              {kindLabelFor(k, customKinds, locale) ?? kindMeta(k, customKinds)?.label ?? k}
+              <span className={styles.chevron} aria-hidden="true">
+                {customExpanded ? '▾' : '▸'}
+              </span>
+              {t(`subnav.group.custom`, GROUP_FALLBACK.custom)}
+              <span className={styles.count}>{customKinds.length}</span>
             </button>
-          ))}
+          ) : (
+            g.label && (
+              <span className={styles.groupLabel}>
+                {t(`subnav.group.${g.id}`, GROUP_FALLBACK[g.id] ?? g.id)}
+              </span>
+            )
+          )}
+          {(g.id !== 'custom' || customExpanded) &&
+            g.kinds.map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={nav === k}
+                className={cx(styles.tab, nav === k && styles.active)}
+                onClick={() => setNav(k)}
+              >
+                {/* Localised label where the locale has one (TopBar breadcrumb
+              parity); custom kinds show their CRD Kind name; the last
+              resort is the static English registry label, then the id. */}
+                {kindLabelFor(k, customKinds, locale) ?? kindMeta(k, customKinds)?.label ?? k}
+              </button>
+            ))}
         </div>
       ))}
     </div>
