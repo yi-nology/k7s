@@ -150,6 +150,8 @@ describe('Dashboard', () => {
     view.click(view.getByText(/Alerts|告警/));
     expect(useStore.getState().overlay).toBe('alerting');
     view.click(view.getByText(/Create workload|创建工作负载/));
-    expect(useStore.getState().overlay).toBe('templates');
+    // P2: the workload quick entry opens the create-workload wizard, not the
+    // generic template picker.
+    expect(useStore.getState().overlay).toBe('wizard');
   });
 });

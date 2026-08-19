@@ -36,7 +36,6 @@
 import { IS_TAURI, httpInvoke, httpSubscribe } from './transport';
 import { BaseRpcProvider } from './BaseRpcProvider';
 import type {
-  ApplyResult,
   Alert,
   AlertManager,
   ImportImageResult,
@@ -586,12 +585,8 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     return [];
   }
 
-  // ---- Multi-doc apply: not proxied yet. ----
-  async applyYamlBundle(_yaml: string): Promise<ApplyResult[]> {
-    return [];
-  }
-
-  // Multi-doc dry run is handled by the base class via rpc('dry_run_yaml_bundle').
+  // Multi-doc apply and dry run are inherited from BaseRpcProvider via
+  // rpc('apply_yaml_bundle') / rpc('dry_run_yaml_bundle').
 
   // ---- Image import: desktop only. The web shell has no access to the
   // user's local filesystem, so the native file-picker path doesn't apply

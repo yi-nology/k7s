@@ -56,6 +56,17 @@ The sidebar is a 5-section rail (registry in `src/lib/sections.tsx`); the conten
 - **Empty state**: with no cluster connected, the overview shows an "import cluster" CTA that opens the same wizard.
 - **Locale**: Chinese (zh) is the default; switch in Settings. The choice is cached at `localStorage['k7s.locale']`.
 
+### Create-workload wizard (P2)
+
+Workload kinds get a Kuboard-style 4-step wizard (component in `src/components/wizard/`):
+
+1. **基本信息** Basics — name, namespace, type (Deployment/StatefulSet/DaemonSet), replicas, image. Next stays disabled until name + image are valid.
+2. **容器配置** Container — ports, env vars, and collapsed advanced blocks (command/args, resources, readiness/liveness probes).
+3. **存储与配置** Storage — PVC volume mounts.
+4. **预览与应用** Review & Apply — an editable CodeMirror YAML draft. 检查 runs a server-side dry run (per-doc pass/fail rows); any draft edit invalidates the run, and **应用 stays disabled until a clean, non-stale dry run exists**. 从 YAML 回填表单 parses an edited draft back into the form and regenerates the preview.
+
+Entry points: the 新建 button on any workload kind, the "create your first workload" empty-state CTA, and the overview's quick entry. Non-workload kinds route their 新建 button to the YAML template picker; ingresses route to the visual Ingress editor.
+
 ### Web-mode login gate (`HttpProvider` only)
 
 `k7s-web` exposes the full Kubernetes control surface over HTTP, so `/api/invoke/*` is always gated:

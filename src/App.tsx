@@ -62,6 +62,8 @@ const IngressEditor = lazy(() => import('./components/ingress/IngressEditor').th
 const ResourceDiff = lazy(() => import('./components/diff/ResourceDiff').then((m) => ({ default: m.ResourceDiff })));
 const PluginPanel = lazy(() => import('./components/plugins/PluginPanel').then((m) => ({ default: m.PluginPanel })));
 const SBOMPanel = lazy(() => import('./components/sbom/SBOMPanel').then((m) => ({ default: m.SBOMPanel })));
+// P2 create-workload wizard — 4-step Deployment/StatefulSet/DaemonSet builder.
+const CreateWorkloadWizard = lazy(() => import('./components/wizard/CreateWorkloadWizard').then((m) => ({ default: m.CreateWorkloadWizard })));
 // The tools catalog page (P1 IA) — the Tools section's inline content.
 const ToolsPage = lazy(() => import('./components/tools/ToolsPage').then((m) => ({ default: m.ToolsPage })));
 
@@ -89,6 +91,7 @@ const overlayPanels: Partial<Record<OverlayKey, ComponentType<{ onClose: () => v
   diff: ResourceDiff,
   plugins: PluginPanel,
   sbom: SBOMPanel,
+  wizard: CreateWorkloadWizard,
 };
 
 function ShortcutsHelpPanel() {
