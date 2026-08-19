@@ -110,6 +110,7 @@ pub fn run() {
             commands::watch_node_stats,
             commands::unwatch_node_stats,
             commands::unwatch_custom_kind,
+            commands::custom_kind_counts,
             commands::start_log_stream,
             commands::export_logs,
             commands::stop_log_stream,
