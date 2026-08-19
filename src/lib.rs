@@ -25,6 +25,18 @@ unsafe extern "C" fn JNI_OnLoad(
     6 // JNI_VERSION_1_6
 }
 
+/// Tauri's Android plugin response handler — the symbol that the Tauri CLI
+/// actually validates for in the .so (not JNI_OnLoad). The macro
+/// mobile_entry_point generates this under cfg(mobile); we provide it
+/// directly to bypass the cfg injection problem.
+#[no_mangle]
+unsafe extern "C" fn Java_app_tauri_plugin_PluginManager_handlePluginResponse(
+    _env: *mut std::ffi::c_void,
+    _klass: *mut std::ffi::c_void,
+    _response: *mut std::ffi::c_void,
+) {
+}
+
 /// Build and run the Tauri application for Android.
 pub fn run() {
     k7s_deps::tracing_subscriber::fmt()
