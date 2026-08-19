@@ -7,6 +7,7 @@
 import type { Cell, KindId, NodeMetricsMap, PodMetricsMap, Row } from '../../providers/types';
 import { formatAge, formatCpu, formatMem } from '../../lib/format';
 import { isRolloutKind } from '../../lib/kinds';
+import { localizeStatus } from '../../lib/statusLabels';
 import styles from './ResourceTable.module.css';
 
 /** The sticky header's height, so a row isn't scrolled to sit behind it. */
@@ -59,9 +60,12 @@ export function columnWidth(header: string): string {
  *
  * @param cell - The cell to render
  * @param now - Current timestamp for age formatting
+ * @param locale - When set, a known status word is localized (zh) and the pill
+ *   gets a `title` tooltip of "raw — cause hint". Omitted, the pill shows the
+ *   raw backend string — the behavior every pre-locale caller relied on.
  * @returns React node with formatted text and optional status dot
  */
-export function renderCell(cell: Cell, now: number): React.ReactNode {
+export function renderCell(cell: Cell, now: number, locale?: 'en' | 'zh'): React.ReactNode {
   const text = cell.format === 'age' ? formatAge(cell.text, now) : cell.text;
   if (!cell.dot) return text;
   // Tone-classed pill: the dot gets a halo and a one-character label, the text
@@ -74,10 +78,16 @@ export function renderCell(cell: Cell, now: number): React.ReactNode {
         : cell.tone === 'err'
           ? styles.statusFailed
           : '';
+  // Known status + locale → localized label; the raw string stays one hover
+  // away in the tooltip, and unknown statuses keep showing the raw text.
+  const loc = locale ? localizeStatus(text, locale) : null;
   return (
-    <span className={`${styles.status} ${toneCls}`}>
+    <span
+      className={`${styles.status} ${toneCls}`}
+      title={loc ? `${loc.raw} — ${loc.hint}` : text}
+    >
       <span className={styles.statusDot} aria-hidden="true" />
-      {text}
+      {loc?.label ?? text}
     </span>
   );
 }

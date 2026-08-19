@@ -79,7 +79,7 @@ export function ResourceTable() {
   // itself filters to the templates available for the cluster (Bxx).
   const openOverlay = useStore((s) => s.openOverlay);
   const watchStatus = useStore((s) => s.watchStatus);
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
 
   // Age columns re-render on a 30s tick.
   const now = useNow();
@@ -456,7 +456,7 @@ export function ResourceTable() {
                       className={styles.td}
                       style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
                     >
-                      {renderCell(cell, now)}
+                      {renderCell(cell, now, locale)}
                     </td>
                   ))}
                 </tr>
