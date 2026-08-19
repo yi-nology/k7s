@@ -12,6 +12,21 @@ use k7s_core::kube::ClientManager;
 use std::sync::Arc;
 use tauri::Manager;
 
+/// Android JNI entry point. Replaces tauri::mobile_entry_point which is
+/// gated behind cfg(mobile) — a flag that the Tauri Gradle plugin cannot
+/// reliably inject (RUSTFLAGS, .cargo/config.toml, CARGO_ENCODED_RUSTFLAGS
+/// are all overridden by the cargo-ndk environment). This hand-written
+/// export provides the same JNI_OnLoad symbol that Tauri's validation
+/// checks for in the .so.
+#[cfg(target_os = "android")]
+#[no_mangle]
+unsafe extern "C" fn JNI_OnLoad(
+    _env: *mut std::ffi::c_void,
+    _klass: *mut std::ffi::c_void,
+) -> i32 {
+    6 // JNI_VERSION_1_6
+}
+
 /// Build and run the Tauri application for Android.
 pub fn run() {
     k7s_deps::tracing_subscriber::fmt()
