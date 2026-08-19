@@ -14,11 +14,9 @@ use tauri::Manager;
 
 /// Android JNI entry point. Replaces tauri::mobile_entry_point which is
 /// gated behind cfg(mobile) — a flag that the Tauri Gradle plugin cannot
-/// reliably inject (RUSTFLAGS, .cargo/config.toml, CARGO_ENCODED_RUSTFLAGS
-/// are all overridden by the cargo-ndk environment). This hand-written
-/// export provides the same JNI_OnLoad symbol that Tauri's validation
-/// checks for in the .so.
-#[cfg(target_os = "android")]
+/// reliably inject. This always-compiled export provides the same
+/// JNI_OnLoad symbol that Tauri's validation checks for in the .so.
+/// On non-Android targets the symbol is unused but harmless.
 #[no_mangle]
 unsafe extern "C" fn JNI_OnLoad(
     _env: *mut std::ffi::c_void,
