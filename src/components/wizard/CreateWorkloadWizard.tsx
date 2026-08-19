@@ -23,7 +23,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { formatError, getErrorReporter, getProvider } from '../../providers';
+import { formatError, getErrorReporter, getProvider, getSuccessReporter } from '../../providers';
 import type { ApplyResult, DocDryRun } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { CodeEditor } from '../detail/CodeEditor';
@@ -119,7 +119,10 @@ export function CreateWorkloadWizard({ onClose }: { onClose?: () => void }) {
           failed.map((r) => `${r.kind}/${r.name}${r.error ? `: ${r.error}` : ''}`).join('; ')
         );
       } else {
-        getErrorReporter()(
+        // All-good apply: green toast (the success reporter channel), then
+        // close — the table's watchers make the new workload appear on their
+        // own, no refetch here.
+        getSuccessReporter()(
           t('wizard.applyOk', 'Applied'),
           results.map((r) => `${r.action} ${r.kind}/${r.name}`).join(', ')
         );

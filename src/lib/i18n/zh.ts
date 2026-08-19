@@ -1232,6 +1232,13 @@ export const zh: Dictionary = {
     dismiss: '关闭通知',
   },
 
+  errors: {
+    connect: '连不上集群 API,检查网络与 kubeconfig 服务器地址',
+    rbac: '当前身份无此操作权限(RBAC 拒绝),联系管理员或切换上下文',
+    auth: '认证失效,检查 token 或重新登录',
+    timeout: '请求超时,集群响应过慢或网络不稳',
+  },
+
   propertiesExtra: {
     hideValues: '🙈 隐藏值',
     showValues: '👁 显示值',

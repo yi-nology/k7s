@@ -8,7 +8,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, X } from 'lucide-react';
 import { cx } from '../../lib/cx';
 import { useTranslation } from '../../hooks/useI18n';
 import styles from './ErrorToast.module.css';
@@ -20,6 +20,9 @@ export interface Toast {
   message: string;
   /** Auto-dismiss delay in ms. 0 means persistent until manually closed. */
   duration: number;
+  /** Visual (and ARIA) variant. Defaults to 'error' — existing toast
+   *  producers that don't set a kind keep the red error chrome. */
+  kind?: 'error' | 'success';
 }
 
 interface InternalToast extends Toast {
@@ -104,16 +107,21 @@ const ToastItem = React.memo(function ToastItem({ toast, onClose, onExited }: To
     return () => clearTimeout(timer);
   }, [toast.id, toast.duration, toast.exiting, onClose]);
 
+  const success = toast.kind === 'success';
+  const Icon = success ? CheckCircle2 : AlertCircle;
+
   return (
     <div
-      className={cx(styles.toast, toast.exiting && styles.toastExiting)}
-      role="alert"
-      aria-live="assertive"
+      className={cx(styles.toast, success && styles.success, toast.exiting && styles.toastExiting)}
+      // Errors interrupt (role=alert / assertive); a success confirmation is
+      // informational, so it announces politely without stealing focus.
+      role={success ? 'status' : 'alert'}
+      aria-live={success ? 'polite' : 'assertive'}
       onAnimationEnd={() => {
         if (toast.exiting) onExited(toast.id);
       }}
     >
-      <AlertCircle className={styles.icon} aria-hidden="true" />
+      <Icon className={styles.icon} aria-hidden="true" />
       <div className={styles.content}>
         <div className={styles.title}>{toast.title}</div>
         <div className={styles.message}>{toast.message}</div>

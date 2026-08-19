@@ -17,7 +17,8 @@ import { useErrorToast } from './hooks/useErrorToast';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginGate } from './components/auth/LoginGate';
 import { ErrorToast } from './components/common/ErrorToast';
-import { setErrorReporter } from './providers/errorHandler';
+import { setErrorReporter, setSuccessReporter } from './providers/errorHandler';
+import { humanizeError } from './lib/errorsHuman';
 import { Sidebar } from './components/sidebar/Sidebar';
 import { SubNav } from './components/subnav/SubNav';
 import { TopBar } from './components/topbar/TopBar';
@@ -117,7 +118,10 @@ export default function App() {
 
   // Error toast system — registers the global error reporter on mount so
   // provider-level errors automatically show as toasts.
-  const { toasts, showError, dismissToast } = useErrorToast();
+  const { toasts, showError, showSuccess, dismissToast } = useErrorToast();
+  // The translator is needed by the reporter wrapper below (humanized error
+  // titles follow the active locale), so it is declared before the effect.
+  const { t } = useTranslation();
   // Sidebar drawer toggle (iPadOS only — desktop sidebar is always visible).
   const sidebar = useSidebarToggle();
   // First-run onboarding (Task 9): auto-open the wizard unless the user
@@ -132,12 +136,20 @@ export default function App() {
       useStore.getState().setOnboardingOpen(true);
     }
   }, [bootPhase]);
-  // Register the reporter as an effect (not during render) — `showError` is a
-  // stable useCallback identity, so this runs once; running it during render
-  // is a side-effect-in-render React violation.
+  // Register the reporters as an effect (not during render) — `showError` /
+  // `showSuccess` are stable useCallback identities; `t` changes only on a
+  // locale switch, which re-registers so humanized titles follow the new
+  // locale. The error reporter wraps showError with humanizeError: a known
+  // pattern (connect refused, RBAC 403, auth 401, timeout) replaces the toast
+  // TITLE with a localized, actionable hint; the raw error string stays as
+  // the body, so no diagnostic detail is lost.
   useEffect(() => {
-    setErrorReporter(showError);
-  }, [showError]);
+    setErrorReporter((title, message) => {
+      const h = humanizeError(message);
+      showError(h ? t(h.key, h.fallback) : title, message);
+    });
+    setSuccessReporter(showSuccess);
+  }, [showError, showSuccess, t]);
 
   // Which feature overlay is open, if any (Phase 1/2/4/5 entry points).
   const overlay = useStore((s) => s.overlay);
@@ -145,7 +157,6 @@ export default function App() {
   const closeOverlay = useStore((s) => s.closeOverlay);
   // Active top-level section (P1 IA) — routes the content area.
   const section = useStore((s) => s.section);
-  const { t } = useTranslation();
 
   // AI assistant panel toggle (the panel is a right-side sidebar, not an
   // overlay — it stays open while the user works the table).

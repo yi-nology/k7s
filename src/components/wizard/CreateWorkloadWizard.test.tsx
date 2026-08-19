@@ -46,6 +46,22 @@ vi.mock('../../providers', async (importOriginal) => {
   };
 });
 
+// Mock the error/success reporter channels (P3 Task 4) so the apply outcome's
+// routing is observable: a clean apply must toast through the SUCCESS channel,
+// failed docs through the ERROR channel.
+const reporterMocks = vi.hoisted(() => ({
+  errorReporter: vi.fn(),
+  successReporter: vi.fn(),
+}));
+vi.mock('../../providers/errorHandler', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../providers/errorHandler')>();
+  return {
+    ...actual,
+    getErrorReporter: () => reporterMocks.errorReporter,
+    getSuccessReporter: () => reporterMocks.successReporter,
+  };
+});
+
 // The review step renders the shared CodeMirror wrapper; mock it down to a
 // plain element so jsdom can assert on / edit the draft without CodeMirror:
 // read-only mounts render a <pre> (textContent assertions), editable mounts
@@ -108,6 +124,8 @@ beforeEach(() => {
   onClose.mockReset();
   bundleMocks.dryRunYamlBundle.mockReset();
   bundleMocks.applyYamlBundle.mockReset();
+  reporterMocks.errorReporter.mockReset();
+  reporterMocks.successReporter.mockReset();
   useStore.setState({
     overlay: 'wizard',
     settings: createMockSettings({ language: 'zh' }),
@@ -306,6 +324,73 @@ describe('CreateWorkloadWizard', () => {
       expect.stringContaining('name: nginx')
     );
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('a clean apply toasts through the success channel, not the error channel', async () => {
+    bundleMocks.dryRunYamlBundle.mockResolvedValueOnce([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        proposed: 'apiVersion: apps/v1\n',
+        error: null,
+      },
+    ]);
+    bundleMocks.applyYamlBundle.mockResolvedValueOnce([
+      { kind: 'Deployment', namespace: 'default', name: 'nginx', action: 'created', error: null },
+    ]);
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+    view.click(view.getByText('检查'));
+    await flush();
+    view.click(applyButton());
+    await flush();
+
+    // Success goes out via getSuccessReporter() — a green toast, not red.
+    expect(reporterMocks.successReporter).toHaveBeenCalledTimes(1);
+    expect(reporterMocks.successReporter).toHaveBeenCalledWith(
+      '已应用',
+      expect.stringContaining('created Deployment/nginx')
+    );
+    expect(reporterMocks.errorReporter).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('failed docs at apply time still toast through the error channel and keep the dialog open', async () => {
+    bundleMocks.dryRunYamlBundle.mockResolvedValueOnce([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        proposed: 'apiVersion: apps/v1\n',
+        error: null,
+      },
+    ]);
+    bundleMocks.applyYamlBundle.mockResolvedValueOnce([
+      {
+        kind: 'Deployment',
+        namespace: 'default',
+        name: 'nginx',
+        action: 'failed',
+        error: 'conflict',
+      },
+    ]);
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    reachReview();
+    view.click(view.getByText('检查'));
+    await flush();
+    view.click(applyButton());
+    await flush();
+
+    expect(reporterMocks.errorReporter).toHaveBeenCalledTimes(1);
+    expect(reporterMocks.errorReporter).toHaveBeenCalledWith(
+      '应用失败',
+      expect.stringContaining('Deployment/nginx')
+    );
+    expect(reporterMocks.successReporter).not.toHaveBeenCalled();
+    // The dialog stays open so the inline result rows are reachable.
+    expect(onClose).not.toHaveBeenCalled();
+    expect(view.queryByText(/conflict/)).not.toBeNull();
   });
 
   it('an empty dry-run result does not pass the gate vacuously', async () => {

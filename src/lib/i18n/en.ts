@@ -1238,6 +1238,13 @@ export const en: Dictionary = {
     dismiss: 'Dismiss notification',
   },
 
+  errors: {
+    connect: 'Cannot reach the cluster API — check the network and kubeconfig server address',
+    rbac: 'No permission for this action (RBAC denied) — contact the admin or switch context',
+    auth: 'Authentication expired — check the token or sign in again',
+    timeout: 'Request timed out — the cluster is slow to respond or the network is unstable',
+  },
+
   propertiesExtra: {
     hideValues: '🙈 Hide Values',
     showValues: '👁 Show Values',

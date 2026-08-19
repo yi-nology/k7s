@@ -46,6 +46,8 @@ export {
   withErrorHandlingOrNull,
   setErrorReporter,
   getErrorReporter,
+  setSuccessReporter,
+  getSuccessReporter,
   formatError,
 } from './errorHandler';
 export type { ErrorReporter } from './errorHandler';

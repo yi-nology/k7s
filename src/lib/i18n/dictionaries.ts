@@ -1391,6 +1391,19 @@ export interface Dictionary {
     dismiss: string;
   };
 
+  /** Humanized error toast titles (P3 Task 4) — keyed by the pattern table
+   *  in `lib/errorsHuman.ts`; the raw error string stays as the toast body. */
+  errors: {
+    /** Connect failures (client error (Connect), connection refused). */
+    connect: string;
+    /** RBAC denials (forbidden, 403). */
+    rbac: string;
+    /** Auth rejections (unauthorized, invalid token, 401). */
+    auth: string;
+    /** Client/server timeouts. */
+    timeout: string;
+  };
+
   /** Properties tab additions. */
   propertiesExtra: {
     hideValues: string;
