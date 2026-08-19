@@ -21,6 +21,10 @@ import styles from './CreateWorkloadWizard.module.css';
  * readiness delay 5, liveness delay 15). */
 const DEFAULTS = emptyWorkloadForm();
 
+/** Container port fallback — named alias for the default port (80) so the
+ *  intent reads clearly at the NumberField call site. */
+const DEFAULT_PORT = DEFAULTS.readiness.port;
+
 /** Shared props: the whole form + an upward patch. */
 interface StepFieldsProps {
   form: WorkloadForm;
@@ -333,7 +337,7 @@ export function Container({ form, onChange }: StepFieldsProps) {
                 className={styles.input}
                 value={p.port}
                 min={1}
-                fallback={DEFAULTS.readiness.port}
+                fallback={DEFAULT_PORT}
                 onCommit={(port) => setPort(i, { port })}
               />
             </label>

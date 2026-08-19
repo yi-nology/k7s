@@ -23,6 +23,30 @@
   padding: 18px 20px 20px;
 }
 
+/* ---------- header (mirrors CreateWorkloadWizard) ---------- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 2px 8px;
+}
+
+.closeBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
 /* ---------- stepper ---------- */
 
 .stepper {

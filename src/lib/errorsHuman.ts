@@ -38,15 +38,15 @@ const PATTERNS: HumanPattern[] = [
     fallback: 'Cannot reach the cluster API',
   },
   // RBAC denials — the apiserver's forbidden response and bare 403s.
-  { pattern: /forbidden|403/i, key: 'errors.rbac', fallback: 'Permission denied (RBAC)' },
+  { pattern: /forbidden|\b403\b/i, key: 'errors.rbac', fallback: 'Permission denied (RBAC)' },
   // Auth rejections — expired/invalid tokens and bare 401s.
   {
-    pattern: /unauthorized|invalid token|missing or invalid token|401/i,
+    pattern: /unauthorized|invalid token|\b401\b/i,
     key: 'errors.auth',
     fallback: 'Authentication failed',
   },
-  // Client/server timeouts ("timed out" and the one-word "timeout").
-  { pattern: /timed ?out|timeout/i, key: 'errors.timeout', fallback: 'Request timed out' },
+  // Client/server timeouts ("timed out", "timedout", and the one-word "timeout").
+  { pattern: /timed?\s*out|timeout/i, key: 'errors.timeout', fallback: 'Request timed out' },
 ];
 
 /**

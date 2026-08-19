@@ -36,10 +36,9 @@ function resetStore() {
     podMetrics: {},
     nodeMetrics: {},
     customKinds: [],
-    // Re-pin the locale the global setup chose: the density tests below swap
-    // the whole settings object for DEFAULT_SETTINGS (whose language is the
-    // zh default), which would otherwise leak 'zh' into every later test.
-    settings: { ...useStore.getState().settings, language: 'en' },
+    // Use DEFAULT_SETTINGS for full isolation — avoids carrying over any
+    // stale store state that a previous test may have mutated.
+    settings: { ...DEFAULT_SETTINGS, language: 'en' },
     rows: {
       ...useStore.getState().rows,
       pods: [],
@@ -416,7 +415,7 @@ describe('ResourceTable', () => {
       view = render(<ResourceTable />);
       for (const name of ['pod-1', 'pod-2']) {
         const tr = view.queryByText(name)!.closest('tr')!;
-        const quick = tr.querySelector('[class*="quick"]');
+        const quick = tr.querySelector('[data-quick-actions]');
         expect(quick).not.toBeNull();
         const buttons = quick!.querySelectorAll('button');
         expect(buttons.length).toBe(2);
@@ -440,7 +439,7 @@ describe('ResourceTable', () => {
       });
       view = render(<ResourceTable />);
       const tr = view.queryByText('event-1')!.closest('tr')!;
-      expect(tr.querySelector('[class*="quick"]')).toBeNull();
+      expect(tr.querySelector('[data-quick-actions]')).toBeNull();
     });
 
     it('clicking 详情 selects the row like a plain row click', () => {
