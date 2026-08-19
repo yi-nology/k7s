@@ -32,6 +32,7 @@ import {
   selectionForContextMenu,
 } from '../../lib/selection';
 import { RowContextMenu, type ContextMenuAt } from '../actions/RowContextMenu';
+import { RowQuickActions } from './RowQuickActions';
 import { headerHeight, columnWidth, renderCell, overlayMetrics } from './tableUtils';
 import { useVirtualRows } from './useVirtualRows';
 
@@ -112,6 +113,11 @@ export function ResourceTable() {
     (row: Row): boolean => (nav === 'events' ? eventTarget(row) !== null : true),
     [nav, eventTarget]
   );
+
+  // Whether a row gets the hover-revealed quick actions (P3). Same gate as the
+  // context menu (see onRowContextMenu): events navigate rather than act, so
+  // the ⋯ half of the cluster would be a dead button there.
+  const quickActions = nav !== 'events';
 
   /**
    * The visible rows' uids, in display order.
@@ -225,19 +231,31 @@ export function ResourceTable() {
   /** The rows a context-menu action would apply to, in display order. */
   const menuRows = useMemo(() => selectedInOrder(selection, rows), [selection, rows]);
 
+  /**
+   * Open the row context menu at a viewport position. Shared by the right-click
+   * path below and the row's hover-revealed ⋯ button (P3) so the two entry
+   * points land in the exact same menu with the exact same selection rules.
+   */
+  const openMenuAt = useCallback(
+    (row: Row, at: ContextMenuAt) => {
+      // Outside the selection collapses to this row; inside it, the selection
+      // stands (see selectionForContextMenu). Read from the store for the same
+      // staleness reason as onSelect.
+      setSelection(selectionForContextMenu(useStore.getState().selection, row.uid));
+      setMenuError(null);
+      setMenuAt(at);
+    },
+    [setSelection]
+  );
+
   const onRowContextMenu = useCallback(
     (e: React.MouseEvent, row: Row) => {
       // Events navigate rather than act, so there is nothing to offer.
       if (nav === 'events') return;
       e.preventDefault();
-      // Right-clicking outside the selection collapses to this row; inside it,
-      // the selection stands (see selectionForContextMenu). Read from the store
-      // for the same staleness reason as onSelect.
-      setSelection(selectionForContextMenu(useStore.getState().selection, row.uid));
-      setMenuError(null);
-      setMenuAt({ x: e.clientX, y: e.clientY });
+      openMenuAt(row, { x: e.clientX, y: e.clientY });
     },
-    [nav, setSelection]
+    [nav, openMenuAt]
   );
 
   // Keyboard navigation: highlighted row index + `/`-to-focus the filter.
@@ -451,20 +469,32 @@ export function ResourceTable() {
                   }}
                   onContextMenu={(e) => onRowContextMenu(e, row)}
                 >
-                  {row.cells.map((cell, j) => (
-                    // When the cell carries a status dot, renderCell returns a
-                    // fully-styled <span> that owns its own color — so the <td>
-                    // stays neutral and the pill stands out instead of being
-                    // tinted by the table's tone.
-                    <td
-                      key={j}
-                      role="gridcell"
-                      className={styles.td}
-                      style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
-                    >
-                      {renderCell(cell, now, locale)}
-                    </td>
-                  ))}
+                  {row.cells.map((cell, j) => {
+                    // The LAST cell hosts the hover-revealed quick actions
+                    // (P3) when this kind has a context menu. The cluster is
+                    // absolutely positioned inside the cell (see .quick /
+                    // .tdQuick in the CSS module), so it overlays the cell's
+                    // tail without adding a column or shifting any width —
+                    // column alignment and the windowing math are untouched.
+                    const tail = quickActions && j === row.cells.length - 1;
+                    return (
+                      // When the cell carries a status dot, renderCell returns a
+                      // fully-styled <span> that owns its own color — so the <td>
+                      // stays neutral and the pill stands out instead of being
+                      // tinted by the table's tone.
+                      <td
+                        key={j}
+                        role="gridcell"
+                        className={tail ? `${styles.td} ${styles.tdQuick}` : styles.td}
+                        style={cell.dot ? undefined : { color: toneColor(cell.tone) }}
+                      >
+                        {renderCell(cell, now, locale)}
+                        {tail && (
+                          <RowQuickActions row={row} onOpenDetail={onSelect} onOpenMenu={openMenuAt} />
+                        )}
+                      </td>
+                    );
+                  })}
                 </tr>
               );
             })}

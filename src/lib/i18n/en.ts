@@ -342,6 +342,10 @@ export const en: Dictionary = {
     newTitle: 'Create a resource from a YAML template',
     csvExportTitle: 'Export table as CSV',
     ariaLabel: 'Resource table',
+    quick: {
+      detail: 'Detail',
+      more: 'More actions',
+    },
   },
 
   actions: {

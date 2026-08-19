@@ -271,6 +271,62 @@
   padding-bottom: 0;
 }
 
+/* Hover quick actions (P3): the 详情 / ⋯ cluster floating over the tail of the
+   row's LAST cell. Anchored inside the last <td> rather than on the <tr> —
+   tr positioning is unreliable in some webviews — and stretched to exactly the
+   cell's padding box (top:0/bottom:0) so the fixed-layout cell's
+   overflow:hidden can never clip it. Invisible and inert until the row is
+   hovered or something inside it is focused (focus-within keeps the buttons
+   discoverable for keyboard users even though they're opacity-hidden), so it
+   never takes part in layout and can't disturb column widths, the virtual-row
+   height, or the sticky-header math. */
+.tdQuick {
+  position: relative;
+}
+.quick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  /* Fade the pill in over the cell text it covers, into the row's hover
+     background, so the text degrades gracefully instead of colliding. */
+  padding: 0 2px 0 14px;
+  background: linear-gradient(to right, transparent, var(--bg-hover) 14px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.rowClickable:hover .quick,
+.rowClickable:focus-within .quick {
+  opacity: 1;
+  pointer-events: auto;
+}
+.quickBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.quickBtn:hover {
+  background: var(--bg-control);
+  color: var(--text-primary);
+}
+.quickBtn:focus-visible {
+  outline: 2px solid var(--accent);
+  /* Ring drawn inside the button so the 24px hit target doesn't grow. */
+  outline-offset: -2px;
+}
+
 /* Cell tone variants. */
 .cellName {
   color: var(--text-primary);

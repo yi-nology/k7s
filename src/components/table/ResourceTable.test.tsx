@@ -30,6 +30,10 @@ function resetStore() {
     podMetrics: {},
     nodeMetrics: {},
     customKinds: [],
+    // Re-pin the locale the global setup chose: the density tests below swap
+    // the whole settings object for DEFAULT_SETTINGS (whose language is the
+    // zh default), which would otherwise leak 'zh' into every later test.
+    settings: { ...useStore.getState().settings, language: 'en' },
     rows: {
       ...useStore.getState().rows,
       pods: [],
@@ -318,6 +322,78 @@ describe('ResourceTable', () => {
       expect(tr).not.toBeNull();
       view.click(tr!);
       expect(useStore.getState().selectedRow?.uid).toBe('p1');
+    });
+  });
+
+  describe('hover quick actions', () => {
+    it('renders the quick-action cluster inside each clickable row', () => {
+      const rows: Row[] = [
+        createMockRow({ uid: 'p1', name: 'pod-1' }),
+        createMockRow({ uid: 'p2', name: 'pod-2' }),
+      ];
+      useStore.setState({
+        nav: 'pods',
+        rows: { ...useStore.getState().rows, pods: rows },
+      });
+      view = render(<ResourceTable />);
+      for (const name of ['pod-1', 'pod-2']) {
+        const tr = view.queryByText(name)!.closest('tr')!;
+        const quick = tr.querySelector('[class*="quick"]');
+        expect(quick).not.toBeNull();
+        const buttons = quick!.querySelectorAll('button');
+        expect(buttons.length).toBe(2);
+        expect(buttons[0].getAttribute('aria-label')).toBe('Detail');
+        expect(buttons[1].getAttribute('aria-label')).toBe('More actions');
+      }
+    });
+
+    it('does not render the cluster for events rows', () => {
+      // Events have no context menu (they navigate instead), so the ⋯ half of
+      // the cluster would be a dead button — the whole cluster stays off, even
+      // for an event whose target would make its row clickable.
+      const row = createMockRow({
+        uid: 'e1',
+        name: 'event-1',
+        involved: { kind: 'Pod', namespace: 'default', name: 'pod-1' },
+      });
+      useStore.setState({
+        nav: 'events',
+        rows: { ...useStore.getState().rows, events: [row] },
+      });
+      view = render(<ResourceTable />);
+      const tr = view.queryByText('event-1')!.closest('tr')!;
+      expect(tr.querySelector('[class*="quick"]')).toBeNull();
+    });
+
+    it('clicking 详情 selects the row like a plain row click', () => {
+      const row = createMockRow({ uid: 'p1', name: 'my-pod' });
+      useStore.setState({
+        nav: 'pods',
+        rows: { ...useStore.getState().rows, pods: [row] },
+      });
+      view = render(<ResourceTable />);
+      const tr = view.queryByText('my-pod')!.closest('tr')!;
+      view.click(tr.querySelector('button[aria-label="Detail"]')!);
+      expect(useStore.getState().selectedRow?.uid).toBe('p1');
+    });
+
+    it('clicking ⋯ opens the row context menu without selecting the row', () => {
+      const row = createMockRow({ uid: 'p1', name: 'my-pod' });
+      useStore.setState({
+        nav: 'pods',
+        rows: { ...useStore.getState().rows, pods: [row] },
+      });
+      view = render(<ResourceTable />);
+      const tr = view.queryByText('my-pod')!.closest('tr')!;
+      view.click(tr.querySelector('button[aria-label="More actions"]')!);
+      // The click must not fall through to the row handler: opening a menu is
+      // not a selection, and the detail panel must not flip to this row.
+      expect(useStore.getState().selectedRow).toBeNull();
+      // …but the menu itself opened via the same path a right-click takes: the
+      // selection collapsed to this row and the portal menu mounted.
+      expect(useStore.getState().selection.selected).toContain('p1');
+      const portal = document.body.querySelector('[style*="position: fixed"]');
+      expect(portal).not.toBeNull();
     });
   });
 

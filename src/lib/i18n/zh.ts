@@ -347,6 +347,10 @@ export const zh: Dictionary = {
     newTitle: '从 YAML 模板创建资源',
     csvExportTitle: '导出表格为 CSV',
     ariaLabel: '资源表格',
+    quick: {
+      detail: '详情',
+      more: '更多操作',
+    },
   },
 
   actions: {

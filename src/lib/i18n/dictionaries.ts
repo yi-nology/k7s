@@ -368,6 +368,14 @@ export interface Dictionary {
     csvExportTitle: string;
     /** aria-label for the resource table. */
     ariaLabel: string;
+    /** Hover-revealed row quick actions (P3) — the 详情 / ⋯ cluster floating
+     *  over the last cell of each row. */
+    quick: {
+      /** 详情 — selects the row / opens its detail, same as a row click. */
+      detail: string;
+      /** ⋯ — opens the row's context menu at the button. */
+      more: string;
+    };
   };
 
   /** The shared action list and its confirmation wording. */
