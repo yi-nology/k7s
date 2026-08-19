@@ -28,7 +28,8 @@
     "category": "DeveloperTool",
     "shortDescription": "Lens-style Kubernetes visual monitor for iPad",
     "iOS": {
-      "minimumSystemVersion": "16.0"
+      "minimumSystemVersion": "16.0",
+      "developmentTeam": ""
     },
     "icon": [
       "icons/32x32.png",
