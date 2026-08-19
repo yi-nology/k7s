@@ -162,6 +162,7 @@ Where **KubePi pulls ahead**: **multi-tenant SSO** (OIDC/SAML/LDAP/MFA), **built
 - **Five-section navigation** — 概览 (Overview) / 工作负载 (Workloads) / 配置与网络 (Config & Network) / 存储 (Storage) / 运维工具 (Ops Tools); resource kinds switch via an in-page sub-nav (CRDs land in a "Custom Resources" group), all tool panels live in a categorized catalog page
 - **Overview home page** — the default landing view: cluster info card, **health ring + score** with expandable checks, CPU/MEM utilisation bars, 9 resource-count cards (click-through), and a paginated recent-events feed
 - **First-run onboarding** — a 3-step wizard (import kubeconfig → connection check → preferences) appears on first launch; dismissing it marks onboarding complete
+- **Create-workload wizard** — a 4-step form (basics → container → storage & config → review & apply) with server-side dry-run gating the apply, an editable YAML pane with form back-fill; non-workload kinds route to the template picker / visual Ingress editor
 - **Multi-cluster** — kubeconfig context switcher with on-the-fly import (native OS file picker; remembers imported files)
 - **Cluster switcher** — live connection dot + API version status line; click-to-switch across every kubeconfig context
 - **Dashboard** — the home view: cluster info card, **health ring + score** with expandable checks, CPU/MEM utilisation bars, 9 resource-count cards (click-through), **Resource Quotas** progress bars, and a paginated recent-events feed
