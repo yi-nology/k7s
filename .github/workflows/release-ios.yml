@@ -78,20 +78,32 @@ jobs:
           cp -r ../dist ../k7s-ios/../dist 2>/dev/null || true
           cargo tauri ios init
 
+      - name: init iOS project
+        run: |
+          cd k7s-ios
+          cp -r ../dist ../k7s-ios/../dist 2>/dev/null || true
+          cargo tauri ios init
+
+      - name: disable code signing
+        run: |
+          PROJ=$(find k7s-ios/gen/apple -name "project.pbxproj" | head -1)
+          if [ -n "$PROJ" ]; then
+            # Strip dummy developmentTeam set in tauri.conf.json
+            sed -i '' '/DEVELOPMENT_TEAM/d' "$PROJ"
+            # Disable signing requirements
+            sed -i '' 's/CODE_SIGN_IDENTITY = "Apple Development"/CODE_SIGN_IDENTITY = "-"/g' "$PROJ"
+            sed -i '' 's/CODE_SIGN_IDENTITY = "iPhone Distribution"/CODE_SIGN_IDENTITY = "-"/g' "$PROJ"
+            sed -i '' 's/CODE_SIGNING_REQUIRED = YES/CODE_SIGNING_REQUIRED = NO/g' "$PROJ"
+            sed -i '' 's/CODE_SIGNING_ALLOWED = YES/CODE_SIGNING_ALLOWED = NO/g' "$PROJ"
+            echo "Patched $PROJ to disable code signing"
+          fi
+
       - name: build iOS
         run: |
           cd k7s-ios
-          # Create xcconfig that disables all signing — xcodebuild reads this
-          # via XCODE_XCCONFIG_FILE, which Tauri passes through.
-          cat > /tmp/no-sign.xcconfig << 'EOF'
-          CODE_SIGNING_ALLOWED = NO
-          CODE_SIGNING_REQUIRED = NO
-          CODE_SIGN_IDENTITY = -
-          DEVELOPMENT_TEAM =
-          PROVISIONING_PROFILE_SPECIFIER =
-          EOF
-          export XCODE_XCCONFIG_FILE=/tmp/no-sign.xcconfig
           export RUSTFLAGS='--cfg mobile'
+          export CODE_SIGNING_ALLOWED=NO
+          export CODE_SIGNING_REQUIRED=NO
           cargo tauri ios build
 
       - name: upload iOS artifacts
