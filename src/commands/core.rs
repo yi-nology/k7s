@@ -389,9 +389,9 @@ pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -
 #[tauri::command]
 pub async fn custom_kind_counts(
     mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<crate::kube::discovery::CustomKindCount>> {
+) -> AppResult<Vec<k7s_core::kube::CustomKindCount>> {
     let client = require_client(&mgr.manager).await?;
-    crate::kube::discovery::custom_kind_counts(&client).await
+    k7s_core::kube::custom_kind_counts(&client).await
 }
 
 /// Drain a node (B20): cordon it, then evict its pods in the background.
