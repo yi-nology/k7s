@@ -240,6 +240,21 @@ pub async fn dry_run_yaml_bundle(
     respond(result)
 }
 
+/// `POST /invoke/apply_yaml_bundle` — the create-apply counterpart of
+/// `dry_run_yaml_bundle` (the P2 wizard's 应用 step). Delegates to
+/// `templates::multi_apply`, same path the desktop Tauri command uses.
+pub async fn apply_yaml_bundle(
+    State(state): State<WebState>,
+    Json(args): Json<ApplyYamlBundleArgs>,
+) -> axum::response::Response {
+    let result: AppResult<Vec<k7s_core::kube::templates::ApplyResult>> = (|| async {
+        let client = core_client(&state.core).await?;
+        k7s_core::kube::templates::multi_apply(&args.yaml, client, &state.core.manager).await
+    })()
+    .await;
+    respond(result)
+}
+
 pub async fn delete_resource(
     State(state): State<WebState>,
     Json(args): Json<DeleteResourceArgs>,
