@@ -227,6 +227,16 @@ export interface DataProvider {
   /** Stop watching a custom kind (idempotent). Called when navigating away. */
   unwatchCustomKind(id: string): Promise<void>;
 
+  /**
+   * Instance counts for discovered custom kinds. Called once on connect to let
+   * the UI hide kinds with zero instances. Returns an array of `{id, count}`;
+   * the store normalises it to a `Record<string, number>`.
+   *
+   * If the backend does not support this (older versions) or the call fails,
+   * the caller degrades gracefully: all custom kinds stay visible.
+   */
+  customKindCounts(): Promise<Array<{ id: string; count: number }>>;
+
   // ---- push subscriptions (return an unsubscribe fn) ----
   onResourceUpdate(cb: (kind: KindId, rows: Row[]) => void): Unsub;
   /** CRD-backed kinds discovered on connect; re-emitted on every connect. */

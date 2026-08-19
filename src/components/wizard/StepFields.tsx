@@ -21,6 +21,10 @@ import styles from './CreateWorkloadWizard.module.css';
  * readiness delay 5, liveness delay 15). */
 const DEFAULTS = emptyWorkloadForm();
 
+/** Container port fallback — named alias for the default port (80) so the
+ *  intent reads clearly at the NumberField call site. */
+const DEFAULT_PORT = DEFAULTS.readiness.port;
+
 /** Shared props: the whole form + an upward patch. */
 interface StepFieldsProps {
   form: WorkloadForm;
@@ -145,11 +149,14 @@ export function Basics({ form, onChange }: StepFieldsProps) {
           <option value="deployment">Deployment</option>
           <option value="statefulset">StatefulSet</option>
           <option value="daemonset">DaemonSet</option>
+          <option value="job">Job</option>
+          <option value="cronjob">CronJob</option>
         </select>
       </label>
-      {/* DaemonSet pods run one per node — the replicas knob does nothing
-          (generateWorkloadYaml omits it), so don't offer it. */}
-      {form.workloadType !== 'daemonset' && (
+      {/* Replicas is a rollout knob only (generateWorkloadYaml omits it for
+          daemonset/job/cronjob — DaemonSet runs one pod per node, batch
+          workloads have no replicas), so don't offer it for those. */}
+      {(form.workloadType === 'deployment' || form.workloadType === 'statefulset') && (
         <label className={styles.field} htmlFor="wizard-replicas">
           {t('wizard.field.replicas', 'Replicas')}
           <NumberField
@@ -160,6 +167,36 @@ export function Basics({ form, onChange }: StepFieldsProps) {
             fallback={DEFAULTS.replicas}
             onCommit={(replicas) => onChange({ replicas })}
           />
+        </label>
+      )}
+      {form.workloadType === 'job' && (
+        <label className={styles.field} htmlFor="wizard-completions">
+          {t('wizard.field.completions', 'Completions')}
+          <NumberField
+            id="wizard-completions"
+            className={styles.input}
+            value={form.completions}
+            min={0}
+            fallback={DEFAULTS.completions}
+            onCommit={(completions) => onChange({ completions })}
+          />
+          {/* 0 keeps spec.completions out of the manifest (unbounded
+              parallelism is a legitimate choice) — say so at the field. */}
+          <span className={styles.hint}>{t('wizard.field.completionsHint', '0 = omitted from YAML')}</span>
+        </label>
+      )}
+      {form.workloadType === 'cronjob' && (
+        <label className={styles.fieldWide} htmlFor="wizard-schedule">
+          {t('wizard.field.schedule', 'Schedule')}
+          <input
+            id="wizard-schedule"
+            className={styles.input}
+            placeholder="0 * * * *"
+            value={form.schedule}
+            onChange={(e) => onChange({ schedule: e.target.value })}
+          />
+          {/* Five-field cron — the same shape validateWorkloadForm checks. */}
+          <span className={styles.hint}>{t('wizard.field.scheduleHint', 'Cron expression, e.g. 0 * * * *')}</span>
         </label>
       )}
       <label className={styles.fieldWide} htmlFor="wizard-image">
@@ -300,7 +337,7 @@ export function Container({ form, onChange }: StepFieldsProps) {
                 className={styles.input}
                 value={p.port}
                 min={1}
-                fallback={DEFAULTS.readiness.port}
+                fallback={DEFAULT_PORT}
                 onCommit={(port) => setPort(i, { port })}
               />
             </label>

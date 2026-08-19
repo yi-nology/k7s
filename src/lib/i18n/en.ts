@@ -166,6 +166,7 @@ export const en: Dictionary = {
       cluster: 'Cluster',
       custom: 'Custom Resources',
       storage: 'Storage',
+      customTooltip: 'Empty types hidden',
     },
   },
 
@@ -1382,6 +1383,10 @@ export const en: Dictionary = {
       namespace: 'Namespace',
       type: 'Type',
       replicas: 'Replicas',
+      completions: 'Completions',
+      completionsHint: '0 = omitted from YAML',
+      schedule: 'Schedule',
+      scheduleHint: 'Cron expression, e.g. 0 * * * *',
       image: 'Image',
       imagePullPolicy: 'Pull Policy',
       commandArgs: 'Command & args',

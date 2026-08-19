@@ -43,10 +43,11 @@ const EMPTY_NODE_METRICS: NodeMetricsMap = {};
 const EMPTY_POD_ROWS: Row[] = [];
 
 /** Kinds the create-workload wizard can actually build (Deployment /
- * StatefulSet / DaemonSet — see workloadSpec.ts KIND_OF). NOT every kind in
- * the workloads section: jobs/cronjobs/pods/helm live there too, but routing
- * them to the wizard would open a builder that cannot create their kind. */
-const WIZARD_KINDS = new Set(['deployments', 'statefulsets', 'daemonsets']);
+ * StatefulSet / DaemonSet / Job / CronJob — see workloadSpec.ts KIND_OF).
+ * NOT every kind in the workloads section: pods/helm live there too, but
+ * routing them to the wizard would open a builder that cannot create their
+ * kind. */
+const WIZARD_KINDS = new Set(['deployments', 'statefulsets', 'daemonsets', 'jobs', 'cronjobs']);
 
 export function ResourceTable() {
   const nav = useNav();
@@ -375,11 +376,11 @@ export function ResourceTable() {
             create path is reachable from any kind page, not only via the
             sidebar. The icon matches the sidebar's `✚` so the two surfaces
             feel like one feature, not two. Routing (P2): the kinds the wizard
-            can build (WIZARD_KINDS — Deployment/STS/DS only) get the
+            can build (WIZARD_KINDS — Deployment/STS/DS/Job/CronJob) get the
             create-workload wizard, ingresses get the ingress editor
             (form-create capable, previously unreachable), everything else —
-            including jobs/cronjobs/pods/helm, which the wizard cannot
-            create — keeps the generic template picker. */}
+            including pods/helm, which the wizard cannot create — keeps the
+            generic template picker. */}
         <button
           type="button"
           className={styles.newBtn}
@@ -528,10 +529,10 @@ export function ResourceTable() {
             </span>
             {/* Empty wizard-buildable kind with no filter: the empty state is
                 the real problem ("nothing to look at"), so offer the way out.
-                WIZARD_KINDS only — jobs/pods/helm are workload-section kinds
-                the wizard cannot build (they'd open a Deployment builder),
-                and an empty ConfigMap list is normal, not something to create
-                your way out of. */}
+                WIZARD_KINDS only — pods/helm are workload-section kinds the
+                wizard cannot build (they'd open a Deployment builder), and an
+                empty ConfigMap list is normal, not something to create your
+                way out of. */}
             {tableFilter.trim() === '' && WIZARD_KINDS.has(nav) && (
               <button
                 type="button"

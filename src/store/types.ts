@@ -187,6 +187,9 @@ export interface AppState {
   nodeStatsErrors: Record<string, string>;
   watchStatus: Record<string, 'ok' | 'forbidden'>;
   podSamples: Record<string, PodSample[]>;
+  /** Per-kind instance counts for custom (CRD) kinds, fetched once on connect.
+   *  undefined = counts not yet loaded (provider may not support it). */
+  customKindCounts: Record<string, number> | undefined;
 
   // detail panel
   selectedRow: Row | null;
@@ -235,6 +238,7 @@ export interface AppState {
   setWatchCount: (n: number) => void;
   setRows: (kind: KindId, rows: Row[]) => void;
   setCustomKinds: (kinds: CustomKind[]) => void;
+  setCustomKindCounts: (counts: Record<string, number>) => void;
   setPodMetrics: (m: PodMetricsMap) => void;
   setNodeMetrics: (m: NodeMetricsMap) => void;
   setPortForwards: (list: ForwardInfo[]) => void;

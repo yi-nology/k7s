@@ -161,6 +161,9 @@ export abstract class BaseRpcProvider {
   unwatchCustomKind(id: string): Promise<void> {
     return this.rpc('unwatch_custom_kind', { kind: id });
   }
+  customKindCounts(): Promise<Array<{ id: string; count: number }>> {
+    return this.rpc<Array<{ id: string; count: number }>>('custom_kind_counts');
+  }
   stopPortForward(id: string): Promise<void> {
     return this.rpc<void>('stop_port_forward', { id });
   }

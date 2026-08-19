@@ -60,7 +60,7 @@ The sidebar is a 5-section rail (registry in `src/lib/sections.tsx`); the conten
 
 Workload kinds get a Kuboard-style 4-step wizard (component in `src/components/wizard/`):
 
-1. **基本信息** Basics — name, namespace, type (Deployment/StatefulSet/DaemonSet), replicas, image. Next stays disabled until name + image are valid.
+1. **基本信息** Basics — name, namespace, type (Deployment/StatefulSet/DaemonSet/Job/CronJob), replicas/completions/schedule, image. Next stays disabled until name + image are valid.
 2. **容器配置** Container — ports, env vars, and collapsed advanced blocks (command/args, resources, readiness/liveness probes).
 3. **存储与配置** Storage — PVC volume mounts.
 4. **预览与应用** Review & Apply — an editable CodeMirror YAML draft. 检查 runs a server-side dry run (per-doc pass/fail rows); any draft edit invalidates the run, and **应用 stays disabled until a clean, non-stale dry run exists**. 从 YAML 回填表单 parses an edited draft back into the form and regenerates the preview.
@@ -73,6 +73,13 @@ Entry points: the 新建 button on any workload kind, the "create your first wor
 - **Table density**: Settings → 表格密度 switches between comfortable (default) and compact rows (26px, half the cell padding). Both modes apply to all tables, virtualized ones included — compact rows (26px) fit more of any cluster on screen, large ones included — and the choice is applied live and persisted with the other prefs.
 - **Hover quick actions**: hovering a table row floats a 详情 + ⋯ cluster over the row tail — one click opens the detail panel, ⋯ opens the row's context menu without first selecting the row.
 - **Humanized toasts**: known error families (connection refused, forbidden, unauthorized, …) get a localized toast title with the original raw error kept as the body so diagnostics survive; successful actions get a success-toast variant instead of silence.
+
+### Workload wizard & navigation polish (P4)
+
+- **Job & CronJob wizard support** — the create-workload wizard now builds all 5 workload kinds (Deployment, StatefulSet, DaemonSet, Job, CronJob). Job offers a Completions field; CronJob offers a Schedule (cron expression) field. Replicas is hidden for DaemonSet/Job/CronJob (irrelevant to those workload shapes).
+- **Empty CRD hiding** — operator-installed custom resource types with zero instances are hidden from the navigation, auto-revealed when instances appear. The "Custom Resources" group toggle shows a badge of the visible (non-empty) kind count and a tooltip when some kinds are hidden.
+- **Onboarding dismiss** — the first-run wizard can be dismissed via the X button (previously only Esc/backdrop worked).
+- **Error hardening** — `errorsHuman` (the humanized-error toast map) covers additional connection and auth failure families so known errors always show a localized title.
 
 ### Web-mode login gate (`HttpProvider` only)
 

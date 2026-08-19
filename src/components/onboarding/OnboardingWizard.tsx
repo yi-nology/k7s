@@ -92,6 +92,11 @@ export function OnboardingWizard() {
         aria-label={t('onboarding.step1', 'Import cluster')}
         onClick={(e) => e.stopPropagation()}
       >
+        <header className={styles.header}>
+          <button type="button" className={styles.closeBtn} onClick={dismiss} aria-label={t('wizard.close', 'Close')}>
+            ×
+          </button>
+        </header>
         <div className={styles.stepper}>
           <span className={step === 0 ? styles.stepActive : styles.step}>① {t('onboarding.step1', 'Import cluster')}</span>
           <span className={step === 1 ? styles.stepActive : styles.step}>② {t('onboarding.step2', 'Connection check')}</span>

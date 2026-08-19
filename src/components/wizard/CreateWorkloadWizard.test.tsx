@@ -153,6 +153,15 @@ function reachReview() {
   view.click(view.getByText('下一步'));
 }
 
+/** Switch the step-1 type dropdown (a plain <select>: value + change event). */
+function selectType(value: string) {
+  const sel = view.queryByLabelText('类型') as HTMLSelectElement;
+  act(() => {
+    sel.value = value;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
 describe('CreateWorkloadWizard', () => {
   it('renders step 1 (basics) when opened', () => {
     view = render(<CreateWorkloadWizard onClose={onClose} />);
@@ -546,5 +555,126 @@ describe('CreateWorkloadWizard', () => {
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
     });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // ---- Job / CronJob support (P4 Task 1) ----
+
+  it('offers Job and CronJob in the type dropdown', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    const sel = view.queryByLabelText('类型') as HTMLSelectElement;
+    expect(Array.from(sel.options).map((o) => o.value)).toEqual([
+      'deployment',
+      'statefulset',
+      'daemonset',
+      'job',
+      'cronjob',
+    ]);
+    // Option labels follow the existing literal-string pattern.
+    expect(view.queryByText('Job')).not.toBeNull();
+    expect(view.queryByText('CronJob')).not.toBeNull();
+  });
+
+  it('Job: hides replicas, shows completions, and generates batch/v1 without replicas/selector', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+    selectType('job');
+
+    // Replicas is rollout-only; completions replaces it for jobs.
+    expect(view.queryByLabelText('副本数')).toBeNull();
+    const completions = view.queryByLabelText('完成数') as HTMLInputElement;
+    expect(completions).not.toBeNull();
+    // The 0-means-omitted contract is visible at the field.
+    expect(view.queryByText(/0 = 省略/)).not.toBeNull();
+    view.change(completions, '3');
+
+    reachReview();
+    const yaml = draftText();
+    expect(yaml).toContain('apiVersion: batch/v1');
+    expect(yaml).toContain('kind: Job');
+    expect(yaml).toContain('completions: 3');
+    expect(yaml).toContain('restartPolicy: OnFailure');
+    expect(yaml).not.toContain('replicas:');
+    expect(yaml).not.toContain('selector:');
+  });
+
+  it('Job: completions 0 omits the field from the YAML', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+    selectType('job');
+    // Default completions is 0 — the field is absent from the draft.
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText('下一步'));
+    expect(draftText()).toContain('kind: Job');
+    expect(draftText()).not.toContain('completions:');
+  });
+
+  it('CronJob: shows schedule (with hint), hides replicas, nests jobTemplate in the YAML', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+    selectType('cronjob');
+
+    expect(view.queryByLabelText('副本数')).toBeNull();
+    const schedule = view.queryByLabelText('计划表达式') as HTMLInputElement;
+    // Seeded with the wizard default, format hint visible next to it.
+    expect(schedule.value).toBe('0 * * * *');
+    expect(view.queryByText(/Cron 表达式/)).not.toBeNull();
+    view.change(schedule, '*/5 * * * *');
+
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText('下一步'));
+    const yaml = draftText();
+    expect(yaml).toContain('kind: CronJob');
+    expect(yaml).toContain('schedule: "*/5 * * * *"');
+    expect(yaml).toContain('jobTemplate:');
+    expect(yaml).toContain('restartPolicy: OnFailure');
+    expect(yaml).not.toContain('replicas:');
+    expect(yaml).not.toContain('selector:');
+  });
+
+  it('cronjob with an invalid schedule keeps the Next gate closed', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+    selectType('cronjob');
+    expect(nextButton()?.hasAttribute('disabled')).toBe(false);
+    view.change(view.queryByLabelText('计划表达式') as HTMLElement, 'not-a-cron');
+    expect(nextButton()?.hasAttribute('disabled')).toBe(true);
+    expect(view.queryByTestId('wizard-errors')).not.toBeNull();
+    view.change(view.queryByLabelText('计划表达式') as HTMLElement, '0 * * * *');
+    expect(nextButton()?.hasAttribute('disabled')).toBe(false);
+    expect(view.queryByTestId('wizard-errors')).toBeNull();
+  });
+
+  it('daemonset still hides the replicas field (rollout-only knob)', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+    selectType('daemonset');
+    expect(view.queryByLabelText('副本数')).toBeNull();
+    expect(view.queryByLabelText('完成数')).toBeNull();
+    expect(view.queryByLabelText('计划表达式')).toBeNull();
+  });
+
+  it('backfill after deleting volumeMounts from the draft does not resurrect them', () => {
+    view = render(<CreateWorkloadWizard onClose={onClose} />);
+    fillBasics();
+    // Add one PVC mount on step 3, then reach the review draft.
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText('下一步'));
+    view.click(view.getByText(/添加挂载/));
+    view.change(view.queryByLabelText('挂载 PVC') as HTMLElement, 'data');
+    view.change(view.queryByLabelText('挂载路径') as HTMLElement, '/data');
+    view.click(view.getByText('下一步'));
+    expect(draftText()).toContain('volumeMounts:');
+
+    // Delete the trailing volumeMounts+volumes blocks (the generator emits
+    // mounts last, so everything from volumeMounts to EOF is mount-related).
+    changeDraft(draftText().replace(/ {10}volumeMounts:\n[\s\S]*$/, ''));
+    view.click(view.getByText('从 YAML 回填表单'));
+
+    // The merged form's mounts are [] — the regenerated draft stays clean.
+    expect(draftText()).not.toContain('volumeMounts:');
+    expect(draftText()).not.toContain('volumes:');
+    expect(draftText()).toContain('kind: Deployment');
   });
 });

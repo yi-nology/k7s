@@ -588,4 +588,16 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
   async aiChat() { return 'demo-run-id'; }
   async aiCancel() {}
   async aiApproveToolCall() {}
+
+  // ---- Custom kind instance counts (mock: all non-zero for demo visibility) ----
+  async customKindCounts(): Promise<Array<{ id: string; count: number }>> {
+    // Return counts matching MOCK_CUSTOM_KINDS — the mock data has rows for
+    // each kind so the badge shows a realistic number in demo mode.
+    return [
+      { id: 'argoproj.io/applications', count: 3 },
+      { id: 'argoproj.io/appprojects', count: 1 },
+      { id: 'traefik.io/ingressroutes', count: 2 },
+      { id: 'cert-manager.io/clusterissuers', count: 2 },
+    ];
+  }
 }

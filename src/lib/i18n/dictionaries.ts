@@ -205,6 +205,8 @@ export interface Dictionary {
       cluster: string;
       custom: string;
       storage: string;
+      /** Tooltip on the custom-group toggle when some kinds have 0 instances. */
+      customTooltip: string;
     };
   };
 
@@ -1500,6 +1502,14 @@ export interface Dictionary {
       namespace: string;
       type: string;
       replicas: string;
+      /** Job: how many pods must succeed (0 = omit from YAML). */
+      completions: string;
+      /** Hint under the completions input: 0 keeps the field out of the manifest. */
+      completionsHint: string;
+      /** CronJob: the 5-field cron expression. */
+      schedule: string;
+      /** Hint under the schedule input: five-field cron syntax. */
+      scheduleHint: string;
       image: string;
       imagePullPolicy: string;
       /** Command & args block header (the <details> summary on step 2). */
@@ -1561,7 +1571,8 @@ export interface Dictionary {
     stale: string;
     /** Parse the edited draft back into the wizard form. */
     backfill: string;
-    /** The draft is not parseable as a Deployment/StatefulSet/DaemonSet. */
+    /** The draft is not parseable as a wizard workload kind
+     *  (Deployment/StatefulSet/DaemonSet/Job/CronJob). */
     parseFail: string;
     /** Toast titles for the apply outcome. */
     applyOk: string;
