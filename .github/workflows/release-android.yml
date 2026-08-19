@@ -89,6 +89,12 @@ jobs:
       - name: build Android
         run: |
           cd k7s-android
+          # Inject --cfg mobile via CARGO_ENCODED_RUSTFLAGS (binary separator).
+          # The Gradle plugin sets CARGO_TARGET_*_RUSTFLAGS which cargo appends
+          # to, but .cargo/config.toml target sections may not survive the
+          # cargo-ndk invocation. CARGO_ENCODED_RUSTFLAGS takes precedence.
+          # \x1f = ASCII unit separator (cargo 1.55+ multi-value separator).
+          export CARGO_ENCODED_RUSTFLAGS="--cfg$(printf '\x1f')mobile"
           cargo tauri android build
 
       - name: rename APK
