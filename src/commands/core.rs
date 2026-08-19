@@ -382,6 +382,18 @@ pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -
     Ok(())
 }
 
+/// Instance counts for every discovered CRD-backed kind (B15).
+///
+/// One cheap LIST per kind (limit=1, remainingItemCount), bounded concurrency.
+/// Best-effort: RBAC-denied or failed kinds report count 0.
+#[tauri::command]
+pub async fn custom_kind_counts(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<crate::kube::discovery::CustomKindCount>> {
+    let client = require_client(&mgr.manager).await?;
+    crate::kube::discovery::custom_kind_counts(&client).await
+}
+
 /// Drain a node (B20): cordon it, then evict its pods in the background.
 ///
 /// Cordoning happens inline so an RBAC/not-found failure surfaces as a rejected
