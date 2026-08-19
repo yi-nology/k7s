@@ -171,6 +171,7 @@ export const zh: Dictionary = {
       cluster: '集群',
       custom: '自定义资源',
       storage: '存储',
+      customTooltip: '已隐藏空类型',
     },
   },
 

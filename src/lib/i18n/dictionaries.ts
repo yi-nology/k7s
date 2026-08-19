@@ -205,6 +205,8 @@ export interface Dictionary {
       cluster: string;
       custom: string;
       storage: string;
+      /** Tooltip on the custom-group toggle when some kinds have 0 instances. */
+      customTooltip: string;
     };
   };
 

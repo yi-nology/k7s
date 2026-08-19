@@ -166,6 +166,7 @@ export const en: Dictionary = {
       cluster: 'Cluster',
       custom: 'Custom Resources',
       storage: 'Storage',
+      customTooltip: 'Empty types hidden',
     },
   },
 

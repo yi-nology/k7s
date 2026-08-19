@@ -25,6 +25,7 @@ function resetStore() {
     nav: 'pods',
     section: 'overview',
     customKinds: [],
+    customKindCounts: undefined,
     settings: { ...useStore.getState().settings, language: 'en' },
   });
 }
@@ -165,5 +166,146 @@ describe('SubNav', () => {
     const node = view.queryByRole('tab', { name: '节点' });
     expect(node).not.toBeNull();
     expect(node?.className).toContain('active');
+  });
+
+  // ---- P4 Task 4: customKindCounts filtering ----
+
+  const CUSTOM_KINDS_MULTI = [
+    {
+      id: 'argoproj.io/applications',
+      group: 'argoproj.io',
+      version: 'v1alpha1',
+      kind: 'Application',
+      plural: 'applications',
+      namespaced: true,
+    },
+    {
+      id: 'argoproj.io/appprojects',
+      group: 'argoproj.io',
+      version: 'v1alpha1',
+      kind: 'AppProject',
+      plural: 'appprojects',
+      namespaced: true,
+    },
+    {
+      id: 'cert-manager.io/clusterissuers',
+      group: 'cert-manager.io',
+      version: 'v1',
+      kind: 'ClusterIssuer',
+      plural: 'clusterissuers',
+      namespaced: false,
+    },
+  ];
+
+  it('hides custom kinds with 0 instances when counts are loaded', () => {
+    useStore.setState({
+      nav: 'configmaps',
+      section: 'config',
+      customKinds: CUSTOM_KINDS_MULTI,
+      customKindCounts: {
+        'argoproj.io/applications': 5,
+        'argoproj.io/appprojects': 0,
+        'cert-manager.io/clusterissuers': 0,
+      },
+    });
+    view = render(<SubNav section="config" />);
+    // Expand the custom group to see the tabs
+    view.click(view.getByText('Custom Resources'));
+    // Application (count 5) is visible
+    expect(view.queryByRole('tab', { name: 'Application' })).not.toBeNull();
+    // AppProject (count 0) is hidden
+    expect(view.queryByRole('tab', { name: 'AppProject' })).toBeNull();
+    // ClusterIssuer (count 0) is hidden
+    expect(view.queryByRole('tab', { name: 'ClusterIssuer' })).toBeNull();
+  });
+
+  it('never hides the active custom kind even if its count is 0', () => {
+    useStore.setState({
+      nav: 'argoproj.io/appprojects',
+      section: 'config',
+      customKinds: CUSTOM_KINDS_MULTI,
+      customKindCounts: {
+        'argoproj.io/applications': 5,
+        'argoproj.io/appprojects': 0,
+        'cert-manager.io/clusterissuers': 0,
+      },
+    });
+    view = render(<SubNav section="config" />);
+    // Active kind auto-expands the group and is always visible
+    const appProject = view.queryByRole('tab', { name: 'AppProject' });
+    expect(appProject).not.toBeNull();
+    expect(appProject?.className).toContain('active');
+    // Non-active, non-zero count kind is also visible
+    expect(view.queryByRole('tab', { name: 'Application' })).not.toBeNull();
+    // Non-active zero-count kind is hidden
+    expect(view.queryByRole('tab', { name: 'ClusterIssuer' })).toBeNull();
+  });
+
+  it('badge shows filtered (non-empty) count', () => {
+    useStore.setState({
+      nav: 'configmaps',
+      section: 'config',
+      customKinds: CUSTOM_KINDS_MULTI,
+      customKindCounts: {
+        'argoproj.io/applications': 5,
+        'argoproj.io/appprojects': 0,
+        'cert-manager.io/clusterissuers': 3,
+      },
+    });
+    view = render(<SubNav section="config" />);
+    // Badge shows 2 (non-zero kinds), not 3 (total kinds)
+    expect(view.queryByText('2')).toBeTruthy();
+    expect(view.queryByText('3')).toBeNull();
+  });
+
+  it('shows all custom kinds when counts are not loaded (undefined)', () => {
+    useStore.setState({
+      nav: 'configmaps',
+      section: 'config',
+      customKinds: CUSTOM_KINDS_MULTI,
+      customKindCounts: undefined,
+    });
+    view = render(<SubNav section="config" />);
+    view.click(view.getByText('Custom Resources'));
+    // All kinds are visible when counts haven't loaded
+    expect(view.queryByRole('tab', { name: 'Application' })).not.toBeNull();
+    expect(view.queryByRole('tab', { name: 'AppProject' })).not.toBeNull();
+    expect(view.queryByRole('tab', { name: 'ClusterIssuer' })).not.toBeNull();
+    // Badge shows total count
+    expect(view.queryByText('3')).toBeTruthy();
+  });
+
+  it('shows tooltip when some custom kinds are hidden', () => {
+    useStore.setState({
+      nav: 'configmaps',
+      section: 'config',
+      customKinds: CUSTOM_KINDS_MULTI,
+      customKindCounts: {
+        'argoproj.io/applications': 5,
+        'argoproj.io/appprojects': 0,
+        'cert-manager.io/clusterissuers': 0,
+      },
+    });
+    view = render(<SubNav section="config" />);
+    const toggle = view.getByText('Custom Resources').closest('button');
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute('title')).toBeTruthy();
+  });
+
+  it('does not show tooltip when all custom kinds have instances', () => {
+    useStore.setState({
+      nav: 'configmaps',
+      section: 'config',
+      customKinds: CUSTOM_KINDS_MULTI,
+      customKindCounts: {
+        'argoproj.io/applications': 5,
+        'argoproj.io/appprojects': 2,
+        'cert-manager.io/clusterissuers': 3,
+      },
+    });
+    view = render(<SubNav section="config" />);
+    const toggle = view.getByText('Custom Resources').closest('button');
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute('title')).toBeNull();
   });
 });

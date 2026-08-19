@@ -152,6 +152,29 @@ export function useBootstrap(): void {
       }
     })();
 
+    // Fetch custom-kind instance counts once after every successful connect.
+    // On failure the store stays undefined (SubNav shows all custom kinds).
+    let lastCountedCtx: string | null = null;
+    const unsubCounts = useStore.subscribe((s) => {
+      if (
+        s.connection.phase === 'connected' &&
+        s.connection.context &&
+        s.connection.context !== lastCountedCtx
+      ) {
+        lastCountedCtx = s.connection.context;
+        provider
+          .customKindCounts()
+          .then((arr) => {
+            const map: Record<string, number> = {};
+            for (const { id, count } of arr) map[id] = count;
+            useStore.getState().setCustomKindCounts(map);
+          })
+          .catch((e) => {
+            console.warn('customKindCounts unavailable, showing all custom kinds:', e);
+          });
+      }
+    });
+
     // Persist relevant state changes (debounced). No-op in demo mode.
     let saveTimer: ReturnType<typeof setTimeout> | undefined;
     let lastSaved = '';
@@ -180,6 +203,7 @@ export function useBootstrap(): void {
 
     return () => {
       for (const off of unsubs) off();
+      unsubCounts();
       unsubSave();
       clearTimeout(saveTimer);
     };

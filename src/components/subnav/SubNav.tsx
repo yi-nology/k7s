@@ -10,7 +10,7 @@
  * section。Task 4 由 App.tsx 在各资源分区内容区顶部渲染本组件。
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
 import { useCustomKinds } from '../../hooks/useStoreHooks';
@@ -45,6 +45,7 @@ export function SubNav({ section }: { section: SectionId }) {
   const nav = useStore((s) => s.nav);
   const setNav = useStore((s) => s.setNav);
   const customKinds = useCustomKinds();
+  const customKindCounts = useStore((s) => s.customKindCounts);
   const { locale, t } = useTranslation();
 
   // The Custom Resources group starts collapsed: operator-installed CRD
@@ -54,6 +55,18 @@ export function SubNav({ section }: { section: SectionId }) {
   const [customOpen, setCustomOpen] = useState(false);
   const activeIsCustom = customKinds.some((ck) => ck.id === nav);
   const customExpanded = customOpen || activeIsCustom;
+
+  // Filter custom kinds: hide those with 0 instances when counts are available.
+  // The active kind is never hidden (deep-link reachable).
+  // When counts are undefined (not yet loaded or provider error), show all.
+  const visibleCustomKinds = useMemo(() => {
+    if (!customKindCounts) return customKinds;
+    return customKinds.filter(
+      (ck) => customKindCounts[ck.id] > 0 || ck.id === nav
+    );
+  }, [customKinds, customKindCounts, nav]);
+
+  const hiddenCount = customKinds.length - visibleCustomKinds.length;
 
   const groups: SubNavGroup[] =
     section === 'workloads'
@@ -67,8 +80,8 @@ export function SubNav({ section }: { section: SectionId }) {
             })),
             // Discovered CRD kinds get their own trailing group; the heading is
             // skipped entirely on clusters with none (no dangling label).
-            ...(customKinds.length > 0
-              ? [{ id: 'custom', label: 'custom', kinds: customKinds.map((ck) => ck.id) }]
+            ...(visibleCustomKinds.length > 0
+              ? [{ id: 'custom', label: 'custom', kinds: visibleCustomKinds.map((ck) => ck.id) }]
               : []),
           ]
         : SECTION_SUBGROUPS.storage.map((g) => ({
@@ -87,12 +100,17 @@ export function SubNav({ section }: { section: SectionId }) {
               className={styles.groupToggle}
               aria-expanded={customExpanded}
               onClick={() => setCustomOpen((v) => !v)}
+              title={
+                hiddenCount > 0
+                  ? t('subnav.group.customTooltip', `${hiddenCount} empty type${hiddenCount > 1 ? 's' : ''} hidden`)
+                  : undefined
+              }
             >
               <span className={styles.chevron} aria-hidden="true">
                 {customExpanded ? '▾' : '▸'}
               </span>
               {t(`subnav.group.custom`, GROUP_FALLBACK.custom)}
-              <span className={styles.count}>{customKinds.length}</span>
+              <span className={styles.count}>{visibleCustomKinds.length}</span>
             </button>
           ) : (
             g.label && (

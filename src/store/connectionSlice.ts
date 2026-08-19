@@ -35,6 +35,7 @@ export interface ConnectionSlice {
   overlayPodRef: { namespace: string; name: string; container: string | null } | null;
   rows: RowMap;
   customKinds: CustomKind[];
+  customKindCounts: Record<string, number> | undefined;
   watchStatus: Record<string, 'ok' | 'forbidden'>;
 
   // Actions
@@ -49,6 +50,7 @@ export interface ConnectionSlice {
   setWatchCount: (n: number) => void;
   setRows: (kind: KindId, rows: Row[]) => void;
   setCustomKinds: (kinds: CustomKind[]) => void;
+  setCustomKindCounts: (counts: Record<string, number>) => void;
   setWatchStatus: (kind: string, status: 'ok' | 'forbidden') => void;
   openOverlay: (
     key: OverlayKey,
@@ -73,6 +75,7 @@ export const createConnectionSlice: StateCreator<AppState, [], [], ConnectionSli
   overlayPodRef: null,
   rows: emptyRows(),
   customKinds: [],
+  customKindCounts: undefined,
   watchStatus: {},
 
   // Actions
@@ -99,6 +102,7 @@ export const createConnectionSlice: StateCreator<AppState, [], [], ConnectionSli
     get().pruneDetailTabs(kind, rows);
   },
   setCustomKinds: (kinds) => set({ customKinds: kinds }),
+  setCustomKindCounts: (counts) => set({ customKindCounts: counts }),
   setWatchStatus: (kind, status) =>
     set((s) => ({ watchStatus: { ...s.watchStatus, [kind]: status } })),
   openOverlay: (key, podRef) =>
@@ -108,6 +112,7 @@ export const createConnectionSlice: StateCreator<AppState, [], [], ConnectionSli
     set({
       rows: emptyRows(),
       customKinds: [],
+      customKindCounts: undefined,
       podMetrics: {},
       nodeMetrics: {},
       portForwards: [],
