@@ -18,6 +18,7 @@ use tauri::Manager;
 ///
 /// Kept in the library crate so integration tests can construct pieces of it
 /// without spawning a real window.
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Structured logs to stderr; level controlled by RUST_LOG (defaults to info).
     k7s_deps::tracing_subscriber::fmt()
