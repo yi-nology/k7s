@@ -89,13 +89,6 @@ jobs:
       - name: build Android
         run: |
           cd k7s-android
-          # Gradle sets CARGO_TARGET_*_RUSTFLAGS which overrides global RUSTFLAGS.
-          # Append --cfg mobile to each target's flags so the mobile_entry_point
-          # macro expands during cross-compilation.
-          export CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS="${CARGO_TARGET_AARCH64_LINUX_ANDROID_RUSTFLAGS} --cfg mobile"
-          export CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RUSTFLAGS="${CARGO_TARGET_ARMV7_LINUX_ANDROIDEABI_RUSTFLAGS} --cfg mobile"
-          export CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS="${CARGO_TARGET_X86_64_LINUX_ANDROID_RUSTFLAGS} --cfg mobile"
-          export CARGO_TARGET_I686_LINUX_ANDROID_RUSTFLAGS="${CARGO_TARGET_I686_LINUX_ANDROID_RUSTFLAGS} --cfg mobile"
           cargo tauri android build
 
       - name: rename APK
