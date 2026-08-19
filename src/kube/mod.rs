@@ -64,6 +64,7 @@ pub mod templates;
 pub mod watchers;
 
 use serde::{Deserialize, Serialize};
+pub use discovery::{custom_kind_counts, CustomKindCount};
 
 pub use dto::Row;
 pub use manager::ClientManager;
