@@ -464,5 +464,60 @@ mod tests {
             assert_eq!(st["authRequired"], json!(true), "dropped session must re-gate");
             assert_eq!(st["configured"], json!(true));
         }
+
+        /// `apply_yaml_bundle` must be bridged through the web shell (the P2
+        /// wizard's 应用 step). Before the bridge this hit the catch-all and
+        /// returned 501 "this command isn't bridged through the web shell yet".
+        /// With no cluster connected the handler must answer an ordinary
+        /// AppError instead — proving the route exists and delegates.
+        #[tokio::test]
+        async fn apply_yaml_bundle_is_bridged() {
+            let state = test_state("apply-bundle");
+            let app = server::router(
+                state,
+                Some(static_dir("apply-bundle")),
+                false,
+                "127.0.0.1:7180".parse().unwrap(),
+            );
+            // Authenticate so require_token lets the invoke through.
+            let resp = app
+                .clone()
+                .oneshot(post_json(
+                    "/api/auth/setup",
+                    None,
+                    json!({"password": "correct-horse-battery"}).to_string(),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            let cookie = set_cookie(&resp);
+
+            let resp = app
+                .clone()
+                .oneshot(post_json(
+                    "/api/invoke/apply_yaml_bundle",
+                    Some(&cookie),
+                    json!({"yaml": "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: x\n"})
+                        .to_string(),
+                ))
+                .await
+                .unwrap();
+            assert_ne!(
+                resp.status(),
+                StatusCode::NOT_IMPLEMENTED,
+                "apply_yaml_bundle must be bridged, not 501"
+            );
+            let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+            let body: k7s_deps::serde_json::Value =
+                k7s_deps::serde_json::from_slice(&bytes).unwrap();
+            assert!(
+                body.get("error").is_some(),
+                "no cluster connected — expect an AppError body, got: {body}"
+            );
+            assert_ne!(
+                body["error"],
+                json!("this command isn't bridged through the web shell yet")
+            );
+        }
     }
 }

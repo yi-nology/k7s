@@ -192,6 +192,10 @@ pub fn api_router(state: WebState) -> Router {
             post(resource_handlers::dry_run_yaml_bundle),
         )
         .route(
+            "/api/invoke/apply_yaml_bundle",
+            post(resource_handlers::apply_yaml_bundle),
+        )
+        .route(
             "/api/invoke/delete_resource",
             post(resource_handlers::delete_resource),
         )
