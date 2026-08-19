@@ -93,15 +93,15 @@ jobs:
 
       - name: rename APK
         run: |
-          cd k7s-android/target/release/apk
-          mv app.aab k7s-${{ github.ref_name }}.aab || true
+          cd k7s-android/gen/android/app/build/outputs
+          find . -name "*.aab" -exec mv {} k7s-${{ github.ref_name }}.aab \; || true
           find . -name "*.apk" -exec mv {} k7s-${{ github.ref_name }}.apk \; || true
 
       - name: upload Android artifacts
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            k7s-android/target/release/apk/*.aab
-            k7s-android/target/release/apk/*.apk
+            k7s-android/gen/android/app/build/outputs/**/*.aab
+            k7s-android/gen/android/app/build/outputs/**/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
