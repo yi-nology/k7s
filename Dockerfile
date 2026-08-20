@@ -45,6 +45,8 @@ COPY k7s-core/Cargo.toml k7s-core/Cargo.lock ./k7s-core/
 COPY k7s-deps/Cargo.toml k7s-deps/Cargo.lock ./k7s-deps/
 
 # Stub sources so cargo fetch can resolve the dependency graph.
+# Note: k7s-server has no src/main.rs (bins are in src/bin/), but cargo fetch
+# needs at least one source file to resolve the dependency graph.
 RUN mkdir -p k7s-server/src k7s-core/src k7s-deps/src \
  && echo "fn main() {}" > k7s-server/src/main.rs \
  && echo "pub fn dummy() {}" > k7s-server/src/lib.rs \
