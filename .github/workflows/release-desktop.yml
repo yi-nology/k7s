@@ -223,7 +223,7 @@ jobs:
           rustup target add x86_64-unknown-linux-musl
           cargo build --release --features web --bin k7s-web \
             --target x86_64-unknown-linux-musl
-          strip target/x86_64-unknown-linux-musl/release/k7s-web
+          # Note: do NOT strip musl binaries — strip can corrupt them.
           cp target/x86_64-unknown-linux-musl/release/k7s-web \
              ../k7s-web-linux-x86_64-static
         working-directory: k7s-server
