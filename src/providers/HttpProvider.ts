@@ -330,7 +330,11 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     // Same dance as startLogs: ask the back-end for an id, then attach SSE
     // listeners to the id-scoped events. The shell task pumps output as
     // `shell-out:{id}` batches and a final `shell-closed:{id}`.
-    const streamId = await httpInvoke<string>('start_shell', {
+    // NOTE: the back-end returns `ShellInfo` (`{ streamId, namespace, pod }`,
+    // camelCase) — not a bare id string. Treating the object as a string here
+    // once produced the event name `shell-out:[object Object]`, which never
+    // matched and left the terminal "connected" but blank.
+    const { streamId } = await httpInvoke<{ streamId: string }>('start_shell', {
       namespace: ref.namespace ?? '',
       pod: ref.name,
       container,

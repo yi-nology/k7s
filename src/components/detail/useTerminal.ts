@@ -72,9 +72,16 @@ export function useTerminal(key: string | null): TerminalHandles {
     term.loadAddon(webLinks);
     term.open(host);
     fit.fit();
+    // Grab focus on mount — without this the xterm textarea never receives
+    // keyboard events in the Tauri webview until the user clicks *just* right.
+    term.focus();
 
     termRef.current = term;
     searchRef.current = search;
+
+    // Re-focus on any click in the terminal host, in case focus was stolen.
+    const onClick = () => term.focus();
+    host.addEventListener('mousedown', onClick);
 
     // Clipboard handling for Tauri webview (Cmd-C/V).
     term.attachCustomKeyEventHandler((e) => {
@@ -113,6 +120,7 @@ export function useTerminal(key: string | null): TerminalHandles {
 
     return () => {
       ro.disconnect();
+      host.removeEventListener('mousedown', onClick);
       webLinks.dispose();
       search.dispose();
       term.dispose();

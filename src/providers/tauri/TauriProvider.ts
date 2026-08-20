@@ -294,7 +294,9 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
     onOutput: (data: string) => void,
     onClosed: (reason: string) => void
   ): Promise<ShellHandle> {
-    const streamId = await invoke<string>('start_shell', {
+    // The command returns `ShellInfo` (`{ streamId, namespace, pod }`), not a
+    // bare id string — see the matching note in HttpProvider.startShell.
+    const { streamId } = await invoke<{ streamId: string }>('start_shell', {
       namespace: ref.namespace ?? '',
       pod: ref.name,
       container,

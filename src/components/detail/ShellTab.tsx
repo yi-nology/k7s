@@ -63,7 +63,9 @@ export function ShellTab() {
         }
         handle = h;
         sessionRef.current = h;
-        dataSub = term.onData((d) => h.input(d));
+        dataSub = term.onData((d) => {
+          h.input(d);
+        });
         h.resize(term.cols, term.rows);
       })
       .catch((e) => {
