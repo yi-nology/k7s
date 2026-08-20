@@ -26,7 +26,7 @@ use k7s_deps::tokio::sync::Mutex;
 ## Dependencies
 
 - HTTP: reqwest
-- Serialization: serde, serde_json, serde_yaml
+- Serialization: serde, serde_json, yaml_serde
 - Async: tokio, futures, tokio-stream, async-stream, async-trait
 - Kubernetes: kube, k8s-openapi
 - Error handling: thiserror, anyhow
