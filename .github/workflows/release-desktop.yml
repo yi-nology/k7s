@@ -190,12 +190,15 @@ jobs:
         shell: bash
         run: cp -r dist ../dist
 
-      # ── Dynamic-linked build (native glibc) ──
+      # ── Dynamic-linked build (native glibc) — macOS/Windows only ──
+      # Linux ships only the musl static binary (see below).
       - name: build k7s-web (dynamic)
+        if: runner.os != 'Linux'
         run: cargo build --release --features web --bin k7s-web
         working-directory: k7s-server
 
       - name: rename and upload k7s-web
+        if: runner.os != 'Linux'
         shell: bash
         run: |
           cd k7s-server/target/release
@@ -203,11 +206,10 @@ jobs:
             cp k7s-web.exe k7s-web-windows-x64.exe
           elif [ "${{ runner.os }}" = "macOS" ]; then
             cp k7s-web k7s-web-macos-$(uname -m)
-          else
-            cp k7s-web k7s-web-linux-$(uname -m)
           fi
 
       - name: upload k7s-web
+        if: runner.os != 'Linux'
         uses: softprops/action-gh-release@v3
         with:
           files: |
@@ -215,23 +217,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── Static-linked build (musl, glibc-free) — Linux x86_64 only ──
+      # ── Static-linked build (musl, glibc-free) — Linux only ──
       - name: build k7s-web (musl static)
-        if: runner.os == 'Linux' && runner.arch == 'X64'
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update && sudo apt-get install -y musl-tools
-          rustup target add x86_64-unknown-linux-musl
+          if [ "${{ runner.arch }}" = "X64" ]; then
+            TARGET=x86_64-unknown-linux-musl
+            SUFFIX=x86_64
+          else
+            TARGET=aarch64-unknown-linux-musl
+            SUFFIX=aarch64
+          fi
+          rustup target add "$TARGET"
           cargo build --release --features web --bin k7s-web \
-            --target x86_64-unknown-linux-musl
+            --target "$TARGET"
           # Note: do NOT strip musl binaries — strip can corrupt them.
-          cp target/x86_64-unknown-linux-musl/release/k7s-web \
-             ../k7s-web-linux-x86_64-static
+          cp "target/${TARGET}/release/k7s-web" \
+             "../k7s-web-linux-${SUFFIX}-static"
         working-directory: k7s-server
 
       - name: upload k7s-web (musl static)
-        if: runner.os == 'Linux' && runner.arch == 'X64'
+        if: runner.os == 'Linux'
         uses: softprops/action-gh-release@v3
         with:
-          files: k7s-server/../k7s-web-linux-x86_64-static
+          files: k7s-server/../k7s-web-linux-*-static
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
