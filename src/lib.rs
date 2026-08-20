@@ -41,7 +41,7 @@ pub fn run() {
         .init();
 
     // Install the default crypto provider for rustls before any TLS connections.
-    let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
+    let _ = k7s_deps::rustls::crypto::ring::default_provider().install_default();
 
     tauri::Builder::default()
         // The shell plugin backs the capability that lets us open external URLs

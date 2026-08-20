@@ -1,0 +1,133 @@
+# Multi-stage build for k7s AppImage with bundled glibc 2.35
+# 目标: 兼容麒麟桌面系统 (glibc 2.31)
+# 原理: 在 Ubuntu 22.04 编译, 将 glibc 2.35 + ld-linux 打入 AppImage
+#
+# 用法 (从 k7/ 目录执行):
+#   docker build -f k7s-desktop/Dockerfile.appimage -t k7s-appimage .
+#   docker run --rm -v $(pwd)/output:/output k7s-appimage
+#
+# 依赖目录结构:
+#   k7/
+#   ├── k7s-desktop/   (Tauri 桌面应用)
+#   ├── k7s-core/      (共享核心库)
+#   ├── k7s-server/    (Web/MCP 服务)
+#   ├── k7s-deps/      (共享依赖)
+#   └── dist/          (前端构建产物, 需先 pnpm build)
+
+# ═══════════════════════════════════════════════════════════════
+# Stage 1 — 构建环境 (Ubuntu 22.04, glibc 2.35)
+# ═══════════════════════════════════════════════════════════════
+FROM ubuntu:22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV CARGO_HOME=/usr/local/cargo
+ENV PATH=$CARGO_HOME/bin:$PATH
+
+# 系统依赖: Tauri 2 需要 webkit2gtk-4.1 + libsoup-3.0
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    pkg-config \
+    libwebkit2gtk-4.1-dev \
+    libsoup-3.0-dev \
+    libayatana-appindicator3-dev \
+    librsvg2-dev \
+    libssl-dev \
+    libxdo-dev \
+    file \
+    wget \
+    curl \
+    git \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Rust 工具链
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+ENV PATH=/root/.cargo/bin:$PATH
+
+# Node.js + pnpm (构建前端)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g pnpm
+
+WORKDIR /build
+
+# ── 复制整个 workspace ──
+COPY k7s-desktop/ ./k7s-desktop/
+COPY k7s-core/    ./k7s-core/
+COPY k7s-server/  ./k7s-server/
+COPY k7s-deps/    ./k7s-deps/
+COPY k7s-frontend/ ./k7s-frontend/
+
+# ── 构建前端 ──
+RUN cd k7s-frontend && pnpm install --frozen-lockfile && pnpm build \
+    && cp -r dist /build/dist
+
+# ── 将 git 依赖替换为本地路径 ──
+RUN cd k7s-desktop && \
+    sed -i 's|k7s-deps = { git = "https://github.com/yi-nology/k7s-deps.git" }|k7s-deps = { path = "../k7s-deps" }|' Cargo.toml && \
+    sed -i 's|k7s-core = { git = "https://github.com/yi-nology/k7s-core.git", features = \["tauri"\] }|k7s-core = { path = "../k7s-core", features = ["tauri"] }|' Cargo.toml && \
+    sed -i 's|k7s-server = { git = "https://github.com/yi-nology/k7s-server.git" }|k7s-server = { path = "../k7s-server" }|' Cargo.toml
+
+# ── 确保 dist 在正确位置 (tauri.conf.json 的 frontendDist: "../dist") ──
+RUN mkdir -p /build/k7s-desktop/../dist && cp -r /build/dist/* /build/k7s-desktop/../dist/
+
+# ── 构建 Tauri AppImage ──
+RUN cd k7s-desktop && cargo tauri build --bundles appimage
+
+# ═══════════════════════════════════════════════════════════════
+# Stage 2 — 注入 glibc 到 AppImage
+# ═══════════════════════════════════════════════════════════════
+FROM ubuntu:22.04 AS appimage-patcher
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    file \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# 下载 appimagetool
+RUN wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" -O /usr/local/bin/appimagetool \
+    && chmod +x /usr/local/bin/appimagetool
+
+WORKDIR /work
+
+# 复制 Tauri 构建产物
+COPY --from=builder /build/k7s-desktop/target/release/bundle/appimage/ ./bundle/
+
+# ── 解包 AppImage ──
+RUN set -ex && \
+    APPIMAGE=$(find bundle -name "*.AppImage" | head -1) && \
+    echo "Found AppImage: $APPIMAGE" && \
+    chmod +x "$APPIMAGE" && \
+    "$APPIMAGE" --appimage-extract
+
+# ── 注入 glibc 2.35 到 AppDir ──
+RUN mkdir -p squashfs-root/usr/lib/x86_64-linux-gnu && \
+    cp /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 squashfs-root/usr/lib/x86_64-linux-gnu/ && \
+    cp /lib/x86_64-linux-gnu/libc.so.6 squashfs-root/usr/lib/x86_64-linux-gnu/ && \
+    cp /lib/x86_64-linux-gnu/libm.so.6 squashfs-root/usr/lib/x86_64-linux-gnu/ && \
+    cp /lib/x86_64-linux-gnu/libpthread.so.0 squashfs-root/usr/lib/x86_64-linux-gnu/ && \
+    cp /lib/x86_64-linux-gnu/libdl.so.2 squashfs-root/usr/lib/x86_64-linux-gnu/ && \
+    cp /lib/x86_64-linux-gnu/librt.so.1 squashfs-root/usr/lib/x86_64-linux-gnu/ && \
+    cp /lib/x86_64-linux-gnu/libresolv.so.2 squashfs-root/usr/lib/x86_64-linux-gnu/ && \
+    cp /lib/x86_64-linux-gnu/libnss_dns.so.2 squashfs-root/usr/lib/x86_64-linux-gnu/ && \
+    cp /lib/x86_64-linux-gnu/libnss_files.so.2 squashfs-root/usr/lib/x86_64-linux-gnu/
+
+# ── 创建 AppRun wrapper (强制使用自带 glibc) ──
+RUN mv squashfs-root/AppRun squashfs-root/AppRun.wrapped && \
+    { echo '#!/bin/bash'; \
+      echo 'SELF=$(readlink -f "$0")'; \
+      echo 'HERE=${SELF%/*}'; \
+      echo 'export LD_LIBRARY_PATH="$HERE/usr/lib/x86_64-linux-gnu:$HERE/usr/lib:$HERE/lib:$LD_LIBRARY_PATH"'; \
+      echo 'exec "$HERE/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" \'; \
+      echo '    --library-path "$HERE/usr/lib/x86_64-linux-gnu:$HERE/usr/lib:$HERE/lib" \'; \
+      echo '    "$HERE/AppRun.wrapped" "$@"'; \
+    } > squashfs-root/AppRun && \
+    chmod +x squashfs-root/AppRun squashfs-root/AppRun.wrapped
+
+# ── 重新打包 AppImage ──
+RUN mkdir -p /output && \
+    appimagetool squashfs-root /output/k7s-linux-x86_64-glibc231.AppImage && \
+    echo "Done! AppImage with bundled glibc created."
+
+VOLUME ["/output"]
+CMD ["echo", "Build complete. Check /output/ for the AppImage."]
