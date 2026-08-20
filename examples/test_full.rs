@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_env_filter("info")
         .init();
 
-    k7s_deps::rustls::crypto::aws_lc_rs::default_provider()
+    k7s_deps::rustls::crypto::ring::default_provider()
         .install_default()
         .ok();
 

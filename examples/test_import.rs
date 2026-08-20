@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     // Install rustls crypto provider (needed for kube TLS)
-    k7s_deps::rustls::crypto::aws_lc_rs::default_provider()
+    k7s_deps::rustls::crypto::ring::default_provider()
         .install_default()
         .ok(); // ignore if already installed
 
