@@ -18,7 +18,7 @@ use k7s_server::web::{serve, WebState};
 #[k7s_deps::tokio::main]
 async fn main() -> std::io::Result<()> {
     // Install the rustls crypto provider before any TLS connections are made.
-    let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
+    let _ = k7s_deps::rustls::crypto::ring::default_provider().install_default();
 
     // Match the Tauri shell's default level so logs feel familiar.
     k7s_deps::tracing_subscriber::fmt()

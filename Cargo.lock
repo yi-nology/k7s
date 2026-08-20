@@ -1659,8 +1659,8 @@ dependencies = [
 
 [[package]]
 name = "k7s-core"
-version = "0.3.6"
-source = "git+https://github.com/yi-nology/k7s-core.git#7138535065e26317c00ceac33f984251a93352ce"
+version = "0.3.8"
+source = "git+https://github.com/yi-nology/k7s-core.git#86397f362acc4ff81bb9a0e3b07d04e7e6f73005"
 dependencies = [
  "k7s-deps",
  "serde",
@@ -1671,7 +1671,7 @@ dependencies = [
 [[package]]
 name = "k7s-deps"
 version = "0.1.0"
-source = "git+https://github.com/yi-nology/k7s-deps.git#1b331abf3b342f6dfc1e79b733de29d1f0f11adf"
+source = "git+https://github.com/yi-nology/k7s-deps.git#b09d937c0a37c6f2fa649065f2a5756621a6f754"
 dependencies = [
  "anyhow",
  "async-stream",
@@ -1705,7 +1705,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-server"
-version = "0.3.8"
+version = "0.4.1"
 dependencies = [
  "argon2",
  "axum",
@@ -1715,6 +1715,7 @@ dependencies = [
  "open",
  "rmcp",
  "rust-embed",
+ "rustls",
  "schemars",
  "serde",
  "thiserror 2.0.20",
