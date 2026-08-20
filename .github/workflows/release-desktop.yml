@@ -28,7 +28,7 @@ jobs:
       - name: install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10
 
       - name: build frontend
         run: |
@@ -125,11 +125,73 @@ jobs:
           prerelease: false
           projectPath: k7s-desktop
 
+      # ── 注入 glibc 2.35 到 AppImage, 兼容麒麟桌面 (glibc 2.31) ──
+      - name: bundle glibc into AppImage (Kylin compatibility)
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          # 安装 appimagetool (本身也是 AppImage, 需要 APPIMAGE_EXTRACT_AND_RUN)
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" \
+            -O /tmp/appimagetool
+          chmod +x /tmp/appimagetool
+
+          # 找到 Tauri 生成的 AppImage
+          APPIMAGE=$(find k7s-desktop/target/release/bundle/appimage -name "*.AppImage" | head -1)
+          if [ -z "$APPIMAGE" ]; then
+            echo "No AppImage found, skipping glibc bundling"
+            exit 0
+          fi
+          echo "Found AppImage: $APPIMAGE"
+
+          # 解包
+          cd /tmp
+          "$GITHUB_WORKSPACE/$APPIMAGE" --appimage-extract
+
+          # 复制 glibc 核心库
+          mkdir -p squashfs-root/usr/lib/x86_64-linux-gnu
+          cp /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 squashfs-root/usr/lib/x86_64-linux-gnu/
+          cp /lib/x86_64-linux-gnu/libc.so.6           squashfs-root/usr/lib/x86_64-linux-gnu/
+          cp /lib/x86_64-linux-gnu/libm.so.6           squashfs-root/usr/lib/x86_64-linux-gnu/
+          cp /lib/x86_64-linux-gnu/libpthread.so.0     squashfs-root/usr/lib/x86_64-linux-gnu/
+          cp /lib/x86_64-linux-gnu/libdl.so.2          squashfs-root/usr/lib/x86_64-linux-gnu/
+          cp /lib/x86_64-linux-gnu/librt.so.1          squashfs-root/usr/lib/x86_64-linux-gnu/
+          cp /lib/x86_64-linux-gnu/libresolv.so.2      squashfs-root/usr/lib/x86_64-linux-gnu/
+          cp /lib/x86_64-linux-gnu/libnss_dns.so.2     squashfs-root/usr/lib/x86_64-linux-gnu/
+          cp /lib/x86_64-linux-gnu/libnss_files.so.2   squashfs-root/usr/lib/x86_64-linux-gnu/
+
+          # 创建 AppRun wrapper: 强制使用自带的 glibc
+          mv squashfs-root/AppRun squashfs-root/AppRun.wrapped
+          { echo '#!/bin/bash'
+            echo 'SELF=$(readlink -f "$0")'
+            echo 'HERE=${SELF%/*}'
+            echo 'export LD_LIBRARY_PATH="$HERE/usr/lib/x86_64-linux-gnu:$HERE/usr/lib:$HERE/lib:$LD_LIBRARY_PATH"'
+            echo 'exec "$HERE/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2" \'
+            echo '    --library-path "$HERE/usr/lib/x86_64-linux-gnu:$HERE/usr/lib:$HERE/lib" \'
+            echo '    "$HERE/AppRun.wrapped" "$@"'
+          } > squashfs-root/AppRun
+          chmod +x squashfs-root/AppRun squashfs-root/AppRun.wrapped
+
+          # 重新打包
+          /tmp/appimagetool squashfs-root \
+            "$GITHUB_WORKSPACE/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage"
+
+          echo "✓ AppImage with bundled glibc 2.35 created"
+
+      - name: upload Kylin-compatible AppImage
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: copy dist for k7s-server rust-embed
         shell: bash
         run: cp -r dist ../dist
 
-      - name: build k7s-web
+      # ── Dynamic-linked build (native glibc) ──
+      - name: build k7s-web (dynamic)
         run: cargo build --release --features web --bin k7s-web
         working-directory: k7s-server
 
@@ -150,5 +212,26 @@ jobs:
         with:
           files: |
             k7s-server/target/release/k7s-web-*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── Static-linked build (musl, glibc-free) — Linux x86_64 only ──
+      - name: build k7s-web (musl static)
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        run: |
+          sudo apt-get update && sudo apt-get install -y musl-tools
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --features web --bin k7s-web \
+            --target x86_64-unknown-linux-musl
+          strip target/x86_64-unknown-linux-musl/release/k7s-web
+          cp target/x86_64-unknown-linux-musl/release/k7s-web \
+             ../k7s-web-linux-x86_64-static
+        working-directory: k7s-server
+
+      - name: upload k7s-web (musl static)
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: k7s-server/../k7s-web-linux-x86_64-static
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

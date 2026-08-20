@@ -10,6 +10,7 @@
 - pnpm 10.33.0+
 - Rust 1.77.2+
 - Tauri CLI
+- [sccache](https://github.com/mozilla/sccache)（`.cargo/config.toml` 配置了 `rustc-wrapper = "sccache"`，未安装会导致构建失败）
 
 ### 安装步骤
 
