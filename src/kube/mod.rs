@@ -20,17 +20,17 @@ pub mod grafana;
 pub mod helm;
 #[cfg(not(target_os = "ios"))]
 pub mod helm_market;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub mod helm_ops;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub mod image_archive;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub mod image_scan;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub mod image_sync;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub mod imageexport;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub mod imageimport;
 #[cfg(not(target_os = "ios"))]
 pub mod imagerepo;
@@ -54,7 +54,7 @@ pub mod rbac_matrix;
 pub mod restart;
 pub mod rollout;
 pub mod saved_queries;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub mod sbom;
 #[cfg(not(target_os = "ios"))]
 pub mod sbom_storage;
@@ -64,8 +64,8 @@ pub mod templates;
 pub mod watchers;
 
 use serde::{Deserialize, Serialize};
-pub use discovery::{custom_kind_counts, CustomKindCount};
 
+pub use discovery::{custom_kind_counts, CustomKindCount};
 pub use dto::Row;
 pub use manager::ClientManager;
 
