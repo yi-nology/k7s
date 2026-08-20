@@ -1659,8 +1659,8 @@ dependencies = [
 
 [[package]]
 name = "k7s-core"
-version = "0.3.8"
-source = "git+https://github.com/yi-nology/k7s-core.git#86397f362acc4ff81bb9a0e3b07d04e7e6f73005"
+version = "0.4.1"
+source = "git+https://github.com/yi-nology/k7s-core.git#2cfdf987422512aa0fb8517af7e1708352563734"
 dependencies = [
  "k7s-deps",
  "serde",
@@ -1671,7 +1671,7 @@ dependencies = [
 [[package]]
 name = "k7s-deps"
 version = "0.1.0"
-source = "git+https://github.com/yi-nology/k7s-deps.git#b09d937c0a37c6f2fa649065f2a5756621a6f754"
+source = "git+https://github.com/yi-nology/k7s-deps.git#808394ae400d6d059d4370f531d282da6f7eddc9"
 dependencies = [
  "anyhow",
  "async-stream",
