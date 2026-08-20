@@ -1,4 +1,8 @@
 //! SBOM commands: generation, history, and export.
+//!
+//! Desktop-only: depends on `trivy`/`grype` CLI binaries via k7s-core::sbom.
+
+#![cfg(not(target_os = "android"))]
 
 use crate::commands::core::require_client;
 use crate::core::prefs::read_prefs;
@@ -45,15 +49,9 @@ pub async fn sbom_generate_image(
 /// Generate SBOM for all images in the cluster.
 #[tauri::command]
 pub async fn sbom_generate_cluster(
-    format: String,
-    mgr: State<'_, Arc<CoreState>>,
+    _format: String,
+    _mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<SbomResult> {
-    let _fmt = SbomFormat::parse(&format)
-        .ok_or_else(|| crate::error::AppError::Other(format!("Unknown format: {format}")))?;
-
-    let _client = require_client(&mgr.manager).await?;
-
-    // For now, just scan the first image found. Full cluster scan TBD.
     Err(crate::error::AppError::Other(
         "Cluster-wide SBOM scan not yet implemented. Use image scan instead.".to_string(),
     ))

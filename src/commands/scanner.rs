@@ -1,6 +1,10 @@
 //! Scanner status command: exposes which scanning engines (trivy/grype/native)
 //! are available and which one is active, so the frontend can display the
 //! fallback chain and let users configure custom binary paths.
+//!
+//! Desktop-only: depends on `trivy`/`grype` CLI binaries via k7s-core::image_scan.
+
+#![cfg(not(target_os = "android"))]
 
 use crate::core::prefs::read_prefs;
 use crate::core::CoreState;
@@ -39,7 +43,7 @@ pub struct ScannerStatus {
 }
 
 /// Resolve the trivy path: user-configured > auto-detected.
-pub fn resolve_trivy(prefs_trivy_path: Option<&str>) -> (Option<String>, String) {
+fn resolve_trivy(prefs_trivy_path: Option<&str>) -> (Option<String>, String) {
     // User-configured path takes priority.
     if let Some(custom) = prefs_trivy_path {
         let trimmed = custom.trim();
@@ -52,7 +56,7 @@ pub fn resolve_trivy(prefs_trivy_path: Option<&str>) -> (Option<String>, String)
 }
 
 /// Resolve the grype path: user-configured > auto-detected.
-pub fn resolve_grype(prefs_grype_path: Option<&str>) -> (Option<String>, String) {
+fn resolve_grype(prefs_grype_path: Option<&str>) -> (Option<String>, String) {
     if let Some(custom) = prefs_grype_path {
         let trimmed = custom.trim();
         if !trimmed.is_empty() && std::path::Path::new(trimmed).is_file() {

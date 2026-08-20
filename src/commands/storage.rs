@@ -4,9 +4,9 @@
 use crate::commands::core::require_client;
 use crate::core::CoreState;
 use crate::error::{AppError, AppResult};
-use crate::kube::{
-    image_archive, image_sync, imageexport, imageimport, imagerepo, pod_files, templates,
-};
+use crate::kube::{imagerepo, pod_files, templates};
+#[cfg(not(target_os = "android"))]
+use crate::kube::{image_archive, image_sync, imageexport, imageimport};
 use std::sync::Arc;
 use tauri::State;
 
@@ -191,140 +191,119 @@ pub async fn dry_run_yaml_bundle(
 }
 
 // ---------------------------------------------------------------------------
-// Image import (air-gapped clusters) — load a local .tar into a node's
-// container runtime via a temporary privileged pod. Desktop only (the file
-// path comes from the native picker); the web shell has no local-disk access.
+// Desktop-only image import/sync/export commands (require CLI tools not
+// available on Android).
 // ---------------------------------------------------------------------------
 
-/// Soft cap on a single import's tar size. Real images rarely exceed a few GB;
-/// this guards against a typo'd path to a disk image OOMing the app. Tunable
-/// later via prefs if real-world images are larger.
-const IMAGE_IMPORT_MAX_BYTES: u64 = 8 * 1024 * 1024 * 1024; // 8 GiB
+#[cfg(not(target_os = "android"))]
+mod desktop_image_ops {
+    use super::*;
 
-/// Import a local `.tar` image archive into a node's container runtime.
-///
-/// `path` is an absolute filesystem path from `tauri-plugin-dialog`'s native
-/// picker. The file is read server-side (not base64 over IPC) because a tar
-/// can be gigabytes; streaming one through the frontend would balloon memory.
-#[tauri::command]
-pub async fn import_image_to_node(
-    node: String,
-    path: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<imageimport::ImportResult> {
-    let client = require_client(&mgr.manager).await?;
-    // Stat first so a path to a huge file fails fast with a clear message
-    // rather than reading 8 GiB into RAM before refusing.
-    let meta = std::fs::metadata(&path)
-        .map_err(|e| AppError::Other(format!("read file '{}': {e}", path)))?;
-    if meta.len() > IMAGE_IMPORT_MAX_BYTES {
-        return Err(AppError::Other(format!(
-            "file is {} bytes, exceeds the {} byte import cap",
-            meta.len(),
-            IMAGE_IMPORT_MAX_BYTES
-        )));
+    const IMAGE_IMPORT_MAX_BYTES: u64 = 8 * 1024 * 1024 * 1024; // 8 GiB
+
+    #[tauri::command]
+    pub async fn import_image_to_node(
+        node: String,
+        path: String,
+        mgr: State<'_, Arc<CoreState>>,
+    ) -> AppResult<imageimport::ImportResult> {
+        let client = require_client(&mgr.manager).await?;
+        let meta = std::fs::metadata(&path)
+            .map_err(|e| AppError::Other(format!("read file '{}': {e}", path)))?;
+        if meta.len() > IMAGE_IMPORT_MAX_BYTES {
+            return Err(AppError::Other(format!(
+                "file is {} bytes, exceeds the {} byte import cap",
+                meta.len(),
+                IMAGE_IMPORT_MAX_BYTES
+            )));
+        }
+        let tar_bytes = std::fs::read(&path)
+            .map_err(|e| AppError::Other(format!("read file '{}': {e}", path)))?;
+        imageimport::import_to_node(client, &node, &tar_bytes).await
     }
-    let tar_bytes =
-        std::fs::read(&path).map_err(|e| AppError::Other(format!("read file '{}': {e}", path)))?;
-    imageimport::import_to_node(client, &node, &tar_bytes).await
-}
 
-// ---------------------------------------------------------------------------
-// Image sync (skopeo) — copy an image into a configured private registry.
-// Air-gapped clusters with an internal registry use this; the per-node
-// `import_image_to_node` above is for clusters with no registry at all. These
-// bridge the MCP-only `image_sync` module to the Tauri UI. Progress streams
-// over the shared event sink as `image-sync-log` / `image-sync-done` events.
-// ---------------------------------------------------------------------------
+    #[tauri::command]
+    pub async fn image_sync_status() -> AppResult<image_sync::SkopeoAvailability> {
+        Ok(image_sync::check_skopeo().await)
+    }
 
-/// Whether skopeo is installed and usable on this host. Cheap (`skopeo
-/// --version`), so the UI can call it on panel open to gate the To-Registry
-/// tab.
-#[tauri::command]
-pub async fn image_sync_status() -> AppResult<image_sync::SkopeoAvailability> {
-    Ok(image_sync::check_skopeo().await)
-}
-
-/// Copy an image into a configured destination registry via `skopeo copy`.
-/// `source` is any skopeo transport (`docker://nginx:1.25`,
-/// `docker-archive:/tmp/img.tar`, `oci:…`); the destination registry is
-/// resolved by name from the stored image-registries config (its credentials
-/// are used automatically). Streams each stdout/stderr line as an
-/// `image-sync-log` event so the UI can render a live progress log.
-#[tauri::command]
-#[allow(clippy::too_many_arguments)]
-pub async fn image_copy(
-    source: String,
-    dest_registry: String,
-    dest_repo: String,
-    dest_tag: String,
-    src_creds: Option<String>,
-    insecure_src: bool,
-    insecure_dest: bool,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<image_sync::ImageSyncResult> {
-    let sink = mgr.manager.sink();
-    image_sync::copy_image(
-        &source,
-        &dest_registry,
-        &dest_repo,
-        &dest_tag,
-        src_creds.as_deref(),
-        insecure_src,
-        insecure_dest,
-        sink,
-    )
-    .await
-}
-
-/// Inspect a local `docker save` tarball before copying it: returns the image
-/// name, tags, digest, architecture, os, and total size. Lets the user confirm
-/// a tar's contents (and that it's linux/amd64) before pushing.
-#[tauri::command]
-pub async fn image_inspect_archive(tar_path: String) -> AppResult<image_archive::ArchiveInfo> {
-    image_archive::inspect_archive(&tar_path).await
-}
-
-// ---------------------------------------------------------------------------
-// Image export — get images out of a cluster node or registry to a local .tar.
-// ---------------------------------------------------------------------------
-
-/// Export a container image from a K8s node to a local .tar file.
-#[tauri::command]
-pub async fn export_from_node(
-    node: String,
-    image_ref: String,
-    save_path: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<imageexport::ExportResult> {
-    let client = require_client(&mgr.manager).await?;
-    imageexport::export_from_node(client, &node, &image_ref, &save_path).await
-}
-
-/// List container images present on a K8s node.
-#[tauri::command]
-pub async fn list_node_images(
-    node: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<String>> {
-    let client = require_client(&mgr.manager).await?;
-    imageexport::list_node_images(client, &node).await
-}
-
-/// Export an image from a configured private registry to a local .tar file.
-#[tauri::command]
-pub async fn export_from_registry(
-    registry_name: String,
-    repo: String,
-    tag: String,
-    save_path: String,
-    insecure_src: bool,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<image_sync::ExportRegistryResult> {
-    let sink = mgr.manager.sink();
-    image_sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink)
+    #[tauri::command]
+    #[allow(clippy::too_many_arguments)]
+    pub async fn image_copy(
+        source: String,
+        dest_registry: String,
+        dest_repo: String,
+        dest_tag: String,
+        src_creds: Option<String>,
+        insecure_src: bool,
+        insecure_dest: bool,
+        mgr: State<'_, Arc<CoreState>>,
+    ) -> AppResult<image_sync::ImageSyncResult> {
+        let sink = mgr.manager.sink();
+        image_sync::copy_image(
+            &source,
+            &dest_registry,
+            &dest_repo,
+            &dest_tag,
+            src_creds.as_deref(),
+            insecure_src,
+            insecure_dest,
+            sink,
+        )
         .await
+    }
+
+    #[tauri::command]
+    pub async fn image_inspect_archive(
+        tar_path: String,
+    ) -> AppResult<image_archive::ArchiveInfo> {
+        image_archive::inspect_archive(&tar_path).await
+    }
+
+    #[tauri::command]
+    pub async fn export_from_node(
+        node: String,
+        image_ref: String,
+        save_path: String,
+        mgr: State<'_, Arc<CoreState>>,
+    ) -> AppResult<imageexport::ExportResult> {
+        let client = require_client(&mgr.manager).await?;
+        imageexport::export_from_node(client, &node, &image_ref, &save_path).await
+    }
+
+    #[tauri::command]
+    pub async fn list_node_images(
+        node: String,
+        mgr: State<'_, Arc<CoreState>>,
+    ) -> AppResult<Vec<String>> {
+        let client = require_client(&mgr.manager).await?;
+        imageexport::list_node_images(client, &node).await
+    }
+
+    #[tauri::command]
+    pub async fn export_from_registry(
+        registry_name: String,
+        repo: String,
+        tag: String,
+        save_path: String,
+        insecure_src: bool,
+        mgr: State<'_, Arc<CoreState>>,
+    ) -> AppResult<image_sync::ExportRegistryResult> {
+        let sink = mgr.manager.sink();
+        image_sync::export_from_registry(
+            &registry_name,
+            &repo,
+            &tag,
+            &save_path,
+            insecure_src,
+            sink,
+        )
+        .await
+    }
 }
+
+#[cfg(not(target_os = "android"))]
+pub use desktop_image_ops::*;
 
 // ---------------------------------------------------------------------------
 // Image manifest drill-down.

@@ -21,7 +21,7 @@ use k7s_deps::tokio::sync::oneshot;
 static CRYPTO_INIT: Once = Once::new();
 fn ensure_crypto() {
     CRYPTO_INIT.call_once(|| {
-        let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = k7s_deps::rustls::crypto::ring::default_provider().install_default();
     });
 }
 

@@ -22,7 +22,7 @@ use tauri::{AppHandle, Emitter, State};
 use k7s_deps::tokio::sync::{oneshot, Mutex};
 
 /// The Tauri event name the frontend listens on for [`AgentEvent`]s.
-pub const AI_EVENT: &str = "ai_event";
+const AI_EVENT: &str = "ai_event";
 
 /// In-flight bookkeeping for one run.
 struct RunState {

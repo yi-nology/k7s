@@ -12,7 +12,9 @@ pub mod forward;
 pub mod helm;
 pub mod memory;
 pub mod observability;
+#[cfg(not(target_os = "android"))]
 pub mod sbom;
+#[cfg(not(target_os = "android"))]
 pub mod scanner;
 pub mod security;
 pub mod shell;
@@ -29,7 +31,9 @@ pub use forward::*;
 pub use helm::*;
 pub use memory::*;
 pub use observability::*;
+#[cfg(not(target_os = "android"))]
 pub use sbom::*;
+#[cfg(not(target_os = "android"))]
 pub use scanner::*;
 pub use security::*;
 pub use shell::*;
