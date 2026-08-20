@@ -739,7 +739,7 @@ mod tests {
     #[k7s_deps::tokio::test]
     async fn unknown_kind_is_an_error() {
         // Install rustls crypto provider before creating kube client
-        let _ = k7s_deps::rustls::crypto::aws_lc_rs::default_provider().install_default();
+        let _ = k7s_deps::rustls::crypto::ring::default_provider().install_default();
 
         // No client call happens for an unknown kind, so a default client is fine.
         let Ok(client) = Client::try_default().await else {
