@@ -1,6 +1,6 @@
 [package]
 name = "k7s-core"
-version = "0.3.8"
+version = "0.4.1"
 description = "k7s core — transport-agnostic Kubernetes business logic"
 authors = ["k7s"]
 edition = "2021"
@@ -38,4 +38,4 @@ mcp = ["dep:rmcp", "dep:schemars"]
 proptest = "1"
 # properties tests create a real kube client; rustls needs an explicit crypto
 # provider install when the default provider isn't already set.
-rustls = { version = "0.23", features = ["aws-lc-rs"] }
+rustls = { version = "0.23", features = ["ring"] }

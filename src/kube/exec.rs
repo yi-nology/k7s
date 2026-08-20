@@ -100,6 +100,12 @@ pub async fn run_argv(
     mut resize_rx: mpsc::Receiver<(u16, u16)>,
 ) {
     let closed_event = format!("{}{}", SHELL_CLOSED_PREFIX, stream_id);
+    // Give the frontend time to attach its `shell-out` listener after the
+    // `start_shell` invoke resolves. Without this, the container's first
+    // output (the shell prompt) can be emitted before the async Tauri
+    // `listen()` call attaches, and the prompt is silently dropped — the
+    // terminal stays blank and the shell looks dead even though it's alive.
+    k7s_deps::tokio::time::sleep(std::time::Duration::from_millis(150)).await;
     let reason = match exec_pump(
         client,
         &sink,
@@ -139,10 +145,9 @@ async fn exec_pump(
         .tty(true)
         .container(container.to_string());
 
-    let mut proc = api
-        .exec(pod, argv, &ap)
-        .await
-        .map_err(|e| AppError::Kube(e.to_string()))?;
+    let mut proc = api.exec(pod, argv, &ap).await.map_err(|e| {
+        AppError::Kube(e.to_string())
+    })?;
 
     let mut stdout = proc
         .stdout()
