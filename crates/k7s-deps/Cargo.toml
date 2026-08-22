@@ -1,0 +1,59 @@
+[package]
+name = "k7s-deps"
+version = "0.1.0"
+edition = "2021"
+description = "Shared dependencies for k7s project"
+authors = ["k7s"]
+license = "MIT"
+
+[lib]
+name = "k7s_deps"
+path = "src/lib.rs"
+
+[dependencies]
+# HTTP 客户端
+reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
+
+# 序列化
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+yaml_serde = "0.10.6"
+
+# 异步运行时
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "signal", "sync", "time"] }
+futures = "0.3"
+tokio-stream = { version = "0.1", features = ["sync"] }
+async-stream = "0.3"
+async-trait = "0.1"
+
+# Kubernetes
+kube = { version = "4", features = ["client", "config", "runtime", "ws"] }
+k8s-openapi = { version = "0.28", features = ["latest"] }
+
+# 错误处理
+thiserror = "2"
+anyhow = "1"
+
+# 日志
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# 时间处理
+chrono = { version = "0.4", features = ["serde"] }
+jiff = "0.2"
+
+# 工具库
+uuid = { version = "1", features = ["v4"] }
+keyring = "4"
+urlencoding = "2"
+regex = "1"
+rand = "0.10"
+dirs = "5"
+dunce = "1"
+http = "1"
+base64 = "0.23"
+flate2 = "1"
+rustls = { version = "0.23", features = ["ring"] }
+
+[features]
+default = []
