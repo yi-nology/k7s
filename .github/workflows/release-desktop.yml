@@ -91,7 +91,7 @@ jobs:
           path: k7s-commands
 
       - name: download frontend artifact (desktop embed)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: frontend-dist
           path: k7s-desktop/dist
