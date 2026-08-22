@@ -28,3 +28,34 @@ pub mod web;
 /// MCP server (stdio + Streamable HTTP). Compiled with either `mcp` or `web`.
 #[cfg(any(feature = "mcp", feature = "web"))]
 pub mod mcp;
+
+/// XDG-style data directory for k7s server binaries.
+pub fn default_data_dir() -> std::path::PathBuf {
+    #[cfg(target_os = "macos")]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            return std::path::PathBuf::from(home)
+                .join("Library")
+                .join("Application Support")
+                .join("k7s");
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
+            if !xdg.is_empty() {
+                return std::path::PathBuf::from(xdg).join("k7s");
+            }
+        }
+        if let Ok(home) = std::env::var("HOME") {
+            return std::path::PathBuf::from(home).join(".config").join("k7s");
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(roam) = std::env::var("APPDATA") {
+            return std::path::PathBuf::from(roam).join("k7s");
+        }
+    }
+    std::path::PathBuf::from(".k7s")
+}

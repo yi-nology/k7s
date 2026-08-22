@@ -437,14 +437,8 @@ pub async fn scanner_status(State(state): State<WebState>) -> axum::response::Re
 // AI webhook hooks
 // ---------------------------------------------------------------------------
 
-/// POST /hooks/wake — fire-and-forget: wake the agent with a message.
-/// The response returns immediately; the agent runs in the background.
-pub async fn hook_wake(
-    State(_state): State<WebState>,
-    headers: k7s_deps::http::HeaderMap,
-    axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
-) -> axum::response::Response {
-    // Hooks are enabled only when a token is configured (fail-closed).
+/// Verify webhook authorization. Returns `Some(error_response)` if unauthorized.
+fn verify_hook_auth(headers: &k7s_deps::http::HeaderMap) -> Option<axum::response::Response> {
     let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
     let hook_config = k7s_core::ai::hooks::HookConfig {
         enabled: !token.is_empty(),
@@ -452,11 +446,26 @@ pub async fn hook_wake(
         ..Default::default()
     };
     let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
-    if !k7s_core::ai::hooks::verify_hook(&hook_config, auth) {
-        return axum::response::Json(
+    if k7s_core::ai::hooks::verify_hook(&hook_config, auth) {
+        return None;
+    }
+    Some(
+        axum::response::Json(
             k7s_deps::serde_json::json!({"success": false, "message": "unauthorized"}),
         )
-        .into_response();
+        .into_response(),
+    )
+}
+
+/// POST /hooks/wake — fire-and-forget: wake the agent with a message.
+/// The response returns immediately; the agent runs in the background.
+pub async fn hook_wake(
+    State(_state): State<WebState>,
+    headers: k7s_deps::http::HeaderMap,
+    axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
+) -> axum::response::Response {
+    if let Some(resp) = verify_hook_auth(&headers) {
+        return resp;
     }
     let message = body
         .get("message")
@@ -478,19 +487,8 @@ pub async fn hook_agent(
     headers: k7s_deps::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
-    // Hooks are enabled only when a token is configured (fail-closed).
-    let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
-    let hook_config = k7s_core::ai::hooks::HookConfig {
-        enabled: !token.is_empty(),
-        token,
-        ..Default::default()
-    };
-    let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
-    if !k7s_core::ai::hooks::verify_hook(&hook_config, auth) {
-        return axum::response::Json(
-            k7s_deps::serde_json::json!({"success": false, "message": "unauthorized"}),
-        )
-        .into_response();
+    if let Some(resp) = verify_hook_auth(&headers) {
+        return resp;
     }
     let message = body.get("message").and_then(|v| v.as_str()).unwrap_or("");
     let skill_id = body.get("skillId").and_then(|v| v.as_str());
@@ -510,19 +508,8 @@ pub async fn hook_event(
     headers: k7s_deps::http::HeaderMap,
     axum::extract::Json(body): axum::extract::Json<k7s_deps::serde_json::Value>,
 ) -> axum::response::Response {
-    // Hooks are enabled only when a token is configured (fail-closed).
-    let token = std::env::var("K7S_HOOK_TOKEN").unwrap_or_default();
-    let hook_config = k7s_core::ai::hooks::HookConfig {
-        enabled: !token.is_empty(),
-        token,
-        ..Default::default()
-    };
-    let auth = headers.get("authorization").and_then(|v| v.to_str().ok());
-    if !k7s_core::ai::hooks::verify_hook(&hook_config, auth) {
-        return axum::response::Json(
-            k7s_deps::serde_json::json!({"success": false, "message": "unauthorized"}),
-        )
-        .into_response();
+    if let Some(resp) = verify_hook_auth(&headers) {
+        return resp;
     }
     let event_type = body
         .get("eventType")

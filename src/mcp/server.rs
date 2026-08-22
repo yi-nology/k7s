@@ -5,9 +5,6 @@
 //! MCP `#[tool]` methods. The macros (`#[tool_router]` / `#[tool_handler]`)
 //! generate the JSON schema for inputs and wire each method into the tool
 //! dispatch table.
-//!
-//! Note: In Rust 1.97+, `include!` cannot be used inside impl blocks.
-//! The tool methods are inlined directly from their source files.
 
 use std::sync::Arc;
 
@@ -88,7 +85,6 @@ impl K7sMcpServer {
 #[tool_router]
 impl K7sMcpServer {
     // === Connection tools ===
-    // Connection tools -- included in the `#[tool_router]` impl block via `include!`.
 
     /// List the contexts visible in the default kubeconfig. The AI can call
     /// this on startup to show the user what's available; `connect` then
@@ -195,7 +191,6 @@ impl K7sMcpServer {
     }
 
     // === Read tools ===
-    // Read tools -- included in the `#[tool_router]` impl block via `include!`.
 
     #[tool(
         description = "List resources of a kind. For cluster-scoped kinds (nodes, namespaces, ...) namespace is ignored. Returns objects with { kind, namespace, name, summary } where summary is a one-line status like \"Running (3m)\"."
@@ -290,7 +285,6 @@ impl K7sMcpServer {
     }
 
     // === Write tools ===
-    // Write tools -- included in the `#[tool_router]` impl block via `include!`.
 
     #[tool(
         description = "Apply a YAML manifest to the cluster (server-side replace). Fails for Secret (read-only) and Helm release. Returns the server's response on success, or a verbatim API error on failure."
@@ -558,7 +552,6 @@ impl K7sMcpServer {
 
     // === Shell tools ===
     // Shell, exec, port-forward, pod-file, and convenience tools
-    // -- included in the `#[tool_router]` impl block via `include!`.
 
     // -----------------------------------------------------------------------
     // Port-forwarding
@@ -1264,7 +1257,6 @@ impl K7sMcpServer {
 
     // === Helm tools ===
     // Helm operation and chart repository tools
-    // -- included in the `#[tool_router]` impl block via `include!`.
 
     // -----------------------------------------------------------------------
     // Helm operations (install / upgrade / uninstall / rollback / history)
@@ -1467,7 +1459,6 @@ impl K7sMcpServer {
 
     // === Monitoring tools ===
     // Monitoring, image registry, image sync, and enhanced AI integration tools
-    // -- included in the `#[tool_router]` impl block via `include!`.
 
     // -----------------------------------------------------------------------
     // Monitoring: Prometheus / AlertManager / Grafana

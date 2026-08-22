@@ -10,7 +10,7 @@ use k7s_deps::kube::ResourceExt;
 
 use k7s_core::core::shell_common;
 use k7s_core::error::{AppError, AppResult};
-use k7s_core::kube::properties;
+use k7s_core::kube::{properties, ResourceKind};
 use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
 use k7s_deps::kube::api::{Api, ListParams};
 
@@ -62,22 +62,10 @@ pub async fn get_events(
         //
         // Map the plural kind the frontend sends to the singular Kubernetes Kind
         // the involvedObject carries. Same table the MCP path uses.
-        let involved_kind = match args.kind.rsplit('/').next().unwrap_or(&args.kind) {
-            "pods" => "Pod",
-            "deployments" => "Deployment",
-            "replicasets" => "ReplicaSet",
-            "statefulsets" => "StatefulSet",
-            "daemonsets" => "DaemonSet",
-            "jobs" => "Job",
-            "cronjobs" => "CronJob",
-            "services" => "Service",
-            "ingresses" => "Ingress",
-            "configmaps" => "ConfigMap",
-            "secrets" => "Secret",
-            "persistentvolumeclaims" => "PersistentVolumeClaim",
-            "nodes" => "Node",
-            "namespaces" => "Namespace",
-            other => other,
+        let kind_id = args.kind.rsplit('/').next().unwrap_or(&args.kind);
+        let involved_kind = match ResourceKind::from_id(kind_id) {
+            Some(rk) => rk.kind_name(),
+            None => kind_id,
         };
         // Cluster-scoped kinds (nodes, namespaces, ...) have no namespace; list
         // cluster-wide for them. `Api::namespaced(client, "")` would hit

@@ -6,8 +6,6 @@
 //! launches this binary as a child process; the host and server exchange
 //! JSON-RPC over stdio.
 
-use std::path::PathBuf;
-
 use k7s_server::mcp::K7sMcpServer;
 
 #[k7s_deps::tokio::main]
@@ -23,7 +21,7 @@ async fn main() -> std::io::Result<()> {
         .with_writer(std::io::stderr)
         .init();
 
-    let data_dir = default_data_dir();
+    let data_dir = k7s_server::default_data_dir();
     if let Err(e) = std::fs::create_dir_all(&data_dir) {
         k7s_deps::tracing::warn!("could not create {}: {e}", data_dir.display());
     }
@@ -34,35 +32,4 @@ async fn main() -> std::io::Result<()> {
         return Err(std::io::Error::other(e.to_string()));
     }
     Ok(())
-}
-
-/// XDG-style data directory.
-fn default_data_dir() -> PathBuf {
-    #[cfg(target_os = "macos")]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home)
-                .join("Library")
-                .join("Application Support")
-                .join("k7s");
-        }
-    }
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
-            if !xdg.is_empty() {
-                return PathBuf::from(xdg).join("k7s");
-            }
-        }
-        if let Ok(home) = std::env::var("HOME") {
-            return PathBuf::from(home).join(".config").join("k7s");
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(roam) = std::env::var("APPDATA") {
-            return PathBuf::from(roam).join("k7s");
-        }
-    }
-    PathBuf::from(".k7s")
 }

@@ -1,18 +1,8 @@
-//! Self-contained helpers for the MCP server: dynamic API resolution, list
-//! operations, get-yaml, describe, and the small enum-and-string tables the
-//! tools return.
+//! Helpers for the MCP server: dynamic API resolution, list operations,
+//! get-yaml, describe, and event queries.
 //!
-//! This module is a near copy of the helpers in `web::handlers` (and a few
-//! from `commands`), trimmed of their Tauri-specific surface (`State<…>`,
-//! `Json<…>`, `tauri::AppHandle`) so the MCP server can call them directly
-//! with just a `k7s_deps::kube::Client` and the manager's custom-kind registry. The
-//! two implementations need to stay in sync — a kind that resolves here but
-//! not in the web shell would be a hidden half-feature.
-//!
-//! Why a copy rather than a shared module: `web::handlers` is `pub mod
-//! handlers;` under `#[cfg(feature = "web")]`, and importing from a feature
-//! behind another feature would leak `axum` into a binary that doesn't need
-//! it. Three duplicated helper functions are cheaper than that.
+//! Kind-mapping uses `k7s_core::kube::ResourceKind` as the single source of
+//! truth, shared with the web shell and AI tools.
 
 use k7s_core::error::{AppError, AppResult};
 use k7s_core::kube::{client, helm, manager::ClientManager, properties};
@@ -288,23 +278,10 @@ pub async fn get_events(
 ) -> AppResult<Vec<EventRow>> {
     let client = require_client(manager).await?;
     let involved_name = name;
-    let involved_kind = kind.rsplit('/').next().unwrap_or(kind);
-    let involved_kind = match involved_kind {
-        "pods" => "Pod",
-        "deployments" => "Deployment",
-        "replicasets" => "ReplicaSet",
-        "statefulsets" => "StatefulSet",
-        "daemonsets" => "DaemonSet",
-        "jobs" => "Job",
-        "cronjobs" => "CronJob",
-        "services" => "Service",
-        "ingresses" => "Ingress",
-        "configmaps" => "ConfigMap",
-        "secrets" => "Secret",
-        "persistentvolumeclaims" => "PersistentVolumeClaim",
-        "nodes" => "Node",
-        "namespaces" => "Namespace",
-        other => other,
+    let kind_id = kind.rsplit('/').next().unwrap_or(kind);
+    let involved_kind = match k7s_core::kube::ResourceKind::from_id(kind_id) {
+        Some(rk) => rk.kind_name(),
+        None => kind_id,
     };
 
     let events: Api<Event> = if namespace.is_empty() {
@@ -494,46 +471,18 @@ pub async fn dynamic_api(
             false,
         ));
     }
-    let (group, version, k, namespaced) = match kind {
-        "pods" => ("", "v1", "Pod", true),
-        "deployments" => ("apps", "v1", "Deployment", true),
-        "replicasets" => ("apps", "v1", "ReplicaSet", true),
-        "statefulsets" => ("apps", "v1", "StatefulSet", true),
-        "daemonsets" => ("apps", "v1", "DaemonSet", true),
-        "jobs" => ("batch", "v1", "Job", true),
-        "cronjobs" => ("batch", "v1", "CronJob", true),
-        "services" => ("", "v1", "Service", true),
-        "endpoints" => ("", "v1", "Endpoints", true),
-        "ingresses" => ("networking.k8s.io", "v1", "Ingress", true),
-        "ingressclasses" => ("networking.k8s.io", "v1", "IngressClass", false),
-        "networkpolicies" => ("networking.k8s.io", "v1", "NetworkPolicy", true),
-        "configmaps" => ("", "v1", "ConfigMap", true),
-        "secrets" => ("", "v1", "Secret", true),
-        "serviceaccounts" => ("", "v1", "ServiceAccount", true),
-        "persistentvolumeclaims" => ("", "v1", "PersistentVolumeClaim", true),
-        "persistentvolumes" => ("", "v1", "PersistentVolume", false),
-        "storageclasses" => ("storage.k8s.io", "v1", "StorageClass", false),
-        "nodes" => ("", "v1", "Node", false),
-        "namespaces" => ("", "v1", "Namespace", false),
-        "roles" => ("rbac.authorization.k8s.io", "v1", "Role", true),
-        "rolebindings" => ("rbac.authorization.k8s.io", "v1", "RoleBinding", true),
-        "clusterroles" => ("rbac.authorization.k8s.io", "v1", "ClusterRole", false),
-        "clusterrolebindings" => (
-            "rbac.authorization.k8s.io",
-            "v1",
-            "ClusterRoleBinding",
-            false,
-        ),
-        "horizontalpodautoscalers" => ("autoscaling", "v2", "HorizontalPodAutoscaler", true),
-        "poddisruptionbudgets" => ("policy", "v1", "PodDisruptionBudget", true),
-        "resourcequotas" => ("", "v1", "ResourceQuota", true),
-        "limitranges" => ("", "v1", "LimitRange", true),
-        other => return Err(AppError::Other(format!("unknown kind: {other}"))),
-    };
-    let gvk = GroupVersionKind::gvk(group, version, k);
+    // Endpoints is not in ResourceKind (not watched) but is valid for dynamic API.
+    if kind == "endpoints" {
+        let gvk = GroupVersionKind::gvk("", "v1", "Endpoints");
+        let ar = ApiResource::from_gvk_with_plural(&gvk, kind);
+        return Ok((Api::namespaced_with(client, namespace, &ar), true));
+    }
+    let rk = k7s_core::kube::ResourceKind::from_id(kind)
+        .ok_or_else(|| AppError::Other(format!("unknown kind: {kind}")))?;
+    let gvk = GroupVersionKind::gvk(rk.group(), rk.version(), rk.kind_name());
     let ar = ApiResource::from_gvk_with_plural(&gvk, kind);
     Ok((
-        if namespaced {
+        if rk.is_namespaced() {
             Api::namespaced_with(client, namespace, &ar)
         } else {
             Api::all_with(client, &ar)
@@ -552,16 +501,10 @@ pub async fn kind_is_namespaced(kind: &str, manager: &ClientManager) -> bool {
             .map(|ck| ck.namespaced)
             .unwrap_or(true);
     }
-    !matches!(
-        kind,
-        "ingressclasses"
-            | "persistentvolumes"
-            | "storageclasses"
-            | "nodes"
-            | "namespaces"
-            | "clusterroles"
-            | "clusterrolebindings"
-    )
+    match k7s_core::kube::ResourceKind::from_id(kind) {
+        Some(rk) => rk.is_namespaced(),
+        None => true, // default to namespaced for unknown kinds
+    }
 }
 
 fn dummy_ar() -> ApiResource {
