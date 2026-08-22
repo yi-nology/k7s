@@ -18,8 +18,11 @@ use k7s_core::ai::llm::{LlmClient, Message, OpenAiClient};
 use k7s_core::ai::{AgentLoop, ChatRequest, ToolRegistry};
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
+#[cfg(feature = "ipc")]
 use k7s_deps::tokio::sync::{oneshot, Mutex};
+#[cfg(feature = "ipc")]
 use std::collections::HashMap;
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
 #[cfg(feature = "ipc")]
 use tauri::{AppHandle, Emitter, State};
@@ -28,6 +31,7 @@ use tauri::{AppHandle, Emitter, State};
 pub const AI_EVENT: &str = "ai_event";
 
 /// In-flight bookkeeping for one run.
+#[cfg(feature = "ipc")]
 struct RunState {
     /// Pending approvals by tool-call id. Each sender resolves the wait in
     /// [`AiTauriSink::await_approval`].
@@ -37,16 +41,19 @@ struct RunState {
 
 /// Managed state. Clone is cheap (it's an Arc inside).
 #[derive(Clone)]
+#[cfg(feature = "ipc")]
 pub struct AiRuntime {
     inner: Arc<Mutex<HashMap<String, RunState>>>,
 }
 
+#[cfg(feature = "ipc")]
 impl Default for AiRuntime {
     fn default() -> Self {
         Self::new()
     }
 }
 
+#[cfg(feature = "ipc")]
 impl AiRuntime {
     pub fn new() -> Self {
         Self {
