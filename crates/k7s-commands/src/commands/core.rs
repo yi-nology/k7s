@@ -2,24 +2,20 @@
 //! restart, rollout, custom kinds, drain, node stats, events, secrets,
 //! properties, and log streams.
 
-use crate::core::prefs::{self, Prefs};
-use crate::core::shell_common;
-use crate::core::CoreState;
-use crate::error::{AppError, AppResult};
-use crate::kube::client::{self, ClusterInfo, ContextInfo};
-use crate::kube::manager::{ClientManager, ImportedContext};
-use crate::kube::{
+use k7s_core::core::prefs::{self, Prefs};
+use k7s_core::core::shell_common;
+use k7s_core::core::CoreState;
+use k7s_core::error::{AppError, AppResult};
+use k7s_core::kube::client::{self, ClusterInfo, ContextInfo};
+use k7s_core::kube::manager::{ClientManager, ImportedContext};
+use k7s_core::kube::{
     config_snapshots, drain, exporter, ingress_debug, logs, mappers, metrics, nodestats, promql,
     properties, rollout, watchers,
 };
 use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
-use k7s_deps::kube;
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::ResourceExt;
 use serde::Serialize;
-use k7s_deps::serde_json;
-use k7s_deps::tokio;
-use k7s_deps::tracing;
 use std::sync::Arc;
 use tauri::State;
 
@@ -83,7 +79,7 @@ pub async fn restore_imports(
                 }
                 alive.push(path);
             }
-            Err(e) => tracing::warn!("dropping imported kubeconfig {path}: {e}"),
+            Err(e) => k7s_deps::tracing::warn!("dropping imported kubeconfig {path}: {e}"),
         }
     }
     Ok(alive)
@@ -142,7 +138,11 @@ pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
     // Poll intervals come from the user's settings (B23). Read at connect, so a
     // change takes effect on the next connection rather than restarting live
     // pollers for a value measured in seconds.
-    let pi = prefs::poll_intervals(&prefs::read_prefs(&mgr.data_dir));
+    let dir = mgr.data_dir.clone();
+    let prefs = k7s_deps::tokio::task::spawn_blocking(move || prefs::read_prefs(&dir))
+        .await
+        .map_err(|e| AppError::Other(e.to_string()))?;
+    let pi = prefs::poll_intervals(&prefs);
     let (metrics_task, status_task) = metrics::spawn_pollers(manager.sink(), cr.client.clone(), pi);
     manager.push_task(metrics_task).await;
     manager.push_task(status_task).await;
@@ -150,13 +150,13 @@ pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
     // Tell the frontend about CRD-backed kinds (discovered inside connect_core).
     manager
         .sink()
-        .emit(crate::kube::events::CUSTOM_KINDS, &cr.custom_kinds);
+        .emit(k7s_core::kube::events::CUSTOM_KINDS, &cr.custom_kinds);
 
     // Record the live connection with the real watcher count.
     manager
         .set_connected(
             cr.client.clone(),
-            crate::kube::manager::ConnectionInfo {
+            k7s_core::kube::manager::ConnectionInfo {
                 context: context.clone(),
                 server: cr.server.clone(),
                 version: cr.version.clone(),
@@ -164,6 +164,34 @@ pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
             watcher_count,
         )
         .await;
+
+    // Auto-sync knowledge from the cluster (ConfigMaps, pod annotations)
+    // in the background. Non-blocking — the connect response returns
+    // immediately while sync runs behind the scenes.
+    let sync_manager = manager.clone();
+    let sync_data_dir = mgr.data_dir.clone();
+    let sync_context = context.clone();
+    k7s_deps::tokio::spawn(async move {
+        match k7s_core::ai::knowledge_sync::sync_from_cluster(
+            &sync_manager,
+            &sync_data_dir,
+            &sync_context,
+        )
+        .await
+        {
+            Ok(report) => {
+                if report.config_maps + report.pod_annotations + report.deploy_annotations > 0 {
+                    k7s_deps::tracing::info!(
+                        cm = report.config_maps,
+                        pods = report.pod_annotations,
+                        deps = report.deploy_annotations,
+                        "knowledge sync completed"
+                    );
+                }
+            }
+            Err(e) => k7s_deps::tracing::debug!("knowledge sync skipped: {e}"),
+        }
+    });
 
     Ok(ClusterInfo {
         context: context.clone(),
@@ -354,11 +382,24 @@ pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -
     Ok(())
 }
 
+/// Instance counts for every discovered CRD-backed kind (B15).
+///
+/// One cheap LIST per kind (limit=1, remainingItemCount), bounded concurrency.
+/// Best-effort: RBAC-denied or failed kinds report count 0.
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub async fn custom_kind_counts(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<k7s_core::kube::CustomKindCount>> {
+    let client = require_client(&mgr.manager).await?;
+    k7s_core::kube::custom_kind_counts(&client).await
+}
+
 /// Drain a node (B20): cordon it, then evict its pods in the background.
 ///
 /// Cordoning happens inline so an RBAC/not-found failure surfaces as a rejected
 /// command rather than a silent no-op. The eviction pass then runs as a
-/// connection-scoped task reporting via [`kube::events::DRAIN_PROGRESS`] — it can
+/// connection-scoped task reporting via [`k7s_deps::kube::events::DRAIN_PROGRESS`] — it can
 /// take minutes, so blocking the command on it would freeze the UI.
 #[tauri::command]
 pub async fn drain_node(name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
@@ -369,7 +410,7 @@ pub async fn drain_node(name: String, mgr: State<'_, Arc<CoreState>>) -> AppResu
     drain::cordon(client.clone(), &name).await?;
 
     let app = manager.sink();
-    let task = tokio::spawn(async move {
+    let task = k7s_deps::tokio::spawn(async move {
         drain::run_drain(client, app, name).await;
     });
     manager.push_task(task).await;
@@ -429,9 +470,13 @@ pub async fn watch_node_stats(node: String, mgr: State<'_, Arc<CoreState>>) -> A
     // Reuses the metrics poll interval from settings (B23): it's the same question
     // ("how often should we ask the cluster how it's doing"), so it would be odd
     // for the plots to march to a different drum than the table's CPU column.
-    let every = prefs::poll_intervals(&prefs::read_prefs(&mgr.data_dir)).metrics;
+    let dir = mgr.data_dir.clone();
+    let prefs = k7s_deps::tokio::task::spawn_blocking(move || prefs::read_prefs(&dir))
+        .await
+        .map_err(|e| AppError::Other(e.to_string()))?;
+    let every = prefs::poll_intervals(&prefs).metrics;
     let n = node.clone();
-    let task = tokio::spawn(async move {
+    let task = k7s_deps::tokio::spawn(async move {
         nodestats::run_node_stats(client, app, n, every).await;
     });
     manager.add_node_scraper(node, task).await;
@@ -456,10 +501,11 @@ pub async fn diagnose_pod(
     namespace: String,
     pod: String,
     mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<serde_json::Value> {
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
-    let diagnosis = crate::kube::pod_diagnosis::diagnose_pod(client, &namespace, &pod).await?;
-    k7s_deps::serde_json::to_value(diagnosis).map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    let diagnosis = k7s_core::kube::pod_diagnosis::diagnose_pod(client, &namespace, &pod).await?;
+    k7s_deps::serde_json::to_value(diagnosis)
+        .map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// An event as shown in the detail panel's Events tab.
@@ -563,10 +609,13 @@ pub async fn configmap_snapshot_yaml(
 /// Build a dependency graph of resources: Deployments -> ReplicaSets -> Pods,
 /// Services -> Pods (via selector), Ingresses -> Services (via backend rules).
 #[tauri::command]
-pub async fn dependency_graph(mgr: State<'_, Arc<CoreState>>) -> AppResult<serde_json::Value> {
+pub async fn dependency_graph(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
-    let graph = crate::kube::dependency_graph::build_dependency_graph(client).await?;
-    k7s_deps::serde_json::to_value(graph).map_err(|e| AppError::Other(format!("serialize error: {e}")))
+    let graph = k7s_core::kube::dependency_graph::build_dependency_graph(client).await?;
+    k7s_deps::serde_json::to_value(graph)
+        .map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
 /// Debug an Ingress's routing chain: trace rules through Services to endpoint
@@ -595,9 +644,9 @@ pub async fn simulate_connectivity(
     port: Option<i32>,
     protocol: Option<String>,
     mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<crate::kube::netpol_sim::SimulationResult> {
+) -> AppResult<k7s_core::kube::netpol_sim::SimulationResult> {
     let client = require_client(&mgr.manager).await?;
-    crate::kube::netpol_sim::simulate_connectivity(
+    k7s_core::kube::netpol_sim::simulate_connectivity(
         client,
         &src_namespace,
         &src_pod,
@@ -730,7 +779,7 @@ pub async fn stop_log_stream(stream_id: String, mgr: State<'_, Arc<CoreState>>) 
 // ---------------------------------------------------------------------------
 
 /// Get the active client or a friendly "not connected" error.
-pub(crate) async fn require_client(mgr: &ClientManager) -> AppResult<kube::Client> {
+pub(crate) async fn require_client(mgr: &ClientManager) -> AppResult<k7s_deps::kube::Client> {
     mgr.client()
         .await
         .ok_or_else(|| AppError::NotFound("not connected to a cluster".into()))

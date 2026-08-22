@@ -2,10 +2,10 @@
 // are available and which one is active, so the frontend can display the
 // fallback chain and let users configure custom binary paths.
 
-use crate::core::prefs::read_prefs;
-use crate::core::CoreState;
-use crate::error::AppResult;
-use crate::kube::image_scan;
+use k7s_core::core::prefs::read_prefs;
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
+use k7s_core::kube::image_scan;
 use serde::Serialize;
 use std::sync::Arc;
 use tauri::State;
@@ -70,7 +70,7 @@ pub async fn scanner_status(mgr: State<'_, Arc<CoreState>>) -> AppResult<Scanner
     let dir = mgr.data_dir.clone();
     let prefs = k7s_deps::tokio::task::spawn_blocking(move || read_prefs(&dir))
         .await
-        .map_err(|e| crate::error::AppError::Other(e.to_string()))?;
+        .map_err(|e| k7s_core::error::AppError::Other(e.to_string()))?;
 
     let (trivy_path, trivy_source) = resolve_trivy(prefs.scanner_trivy_path.as_deref());
     let (grype_path, grype_source) = resolve_grype(prefs.scanner_grype_path.as_deref());

@@ -2647,6 +2647,7 @@ name = "k7s"
 version = "0.4.2"
 dependencies = [
  "http-body-util",
+ "k7s-commands",
  "k7s-core",
  "k7s-deps",
  "k7s-server",
@@ -2666,6 +2667,7 @@ dependencies = [
 name = "k7s-android"
 version = "0.4.2"
 dependencies = [
+ "k7s-commands",
  "k7s-core",
  "k7s-deps",
  "serde",
@@ -2674,6 +2676,17 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-shell",
  "tokio",
+]
+
+[[package]]
+name = "k7s-commands"
+version = "0.4.2"
+dependencies = [
+ "k7s-core",
+ "k7s-deps",
+ "serde",
+ "serde_json",
+ "tauri",
 ]
 
 [[package]]
@@ -2730,6 +2743,7 @@ name = "k7s-ios"
 version = "0.4.2"
 dependencies = [
  "apple-native-keyring-store",
+ "k7s-commands",
  "k7s-core",
  "k7s-deps",
  "serde",

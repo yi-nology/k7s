@@ -1,10 +1,10 @@
 // Tauri commands for the additional AI capabilities: embedded models,
 // browser tools, sessions, hooks, and swarm.
 
-use crate::ai::embedded_models::{self, LocalModel, LocalPreset};
-use crate::ai::session::{Session, SessionManager};
-use crate::core::CoreState;
-use crate::error::AppResult;
+use k7s_core::ai::embedded_models::{self, LocalModel, LocalPreset};
+use k7s_core::ai::session::{Session, SessionManager};
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
 use std::sync::Arc;
 use tauri::State;
 
@@ -33,13 +33,13 @@ pub async fn ai_check_local_model(base_url: String, model: String) -> AppResult<
 pub async fn ai_fetch_url(
     url: String,
     max_chars: Option<usize>,
-) -> AppResult<crate::ai::browser::UrlContent> {
-    Ok(crate::ai::browser::fetch_url(&url, max_chars.unwrap_or(5000)).await?)
+) -> AppResult<k7s_core::ai::browser::UrlContent> {
+    Ok(k7s_core::ai::browser::fetch_url(&url, max_chars.unwrap_or(5000)).await?)
 }
 
 #[tauri::command]
-pub async fn ai_web_search(query: String) -> AppResult<crate::ai::browser::SearchResult> {
-    Ok(crate::ai::browser::web_search(&query).await?)
+pub async fn ai_web_search(query: String) -> AppResult<k7s_core::ai::browser::SearchResult> {
+    Ok(k7s_core::ai::browser::web_search(&query).await?)
 }
 
 // -- Sessions --

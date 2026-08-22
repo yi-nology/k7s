@@ -1,0 +1,17 @@
+[package]
+name = "k7s-commands"
+version.workspace = true
+description = "k7s commands — the full Tauri command surface shared by all shells"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "k7s_commands"
+
+[dependencies]
+k7s-core = { path = "../k7s-core", features = ["tauri"] }
+k7s-deps = { path = "../k7s-deps" }
+tauri.workspace = true
+serde.workspace = true
+serde_json.workspace = true

@@ -1,11 +1,11 @@
 // Port-forwarding commands (B6, B16): pod and Service port forwards.
 
 use crate::commands::core::require_client;
-use crate::core::shell_common::STREAM_SEQ;
-use crate::core::CoreState;
-use crate::error::{AppError, AppResult};
-use crate::kube::manager::{ClientManager, ForwardDto};
-use crate::kube::portforward;
+use k7s_core::core::shell_common::STREAM_SEQ;
+use k7s_core::core::CoreState;
+use k7s_core::error::{AppError, AppResult};
+use k7s_core::kube::manager::{ClientManager, ForwardDto};
+use k7s_core::kube::portforward;
 use k7s_deps::tokio::sync::{mpsc, oneshot};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;

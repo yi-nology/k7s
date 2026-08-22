@@ -1,11 +1,9 @@
 //! Helm marketplace and release operations: repo CRUD, chart search, install/
 //! upgrade/uninstall/rollback, and release history.
 
-use crate::core::CoreState;
-use crate::error::AppResult;
-use crate::kube::helm_market;
-#[cfg(not(target_os = "android"))]
-use crate::kube::helm_ops;
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
+use k7s_core::kube::{helm_market, helm_ops};
 use std::sync::Arc;
 use tauri::State;
 
@@ -97,44 +95,45 @@ pub fn helm_local_charts(repo_name: String) -> AppResult<Vec<String>> {
     helm_market::list_local_charts(&repo_name)
 }
 
-// ---------------------------------------------------------------------------
-// Desktop-only helm operations (require `helm` CLI binary).
-// ---------------------------------------------------------------------------
-
-#[cfg(not(target_os = "android"))]
-mod desktop_helm_ops {
-    use super::*;
-
-    #[tauri::command]
-    pub async fn helm_render_default_values(
-        chart: String,
-        version: String,
-        kubeconfig: Option<String>,
-    ) -> AppResult<String> {
-        helm_ops::render_default_values(&chart, &version, kubeconfig.as_deref()).await
-    }
-
-    #[tauri::command]
-    pub async fn helm_run_op(
-        op: helm_ops::HelmOp,
-        mgr: State<'_, Arc<CoreState>>,
-    ) -> AppResult<helm_ops::HelmOpResult> {
-        let sink = mgr.manager.sink().clone();
-        helm_ops::run_op(op, sink).await
-    }
-
-    #[tauri::command]
-    pub async fn helm_release_history(
-        release: String,
-        namespace: String,
-        kubeconfig: Option<String>,
-    ) -> AppResult<Vec<helm_ops::RevisionEntry>> {
-        helm_ops::release_history(&release, &namespace, kubeconfig.as_deref()).await
-    }
+/// Default values.yaml for a chart at a given version. Delegates to
+/// `helm show values` so we don't re-implement chart parsing in Rust.
+#[tauri::command]
+pub async fn helm_render_default_values(
+    chart: String,
+    version: String,
+    kubeconfig: Option<String>,
+) -> AppResult<String> {
+    helm_ops::render_default_values(&chart, &version, kubeconfig.as_deref()).await
 }
 
-#[cfg(not(target_os = "android"))]
-pub use desktop_helm_ops::*;
+// ---------------------------------------------------------------------------
+// Helm release ops (install/upgrade/uninstall/rollback + history).
+// ---------------------------------------------------------------------------
+
+/// Run a helm operation (install/upgrade/uninstall/rollback) to completion.
+/// Streams `helm-op-log` and `helm-op-done` events for the UI to render live.
+#[tauri::command]
+pub async fn helm_run_op(
+    op: helm_ops::HelmOp,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<helm_ops::HelmOpResult> {
+    // The frontend doesn't track a per-connection EventSink directly; pull it
+    // off the manager. The Tauri sink in `core::events` is what the manager
+    // already uses, so re-using it here means helm log lines reach the same
+    // webview that called us.
+    let sink = mgr.manager.sink().clone();
+    helm_ops::run_op(op, sink).await
+}
+
+/// Fetch the revision history for a release.
+#[tauri::command]
+pub async fn helm_release_history(
+    release: String,
+    namespace: String,
+    kubeconfig: Option<String>,
+) -> AppResult<Vec<helm_ops::RevisionEntry>> {
+    helm_ops::release_history(&release, &namespace, kubeconfig.as_deref()).await
+}
 
 /// Fetch the rendered manifest for a specific revision of a Helm release.
 #[tauri::command]
@@ -145,7 +144,7 @@ pub async fn helm_manifest_revision(
     revision: i64,
 ) -> AppResult<String> {
     let client = crate::commands::core::require_client(&mgr.manager).await?;
-    crate::kube::helm::helm_manifest_revision(client, &namespace, &name, revision).await
+    k7s_core::kube::helm::helm_manifest_revision(client, &namespace, &name, revision).await
 }
 
 /// Fetch the user-supplied values for a specific revision of a Helm release.
@@ -157,5 +156,5 @@ pub async fn helm_values_revision(
     revision: i64,
 ) -> AppResult<k7s_deps::serde_json::Value> {
     let client = crate::commands::core::require_client(&mgr.manager).await?;
-    crate::kube::helm::helm_values_revision(client, &namespace, &name, revision).await
+    k7s_core::kube::helm::helm_values_revision(client, &namespace, &name, revision).await
 }

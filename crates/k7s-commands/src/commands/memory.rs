@@ -1,8 +1,8 @@
 // Tauri commands for the four-tier cluster memory / knowledge base.
 
-use crate::ai::memory::{MemoryEntry, MemorySource, MemoryStore, Tier, UserPreference};
-use crate::core::CoreState;
-use crate::error::AppResult;
+use k7s_core::ai::memory::{MemoryEntry, MemorySource, MemoryStore, Tier, UserPreference};
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
 use std::sync::Arc;
 use tauri::State;
 

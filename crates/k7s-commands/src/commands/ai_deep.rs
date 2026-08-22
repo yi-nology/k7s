@@ -1,10 +1,10 @@
 // Tauri commands for deep AI capabilities: evolution, sandbox, knowledge sync.
 
-use crate::ai::evolution::{EvolutionStore, RunOutcome, Strategy};
-use crate::ai::knowledge_sync::{self, SyncReport};
-use crate::ai::sandbox::{self, SandboxConfig};
-use crate::core::CoreState;
-use crate::error::AppResult;
+use k7s_core::ai::evolution::{EvolutionStore, RunOutcome, Strategy};
+use k7s_core::ai::knowledge_sync::{self, SyncReport};
+use k7s_core::ai::sandbox::{self, SandboxConfig};
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
 use std::sync::Arc;
 use tauri::State;
 

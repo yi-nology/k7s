@@ -1,8 +1,8 @@
 // Tauri commands for the AI cron scheduler.
 
-use crate::ai::cron::{CronScheduler, CronTask};
-use crate::core::CoreState;
-use crate::error::AppResult;
+use k7s_core::ai::cron::{CronScheduler, CronTask};
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
 use std::sync::Arc;
 use tauri::State;
 
@@ -20,7 +20,7 @@ pub async fn ai_cron_list(state: State<'_, Arc<CoreState>>) -> AppResult<Vec<Cro
 
 #[tauri::command]
 pub async fn ai_cron_presets() -> AppResult<Vec<CronTask>> {
-    Ok(crate::ai::cron::builtin_presets())
+    Ok(k7s_core::ai::cron::builtin_presets())
 }
 
 #[tauri::command]
@@ -48,6 +48,6 @@ pub async fn ai_cron_toggle(id: String, state: State<'_, Arc<CoreState>>) -> App
 pub async fn ai_cron_history(
     task_id: Option<String>,
     state: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<crate::ai::cron::CronRunResult>> {
+) -> AppResult<Vec<k7s_core::ai::cron::CronRunResult>> {
     Ok(scheduler(&state).history(task_id.as_deref()).await)
 }

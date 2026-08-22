@@ -1,8 +1,8 @@
 // Tauri commands for the k8s skill market.
 
-use crate::ai::skills::{Skill, SkillRegistry};
-use crate::core::CoreState;
-use crate::error::AppResult;
+use k7s_core::ai::skills::{Skill, SkillRegistry};
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
 use std::sync::Arc;
 use tauri::State;
 

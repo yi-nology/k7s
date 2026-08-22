@@ -4,11 +4,11 @@ members = [
     "crates/k7s-deps",
     "crates/k7s-core",
     "crates/k7s-server",
+    "crates/k7s-commands",
     "crates/k7s-desktop",
     "crates/k7s-ios",
     "crates/k7s-android",
 ]
-# crates/k7s-commands joins in phase 1 (needs its Cargo.toml first).
 
 [workspace.package]
 version = "0.4.2"

@@ -1,11 +1,11 @@
 // SBOM commands: generation, history, and export.
 
 use crate::commands::core::require_client;
-use crate::core::prefs::read_prefs;
-use crate::core::CoreState;
-use crate::error::AppResult;
-use crate::kube::sbom::{SbomEngine, SbomFormat, SbomResult, SbomSummary};
-use crate::kube::sbom_storage::{validate_export_path, SbomStorage};
+use k7s_core::core::prefs::read_prefs;
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
+use k7s_core::kube::sbom::{SbomEngine, SbomFormat, SbomResult, SbomSummary};
+use k7s_core::kube::sbom_storage::{validate_export_path, SbomStorage};
 use std::sync::Arc;
 use tauri::State;
 
@@ -19,7 +19,7 @@ async fn engine_from_prefs(mgr: &CoreState) -> AppResult<SbomEngine> {
     let dir = mgr.data_dir.clone();
     let prefs = k7s_deps::tokio::task::spawn_blocking(move || read_prefs(&dir))
         .await
-        .map_err(|e| crate::error::AppError::Other(e.to_string()))?;
+        .map_err(|e| k7s_core::error::AppError::Other(e.to_string()))?;
     Ok(SbomEngine::with_prefs(
         prefs.scanner_trivy_path.as_deref(),
         prefs.scanner_grype_path.as_deref(),
@@ -35,7 +35,7 @@ pub async fn sbom_generate_image(
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<SbomResult> {
     let fmt = SbomFormat::parse(&format)
-        .ok_or_else(|| crate::error::AppError::Other(format!("Unknown format: {format}")))?;
+        .ok_or_else(|| k7s_core::error::AppError::Other(format!("Unknown format: {format}")))?;
 
     let engine = engine_from_prefs(&mgr).await?;
     let sbom = engine.generate_with_vulns(&image_ref, &fmt).await?;
@@ -53,12 +53,12 @@ pub async fn sbom_generate_cluster(
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<SbomResult> {
     let _fmt = SbomFormat::parse(&format)
-        .ok_or_else(|| crate::error::AppError::Other(format!("Unknown format: {format}")))?;
+        .ok_or_else(|| k7s_core::error::AppError::Other(format!("Unknown format: {format}")))?;
 
     let _client = require_client(&mgr.manager).await?;
 
     // For now, just scan the first image found. Full cluster scan TBD.
-    Err(crate::error::AppError::Other(
+    Err(k7s_core::error::AppError::Other(
         "Cluster-wide SBOM scan not yet implemented. Use image scan instead.".to_string(),
     ))
 }
@@ -91,8 +91,8 @@ pub async fn sbom_export(
     let storage = get_storage(&mgr.data_dir);
     let sbom = storage.load(&id)?;
     let content = k7s_deps::serde_json::to_string_pretty(&sbom)
-        .map_err(|e| crate::error::AppError::Other(format!("serialize sbom: {e}")))?;
+        .map_err(|e| k7s_core::error::AppError::Other(format!("serialize sbom: {e}")))?;
     std::fs::write(&canonical_path, content)
-        .map_err(|e| crate::error::AppError::Other(format!("write file: {e}")))?;
+        .map_err(|e| k7s_core::error::AppError::Other(format!("write file: {e}")))?;
     Ok(canonical_path.to_string_lossy().to_string())
 }

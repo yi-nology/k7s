@@ -2,10 +2,10 @@
 // shells (B4, B53).
 
 use crate::commands::core::require_client;
-use crate::core::shell_common::{self, NodeShellInfo, ShellInfo};
-use crate::core::CoreState;
-use crate::error::AppResult;
-use crate::kube::nodeshell;
+use k7s_core::core::shell_common::{self, NodeShellInfo, ShellInfo};
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
+use k7s_core::kube::nodeshell;
 use k7s_deps::kube::api::Api;
 use std::sync::Arc;
 use tauri::State;

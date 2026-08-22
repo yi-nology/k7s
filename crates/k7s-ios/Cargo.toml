@@ -15,6 +15,7 @@ tauri-build.workspace = true
 
 [dependencies]
 k7s-core = { workspace = true, features = ["tauri"] }
+k7s-commands = { path = "../k7s-commands" }
 k7s-deps.workspace = true
 tauri.workspace = true
 tauri-plugin-shell.workspace = true

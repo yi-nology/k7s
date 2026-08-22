@@ -10,12 +10,12 @@
 //! cancellation flags) keyed by run id. The LLM client is built per-run from
 //! freshly-loaded config, so settings changes take effect on the next chat.
 
-use crate::ai::agent::{AgentEvent, EventSink};
-use crate::ai::config::{self, AiConfig, AiConfigView};
-use crate::ai::llm::{LlmClient, Message, OpenAiClient};
-use crate::ai::{AgentLoop, ChatRequest, ToolRegistry};
-use crate::core::CoreState;
-use crate::error::AppResult;
+use k7s_core::ai::agent::{AgentEvent, EventSink};
+use k7s_core::ai::config::{self, AiConfig, AiConfigView};
+use k7s_core::ai::llm::{LlmClient, Message, OpenAiClient};
+use k7s_core::ai::{AgentLoop, ChatRequest, ToolRegistry};
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
 use k7s_deps::tokio::sync::{oneshot, Mutex};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -178,10 +178,10 @@ pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<S
     let mut got = String::new();
     while let Some(item) = stream.next().await {
         match item {
-            Ok(crate::ai::llm::StreamEvent::TextDelta(t))
-            | Ok(crate::ai::llm::StreamEvent::ReasoningDelta(t)) => got.push_str(&t),
-            Ok(crate::ai::llm::StreamEvent::Done { .. }) => break,
-            Err(e) => return Err(crate::ai::AiError::Llm(e.to_string()).into()),
+            Ok(k7s_core::ai::llm::StreamEvent::TextDelta(t))
+            | Ok(k7s_core::ai::llm::StreamEvent::ReasoningDelta(t)) => got.push_str(&t),
+            Ok(k7s_core::ai::llm::StreamEvent::Done { .. }) => break,
+            Err(e) => return Err(k7s_core::ai::AiError::Llm(e.to_string()).into()),
         }
     }
     Ok(format!("connected (model replied: {:?})", got.trim()))
@@ -213,7 +213,7 @@ pub async fn ai_chat(
         Ok(triple) => triple,
         Err(_) => {
             // Fallback: probe Ollama.
-            match crate::ai::embedded_models::discover_ollama(None).await {
+            match k7s_core::ai::embedded_models::discover_ollama(None).await {
                 Some(models) if !models.is_empty() => {
                     let m = &models[0];
                     k7s_deps::tracing::info!(
@@ -227,7 +227,7 @@ pub async fn ai_chat(
                     )
                 }
                 _ => {
-                    return Err(crate::error::AppError::Other(
+                    return Err(k7s_core::error::AppError::Other(
                         "No LLM configured. Set an API key in Settings \u{2192} AI Assistant, \
                          or install Ollama (ollama.com) for local inference."
                             .to_string(),
@@ -240,7 +240,7 @@ pub async fn ai_chat(
     // Load session history if a session_id is provided.
     let mut request = request;
     if let Some(ref sid) = session_id {
-        let mgr = crate::ai::session::SessionManager::new(state.data_dir.clone());
+        let mgr = k7s_core::ai::session::SessionManager::new(state.data_dir.clone());
         if let Some(session) = mgr.get(sid).await {
             if request.history.is_empty() {
                 // Convert session messages to the agent's Message format.
@@ -248,14 +248,14 @@ pub async fn ai_chat(
                     .history
                     .iter()
                     .map(|m| match m.role.as_str() {
-                        "user" => crate::ai::llm::Message::User {
+                        "user" => k7s_core::ai::llm::Message::User {
                             content: m.content.clone(),
                         },
-                        "assistant" => crate::ai::llm::Message::Assistant {
+                        "assistant" => k7s_core::ai::llm::Message::Assistant {
                             content: Some(m.content.clone()),
                             tool_calls: None,
                         },
-                        _ => crate::ai::llm::Message::System {
+                        _ => k7s_core::ai::llm::Message::System {
                             content: m.content.clone(),
                         },
                     })
@@ -316,7 +316,7 @@ pub async fn ai_chat(
         // The assistant response is saved by the agent loop itself
         // (in run_inner after the Done event).
         if let Some(sid) = session_id_for_save {
-            let mgr = crate::ai::session::SessionManager::new(data_dir_for_session);
+            let mgr = k7s_core::ai::session::SessionManager::new(data_dir_for_session);
             mgr.add_message(&sid, "user", &user_message_for_save).await;
         }
     });
@@ -339,7 +339,7 @@ pub async fn ai_approve_tool_call(
             return Ok(());
         }
     }
-    Err(crate::error::AppError::Other(
+    Err(k7s_core::error::AppError::Other(
         "no pending approval for that call".into(),
     ))
 }

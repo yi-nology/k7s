@@ -1,9 +1,9 @@
 // Security audit commands: RBAC analysis, vulnerability scanning, and permission matrix.
 
 use crate::commands::core::require_client;
-use crate::core::CoreState;
-use crate::error::AppResult;
-use crate::kube::{rbac_matrix, security_audit};
+use k7s_core::core::CoreState;
+use k7s_core::error::AppResult;
+use k7s_core::kube::{rbac_matrix, security_audit};
 use std::sync::Arc;
 use tauri::State;
 
