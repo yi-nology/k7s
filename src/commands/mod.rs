@@ -8,9 +8,16 @@
 //! reduce binary size and match the trimmed mobile feature set.
 
 pub mod core;
-pub mod forward;
-pub mod observability;
-pub mod shell;
+pub mod forward {
+    include!("../../../k7s-commands/forward.rs");
+}
+pub mod observability {
+    include!("../../../k7s-commands/observability.rs");
+}
+// Shared across desktop/android/ios — single source of truth.
+pub mod shell {
+    include!("../../../k7s-commands/shell.rs");
+}
 pub mod storage;
 
 // Re-export all commands so `commands::func` paths in lib.rs still work.
