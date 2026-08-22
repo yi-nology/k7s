@@ -15,11 +15,8 @@ jobs:
     name: build frontend
     runs-on: ubuntu-22.04
     steps:
-      - name: checkout k7s-frontend
+      - name: checkout
         uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-frontend
-          path: k7s-frontend
 
       - name: setup Node
         uses: actions/setup-node@v4
@@ -33,7 +30,7 @@ jobs:
 
       - name: build frontend
         run: |
-          cd k7s-frontend
+          cd frontend
           pnpm install --frozen-lockfile
           pnpm build
 
@@ -41,7 +38,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: k7s-frontend/dist
+          path: frontend/dist
           retention-days: 1
 
   release:
@@ -49,23 +46,8 @@ jobs:
     needs: build-frontend
     runs-on: ubuntu-22.04
     steps:
-      - name: checkout k7s-server
+      - name: checkout
         uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-server
-          path: k7s-server
-
-      - name: checkout k7s-core
-        uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-core
-          path: k7s-core
-
-      - name: checkout k7s-deps
-        uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-deps
-          path: k7s-deps
 
       - name: download frontend artifact
         uses: actions/download-artifact@v4
@@ -110,7 +92,7 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           context: .
-          file: k7s-server/Dockerfile
+          file: crates/k7s-server/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

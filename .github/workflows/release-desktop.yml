@@ -14,11 +14,8 @@ jobs:
     name: build frontend
     runs-on: ubuntu-22.04
     steps:
-      - name: checkout k7s-frontend
+      - name: checkout
         uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-frontend
-          path: k7s-frontend
 
       - name: setup Node
         uses: actions/setup-node@v4
@@ -32,7 +29,7 @@ jobs:
 
       - name: build frontend
         run: |
-          cd k7s-frontend
+          cd frontend
           pnpm install --frozen-lockfile
           pnpm build
 
@@ -40,7 +37,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: k7s-frontend/dist
+          path: frontend/dist
           retention-days: 1
 
   release:
@@ -60,29 +57,8 @@ jobs:
             rust: stable
     runs-on: ${{ matrix.os }}
     steps:
-      - name: checkout k7s-desktop
+      - name: checkout
         uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-desktop
-          path: k7s-desktop
-
-      - name: checkout k7s-server
-        uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-server
-          path: k7s-server
-
-      - name: checkout k7s-core
-        uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-core
-          path: k7s-core
-
-      - name: checkout k7s-deps
-        uses: actions/checkout@v4
-        with:
-          repository: yi-nology/k7s-deps
-          path: k7s-deps
 
       - name: download frontend artifact
         uses: actions/download-artifact@v4
@@ -98,7 +74,7 @@ jobs:
       - name: cache Rust build
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: k7s-desktop -> target
+          workspaces: . -> target
 
       - name: install Linux system deps
         if: runner.os == 'Linux'
@@ -123,7 +99,7 @@ jobs:
           releaseName: 'k7s ${{ github.ref_name }}'
           releaseDraft: false
           prerelease: false
-          projectPath: k7s-desktop
+          projectPath: crates/k7s-desktop
 
       # ── 注入 glibc 2.35 到 AppImage, 兼容麒麟桌面 (glibc 2.31) ──
       - name: bundle glibc into AppImage (Kylin compatibility)
@@ -137,7 +113,7 @@ jobs:
           chmod +x /tmp/appimagetool
 
           # 找到 Tauri 生成的 AppImage
-          APPIMAGE=$(find k7s-desktop/target/release/bundle/appimage -name "*.AppImage" | head -1)
+          APPIMAGE=$(find crates/k7s-desktop/target/release/bundle/appimage -name "*.AppImage" | head -1)
           if [ -z "$APPIMAGE" ]; then
             echo "No AppImage found, skipping glibc bundling"
             exit 0
@@ -174,7 +150,7 @@ jobs:
 
           # 重新打包
           /tmp/appimagetool squashfs-root \
-            "$GITHUB_WORKSPACE/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage"
+            "$GITHUB_WORKSPACE/crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage"
 
           echo "✓ AppImage with bundled glibc 2.35 created"
 
@@ -182,26 +158,22 @@ jobs:
         if: runner.os == 'Linux' && runner.arch == 'X64'
         uses: softprops/action-gh-release@v3
         with:
-          files: k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
+          files: crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: copy dist for k7s-server rust-embed
-        shell: bash
-        run: cp -r dist ../dist
 
       # ── Dynamic-linked build (native glibc) — macOS/Windows only ──
       # Linux ships only the musl static binary (see below).
       - name: build k7s-web (dynamic)
         if: runner.os != 'Linux'
-        run: cargo build --release --features web --bin k7s-web
-        working-directory: k7s-server
+        run: cargo build --release --features web --bin k7s-web --manifest-path crates/k7s-server/Cargo.toml
+        working-directory: crates/k7s-server
 
       - name: rename and upload k7s-web
         if: runner.os != 'Linux'
         shell: bash
         run: |
-          cd k7s-server/target/release
+          cd crates/k7s-server/target/release
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp k7s-web.exe k7s-web-windows-x64.exe
           elif [ "${{ runner.os }}" = "macOS" ]; then
@@ -213,7 +185,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            k7s-server/target/release/k7s-web-*
+            crates/k7s-server/target/release/k7s-web-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -230,17 +202,17 @@ jobs:
             SUFFIX=aarch64
           fi
           rustup target add "$TARGET"
-          cargo build --release --features web --bin k7s-web \
+          cargo build --release --features web --bin k7s-web --manifest-path crates/k7s-server/Cargo.toml \
             --target "$TARGET"
           # Note: do NOT strip musl binaries — strip can corrupt them.
           cp "target/${TARGET}/release/k7s-web" \
-             "../k7s-web-linux-${SUFFIX}-static"
-        working-directory: k7s-server
+             "../../k7s-web-linux-${SUFFIX}-static"
+        working-directory: crates/k7s-server
 
       - name: upload k7s-web (musl static)
         if: runner.os == 'Linux'
         uses: softprops/action-gh-release@v3
         with:
-          files: k7s-server/../k7s-web-linux-*-static
+          files: k7s-web-linux-*-static
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
