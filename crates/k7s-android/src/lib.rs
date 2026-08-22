@@ -1,9 +1,9 @@
 //! k7s Android application entry point (library crate).
 
-pub use k7s_core::error;
-pub use k7s_core::kube;
 pub use k7s_core::ai;
 pub use k7s_core::core;
+pub use k7s_core::error;
+pub use k7s_core::kube;
 
 use k7s_core::core::CoreState;
 use k7s_core::kube::ClientManager;
@@ -16,10 +16,7 @@ use tauri::Manager;
 /// JNI_OnLoad symbol that Tauri's validation checks for in the .so.
 /// On non-Android targets the symbol is unused but harmless.
 #[no_mangle]
-unsafe extern "C" fn JNI_OnLoad(
-    _env: *mut std::ffi::c_void,
-    _klass: *mut std::ffi::c_void,
-) -> i32 {
+unsafe extern "C" fn JNI_OnLoad(_env: *mut std::ffi::c_void, _klass: *mut std::ffi::c_void) -> i32 {
     6 // JNI_VERSION_1_6
 }
 

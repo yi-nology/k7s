@@ -67,12 +67,18 @@ pub(crate) struct AiFetchUrlArgs {
     pub max_chars: Option<usize>,
 }
 
-pub async fn ai_fetch_url_impl(url: String, max_chars: Option<usize>) -> AppResult<k7s_core::ai::browser::UrlContent> {
+pub async fn ai_fetch_url_impl(
+    url: String,
+    max_chars: Option<usize>,
+) -> AppResult<k7s_core::ai::browser::UrlContent> {
     Ok(k7s_core::ai::browser::fetch_url(&url, max_chars.unwrap_or(5000)).await?)
 }
 
 #[tauri::command]
-pub async fn ai_fetch_url(url: String, max_chars: Option<usize>) -> AppResult<k7s_core::ai::browser::UrlContent> {
+pub async fn ai_fetch_url(
+    url: String,
+    max_chars: Option<usize>,
+) -> AppResult<k7s_core::ai::browser::UrlContent> {
     ai_fetch_url_impl(url, max_chars).await
 }
 
@@ -117,12 +123,20 @@ pub(crate) struct AiSessionCreateArgs {
     pub kube_context: Option<String>,
 }
 
-pub async fn ai_session_create_impl(state: std::sync::Arc<CoreState>, name: String, kube_context: Option<String>) -> AppResult<Session> {
+pub async fn ai_session_create_impl(
+    state: std::sync::Arc<CoreState>,
+    name: String,
+    kube_context: Option<String>,
+) -> AppResult<Session> {
     Ok(session_mgr(&state).create(&name, kube_context).await)
 }
 
 #[tauri::command]
-pub async fn ai_session_create(name: String, kube_context: Option<String>, state: State<'_, Arc<CoreState>>) -> AppResult<Session> {
+pub async fn ai_session_create(
+    name: String,
+    kube_context: Option<String>,
+    state: State<'_, Arc<CoreState>>,
+) -> AppResult<Session> {
     ai_session_create_impl(state.inner().clone(), name, kube_context).await
 }
 
@@ -134,7 +148,10 @@ pub(crate) struct AiSessionDeleteArgs {
     pub id: String,
 }
 
-pub async fn ai_session_delete_impl(state: std::sync::Arc<CoreState>, id: String) -> AppResult<bool> {
+pub async fn ai_session_delete_impl(
+    state: std::sync::Arc<CoreState>,
+    id: String,
+) -> AppResult<bool> {
     Ok(session_mgr(&state).delete(&id).await)
 }
 

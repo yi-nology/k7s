@@ -4,9 +4,9 @@
 use crate::commands::core::require_client;
 use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
-use k7s_core::kube::{image::repo, pod_files, templates};
 #[cfg(not(target_os = "android"))]
-use k7s_core::kube::{image::archive, image::sync, image::export, image::import};
+use k7s_core::kube::{image::archive, image::export, image::import, image::sync};
+use k7s_core::kube::{image::repo, pod_files, templates};
 use std::sync::Arc;
 use tauri::State;
 
@@ -27,13 +27,25 @@ pub(crate) struct PodFilesListArgs {
     pub path: String,
 }
 
-pub async fn pod_files_list_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, path: String) -> AppResult<Vec<pod_files::FileEntry>> {
+pub async fn pod_files_list_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+) -> AppResult<Vec<pod_files::FileEntry>> {
     let client = require_client(&mgr.manager).await?;
     pod_files::list_dir(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
 #[tauri::command]
-pub async fn pod_files_list(namespace: String, pod: String, container: Option<String>, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<pod_files::FileEntry>> {
+pub async fn pod_files_list(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<pod_files::FileEntry>> {
     pod_files_list_impl(mgr.inner().clone(), namespace, pod, container, path).await
 }
 
@@ -49,13 +61,25 @@ pub(crate) struct PodFilesReadArgs {
     pub path: String,
 }
 
-pub async fn pod_files_read_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, path: String) -> AppResult<String> {
+pub async fn pod_files_read_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+) -> AppResult<String> {
     let client = require_client(&mgr.manager).await?;
     pod_files::read_file(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
 #[tauri::command]
-pub async fn pod_files_read(namespace: String, pod: String, container: Option<String>, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<String> {
+pub async fn pod_files_read(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<String> {
     pod_files_read_impl(mgr.inner().clone(), namespace, pod, container, path).await
 }
 
@@ -72,7 +96,14 @@ pub(crate) struct PodFilesWriteArgs {
     pub content: String,
 }
 
-pub async fn pod_files_write_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, path: String, content: String) -> AppResult<()> {
+pub async fn pod_files_write_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    content: String,
+) -> AppResult<()> {
     let client = require_client(&mgr.manager).await?;
     pod_files::write_file(
         client,
@@ -86,8 +117,23 @@ pub async fn pod_files_write_impl(mgr: std::sync::Arc<CoreState>, namespace: Str
 }
 
 #[tauri::command]
-pub async fn pod_files_write(namespace: String, pod: String, container: Option<String>, path: String, content: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
-    pod_files_write_impl(mgr.inner().clone(), namespace, pod, container, path, content).await
+pub async fn pod_files_write(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    content: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
+    pod_files_write_impl(
+        mgr.inner().clone(),
+        namespace,
+        pod,
+        container,
+        path,
+        content,
+    )
+    .await
 }
 
 /// Download a path as a tar archive. The frontend turns the bytes into a
@@ -102,13 +148,25 @@ pub(crate) struct PodFilesDownloadArgs {
     pub path: String,
 }
 
-pub async fn pod_files_download_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, path: String) -> AppResult<Vec<u8>> {
+pub async fn pod_files_download_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+) -> AppResult<Vec<u8>> {
     let client = require_client(&mgr.manager).await?;
     pod_files::download_path(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
 #[tauri::command]
-pub async fn pod_files_download(namespace: String, pod: String, container: Option<String>, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<u8>> {
+pub async fn pod_files_download(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<u8>> {
     pod_files_download_impl(mgr.inner().clone(), namespace, pod, container, path).await
 }
 
@@ -124,7 +182,14 @@ pub(crate) struct PodFilesUploadArgs {
     pub tar_b64: String,
 }
 
-pub async fn pod_files_upload_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, dest_dir: String, tar_b64: String) -> AppResult<()> {
+pub async fn pod_files_upload_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    dest_dir: String,
+    tar_b64: String,
+) -> AppResult<()> {
     use k7s_deps::base64::Engine;
     let bytes = k7s_deps::base64::engine::general_purpose::STANDARD
         .decode(&tar_b64)
@@ -142,8 +207,23 @@ pub async fn pod_files_upload_impl(mgr: std::sync::Arc<CoreState>, namespace: St
 }
 
 #[tauri::command]
-pub async fn pod_files_upload(namespace: String, pod: String, container: Option<String>, dest_dir: String, tar_b64: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
-    pod_files_upload_impl(mgr.inner().clone(), namespace, pod, container, dest_dir, tar_b64).await
+pub async fn pod_files_upload(
+    namespace: String,
+    pod: String,
+    container: Option<String>,
+    dest_dir: String,
+    tar_b64: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
+    pod_files_upload_impl(
+        mgr.inner().clone(),
+        namespace,
+        pod,
+        container,
+        dest_dir,
+        tar_b64,
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +300,10 @@ pub(crate) struct ImageRegistryTagsArgs {
     pub repo: String,
 }
 
-pub async fn image_registry_tags_impl(name: String, repo: String) -> AppResult<Vec<repo::TagEntry>> {
+pub async fn image_registry_tags_impl(
+    name: String,
+    repo: String,
+) -> AppResult<Vec<repo::TagEntry>> {
     let reg = repo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
@@ -247,13 +330,19 @@ pub(crate) struct ApplyYamlBundleArgs {
     pub yaml: String,
 }
 
-pub async fn apply_yaml_bundle_impl(mgr: std::sync::Arc<CoreState>, yaml: String) -> AppResult<Vec<templates::ApplyResult>> {
+pub async fn apply_yaml_bundle_impl(
+    mgr: std::sync::Arc<CoreState>,
+    yaml: String,
+) -> AppResult<Vec<templates::ApplyResult>> {
     let client = require_client(&mgr.manager).await?;
     templates::multi_apply(&yaml, client, &mgr.manager).await
 }
 
 #[tauri::command]
-pub async fn apply_yaml_bundle(yaml: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<templates::ApplyResult>> {
+pub async fn apply_yaml_bundle(
+    yaml: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<templates::ApplyResult>> {
     apply_yaml_bundle_impl(mgr.inner().clone(), yaml).await
 }
 
@@ -267,13 +356,19 @@ pub(crate) struct DryRunYamlBundleArgs {
     pub yaml: String,
 }
 
-pub async fn dry_run_yaml_bundle_impl(mgr: std::sync::Arc<CoreState>, yaml: String) -> AppResult<Vec<templates::DocDryRun>> {
+pub async fn dry_run_yaml_bundle_impl(
+    mgr: std::sync::Arc<CoreState>,
+    yaml: String,
+) -> AppResult<Vec<templates::DocDryRun>> {
     let client = require_client(&mgr.manager).await?;
     templates::multi_dry_run(&yaml, client).await
 }
 
 #[tauri::command]
-pub async fn dry_run_yaml_bundle(yaml: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<templates::DocDryRun>> {
+pub async fn dry_run_yaml_bundle(
+    yaml: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<templates::DocDryRun>> {
     dry_run_yaml_bundle_impl(mgr.inner().clone(), yaml).await
 }
 
@@ -302,7 +397,11 @@ pub(crate) struct ImportImageToNodeArgs {
     pub path: String,
 }
 
-pub async fn import_image_to_node_impl(mgr: std::sync::Arc<CoreState>, node: String, path: String) -> AppResult<import::ImportResult> {
+pub async fn import_image_to_node_impl(
+    mgr: std::sync::Arc<CoreState>,
+    node: String,
+    path: String,
+) -> AppResult<import::ImportResult> {
     let client = require_client(&mgr.manager).await?;
     // Stat first so a path to a huge file fails fast with a clear message
     // rather than reading 8 GiB into RAM before refusing.
@@ -321,7 +420,11 @@ pub async fn import_image_to_node_impl(mgr: std::sync::Arc<CoreState>, node: Str
 }
 
 #[tauri::command]
-pub async fn import_image_to_node(node: String, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<import::ImportResult> {
+pub async fn import_image_to_node(
+    node: String,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<import::ImportResult> {
     import_image_to_node_impl(mgr.inner().clone(), node, path).await
 }
 
@@ -414,13 +517,23 @@ pub(crate) struct ExportFromNodeArgs {
     pub save_path: String,
 }
 
-pub async fn export_from_node_impl(mgr: std::sync::Arc<CoreState>, node: String, image_ref: String, save_path: String) -> AppResult<export::ExportResult> {
+pub async fn export_from_node_impl(
+    mgr: std::sync::Arc<CoreState>,
+    node: String,
+    image_ref: String,
+    save_path: String,
+) -> AppResult<export::ExportResult> {
     let client = require_client(&mgr.manager).await?;
     export::export_from_node(client, &node, &image_ref, &save_path).await
 }
 
 #[tauri::command]
-pub async fn export_from_node(node: String, image_ref: String, save_path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<export::ExportResult> {
+pub async fn export_from_node(
+    node: String,
+    image_ref: String,
+    save_path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<export::ExportResult> {
     export_from_node_impl(mgr.inner().clone(), node, image_ref, save_path).await
 }
 
@@ -433,13 +546,19 @@ pub(crate) struct ListNodeImagesArgs {
     pub node: String,
 }
 
-pub async fn list_node_images_impl(mgr: std::sync::Arc<CoreState>, node: String) -> AppResult<Vec<String>> {
+pub async fn list_node_images_impl(
+    mgr: std::sync::Arc<CoreState>,
+    node: String,
+) -> AppResult<Vec<String>> {
     let client = require_client(&mgr.manager).await?;
     export::list_node_images(client, &node).await
 }
 
 #[tauri::command]
-pub async fn list_node_images(node: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<String>> {
+pub async fn list_node_images(
+    node: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<String>> {
     list_node_images_impl(mgr.inner().clone(), node).await
 }
 
@@ -456,15 +575,36 @@ pub(crate) struct ExportFromRegistryArgs {
     pub insecure_src: bool,
 }
 
-pub async fn export_from_registry_impl(mgr: std::sync::Arc<CoreState>, registry_name: String, repo: String, tag: String, save_path: String, insecure_src: bool) -> AppResult<sync::ExportRegistryResult> {
+pub async fn export_from_registry_impl(
+    mgr: std::sync::Arc<CoreState>,
+    registry_name: String,
+    repo: String,
+    tag: String,
+    save_path: String,
+    insecure_src: bool,
+) -> AppResult<sync::ExportRegistryResult> {
     let sink = mgr.manager.sink();
-    sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink)
-        .await
+    sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink).await
 }
 
 #[tauri::command]
-pub async fn export_from_registry(registry_name: String, repo: String, tag: String, save_path: String, insecure_src: bool, mgr: State<'_, Arc<CoreState>>) -> AppResult<sync::ExportRegistryResult> {
-    export_from_registry_impl(mgr.inner().clone(), registry_name, repo, tag, save_path, insecure_src).await
+pub async fn export_from_registry(
+    registry_name: String,
+    repo: String,
+    tag: String,
+    save_path: String,
+    insecure_src: bool,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<sync::ExportRegistryResult> {
+    export_from_registry_impl(
+        mgr.inner().clone(),
+        registry_name,
+        repo,
+        tag,
+        save_path,
+        insecure_src,
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------
@@ -480,7 +620,11 @@ pub(crate) struct ImageRegistryManifestArgs {
     pub tag: String,
 }
 
-pub async fn image_registry_manifest_impl(name: String, repo: String, tag: String) -> AppResult<repo::ImageManifest> {
+pub async fn image_registry_manifest_impl(
+    name: String,
+    repo: String,
+    tag: String,
+) -> AppResult<repo::ImageManifest> {
     let reg = repo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
@@ -489,6 +633,10 @@ pub async fn image_registry_manifest_impl(name: String, repo: String, tag: Strin
 }
 
 #[tauri::command]
-pub async fn image_registry_manifest(name: String, repo: String, tag: String) -> AppResult<repo::ImageManifest> {
+pub async fn image_registry_manifest(
+    name: String,
+    repo: String,
+    tag: String,
+) -> AppResult<repo::ImageManifest> {
     image_registry_manifest_impl(name, repo, tag).await
 }

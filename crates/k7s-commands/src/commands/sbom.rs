@@ -36,7 +36,11 @@ pub(crate) struct SbomGenerateImageArgs {
     pub format: String,
 }
 
-pub async fn sbom_generate_image_impl(mgr: std::sync::Arc<CoreState>, image_ref: String, format: String) -> AppResult<SbomResult> {
+pub async fn sbom_generate_image_impl(
+    mgr: std::sync::Arc<CoreState>,
+    image_ref: String,
+    format: String,
+) -> AppResult<SbomResult> {
     let fmt = SbomFormat::parse(&format)
         .ok_or_else(|| k7s_core::error::AppError::Other(format!("Unknown format: {format}")))?;
 
@@ -50,7 +54,11 @@ pub async fn sbom_generate_image_impl(mgr: std::sync::Arc<CoreState>, image_ref:
 }
 
 #[tauri::command]
-pub async fn sbom_generate_image(image_ref: String, format: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<SbomResult> {
+pub async fn sbom_generate_image(
+    image_ref: String,
+    format: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<SbomResult> {
     sbom_generate_image_impl(mgr.inner().clone(), image_ref, format).await
 }
 
@@ -62,7 +70,10 @@ pub(crate) struct SbomGenerateClusterArgs {
     pub format: String,
 }
 
-pub async fn sbom_generate_cluster_impl(mgr: std::sync::Arc<CoreState>, format: String) -> AppResult<SbomResult> {
+pub async fn sbom_generate_cluster_impl(
+    mgr: std::sync::Arc<CoreState>,
+    format: String,
+) -> AppResult<SbomResult> {
     let _fmt = SbomFormat::parse(&format)
         .ok_or_else(|| k7s_core::error::AppError::Other(format!("Unknown format: {format}")))?;
 
@@ -75,7 +86,10 @@ pub async fn sbom_generate_cluster_impl(mgr: std::sync::Arc<CoreState>, format: 
 }
 
 #[tauri::command]
-pub async fn sbom_generate_cluster(format: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<SbomResult> {
+pub async fn sbom_generate_cluster(
+    format: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<SbomResult> {
     sbom_generate_cluster_impl(mgr.inner().clone(), format).await
 }
 
@@ -119,7 +133,11 @@ pub(crate) struct SbomExportArgs {
     pub output_path: String,
 }
 
-pub async fn sbom_export_impl(mgr: std::sync::Arc<CoreState>, id: String, output_path: String) -> AppResult<String> {
+pub async fn sbom_export_impl(
+    mgr: std::sync::Arc<CoreState>,
+    id: String,
+    output_path: String,
+) -> AppResult<String> {
     let canonical_path = validate_export_path(&output_path, &mgr.data_dir)?;
 
     let storage = get_storage(&mgr.data_dir);
@@ -132,6 +150,10 @@ pub async fn sbom_export_impl(mgr: std::sync::Arc<CoreState>, id: String, output
 }
 
 #[tauri::command]
-pub async fn sbom_export(id: String, output_path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<String> {
+pub async fn sbom_export(
+    id: String,
+    output_path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<String> {
     sbom_export_impl(mgr.inner().clone(), id, output_path).await
 }

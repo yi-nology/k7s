@@ -156,7 +156,10 @@ pub(crate) struct AiSaveConfigArgs {
     pub config_input: AiConfig,
 }
 
-pub async fn ai_save_config_impl(state: std::sync::Arc<CoreState>, config_input: AiConfig) -> AppResult<()> {
+pub async fn ai_save_config_impl(
+    state: std::sync::Arc<CoreState>,
+    config_input: AiConfig,
+) -> AppResult<()> {
     let dir = state.data_dir.clone();
     k7s_deps::tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input))
         .await??;
@@ -164,7 +167,10 @@ pub async fn ai_save_config_impl(state: std::sync::Arc<CoreState>, config_input:
 }
 
 #[tauri::command]
-pub async fn ai_save_config(config_input: AiConfig, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn ai_save_config(
+    config_input: AiConfig,
+    state: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     ai_save_config_impl(state.inner().clone(), config_input).await
 }
 
@@ -176,7 +182,10 @@ pub(crate) struct AiSaveApiKeyArgs {
     pub api_key: String,
 }
 
-pub async fn ai_save_api_key_impl(state: std::sync::Arc<CoreState>, api_key: String) -> AppResult<()> {
+pub async fn ai_save_api_key_impl(
+    state: std::sync::Arc<CoreState>,
+    api_key: String,
+) -> AppResult<()> {
     let dir = state.data_dir.clone();
     k7s_deps::tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key))
         .await??;

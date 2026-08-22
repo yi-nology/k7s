@@ -57,7 +57,10 @@ pub(crate) struct AiCronUpdateArgs {
     pub task: CronTask,
 }
 
-pub async fn ai_cron_update_impl(state: std::sync::Arc<CoreState>, task: CronTask) -> AppResult<bool> {
+pub async fn ai_cron_update_impl(
+    state: std::sync::Arc<CoreState>,
+    task: CronTask,
+) -> AppResult<bool> {
     Ok(scheduler(&state).update(&task).await)
 }
 
@@ -108,11 +111,17 @@ pub(crate) struct AiCronHistoryArgs {
     pub task_id: Option<String>,
 }
 
-pub async fn ai_cron_history_impl(state: std::sync::Arc<CoreState>, task_id: Option<String>) -> AppResult<Vec<k7s_core::ai::cron::CronRunResult>> {
+pub async fn ai_cron_history_impl(
+    state: std::sync::Arc<CoreState>,
+    task_id: Option<String>,
+) -> AppResult<Vec<k7s_core::ai::cron::CronRunResult>> {
     Ok(scheduler(&state).history(task_id.as_deref()).await)
 }
 
 #[tauri::command]
-pub async fn ai_cron_history(task_id: Option<String>, state: State<'_, Arc<CoreState>>) -> AppResult<Vec<k7s_core::ai::cron::CronRunResult>> {
+pub async fn ai_cron_history(
+    task_id: Option<String>,
+    state: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<k7s_core::ai::cron::CronRunResult>> {
     ai_cron_history_impl(state.inner().clone(), task_id).await
 }

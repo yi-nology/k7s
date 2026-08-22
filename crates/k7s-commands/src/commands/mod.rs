@@ -43,28 +43,28 @@ pub mod sbom;
 pub mod scanner;
 
 // Flat re-exports so `commands::<fn>` paths keep working.
-pub use core::*;
-pub use forward::*;
-pub use observability::*;
-pub use shell::*;
-pub use storage::*;
 #[cfg(not(target_os = "ios"))]
 pub use ai::*;
 #[cfg(not(target_os = "ios"))]
 pub use ai_deep::*;
 #[cfg(not(target_os = "ios"))]
 pub use ai_extra::*;
+pub use core::*;
 #[cfg(not(target_os = "ios"))]
 pub use cron::*;
+pub use forward::*;
 #[cfg(not(target_os = "ios"))]
 pub use helm::*;
 #[cfg(not(target_os = "ios"))]
 pub use memory::*;
-#[cfg(not(target_os = "ios"))]
-pub use security::*;
-#[cfg(not(target_os = "ios"))]
-pub use skills::*;
+pub use observability::*;
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub use sbom::*;
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub use scanner::*;
+#[cfg(not(target_os = "ios"))]
+pub use security::*;
+pub use shell::*;
+#[cfg(not(target_os = "ios"))]
+pub use skills::*;
+pub use storage::*;

@@ -96,13 +96,23 @@ pub(crate) struct HelmExportChartArgs {
     pub output_dir: String,
 }
 
-pub async fn helm_export_chart_impl(repo: String, chart: String, version: String, output_dir: String) -> AppResult<String> {
+pub async fn helm_export_chart_impl(
+    repo: String,
+    chart: String,
+    version: String,
+    output_dir: String,
+) -> AppResult<String> {
     let path = market::export_chart(&repo, &chart, &version, &output_dir).await?;
     Ok(path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
-pub async fn helm_export_chart(repo: String, chart: String, version: String, output_dir: String) -> AppResult<String> {
+pub async fn helm_export_chart(
+    repo: String,
+    chart: String,
+    version: String,
+    output_dir: String,
+) -> AppResult<String> {
     helm_export_chart_impl(repo, chart, version, output_dir).await
 }
 
@@ -130,12 +140,20 @@ pub(crate) struct HelmRenderDefaultValuesArgs {
     pub kubeconfig: Option<String>,
 }
 
-pub async fn helm_render_default_values_impl(chart: String, version: String, kubeconfig: Option<String>) -> AppResult<String> {
+pub async fn helm_render_default_values_impl(
+    chart: String,
+    version: String,
+    kubeconfig: Option<String>,
+) -> AppResult<String> {
     ops::render_default_values(&chart, &version, kubeconfig.as_deref()).await
 }
 
 #[tauri::command]
-pub async fn helm_render_default_values(chart: String, version: String, kubeconfig: Option<String>) -> AppResult<String> {
+pub async fn helm_render_default_values(
+    chart: String,
+    version: String,
+    kubeconfig: Option<String>,
+) -> AppResult<String> {
     helm_render_default_values_impl(chart, version, kubeconfig).await
 }
 
@@ -152,7 +170,10 @@ pub(crate) struct HelmRunOpArgs {
     pub op: ops::HelmOp,
 }
 
-pub async fn helm_run_op_impl(mgr: std::sync::Arc<CoreState>, op: ops::HelmOp) -> AppResult<ops::HelmOpResult> {
+pub async fn helm_run_op_impl(
+    mgr: std::sync::Arc<CoreState>,
+    op: ops::HelmOp,
+) -> AppResult<ops::HelmOpResult> {
     // The frontend doesn't track a per-connection EventSink directly; pull it
     // off the manager. The Tauri sink in `core::events` is what the manager
     // already uses, so re-using it here means helm log lines reach the same
@@ -162,7 +183,10 @@ pub async fn helm_run_op_impl(mgr: std::sync::Arc<CoreState>, op: ops::HelmOp) -
 }
 
 #[tauri::command]
-pub async fn helm_run_op(op: ops::HelmOp, mgr: State<'_, Arc<CoreState>>) -> AppResult<ops::HelmOpResult> {
+pub async fn helm_run_op(
+    op: ops::HelmOp,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<ops::HelmOpResult> {
     helm_run_op_impl(mgr.inner().clone(), op).await
 }
 
@@ -176,12 +200,20 @@ pub(crate) struct HelmReleaseHistoryArgs {
     pub kubeconfig: Option<String>,
 }
 
-pub async fn helm_release_history_impl(release: String, namespace: String, kubeconfig: Option<String>) -> AppResult<Vec<ops::RevisionEntry>> {
+pub async fn helm_release_history_impl(
+    release: String,
+    namespace: String,
+    kubeconfig: Option<String>,
+) -> AppResult<Vec<ops::RevisionEntry>> {
     ops::release_history(&release, &namespace, kubeconfig.as_deref()).await
 }
 
 #[tauri::command]
-pub async fn helm_release_history(release: String, namespace: String, kubeconfig: Option<String>) -> AppResult<Vec<ops::RevisionEntry>> {
+pub async fn helm_release_history(
+    release: String,
+    namespace: String,
+    kubeconfig: Option<String>,
+) -> AppResult<Vec<ops::RevisionEntry>> {
     helm_release_history_impl(release, namespace, kubeconfig).await
 }
 
@@ -195,13 +227,23 @@ pub(crate) struct HelmManifestRevisionArgs {
     pub revision: i64,
 }
 
-pub async fn helm_manifest_revision_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String, revision: i64) -> AppResult<String> {
+pub async fn helm_manifest_revision_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+    revision: i64,
+) -> AppResult<String> {
     let client = crate::commands::core::require_client(&mgr.manager).await?;
     k7s_core::kube::helm::helm_manifest_revision(client, &namespace, &name, revision).await
 }
 
 #[tauri::command]
-pub async fn helm_manifest_revision(mgr: State<'_, Arc<CoreState>>, namespace: String, name: String, revision: i64) -> AppResult<String> {
+pub async fn helm_manifest_revision(
+    mgr: State<'_, Arc<CoreState>>,
+    namespace: String,
+    name: String,
+    revision: i64,
+) -> AppResult<String> {
     helm_manifest_revision_impl(mgr.inner().clone(), namespace, name, revision).await
 }
 
@@ -215,12 +257,22 @@ pub(crate) struct HelmValuesRevisionArgs {
     pub revision: i64,
 }
 
-pub async fn helm_values_revision_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String, revision: i64) -> AppResult<k7s_deps::serde_json::Value> {
+pub async fn helm_values_revision_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+    revision: i64,
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = crate::commands::core::require_client(&mgr.manager).await?;
     k7s_core::kube::helm::helm_values_revision(client, &namespace, &name, revision).await
 }
 
 #[tauri::command]
-pub async fn helm_values_revision(mgr: State<'_, Arc<CoreState>>, namespace: String, name: String, revision: i64) -> AppResult<k7s_deps::serde_json::Value> {
+pub async fn helm_values_revision(
+    mgr: State<'_, Arc<CoreState>>,
+    namespace: String,
+    name: String,
+    revision: i64,
+) -> AppResult<k7s_deps::serde_json::Value> {
     helm_values_revision_impl(mgr.inner().clone(), namespace, name, revision).await
 }

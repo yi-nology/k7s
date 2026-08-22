@@ -20,7 +20,12 @@ pub(crate) struct StartShellArgs {
     pub container: String,
 }
 
-pub async fn start_shell_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: String) -> AppResult<ShellInfo> {
+pub async fn start_shell_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    container: String,
+) -> AppResult<ShellInfo> {
     let client = require_client(&mgr.manager).await?;
     shell_common::spawn_shell_session(
         &mgr.manager,
@@ -34,7 +39,12 @@ pub async fn start_shell_impl(mgr: std::sync::Arc<CoreState>, namespace: String,
 }
 
 #[tauri::command]
-pub async fn start_shell(namespace: String, pod: String, container: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<ShellInfo> {
+pub async fn start_shell(
+    namespace: String,
+    pod: String,
+    container: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<ShellInfo> {
     start_shell_impl(mgr.inner().clone(), namespace, pod, container).await
 }
 
@@ -53,13 +63,19 @@ pub(crate) struct StartNodeShellArgs {
     pub node: String,
 }
 
-pub async fn start_node_shell_impl(mgr: std::sync::Arc<CoreState>, node: String) -> AppResult<NodeShellInfo> {
+pub async fn start_node_shell_impl(
+    mgr: std::sync::Arc<CoreState>,
+    node: String,
+) -> AppResult<NodeShellInfo> {
     let client = require_client(&mgr.manager).await?;
     shell_common::spawn_node_shell_session(&mgr.manager, client, node, &mgr.data_dir).await
 }
 
 #[tauri::command]
-pub async fn start_node_shell(node: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<NodeShellInfo> {
+pub async fn start_node_shell(
+    node: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<NodeShellInfo> {
     start_node_shell_impl(mgr.inner().clone(), node).await
 }
 
@@ -78,7 +94,11 @@ pub(crate) struct StopNodeShellArgs {
     pub pod: String,
 }
 
-pub async fn stop_node_shell_impl(mgr: std::sync::Arc<CoreState>, stream_id: String, pod: String) -> AppResult<()> {
+pub async fn stop_node_shell_impl(
+    mgr: std::sync::Arc<CoreState>,
+    stream_id: String,
+    pod: String,
+) -> AppResult<()> {
     mgr.manager.remove_shell(&stream_id).await;
     if let Some(client) = mgr.manager.client().await {
         let api: Api<k7s_deps::k8s_openapi::api::core::v1::Pod> =
@@ -89,7 +109,11 @@ pub async fn stop_node_shell_impl(mgr: std::sync::Arc<CoreState>, stream_id: Str
 }
 
 #[tauri::command]
-pub async fn stop_node_shell(stream_id: String, pod: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn stop_node_shell(
+    stream_id: String,
+    pod: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     stop_node_shell_impl(mgr.inner().clone(), stream_id, pod).await
 }
 
@@ -102,13 +126,21 @@ pub(crate) struct ShellInputArgs {
     pub data: String,
 }
 
-pub async fn shell_input_impl(mgr: std::sync::Arc<CoreState>, stream_id: String, data: String) -> AppResult<()> {
+pub async fn shell_input_impl(
+    mgr: std::sync::Arc<CoreState>,
+    stream_id: String,
+    data: String,
+) -> AppResult<()> {
     mgr.manager.shell_input(&stream_id, data.into_bytes()).await;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn shell_input(stream_id: String, data: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn shell_input(
+    stream_id: String,
+    data: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     shell_input_impl(mgr.inner().clone(), stream_id, data).await
 }
 
@@ -122,13 +154,23 @@ pub(crate) struct ShellResizeArgs {
     pub rows: u16,
 }
 
-pub async fn shell_resize_impl(mgr: std::sync::Arc<CoreState>, stream_id: String, cols: u16, rows: u16) -> AppResult<()> {
+pub async fn shell_resize_impl(
+    mgr: std::sync::Arc<CoreState>,
+    stream_id: String,
+    cols: u16,
+    rows: u16,
+) -> AppResult<()> {
     mgr.manager.shell_resize(&stream_id, cols, rows).await;
     Ok(())
 }
 
 #[tauri::command]
-pub async fn shell_resize(stream_id: String, cols: u16, rows: u16, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn shell_resize(
+    stream_id: String,
+    cols: u16,
+    rows: u16,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     shell_resize_impl(mgr.inner().clone(), stream_id, cols, rows).await
 }
 

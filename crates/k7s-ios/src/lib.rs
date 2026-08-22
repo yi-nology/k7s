@@ -4,7 +4,7 @@
 //! registered here; it never speaks to the API server directly. Live data is
 //! pushed back to the webview via Tauri events (see the `kube` module).
 
-pub use k7s_core::{error, kube, core};
+pub use k7s_core::{core, error, kube};
 
 use k7s_core::core::CoreState;
 use k7s_core::kube::ClientManager;

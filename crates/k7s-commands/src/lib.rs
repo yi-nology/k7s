@@ -275,6 +275,7 @@ macro_rules! register_commands {
             #[cfg(not(target_os = "ios"))]
             $crate::commands::ai_knowledge_sync,
             #[cfg(not(target_os = "ios"))]
-            $crate::commands::ai_knowledge_import,        ]
+            $crate::commands::ai_knowledge_import,
+        ]
     };
 }

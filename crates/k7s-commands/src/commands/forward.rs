@@ -22,7 +22,12 @@ pub(crate) struct StartPortForwardArgs {
     pub remote_port: u16,
 }
 
-pub async fn start_port_forward_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, remote_port: u16) -> AppResult<ForwardDto> {
+pub async fn start_port_forward_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    remote_port: u16,
+) -> AppResult<ForwardDto> {
     let client = require_client(&mgr.manager).await?;
     let manager: Arc<ClientManager> = mgr.manager.clone();
 
@@ -33,7 +38,12 @@ pub async fn start_port_forward_impl(mgr: std::sync::Arc<CoreState>, namespace: 
 }
 
 #[tauri::command]
-pub async fn start_port_forward(namespace: String, pod: String, remote_port: u16, mgr: State<'_, Arc<CoreState>>) -> AppResult<ForwardDto> {
+pub async fn start_port_forward(
+    namespace: String,
+    pod: String,
+    remote_port: u16,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<ForwardDto> {
     start_port_forward_impl(mgr.inner().clone(), namespace, pod, remote_port).await
 }
 
@@ -51,7 +61,12 @@ pub(crate) struct StartServicePortForwardArgs {
     pub remote_port: u16,
 }
 
-pub async fn start_service_port_forward_impl(mgr: std::sync::Arc<CoreState>, namespace: String, service: String, remote_port: u16) -> AppResult<ForwardDto> {
+pub async fn start_service_port_forward_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    service: String,
+    remote_port: u16,
+) -> AppResult<ForwardDto> {
     let client = require_client(&mgr.manager).await?;
     let manager: Arc<ClientManager> = mgr.manager.clone();
 
@@ -70,7 +85,12 @@ pub async fn start_service_port_forward_impl(mgr: std::sync::Arc<CoreState>, nam
 }
 
 #[tauri::command]
-pub async fn start_service_port_forward(namespace: String, service: String, remote_port: u16, mgr: State<'_, Arc<CoreState>>) -> AppResult<ForwardDto> {
+pub async fn start_service_port_forward(
+    namespace: String,
+    service: String,
+    remote_port: u16,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<ForwardDto> {
     start_service_port_forward_impl(mgr.inner().clone(), namespace, service, remote_port).await
 }
 

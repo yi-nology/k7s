@@ -8,7 +8,11 @@ use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
 use k7s_core::kube::client::{self, ClusterInfo, ContextInfo};
 use k7s_core::kube::manager::{ClientManager, ImportedContext};
-use k7s_core::kube::{config_snapshots, drain, observability::exporter, ingress_debug, logs, mappers, observability::metrics, observability::nodestats, observability::promql, properties, rollout, watchers};
+use k7s_core::kube::{
+    config_snapshots, drain, ingress_debug, logs, mappers, observability::exporter,
+    observability::metrics, observability::nodestats, observability::promql, properties, rollout,
+    watchers,
+};
 use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::ResourceExt;
@@ -63,7 +67,10 @@ pub(crate) struct RestoreImportsArgs {
     pub paths: Vec<String>,
 }
 
-pub async fn restore_imports_impl(mgr: std::sync::Arc<CoreState>, paths: Vec<String>) -> AppResult<Vec<String>> {
+pub async fn restore_imports_impl(
+    mgr: std::sync::Arc<CoreState>,
+    paths: Vec<String>,
+) -> AppResult<Vec<String>> {
     let manager: Arc<ClientManager> = mgr.manager.clone();
     let mut alive = Vec::new();
     for path in paths {
@@ -90,7 +97,10 @@ pub async fn restore_imports_impl(mgr: std::sync::Arc<CoreState>, paths: Vec<Str
 }
 
 #[tauri::command]
-pub async fn restore_imports(paths: Vec<String>, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<String>> {
+pub async fn restore_imports(
+    paths: Vec<String>,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<String>> {
     restore_imports_impl(mgr.inner().clone(), paths).await
 }
 
@@ -114,7 +124,10 @@ pub(crate) struct ImportKubeconfigArgs {
     pub path: String,
 }
 
-pub async fn import_kubeconfig_impl(mgr: std::sync::Arc<CoreState>, path: String) -> AppResult<Vec<ContextInfo>> {
+pub async fn import_kubeconfig_impl(
+    mgr: std::sync::Arc<CoreState>,
+    path: String,
+) -> AppResult<Vec<ContextInfo>> {
     let manager: Arc<ClientManager> = mgr.manager.clone();
 
     // Parse the file and remember where each of its contexts came from.
@@ -136,7 +149,10 @@ pub async fn import_kubeconfig_impl(mgr: std::sync::Arc<CoreState>, path: String
 }
 
 #[tauri::command]
-pub async fn import_kubeconfig(path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<ContextInfo>> {
+pub async fn import_kubeconfig(
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<ContextInfo>> {
     import_kubeconfig_impl(mgr.inner().clone(), path).await
 }
 
@@ -149,7 +165,10 @@ pub(crate) struct ConnectArgs {
     pub context: String,
 }
 
-pub async fn connect_impl(mgr: std::sync::Arc<CoreState>, context: String) -> AppResult<ClusterInfo> {
+pub async fn connect_impl(
+    mgr: std::sync::Arc<CoreState>,
+    context: String,
+) -> AppResult<ClusterInfo> {
     let manager: Arc<ClientManager> = mgr.manager.clone();
 
     // Shared connection sequence: reset -> build client -> probe version ->
@@ -244,13 +263,23 @@ pub(crate) struct GetYamlArgs {
     pub name: String,
 }
 
-pub async fn get_yaml_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String) -> AppResult<String> {
+pub async fn get_yaml_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+) -> AppResult<String> {
     let client = require_client(&mgr.manager).await?;
     shell_common::fetch_object_yaml(client, &kind, &namespace, &name, &mgr.manager).await
 }
 
 #[tauri::command]
-pub async fn get_yaml(kind: String, namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<String> {
+pub async fn get_yaml(
+    kind: String,
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<String> {
     get_yaml_impl(mgr.inner().clone(), kind, namespace, name).await
 }
 
@@ -266,13 +295,25 @@ pub(crate) struct ApplyYamlArgs {
     pub yaml: String,
 }
 
-pub async fn apply_yaml_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String, yaml: String) -> AppResult<()> {
+pub async fn apply_yaml_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+    yaml: String,
+) -> AppResult<()> {
     let client = require_client(&mgr.manager).await?;
     shell_common::apply_yaml_core(client, &kind, &namespace, &name, &yaml, &mgr.manager).await
 }
 
 #[tauri::command]
-pub async fn apply_yaml(kind: String, namespace: String, name: String, yaml: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn apply_yaml(
+    kind: String,
+    namespace: String,
+    name: String,
+    yaml: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     apply_yaml_impl(mgr.inner().clone(), kind, namespace, name, yaml).await
 }
 
@@ -296,13 +337,25 @@ pub(crate) struct DryRunYamlArgs {
     pub yaml: String,
 }
 
-pub async fn dry_run_yaml_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String, yaml: String) -> AppResult<shell_common::YamlDiff> {
+pub async fn dry_run_yaml_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+    yaml: String,
+) -> AppResult<shell_common::YamlDiff> {
     let client = require_client(&mgr.manager).await?;
     shell_common::dry_run_yaml_core(client, &kind, &namespace, &name, &yaml, &mgr.manager).await
 }
 
 #[tauri::command]
-pub async fn dry_run_yaml(kind: String, namespace: String, name: String, yaml: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<shell_common::YamlDiff> {
+pub async fn dry_run_yaml(
+    kind: String,
+    namespace: String,
+    name: String,
+    yaml: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<shell_common::YamlDiff> {
     dry_run_yaml_impl(mgr.inner().clone(), kind, namespace, name, yaml).await
 }
 
@@ -317,13 +370,23 @@ pub(crate) struct DeleteResourceArgs {
     pub name: String,
 }
 
-pub async fn delete_resource_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String) -> AppResult<()> {
+pub async fn delete_resource_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+) -> AppResult<()> {
     let client = require_client(&mgr.manager).await?;
     shell_common::delete_resource_core(client, &kind, &namespace, &name, &mgr.manager).await
 }
 
 #[tauri::command]
-pub async fn delete_resource(kind: String, namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn delete_resource(
+    kind: String,
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     delete_resource_impl(mgr.inner().clone(), kind, namespace, name).await
 }
 
@@ -338,14 +401,26 @@ pub(crate) struct ScaleResourceArgs {
     pub replicas: i32,
 }
 
-pub async fn scale_resource_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String, replicas: i32) -> AppResult<()> {
+pub async fn scale_resource_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+    replicas: i32,
+) -> AppResult<()> {
     let client = require_client(&mgr.manager).await?;
     shell_common::scale_resource_core(client, &kind, &namespace, &name, replicas, &mgr.manager)
         .await
 }
 
 #[tauri::command]
-pub async fn scale_resource(kind: String, namespace: String, name: String, replicas: i32, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn scale_resource(
+    kind: String,
+    namespace: String,
+    name: String,
+    replicas: i32,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     scale_resource_impl(mgr.inner().clone(), kind, namespace, name, replicas).await
 }
 
@@ -358,13 +433,21 @@ pub(crate) struct SetCordonArgs {
     pub unschedulable: bool,
 }
 
-pub async fn set_cordon_impl(mgr: std::sync::Arc<CoreState>, name: String, unschedulable: bool) -> AppResult<()> {
+pub async fn set_cordon_impl(
+    mgr: std::sync::Arc<CoreState>,
+    name: String,
+    unschedulable: bool,
+) -> AppResult<()> {
     let client = require_client(&mgr.manager).await?;
     shell_common::set_cordon_core(client, &name, unschedulable, &mgr.manager).await
 }
 
 #[tauri::command]
-pub async fn set_cordon(name: String, unschedulable: bool, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn set_cordon(
+    name: String,
+    unschedulable: bool,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     set_cordon_impl(mgr.inner().clone(), name, unschedulable).await
 }
 
@@ -381,13 +464,21 @@ pub(crate) struct RestartPodArgs {
     pub name: String,
 }
 
-pub async fn restart_pod_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<()> {
+pub async fn restart_pod_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<()> {
     let client = require_client(&mgr.manager).await?;
     shell_common::restart_pod_core(client, &namespace, &name).await
 }
 
 #[tauri::command]
-pub async fn restart_pod(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn restart_pod(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     restart_pod_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -403,13 +494,23 @@ pub(crate) struct RestartRolloutArgs {
     pub name: String,
 }
 
-pub async fn restart_rollout_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String) -> AppResult<()> {
+pub async fn restart_rollout_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+) -> AppResult<()> {
     let client = require_client(&mgr.manager).await?;
     shell_common::restart_rollout_core(client, &kind, &namespace, &name, &mgr.manager).await
 }
 
 #[tauri::command]
-pub async fn restart_rollout(kind: String, namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn restart_rollout(
+    kind: String,
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     restart_rollout_impl(mgr.inner().clone(), kind, namespace, name).await
 }
 
@@ -425,7 +526,12 @@ pub(crate) struct ListRevisionsArgs {
     pub name: String,
 }
 
-pub async fn list_revisions_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String) -> AppResult<Vec<rollout::Revision>> {
+pub async fn list_revisions_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+) -> AppResult<Vec<rollout::Revision>> {
     if !rollout::is_rollout_kind(&kind) {
         return Err(AppError::Other(format!("{kind} has no revision history")));
     }
@@ -434,7 +540,12 @@ pub async fn list_revisions_impl(mgr: std::sync::Arc<CoreState>, kind: String, n
 }
 
 #[tauri::command]
-pub async fn list_revisions(kind: String, namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<rollout::Revision>> {
+pub async fn list_revisions(
+    kind: String,
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<rollout::Revision>> {
     list_revisions_impl(mgr.inner().clone(), kind, namespace, name).await
 }
 
@@ -452,7 +563,13 @@ pub(crate) struct UndoRolloutArgs {
     pub to_revision: Option<i64>,
 }
 
-pub async fn undo_rollout_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String, to_revision: Option<i64>) -> AppResult<()> {
+pub async fn undo_rollout_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+    to_revision: Option<i64>,
+) -> AppResult<()> {
     if !rollout::is_rollout_kind(&kind) {
         return Err(AppError::Other(format!("{kind} cannot be rolled back")));
     }
@@ -461,7 +578,13 @@ pub async fn undo_rollout_impl(mgr: std::sync::Arc<CoreState>, kind: String, nam
 }
 
 #[tauri::command]
-pub async fn undo_rollout(kind: String, namespace: String, name: String, to_revision: Option<i64>, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn undo_rollout(
+    kind: String,
+    namespace: String,
+    name: String,
+    to_revision: Option<i64>,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     undo_rollout_impl(mgr.inner().clone(), kind, namespace, name, to_revision).await
 }
 
@@ -506,7 +629,10 @@ pub(crate) struct UnwatchCustomKindArgs {
     pub kind: String,
 }
 
-pub async fn unwatch_custom_kind_impl(mgr: std::sync::Arc<CoreState>, kind: String) -> AppResult<()> {
+pub async fn unwatch_custom_kind_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+) -> AppResult<()> {
     mgr.manager.remove_custom_watcher(&kind).await;
     Ok(())
 }
@@ -521,13 +647,17 @@ pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -
 /// One cheap LIST per kind (limit=1, remainingItemCount), bounded concurrency.
 /// Best-effort: RBAC-denied or failed kinds report count 0.
 #[cfg(not(target_os = "android"))]
-pub async fn custom_kind_counts_impl(mgr: std::sync::Arc<CoreState>) -> AppResult<Vec<k7s_core::kube::CustomKindCount>> {
+pub async fn custom_kind_counts_impl(
+    mgr: std::sync::Arc<CoreState>,
+) -> AppResult<Vec<k7s_core::kube::CustomKindCount>> {
     let client = require_client(&mgr.manager).await?;
     k7s_core::kube::custom_kind_counts(&client).await
 }
 
 #[tauri::command]
-pub async fn custom_kind_counts(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<k7s_core::kube::CustomKindCount>> {
+pub async fn custom_kind_counts(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<k7s_core::kube::CustomKindCount>> {
     custom_kind_counts_impl(mgr.inner().clone()).await
 }
 
@@ -578,7 +708,10 @@ pub(crate) struct NodeHistoryArgs {
     pub node: String,
 }
 
-pub async fn node_history_impl(mgr: std::sync::Arc<CoreState>, node: String) -> AppResult<Vec<exporter::NodeSample>> {
+pub async fn node_history_impl(
+    mgr: std::sync::Arc<CoreState>,
+    node: String,
+) -> AppResult<Vec<exporter::NodeSample>> {
     let client = require_client(&mgr.manager).await?;
     let Some(svc) = promql::discover(&client).await else {
         return Ok(Vec::new());
@@ -590,7 +723,10 @@ pub async fn node_history_impl(mgr: std::sync::Arc<CoreState>, node: String) -> 
 }
 
 #[tauri::command]
-pub async fn node_history(node: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<exporter::NodeSample>> {
+pub async fn node_history(
+    node: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<exporter::NodeSample>> {
     node_history_impl(mgr.inner().clone(), node).await
 }
 
@@ -607,13 +743,21 @@ pub(crate) struct PodHistoryArgs {
     pub pod: String,
 }
 
-pub async fn pod_history_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String) -> AppResult<Vec<metrics::PodSample>> {
+pub async fn pod_history_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+) -> AppResult<Vec<metrics::PodSample>> {
     let client = require_client(&mgr.manager).await?;
     promql::pod_history(&client, &namespace, &pod, 3600).await
 }
 
 #[tauri::command]
-pub async fn pod_history(namespace: String, pod: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<metrics::PodSample>> {
+pub async fn pod_history(
+    namespace: String,
+    pod: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<metrics::PodSample>> {
     pod_history_impl(mgr.inner().clone(), namespace, pod).await
 }
 
@@ -666,7 +810,10 @@ pub(crate) struct UnwatchNodeStatsArgs {
     pub node: String,
 }
 
-pub async fn unwatch_node_stats_impl(mgr: std::sync::Arc<CoreState>, node: String) -> AppResult<()> {
+pub async fn unwatch_node_stats_impl(
+    mgr: std::sync::Arc<CoreState>,
+    node: String,
+) -> AppResult<()> {
     mgr.manager.remove_node_scraper(&node).await;
     Ok(())
 }
@@ -689,7 +836,11 @@ pub(crate) struct DiagnosePodArgs {
     pub pod: String,
 }
 
-pub async fn diagnose_pod_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String) -> AppResult<k7s_deps::serde_json::Value> {
+pub async fn diagnose_pod_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let diagnosis = k7s_core::kube::pod_diagnosis::diagnose_pod(client, &namespace, &pod).await?;
     k7s_deps::serde_json::to_value(diagnosis)
@@ -697,7 +848,11 @@ pub async fn diagnose_pod_impl(mgr: std::sync::Arc<CoreState>, namespace: String
 }
 
 #[tauri::command]
-pub async fn diagnose_pod(namespace: String, pod: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<k7s_deps::serde_json::Value> {
+pub async fn diagnose_pod(
+    namespace: String,
+    pod: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<k7s_deps::serde_json::Value> {
     diagnose_pod_impl(mgr.inner().clone(), namespace, pod).await
 }
 
@@ -729,7 +884,11 @@ pub(crate) struct GetSecretDataArgs {
     pub name: String,
 }
 
-pub async fn get_secret_data_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<Vec<SecretEntry>> {
+pub async fn get_secret_data_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<Vec<SecretEntry>> {
     let client = require_client(&mgr.manager).await?;
     let api: Api<Secret> = Api::namespaced(client, &namespace);
     let sec = api
@@ -750,7 +909,11 @@ pub async fn get_secret_data_impl(mgr: std::sync::Arc<CoreState>, namespace: Str
 }
 
 #[tauri::command]
-pub async fn get_secret_data(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<SecretEntry>> {
+pub async fn get_secret_data(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<SecretEntry>> {
     get_secret_data_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -768,14 +931,22 @@ pub(crate) struct ConfigmapSnapshotsArgs {
     pub name: String,
 }
 
-pub async fn configmap_snapshots_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
+pub async fn configmap_snapshots_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
     let client = require_client(&mgr.manager).await?;
     config_snapshots::snapshot_configmap(mgr.manager.snapshot_store(), client, &namespace, &name)
         .await
 }
 
 #[tauri::command]
-pub async fn configmap_snapshots(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
+pub async fn configmap_snapshots(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
     configmap_snapshots_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -791,13 +962,21 @@ pub(crate) struct SecretSnapshotsArgs {
     pub name: String,
 }
 
-pub async fn secret_snapshots_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
+pub async fn secret_snapshots_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
     let client = require_client(&mgr.manager).await?;
     config_snapshots::snapshot_secret(mgr.manager.snapshot_store(), client, &namespace, &name).await
 }
 
 #[tauri::command]
-pub async fn secret_snapshots(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
+pub async fn secret_snapshots(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<config_snapshots::ConfigSnapshot>> {
     secret_snapshots_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -816,7 +995,13 @@ pub(crate) struct ConfigmapSnapshotYamlArgs {
     pub resource_version: String,
 }
 
-pub async fn configmap_snapshot_yaml_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String, resource_version: String) -> AppResult<Option<String>> {
+pub async fn configmap_snapshot_yaml_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+    resource_version: String,
+) -> AppResult<Option<String>> {
     let key = format!("{kind}:{namespace}/{name}");
     Ok(mgr
         .manager
@@ -827,13 +1012,21 @@ pub async fn configmap_snapshot_yaml_impl(mgr: std::sync::Arc<CoreState>, kind: 
 }
 
 #[tauri::command]
-pub async fn configmap_snapshot_yaml(kind: String, namespace: String, name: String, resource_version: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Option<String>> {
+pub async fn configmap_snapshot_yaml(
+    kind: String,
+    namespace: String,
+    name: String,
+    resource_version: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Option<String>> {
     configmap_snapshot_yaml_impl(mgr.inner().clone(), kind, namespace, name, resource_version).await
 }
 
 /// Build a dependency graph of resources: Deployments -> ReplicaSets -> Pods,
 /// Services -> Pods (via selector), Ingresses -> Services (via backend rules).
-pub async fn dependency_graph_impl(mgr: std::sync::Arc<CoreState>) -> AppResult<k7s_deps::serde_json::Value> {
+pub async fn dependency_graph_impl(
+    mgr: std::sync::Arc<CoreState>,
+) -> AppResult<k7s_deps::serde_json::Value> {
     let client = require_client(&mgr.manager).await?;
     let graph = k7s_core::kube::dependency_graph::build_dependency_graph(client).await?;
     k7s_deps::serde_json::to_value(graph)
@@ -841,7 +1034,9 @@ pub async fn dependency_graph_impl(mgr: std::sync::Arc<CoreState>) -> AppResult<
 }
 
 #[tauri::command]
-pub async fn dependency_graph(mgr: State<'_, Arc<CoreState>>) -> AppResult<k7s_deps::serde_json::Value> {
+pub async fn dependency_graph(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<k7s_deps::serde_json::Value> {
     dependency_graph_impl(mgr.inner().clone()).await
 }
 
@@ -855,13 +1050,21 @@ pub(crate) struct DebugIngressArgs {
     pub name: String,
 }
 
-pub async fn debug_ingress_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<ingress_debug::IngressDebugResult> {
+pub async fn debug_ingress_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<ingress_debug::IngressDebugResult> {
     let client = require_client(&mgr.manager).await?;
     ingress_debug::debug_ingress(client, &namespace, &name).await
 }
 
 #[tauri::command]
-pub async fn debug_ingress(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<ingress_debug::IngressDebugResult> {
+pub async fn debug_ingress(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<ingress_debug::IngressDebugResult> {
     debug_ingress_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -905,13 +1108,23 @@ pub(crate) struct GetPropertiesArgs {
     pub name: String,
 }
 
-pub async fn get_properties_impl(mgr: std::sync::Arc<CoreState>, kind: String, namespace: String, name: String) -> AppResult<properties::Properties> {
+pub async fn get_properties_impl(
+    mgr: std::sync::Arc<CoreState>,
+    kind: String,
+    namespace: String,
+    name: String,
+) -> AppResult<properties::Properties> {
     let client = require_client(&mgr.manager).await?;
     properties::gather(client, &kind, &namespace, &name).await
 }
 
 #[tauri::command]
-pub async fn get_properties(kind: String, namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<properties::Properties> {
+pub async fn get_properties(
+    kind: String,
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<properties::Properties> {
     get_properties_impl(mgr.inner().clone(), kind, namespace, name).await
 }
 
@@ -924,7 +1137,11 @@ pub(crate) struct GetEventsArgs {
     pub name: String,
 }
 
-pub async fn get_events_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<Vec<EventItem>> {
+pub async fn get_events_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<Vec<EventItem>> {
     let client = require_client(&mgr.manager).await?;
     let api: Api<Event> = Api::namespaced(client, &namespace);
     let lp = ListParams::default().fields(&format!(
@@ -950,7 +1167,11 @@ pub async fn get_events_impl(mgr: std::sync::Arc<CoreState>, namespace: String, 
 }
 
 #[tauri::command]
-pub async fn get_events(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<EventItem>> {
+pub async fn get_events(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<EventItem>> {
     get_events_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -1000,7 +1221,15 @@ pub(crate) struct ExportLogsArgs {
     pub path: String,
 }
 
-pub async fn export_logs_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: String, since_seconds: Option<i64>, previous: bool, path: String) -> AppResult<usize> {
+pub async fn export_logs_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    container: String,
+    since_seconds: Option<i64>,
+    previous: bool,
+    path: String,
+) -> AppResult<usize> {
     let client = require_client(&mgr.manager).await?;
     let containers = if container.is_empty() {
         vec![]
@@ -1022,8 +1251,25 @@ pub async fn export_logs_impl(mgr: std::sync::Arc<CoreState>, namespace: String,
 }
 
 #[tauri::command]
-pub async fn export_logs(namespace: String, pod: String, container: String, since_seconds: Option<i64>, previous: bool, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<usize> {
-    export_logs_impl(mgr.inner().clone(), namespace, pod, container, since_seconds, previous, path).await
+pub async fn export_logs(
+    namespace: String,
+    pod: String,
+    container: String,
+    since_seconds: Option<i64>,
+    previous: bool,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<usize> {
+    export_logs_impl(
+        mgr.inner().clone(),
+        namespace,
+        pod,
+        container,
+        since_seconds,
+        previous,
+        path,
+    )
+    .await
 }
 
 /// Stop a log stream (idempotent). Called on pause and panel close.
@@ -1034,7 +1280,10 @@ pub(crate) struct StopLogStreamArgs {
     pub stream_id: String,
 }
 
-pub async fn stop_log_stream_impl(mgr: std::sync::Arc<CoreState>, stream_id: String) -> AppResult<()> {
+pub async fn stop_log_stream_impl(
+    mgr: std::sync::Arc<CoreState>,
+    stream_id: String,
+) -> AppResult<()> {
     mgr.manager.remove_log(&stream_id).await;
     Ok(())
 }

@@ -10,7 +10,9 @@ use tauri::State;
 
 // -- Evolution --
 
-pub async fn ai_evolution_strategies_impl(state: std::sync::Arc<CoreState>) -> AppResult<Vec<Strategy>> {
+pub async fn ai_evolution_strategies_impl(
+    state: std::sync::Arc<CoreState>,
+) -> AppResult<Vec<Strategy>> {
     let store = EvolutionStore::open(&state.data_dir);
     Ok(store.list_strategies().to_vec())
 }
@@ -28,7 +30,10 @@ pub(crate) struct AiEvolutionRecordRunArgs {
     pub outcome: RunOutcome,
 }
 
-pub async fn ai_evolution_record_run_impl(state: std::sync::Arc<CoreState>, outcome: RunOutcome) -> AppResult<()> {
+pub async fn ai_evolution_record_run_impl(
+    state: std::sync::Arc<CoreState>,
+    outcome: RunOutcome,
+) -> AppResult<()> {
     let mut store = EvolutionStore::open(&state.data_dir);
     store.record_run(outcome);
     store.scan_and_update();
@@ -36,7 +41,10 @@ pub async fn ai_evolution_record_run_impl(state: std::sync::Arc<CoreState>, outc
 }
 
 #[tauri::command]
-pub async fn ai_evolution_record_run(outcome: RunOutcome, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn ai_evolution_record_run(
+    outcome: RunOutcome,
+    state: State<'_, Arc<CoreState>>,
+) -> AppResult<()> {
     ai_evolution_record_run_impl(state.inner().clone(), outcome).await
 }
 
@@ -48,13 +56,19 @@ pub(crate) struct AiEvolutionDeleteStrategyArgs {
     pub id: String,
 }
 
-pub async fn ai_evolution_delete_strategy_impl(state: std::sync::Arc<CoreState>, id: String) -> AppResult<bool> {
+pub async fn ai_evolution_delete_strategy_impl(
+    state: std::sync::Arc<CoreState>,
+    id: String,
+) -> AppResult<bool> {
     let mut store = EvolutionStore::open(&state.data_dir);
     Ok(store.delete_strategy(&id))
 }
 
 #[tauri::command]
-pub async fn ai_evolution_delete_strategy(id: String, state: State<'_, Arc<CoreState>>) -> AppResult<bool> {
+pub async fn ai_evolution_delete_strategy(
+    id: String,
+    state: State<'_, Arc<CoreState>>,
+) -> AppResult<bool> {
     ai_evolution_delete_strategy_impl(state.inner().clone(), id).await
 }
 
@@ -97,7 +111,10 @@ pub(crate) struct AiKnowledgeImportArgs {
     pub source_dir: String,
 }
 
-pub async fn ai_knowledge_import_impl(state: std::sync::Arc<CoreState>, source_dir: String) -> AppResult<usize> {
+pub async fn ai_knowledge_import_impl(
+    state: std::sync::Arc<CoreState>,
+    source_dir: String,
+) -> AppResult<usize> {
     let context = state
         .manager
         .connection_info()
@@ -112,6 +129,9 @@ pub async fn ai_knowledge_import_impl(state: std::sync::Arc<CoreState>, source_d
 }
 
 #[tauri::command]
-pub async fn ai_knowledge_import(source_dir: String, state: State<'_, Arc<CoreState>>) -> AppResult<usize> {
+pub async fn ai_knowledge_import(
+    source_dir: String,
+    state: State<'_, Arc<CoreState>>,
+) -> AppResult<usize> {
     ai_knowledge_import_impl(state.inner().clone(), source_dir).await
 }

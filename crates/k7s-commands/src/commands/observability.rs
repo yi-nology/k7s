@@ -4,9 +4,12 @@
 use crate::commands::core::require_client;
 use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
-use k7s_core::kube::{observability::alerting, observability::audit, endpoints, observability::metrics_config, observability::saved_queries};
 #[cfg(not(target_os = "ios"))]
 use k7s_core::kube::observability::grafana;
+use k7s_core::kube::{
+    endpoints, observability::alerting, observability::audit, observability::metrics_config,
+    observability::saved_queries,
+};
 use k7s_deps::kube::api::Api;
 use std::sync::Arc;
 use tauri::State;
@@ -19,13 +22,17 @@ use tauri::State;
 
 /// List EndpointSlices cluster-wide. One row per slice, with the
 /// ready/total address count so 503s are obvious at a glance.
-pub async fn list_endpoints_impl(mgr: std::sync::Arc<CoreState>) -> AppResult<Vec<endpoints::EndpointRow>> {
+pub async fn list_endpoints_impl(
+    mgr: std::sync::Arc<CoreState>,
+) -> AppResult<Vec<endpoints::EndpointRow>> {
     let client = require_client(&mgr.manager).await?;
     endpoints::list_all(&client).await
 }
 
 #[tauri::command]
-pub async fn list_endpoints(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<endpoints::EndpointRow>> {
+pub async fn list_endpoints(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<endpoints::EndpointRow>> {
     list_endpoints_impl(mgr.inner().clone()).await
 }
 
@@ -39,13 +46,21 @@ pub(crate) struct ListEndpointsForServiceArgs {
     pub name: String,
 }
 
-pub async fn list_endpoints_for_service_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<Vec<endpoints::EndpointRow>> {
+pub async fn list_endpoints_for_service_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<Vec<endpoints::EndpointRow>> {
     let client = require_client(&mgr.manager).await?;
     endpoints::list_for_service(&client, &namespace, &name).await
 }
 
 #[tauri::command]
-pub async fn list_endpoints_for_service(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<endpoints::EndpointRow>> {
+pub async fn list_endpoints_for_service(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<endpoints::EndpointRow>> {
     list_endpoints_for_service_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -58,13 +73,21 @@ pub(crate) struct ListEndpointAddressesArgs {
     pub name: String,
 }
 
-pub async fn list_endpoint_addresses_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<Vec<endpoints::EndpointAddress>> {
+pub async fn list_endpoint_addresses_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<Vec<endpoints::EndpointAddress>> {
     let client = require_client(&mgr.manager).await?;
     endpoints::addresses_for(&client, &namespace, &name).await
 }
 
 #[tauri::command]
-pub async fn list_endpoint_addresses(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<endpoints::EndpointAddress>> {
+pub async fn list_endpoint_addresses(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<endpoints::EndpointAddress>> {
     list_endpoint_addresses_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -85,7 +108,11 @@ pub(crate) struct TriggerCronjobArgs {
     pub name: String,
 }
 
-pub async fn trigger_cronjob_impl(mgr: std::sync::Arc<CoreState>, namespace: String, name: String) -> AppResult<String> {
+pub async fn trigger_cronjob_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    name: String,
+) -> AppResult<String> {
     use k7s_deps::k8s_openapi::api::batch::v1::{CronJob, Job};
     use k7s_deps::k8s_openapi::apimachinery::pkg::apis::meta::v1::{ObjectMeta, OwnerReference};
     use k7s_deps::kube::api::PostParams;
@@ -128,7 +155,11 @@ pub async fn trigger_cronjob_impl(mgr: std::sync::Arc<CoreState>, namespace: Str
 }
 
 #[tauri::command]
-pub async fn trigger_cronjob(namespace: String, name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<String> {
+pub async fn trigger_cronjob(
+    namespace: String,
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<String> {
     trigger_cronjob_impl(mgr.inner().clone(), namespace, name).await
 }
 
@@ -181,7 +212,10 @@ pub(crate) struct MetricsQueryArgs {
     pub promql: String,
 }
 
-pub async fn metrics_query_impl(name: String, promql: String) -> AppResult<metrics_config::QueryResult> {
+pub async fn metrics_query_impl(
+    name: String,
+    promql: String,
+) -> AppResult<metrics_config::QueryResult> {
     metrics_config::query(&name, &promql).await
 }
 
@@ -201,12 +235,24 @@ pub(crate) struct MetricsQueryRangeArgs {
     pub step_seconds: i64,
 }
 
-pub async fn metrics_query_range_impl(name: String, promql: String, start_ms: i64, end_ms: i64, step_seconds: i64) -> AppResult<metrics_config::QueryResult> {
+pub async fn metrics_query_range_impl(
+    name: String,
+    promql: String,
+    start_ms: i64,
+    end_ms: i64,
+    step_seconds: i64,
+) -> AppResult<metrics_config::QueryResult> {
     metrics_config::query_range(&name, &promql, start_ms, end_ms, step_seconds).await
 }
 
 #[tauri::command]
-pub async fn metrics_query_range(name: String, promql: String, start_ms: i64, end_ms: i64, step_seconds: i64) -> AppResult<metrics_config::QueryResult> {
+pub async fn metrics_query_range(
+    name: String,
+    promql: String,
+    start_ms: i64,
+    end_ms: i64,
+    step_seconds: i64,
+) -> AppResult<metrics_config::QueryResult> {
     metrics_query_range_impl(name, promql, start_ms, end_ms, step_seconds).await
 }
 
@@ -250,7 +296,7 @@ mod grafana_cmds {
         grafana::remove(&name)
     }
 
-        /// Wire arguments for [`grafana_test`] (camelCase on the wire).
+    /// Wire arguments for [`grafana_test`] (camelCase on the wire).
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct GrafanaTestArgs {
@@ -281,7 +327,7 @@ mod grafana_cmds {
         grafana::dashboard_url(&name, &uid, from_ms, to_ms)
     }
 
-        /// Wire arguments for [`grafana_search_dashboards`] (camelCase on the wire).
+    /// Wire arguments for [`grafana_search_dashboards`] (camelCase on the wire).
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub(crate) struct GrafanaSearchDashboardsArgs {
@@ -289,12 +335,18 @@ mod grafana_cmds {
         pub query: String,
     }
 
-    pub async fn grafana_search_dashboards_impl(name: String, query: String) -> AppResult<Vec<grafana::DashboardSearchResult>> {
+    pub async fn grafana_search_dashboards_impl(
+        name: String,
+        query: String,
+    ) -> AppResult<Vec<grafana::DashboardSearchResult>> {
         grafana::search_dashboards(&name, &query).await
     }
 
     #[tauri::command]
-    pub async fn grafana_search_dashboards(name: String, query: String) -> AppResult<Vec<grafana::DashboardSearchResult>> {
+    pub async fn grafana_search_dashboards(
+        name: String,
+        query: String,
+    ) -> AppResult<Vec<grafana::DashboardSearchResult>> {
         grafana_search_dashboards_impl(name, query).await
     }
 }
@@ -381,12 +433,18 @@ pub(crate) struct AlertmanagerCreateSilenceArgs {
     pub request: alerting::CreateSilenceRequest,
 }
 
-pub async fn alertmanager_create_silence_impl(instance: String, request: alerting::CreateSilenceRequest) -> AppResult<String> {
+pub async fn alertmanager_create_silence_impl(
+    instance: String,
+    request: alerting::CreateSilenceRequest,
+) -> AppResult<String> {
     alerting::create_silence(&instance, &request).await
 }
 
 #[tauri::command]
-pub async fn alertmanager_create_silence(instance: String, request: alerting::CreateSilenceRequest) -> AppResult<String> {
+pub async fn alertmanager_create_silence(
+    instance: String,
+    request: alerting::CreateSilenceRequest,
+) -> AppResult<String> {
     alertmanager_create_silence_impl(instance, request).await
 }
 
@@ -398,7 +456,10 @@ pub(crate) struct AlertmanagerDeleteSilenceArgs {
     pub silence_id: String,
 }
 
-pub async fn alertmanager_delete_silence_impl(instance: String, silence_id: String) -> AppResult<()> {
+pub async fn alertmanager_delete_silence_impl(
+    instance: String,
+    silence_id: String,
+) -> AppResult<()> {
     alerting::delete_silence(&instance, &silence_id).await
 }
 
@@ -515,11 +576,19 @@ pub(crate) struct SavedQueriesRunArgs {
     pub force_refresh: bool,
 }
 
-pub async fn saved_queries_run_impl(query: saved_queries::SavedQuery, instance: String, force_refresh: bool) -> AppResult<metrics_config::QueryResult> {
+pub async fn saved_queries_run_impl(
+    query: saved_queries::SavedQuery,
+    instance: String,
+    force_refresh: bool,
+) -> AppResult<metrics_config::QueryResult> {
     saved_queries::run_saved(&query, &instance, force_refresh).await
 }
 
 #[tauri::command]
-pub async fn saved_queries_run(query: saved_queries::SavedQuery, instance: String, force_refresh: bool) -> AppResult<metrics_config::QueryResult> {
+pub async fn saved_queries_run(
+    query: saved_queries::SavedQuery,
+    instance: String,
+    force_refresh: bool,
+) -> AppResult<metrics_config::QueryResult> {
     saved_queries_run_impl(query, instance, force_refresh).await
 }
