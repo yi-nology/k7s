@@ -1,6 +1,6 @@
 # k7s Monorepo 化 + 六阶段重构执行计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 将 9 仓 polyrepo 合并为单一 git monorepo + Cargo workspace，完成 Phase 0-5 全部重构，交付"一份业务实现 + 一份命令注册 + 薄壳"的成品。
 
@@ -44,9 +44,9 @@ k7/                       (新 git 仓根)
 
 **Files:** 无新文件，仅 git 操作
 
-- [ ] 对 k7s-core / k7s-server / k7s-desktop / k7s-ios / k7s-android 各执行：
+- [x] 对 k7s-core / k7s-server / k7s-desktop / k7s-ios / k7s-android 各执行：
   `git add -A && git commit -m "wip: snapshot before monorepo merge"`
-- [ ] 验证：9 仓 `git status --porcelain` 全部为空
+- [x] 验证：9 仓 `git status --porcelain` 全部为空
 
 ### Task 2: Monorepo 组装（subtree 导入）
 
@@ -68,16 +68,16 @@ k7/                       (新 git 仓根)
 | k7s-frontend | frontend | |
 | k7s | legacy | 原 monorepo，Phase 5 清理 |
 
-- [ ] `git init`（root，main 分支）
-- [ ] 每仓执行：
+- [x] `git init`（root，main 分支）
+- [x] 每仓执行：
   ```bash
   BR=$(git -C <dir> branch --show-current)
   git fetch <abs-dir> $BR && git subtree add --prefix=<prefix> FETCH_HEAD $BR -m "chore: import <dir> (preserving history)"
   ```
-- [ ] 全部导入后：`mkdir -p ~/my_project/k7-archive && for d in <9 仓>; do mv $d/.git k7-archive/$d.git; rm -rf $d; done`（subtree 已生成内容；target/node_modules 等未跟踪产物随之丢弃，可重建）
-- [ ] 处理 root 级未跟踪内容：`.playwright-mcp/`、`.superpowers/`、`.zcode/`、`.DS_Store`、`dist/` 写入根 `.gitignore`
-- [ ] Commit: `chore: assemble monorepo from 9 repos via git subtree`
-- [ ] 验证：`git log --oneline | wc -l` > 各仓提交总和；`ls crates/ frontend/ legacy/` 齐全
+- [x] 全部导入后：`mkdir -p ~/my_project/k7-archive && for d in <9 仓>; do mv $d/.git k7-archive/$d.git; rm -rf $d; done`（subtree 已生成内容；target/node_modules 等未跟踪产物随之丢弃，可重建）
+- [x] 处理 root 级未跟踪内容：`.playwright-mcp/`、`.superpowers/`、`.zcode/`、`.DS_Store`、`dist/` 写入根 `.gitignore`
+- [x] Commit: `chore: assemble monorepo from 9 repos via git subtree`
+- [x] 验证：`git log --oneline | wc -l` > 各仓提交总和；`ls crates/ frontend/ legacy/` 齐全
 
 ### Task 3: Cargo workspace 化（Phase 0 核心）
 
@@ -132,12 +132,12 @@ opt-level = "s"
 strip = true
 ```
 
-- [ ] 7 个成员 Cargo.toml：git 依赖 → `path`（或 `workspace = true`）；删除各自 `[profile.release]`、`rust-version`、`edition`（改 `workspace = true`）；删除 6 份 Cargo.lock（k7s-commands 无）
-- [ ] rmcp 统一 3.1.3；k7s-deps 单一来源（path dep 自动解决 rev 漂移）
-- [ ] 修 `crates/k7s-{desktop,ios,android}/tauri.conf.json`：`frontendDist` "../dist" → "../../dist"
-- [ ] 修 `crates/k7s-{ios,android}/Makefile` 的 FRONTEND/DIST 路径计算（层级 +1）
-- [ ] `cargo metadata --no-deps` 成员 7 个；`cargo check --workspace` 通过（shell 对 k7s-core 0.4.2 的隐性依赖在此暴露并修复）
-- [ ] Commit: `phase0: cargo workspace, single lock, path deps`
+- [x] 7 个成员 Cargo.toml：git 依赖 → `path`（或 `workspace = true`）；删除各自 `[profile.release]`、`rust-version`、`edition`（改 `workspace = true`）；删除 6 份 Cargo.lock（k7s-commands 无）
+- [x] rmcp 统一 3.1.3；k7s-deps 单一来源（path dep 自动解决 rev 漂移）
+- [x] 修 `crates/k7s-{desktop,ios,android}/tauri.conf.json`：`frontendDist` "../dist" → "../../dist"
+- [x] 修 `crates/k7s-{ios,android}/Makefile` 的 FRONTEND/DIST 路径计算（层级 +1）
+- [x] `cargo metadata --no-deps` 成员 7 个；`cargo check --workspace` 通过（shell 对 k7s-core 0.4.2 的隐性依赖在此暴露并修复）
+- [x] Commit: `phase0: cargo workspace, single lock, path deps`
 
 ### Task 4: Phase 1 — k7s-commands 真 crate 化
 
@@ -202,10 +202,10 @@ macro_rules! register_commands {
 - `app.manage(Arc::new(commands::ai::AiRuntime::new()))` → `k7s_commands::commands::ai::AiRuntime::new()`
 - desktop `pub use k7s_core::{ai, core, error, kube};` 等 re-export 暂留（examples 依赖），Task 5 清理
 
-- [ ] `cargo check -p k7s-commands` 通过
-- [ ] 三 shell `cargo check -p k7s -p k7s-ios-lib -p k7s-android…`（按各自 package/lib 名）通过
-- [ ] `cargo test --workspace` 通过
-- [ ] Commit: `phase1: k7s-commands real crate, shells consume shared commands`
+- [x] `cargo check -p k7s-commands` 通过
+- [x] 三 shell `cargo check -p k7s -p k7s-ios-lib -p k7s-android…`（按各自 package/lib 名）通过
+- [x] `cargo test --workspace` 通过
+- [x] Commit: `phase1: k7s-commands real crate, shells consume shared commands`
 
 ### Task 5: Phase 1b — examples/tests 去重 + shell 减薄
 
@@ -215,9 +215,9 @@ macro_rules! register_commands {
 - Move: `crates/k7s-ios/tests/web_api.rs` → `crates/k7s-server/tests/web_api.rs`（改用 k7s-server 直启）
 - Delete: k7s-ios/k7s-android 的 examples/ 与其余重复 tests/
 
-- [ ] 删重后 `cargo test --workspace` 通过（web_api.rs 在 server 仓可用）
-- [ ] shell src 仅剩：main.rs / lib.rs（插件+setup+register_commands!）/ 平台特有命令文件（desktop: window_state、文件选择器；ios: 无；android: cfg 门控残留如有）
-- [ ] Commit: `phase1b: dedupe examples/tests, thin shells`
+- [x] 删重后 `cargo test --workspace` 通过（web_api.rs 在 server 仓可用）
+- [x] shell src 仅剩：main.rs / lib.rs（插件+setup+register_commands!）/ 平台特有命令文件（desktop: window_state、文件选择器；ios: 无；android: cfg 门控残留如有）
+- [x] Commit: `phase1b: dedupe examples/tests, thin shells`
 
 ### Task 6: Phase 2 — CommandRegistry 接缝（k7s-core）
 
@@ -315,8 +315,8 @@ pub fn registry() -> CommandRegistry {
 }
 ```
 
-- [ ] `cargo test -p k7s-core` 通过（registry 单测：注册/未知名/参数反序列化错误路径）
-- [ ] Commit: `phase2a: CommandRegistry seam in k7s-core + impl/wrapper split`
+- [x] `cargo test -p k7s-core` 通过（registry 单测：注册/未知名/参数反序列化错误路径）
+- [x] Commit: `phase2a: CommandRegistry seam in k7s-core + impl/wrapper split`
 
 ### Task 7: Phase 2 — web `/invoke` 查表分发
 
@@ -339,9 +339,9 @@ pub async fn invoke(cmd: Path<String>, State(ws): State<Arc<WebState>>, body: Js
 }
 ```
 
-- [ ] `cargo test -p k7s-server` + tests/web_api.rs 全绿（wire 兼容证明）
-- [ ] 删除 `crates/k7s-desktop/src/lib.rs:13-17` 的 k7s_server re-export（bin 入口已直依赖）
-- [ ] Commit: `phase2b: web /invoke dispatches through CommandRegistry`
+- [x] `cargo test -p k7s-server` + tests/web_api.rs 全绿（wire 兼容证明）
+- [x] 删除 `crates/k7s-desktop/src/lib.rs:13-17` 的 k7s_server re-export（bin 入口已直依赖）
+- [x] Commit: `phase2b: web /invoke dispatches through CommandRegistry`
 
 ### Task 8: Phase 3 — k7s-server 巨型文件拆分
 
