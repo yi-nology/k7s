@@ -67,11 +67,44 @@ jobs:
           repository: yi-nology/k7s-deps
           path: k7s-deps
 
+      - name: checkout k7s-commands
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-commands
+          path: k7s-commands
+
       - name: download frontend artifact
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
           path: dist
+
+      # The Dockerfile builds from a workspace layout (crates/ + root manifest).
+      # Re-arrange the sibling checkouts into that shape with local [patch]es
+      # so the build uses exactly these commits instead of resolving GitHub.
+      - name: arrange workspace layout
+        run: |
+          mkdir -p crates
+          mv k7s-server k7s-core k7s-deps k7s-commands crates/
+          cat > Cargo.toml <<'EOF'
+          [workspace]
+          resolver = "2"
+          members = [
+              "crates/k7s-deps",
+              "crates/k7s-core",
+              "crates/k7s-commands",
+              "crates/k7s-server",
+          ]
+
+          [patch."https://github.com/yi-nology/k7s-deps.git"]
+          k7s-deps = { path = "crates/k7s-deps" }
+
+          [patch."https://github.com/yi-nology/k7s-core.git"]
+          k7s-core = { path = "crates/k7s-core" }
+
+          [patch."https://github.com/yi-nology/k7s-commands.git"]
+          k7s-commands = { path = "crates/k7s-commands" }
+          EOF
 
       - name: free disk space
         run: |

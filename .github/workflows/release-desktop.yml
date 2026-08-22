@@ -84,11 +84,17 @@ jobs:
           repository: yi-nology/k7s-deps
           path: k7s-deps
 
-      - name: download frontend artifact
+      - name: checkout k7s-commands
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-commands
+          path: k7s-commands
+
+      - name: download frontend artifact (desktop embed)
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: dist
+          path: k7s-desktop/dist
 
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -188,7 +194,7 @@ jobs:
 
       - name: copy dist for k7s-server rust-embed
         shell: bash
-        run: cp -r dist ../dist
+        run: cp -r k7s-desktop/dist k7s-server/dist
 
       # ── Dynamic-linked build (native glibc) — macOS/Windows only ──
       # Linux ships only the musl static binary (see below).
