@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.1 (2026-08-22)
+
+- **k7s-web 服务器自适应**：启动时检测主机浏览器（Linux 检查图形会话 + chrome/chromium/firefox 等，macOS 检查 .app，Windows 检查 chrome/edge）。无浏览器的服务器/无头主机自动跳过打开并打一条 info 日志，`--no-open` 仍是显式覆盖。
+- 构建：k7s-web（musl 静态版）彻底不含 tauri（`ipc` feature 化），Docker/静态构建恢复稳定。
+- 清理 web/mcp feature 路径下的存量 clippy 告警，`clippy -D warnings` 全 feature 通过。
+
 ## v0.5.0 (2026-08-22)
 
 结构重构版本：代码重组为"独立仓 + 统一命令面"架构，功能语义保持不变。
