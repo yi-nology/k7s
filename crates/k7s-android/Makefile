@@ -14,8 +14,11 @@ SHELL := /bin/bash
 
 # 目录布局: k7/ 下 k7s-frontend/ 与 k7s-android/ 是同级目录
 REPO_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
-FRONTEND  := $(REPO_ROOT)/frontend
 DIST      := $(REPO_ROOT)/dist
+# Standalone checkout: k7s-frontend is a sibling directory. Inside the k7
+# monorepo the frontend lives at the workspace root instead.
+FRONTEND  := $(shell test -f $(REPO_ROOT)/Cargo.toml && grep -q '^\[workspace\]' $(REPO_ROOT)/Cargo.toml \
+  && echo $(REPO_ROOT)/frontend || echo $(dir $(REPO_ROOT))k7s-frontend)
 
 VERSION   := $(shell grep -m1 '^version' $(REPO_ROOT)/Cargo.toml | sed 's/.*"\(.*\)"/\1/')
 TARGETS   := aarch64-linux-android

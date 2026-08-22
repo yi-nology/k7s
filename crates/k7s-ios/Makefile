@@ -17,8 +17,11 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := build
 
 REPO_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
-FRONTEND  := $(REPO_ROOT)/frontend
 DIST      := $(REPO_ROOT)/dist
+# Standalone checkout: k7s-frontend is a sibling directory. Inside the k7
+# monorepo the frontend lives at the workspace root instead.
+FRONTEND  := $(shell test -f $(REPO_ROOT)/Cargo.toml && grep -q '^\[workspace\]' $(REPO_ROOT)/Cargo.toml \
+  && echo $(REPO_ROOT)/frontend || echo $(dir $(REPO_ROOT))k7s-frontend)
 
 VERSION   := $(shell grep -m1 '^version' $(REPO_ROOT)/Cargo.toml | sed 's/.*"\(.*\)"/\1/')
 

@@ -1,17 +1,17 @@
 [package]
 name = "k7s-commands"
-version.workspace = true
+version = "0.4.3"
 description = "k7s commands — the full Tauri command surface shared by all shells"
-authors.workspace = true
-edition.workspace = true
-rust-version.workspace = true
+authors = ["k7s"]
+edition = "2021"
+rust-version = "1.77.2"
 
 [lib]
 name = "k7s_commands"
 
 [dependencies]
-k7s-core = { path = "../k7s-core", features = ["tauri"] }
-k7s-deps = { path = "../k7s-deps" }
-tauri.workspace = true
-serde.workspace = true
-serde_json.workspace = true
+k7s-core = { git = "https://github.com/yi-nology/k7s-core.git", features = ["tauri"] }
+k7s-deps = { git = "https://github.com/yi-nology/k7s-deps.git" }
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

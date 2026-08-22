@@ -13,3 +13,5 @@ gen/
 # IDE
 .idea/
 .vscode/
+/dist/
+/target/

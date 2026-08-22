@@ -64,7 +64,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: dist
+          path: crates/k7s-desktop/dist
 
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -161,6 +161,11 @@ jobs:
           files: crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # k7s-web embeds the frontend from its own ./dist (rust-embed).
+      - name: copy dist for k7s-server rust-embed
+        shell: bash
+        run: cp -r crates/k7s-desktop/dist crates/k7s-server/dist
 
       # ── Dynamic-linked build (native glibc) — macOS/Windows only ──
       # Linux ships only the musl static binary (see below).
