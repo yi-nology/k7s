@@ -1,0 +1,96 @@
+/*
+ * LoginGate styles — the full-screen auth wall for the web shell. Uses the
+ * same design tokens as the rest of the app (tokens.css) so the gate matches
+ * the dark/light theme the user already has. Only rendered in web mode when
+ * the server says authRequired; desktop never mounts it.
+ */
+
+.wrap {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--grad-bg), var(--bg-app);
+  font-family: var(--font-ui);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(360px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-5);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-body);
+}
+
+.brand {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.card input {
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  color: var(--text-body);
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.card input:focus {
+  border-color: var(--accent);
+}
+
+.err {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--status-err);
+  background: var(--status-err-soft);
+  border-radius: var(--radius-md);
+}
+
+.card button {
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--bg-app);
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.card button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.card button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,302 @@
+.panel {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.header {
+  align-items: center;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+}
+
+.header h2 {
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 240px 1fr;
+  min-height: 0;
+}
+
+.side {
+  border-right: 1px solid var(--border);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+/* ------------------------------------------------------------------ */
+/* Search box                                                          */
+/* ------------------------------------------------------------------ */
+
+.searchWrap {
+  margin-bottom: var(--space-2);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.searchInput {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  color: var(--text-primary);
+  flex: 1 1 0;
+  min-width: 0;
+  font: inherit;
+  font-size: var(--text-sm);
+  outline: none;
+  padding: var(--space-1) var(--space-2);
+  box-sizing: border-box;
+}
+
+.searchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.searchInput:focus {
+  border-color: var(--accent);
+}
+
+.searchClear {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-xl);
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.searchClear:hover {
+  color: var(--text-primary);
+}
+
+.matchCount {
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 0 4px;
+  white-space: nowrap;
+}
+
+.navBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+
+.navBtn:hover {
+  background: var(--bg-hover, var(--bg-control));
+}
+
+/* ------------------------------------------------------------------ */
+/* Service list                                                        */
+/* ------------------------------------------------------------------ */
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  margin-bottom: 2px;
+  padding: var(--space-2);
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.item:hover {
+  background: var(--bg-panel);
+}
+
+.itemFocused {
+  background: var(--bg-control);
+  border-left: 3px solid var(--accent);
+  padding-left: calc(var(--space-2) - 3px);
+}
+
+.itemName {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.itemMeta {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+/* ------------------------------------------------------------------ */
+/* Main graph area                                                     */
+/* ------------------------------------------------------------------ */
+
+.main {
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--space-4);
+}
+
+.colHeader {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin: 0 0 var(--space-1) 0;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------ */
+/* Legacy styles (kept for compatibility)                              */
+/* ------------------------------------------------------------------ */
+
+.graph {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-x: auto;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 200px;
+}
+
+.node,
+.nodePrimary,
+.nodeOk,
+.nodeBad {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  min-width: 180px;
+  padding: var(--space-2);
+}
+
+.nodePrimary {
+  background: var(--bg-control);
+  border-color: var(--accent);
+}
+
+.nodeOk {
+  border-left: 3px solid var(--status-ok);
+}
+
+.nodeBad {
+  border-left: 3px solid var(--status-err);
+}
+
+.nodeTitle {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nodeMeta {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin-top: 2px;
+}
+
+.arrow {
+  align-self: center;
+  color: var(--text-muted);
+  font-size: var(--text-lg);
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared                                                              */
+/* ------------------------------------------------------------------ */
+
+.btn {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.error {
+  background: var(--status-warn-soft);
+  border-bottom: 1px solid var(--status-err);
+  color: var(--status-err);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+/* ----------------------------------------------------------------------- */
+/* Health summary bar                                                       */
+/* ----------------------------------------------------------------------- */
+
+.healthBar {
+  align-items: center;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-3);
+}
+
+.healthItem {
+  align-items: center;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.healthCount {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.healthLabel {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.healthSeparator {
+  background: var(--border);
+  height: 16px;
+  width: 1px;
+}

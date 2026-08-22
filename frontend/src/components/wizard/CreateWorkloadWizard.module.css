@@ -1,0 +1,348 @@
+/* CreateWorkloadWizard (P2 Task 3): the 4-step create-workload dialog.
+   Chrome mirrors OnboardingWizard so the two wizards read as the same app;
+   field layout follows the IngressEditor idiom (rows of labelled inputs). */
+
+.backdrop {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  width: min(760px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-menu);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  padding: 18px 20px 16px;
+}
+
+/* ---------- header ---------- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 2px 8px;
+}
+
+.closeBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ---------- stepper (same shape as OnboardingWizard) ---------- */
+
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-row);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+}
+
+.stepActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.step {
+  color: inherit;
+}
+
+/* ---------- step body ---------- */
+
+.body {
+  flex: 1;
+  min-height: 240px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ---------- fields ---------- */
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 140px;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.fieldWide {
+  composes: field;
+  flex: 2;
+  min-width: 200px;
+}
+
+.fieldInline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 7px;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.input {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 4px 8px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  border-color: var(--border-hover);
+}
+
+.error {
+  font-size: var(--text-sm);
+  color: var(--status-err);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* ---------- groups (fieldset + legend, the IngressEditor shape) ---------- */
+
+.group {
+  /* --border-subtle isn't a token yet — guarded fallback to --border, the
+     same convention as ImageTransferPanel (--border would otherwise be
+     dropped entirely by the browser and the group would have no border). */
+  border: 1px solid var(--border-subtle, var(--border));
+  border-radius: var(--radius-sm);
+  padding: 10px 12px 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  padding: 0 4px;
+}
+
+.addBtn {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  padding: 2px 10px;
+}
+
+.addBtn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--status-err);
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 2px 8px;
+  margin-bottom: 4px;
+}
+
+.removeBtn:hover {
+  background: var(--bg-hover);
+}
+
+/* ---------- advanced (<details>) blocks ---------- */
+
+.advanced {
+  border: 1px solid var(--border-subtle, var(--border));
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+}
+
+.summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.advancedBody {
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---------- step 4 review & apply (Task 4) ---------- */
+
+.preview {
+  flex: 1;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Hint + 「从 YAML 回填表单」 action on one row above the editor. */
+.previewBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.previewEditor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle, var(--border));
+  border-radius: var(--radius-sm);
+}
+
+/* Dry-run status line. Errors reuse .error; this is the green counterpart. */
+.statusOk {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--status-ok);
+}
+
+/* Same shape as TemplatePicker's stale hint: a quiet accent-bordered note. */
+.staleHint {
+  margin: 0;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+  background: var(--bg-panel);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+/* Failed apply rows (mirrors TemplatePicker's results list). */
+.results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.resultErr {
+  color: var(--status-err);
+}
+
+/* ---------- footer ---------- */
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-row);
+}
+
+.btn {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 6px 16px;
+}
+
+.btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.btnPrimary {
+  composes: btn;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  color: #fff;
+}

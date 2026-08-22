@@ -1,0 +1,143 @@
+/* OnboardingWizard (Task 9): the first-run 3-step modal.
+   Chrome mirrors the settings panel so it reads as the same app. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog {
+  width: min(520px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-menu);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-menu);
+  padding: 18px 20px 20px;
+}
+
+/* ---------- header (mirrors CreateWorkloadWizard) ---------- */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 2px 8px;
+}
+
+.closeBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ---------- stepper ---------- */
+
+.stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-row);
+  font-size: var(--text-sm);
+  color: var(--text-faint);
+}
+
+/* The current step reads primary; done/upcoming stay muted. */
+.stepActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.step {
+  color: inherit;
+}
+
+/* ---------- steps ---------- */
+
+.hint {
+  margin: 0 0 14px;
+  font-size: var(--text-md);
+  color: var(--text-body);
+  line-height: 1.5;
+}
+
+.primary {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 8px 16px;
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+/* Same geometry as .primary, surface instead of accent — the gated "Next"
+   must stay visible-but-disabled while the connection is still coming up. */
+.next {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: var(--text-md);
+  padding: 8px 16px;
+}
+
+.next:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.next:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* ---------- step 3 (preferences) ---------- */
+
+.nsLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  font-size: var(--text-md);
+  color: var(--text-primary);
+}
+
+.nsInput {
+  background: var(--bg-control);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 4px 8px;
+  outline: none;
+  width: 220px;
+}
+
+.nsInput:focus {
+  border-color: var(--border-hover);
+}

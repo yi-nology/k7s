@@ -1,0 +1,230 @@
+.panel {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.header {
+  align-items: center;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+}
+
+.header h2 {
+  font-size: var(--text-lg);
+  margin: 0;
+}
+
+.body {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: 240px 1fr;
+  min-height: 0;
+}
+
+.side {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item,
+.itemActive {
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  margin-bottom: 2px;
+  padding: var(--space-2);
+}
+
+.itemActive {
+  background: var(--bg-control);
+}
+
+.itemName {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.itemUrl {
+  color: var(--accent);
+  font-size: var(--text-xs);
+}
+
+.sideActions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--space-3);
+}
+
+.dashHeader {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.dashHeader h3 {
+  font-size: var(--text-md);
+  margin: 0;
+}
+
+.rangePresets {
+  display: flex;
+  gap: 2px;
+}
+
+.rangePreset,
+.activeRange {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-xs);
+  padding: 2px var(--space-2);
+}
+
+.activeRange {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.presetList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  list-style: none;
+  margin: 0 0 var(--space-2) 0;
+  padding: 0;
+}
+
+.preset,
+.presetActive {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-2);
+}
+
+.presetActive {
+  background: var(--bg-control);
+  border-color: var(--accent);
+}
+
+.presetTitle {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.presetDesc {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.iframe {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.btn,
+.btnDanger,
+.primary {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.btnDanger {
+  color: var(--status-err);
+}
+
+.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.error {
+  background: var(--status-warn-soft);
+  border-bottom: 1px solid var(--status-err);
+  color: var(--status-err);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+.empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 480px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.form label span {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.form input {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-1) var(--space-2);
+}
+
+.formActions {
+  display: flex;
+  gap: var(--space-2);
+}

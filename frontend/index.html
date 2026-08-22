@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/k7s.svg" />
+    <title>k7s</title>
+    <!--
+      Pick the palette before the first paint (B52).
+
+      This has to be inline and synchronous. The canonical theme lives in
+      prefs.json behind an async Tauri command, and waiting for it would mean
+      painting one palette and then swapping — a visible flash on every launch.
+      So the *choice* is mirrored into localStorage on change and read back here.
+
+      Kept deliberately tiny and dependency-free; it runs before the bundle
+      exists. If it throws or storage is unavailable, the CSS default (dark)
+      stands, which is exactly the old behaviour.
+    -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem("k7s.theme") || "system";
+          var dark =
+            t === "dark" ||
+            (t !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var mode = dark ? "dark" : "light";
+          document.documentElement.dataset.theme = mode;
+          document.documentElement.style.colorScheme = mode;
+        } catch (e) {
+          /* storage disabled — fall through to the dark default in tokens.css */
+        }
+        // Mirror the cached UI language onto <html lang> so screen readers and
+        // the browser's own widgets (e.g. spell-check) pick the right one before
+        // the bundle runs. Defaults to "zh" (the app's default locale) when the
+        // cache is empty or invalid; a cached "en" still wins.
+        try {
+          var lang = localStorage.getItem("k7s.locale");
+          document.documentElement.lang = lang === "en" ? "en" : "zh";
+        } catch (e) {
+          document.documentElement.lang = "zh";
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <!-- React mounts here. The app background is set on <html>/<body> in global.css
+         from --bg-app, whose palette the script above has already chosen, so there
+         is no flash of the wrong theme before React paints. -->
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

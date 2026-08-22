@@ -1,0 +1,331 @@
+/*
+ * Shared component styles — the single source of truth for reusable UI patterns.
+ *
+ * Import in any component: `import shared from '../../styles/shared.module.css';`
+ * Then combine: `className={`${shared.panel} ${shared.header}`}`
+ *
+ * All values use design tokens from tokens.css. No raw pixels, no fallbacks.
+ */
+
+/* ================ Panel layout ================ */
+
+.panel {
+  background: var(--bg-app);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  /* Subtle inner glow for enterprise depth. */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.header {
+  align-items: center;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  /* Slightly taller header for enterprise breathing room. */
+  min-height: 44px;
+}
+
+.header h2 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4);
+}
+
+/* ================ Buttons ================ */
+
+.btn {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-2) var(--space-3);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.btn:active {
+  background: var(--bg-hover-strong);
+}
+
+.btnPrimary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--text-on-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: var(--space-2) var(--space-3);
+  transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 1px 3px rgba(123, 133, 245, 0.25);
+}
+
+.btnPrimary:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 2px 8px rgba(123, 133, 245, 0.35);
+}
+
+.btnPrimary:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(123, 133, 245, 0.2);
+}
+
+.btnDanger {
+  background: var(--status-err-soft);
+  border: 1px solid var(--status-err);
+  border-radius: var(--radius-md);
+  color: var(--status-err);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-2) var(--space-3);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.btnDanger:hover {
+  background: var(--status-err);
+  color: var(--text-on-accent);
+}
+
+/* ================ Form controls ================ */
+
+.input {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--text-faint);
+}
+
+.select {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.select:focus {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-glow);
+  outline: none;
+}
+
+/* ================ Tabs (pill style for overlay panels) ================ */
+
+.tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.tab,
+.activeTab {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: var(--space-2) var(--space-4);
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.activeTab {
+  background: var(--bg-panel);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(123, 133, 245, 0.15);
+}
+
+/* ================ Data table ================ */
+
+.table {
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  width: 100%;
+}
+
+.table th,
+.table td {
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) var(--space-3);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table th {
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ================ Status badges ================ */
+
+.badge {
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px var(--space-2);
+  letter-spacing: 0.02em;
+}
+
+.badgeCritical {
+  background: var(--status-err);
+  color: var(--text-on-accent);
+}
+
+.badgeHigh {
+  background: var(--status-warn);
+  color: var(--text-on-accent);
+}
+
+.badgeMedium {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.badgeLow {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.badgeOk {
+  background: var(--status-ok-soft);
+  color: var(--status-ok);
+}
+
+/* ================ Feedback states ================ */
+
+.empty {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  padding: var(--space-4);
+  text-align: center;
+}
+
+.error {
+  background: var(--status-err-soft);
+  border-bottom: 1px solid var(--status-err);
+  color: var(--status-err);
+  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+}
+
+/* ================ Sidebar list (left panel of two-pane layouts) ================ */
+
+.side {
+  border-right: 1px solid var(--border);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item,
+.itemActive {
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  margin-bottom: 2px;
+  padding: var(--space-2);
+}
+
+.itemActive {
+  background: var(--bg-control);
+}
+
+/* ================ Utility ================ */
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.textPrimary {
+  color: var(--text-primary);
+}
+
+.textMuted {
+  color: var(--text-muted);
+}
+
+.textSecondary {
+  color: var(--text-secondary);
+}
+
+.flex {
+  display: flex;
+}
+
+.flexCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.gap1 {
+  gap: var(--space-1);
+}
+.gap2 {
+  gap: var(--space-2);
+}
+.gap3 {
+  gap: var(--space-3);
+}

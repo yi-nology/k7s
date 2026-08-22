@@ -1,0 +1,48 @@
+/* Field — form field wrapper with label, hint, error. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-body);
+}
+
+.required {
+  color: var(--status-err);
+  margin-left: 2px;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 1;
+  min-width: 0;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+}
+
+.error {
+  font-size: 11px;
+  color: var(--status-err);
+  line-height: 1.3;
+}
+
+.fieldError .control :global(input),
+.fieldError .control :global(select),
+.fieldError .control :global(textarea) {
+  border-color: var(--status-err);
+}
