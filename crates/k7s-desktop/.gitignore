@@ -1,0 +1,7 @@
+target/
+gen/
+.DS_Store
+*.local
+.env
+.env.*
+!.env.example

@@ -1,0 +1,69 @@
+[package]
+name = "k7s"
+version = "0.4.2"
+description = "k7s — a Lens-style Kubernetes visual monitor"
+authors = ["k7s"]
+edition = "2021"
+default-run = "k7s"
+# 1.77.2 is what our dependency set actually needs (tauri-plugin-window-state
+# 2.x declares it). Leaving this at 1.77 silently resolved that plugin to a
+# v0.1.1 built for Tauri v1 — cargo downgrades rather than complains.
+rust-version = "1.77.2"
+
+# The library crate holds all app logic (commands, kube plumbing) so it can be
+# unit-tested with `cargo test`; main.rs is a thin binary that calls into it.
+[lib]
+name = "k7s_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# --- Tauri shell ---
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+# Native file-open dialog for the "Import kubeconfig" action.
+tauri-plugin-dialog = "2"
+# Remembers window size/position/monitor across launches (B22).
+tauri-plugin-window-state = "2"
+
+# --- Shared dependencies from k7s-deps ---
+k7s-deps = { git = "https://github.com/yi-nology/k7s-deps.git" }
+
+# --- Shared core library ---
+k7s-core = { git = "https://github.com/yi-nology/k7s-core.git", features = ["tauri"] }
+
+# --- Shared server library (web + MCP) ---
+k7s-server = { git = "https://github.com/yi-nology/k7s-server.git" }
+
+# --- Proc-macro dependencies (must be in extern prelude) ---
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "signal", "sync", "time"] }
+
+[features]
+# Reserved for future custom-protocol tweaks; kept so tauri.conf can reference it.
+custom-protocol = ["tauri/custom-protocol"]
+# Browser mode: delegates to k7s-server's web feature.
+web = ["k7s-server/web"]
+# MCP mode: delegates to k7s-server's mcp feature.
+mcp = ["k7s-server/mcp"]
+
+# Only the Tauri desktop binary lives here.
+# k7s-web and k7s-mcp are now in the k7s-server crate.
+[[bin]]
+name = "k7s"
+path = "src/main.rs"
+
+[dev-dependencies]
+proptest = "1"
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+
+[profile.release]
+# Smaller, faster desktop binary.
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
