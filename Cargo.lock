@@ -2644,7 +2644,7 @@ dependencies = [
 
 [[package]]
 name = "k7s"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "http-body-util",
  "k7s-commands",
@@ -2665,7 +2665,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-android"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "k7s-commands",
  "k7s-core",
@@ -2680,7 +2680,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-commands"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "k7s-core",
  "k7s-deps",
@@ -2691,7 +2691,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-core"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "k7s-deps",
  "proptest",
@@ -2740,7 +2740,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-ios"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "apple-native-keyring-store",
  "k7s-commands",
@@ -2756,7 +2756,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-server"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "argon2",
  "axum",
@@ -2974,9 +2974,9 @@ dependencies = [
 
 [[package]]
 name = "libredox"
-version = "0.1.20"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28d0a00925a9f930d679b6789b721e3a7f9ed110f41b86d2497caa780c3a070a"
+checksum = "2026a5056764a10b2bf5d56488cba40da507f5493a6a429340e2004d9ed085fa"
 dependencies = [
  "libc",
 ]
@@ -7315,9 +7315,9 @@ checksum = "29666d0abbfad1e3dc4dcf6144730dd3a3ab225bbbdac83319345b1b44ccfc1b"
 
 [[package]]
 name = "zvariant"
-version = "5.15.0"
+version = "5.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1d34c27cc6cdd1f458427519dd6b8612f7b7e3f7b9a0b2355d041dda9869147"
+checksum = "b5e28c25bd8bb8da5a1f3e7065d0c156b9ee9a7973adf78b0e35eaefdf3b1b5c"
 dependencies = [
  "endi",
  "enumflags2",
@@ -7330,9 +7330,9 @@ dependencies = [
 
 [[package]]
 name = "zvariant_derive"
-version = "5.15.0"
+version = "5.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "864155e69b4352db0c7f374917bf45d1e0c8d17659c8b3dbf9795f3673f8c497"
+checksum = "d496a145685283b67e232bd9e47377f6b60ad9d51e3601b23867f77c42477f96"
 dependencies = [
  "proc-macro-crate 3.5.0",
  "proc-macro2",
@@ -7343,9 +7343,9 @@ dependencies = [
 
 [[package]]
 name = "zvariant_utils"
-version = "4.2.0"
+version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bad0294361a320b694a328460dc73add56c306150f5cb6bfafc44446120008a3"
+checksum = "6b84ebb462416c27cdb97f2e7f5f0ccc844da1fe2ecc7121e1b690b41318bf42"
 dependencies = [
  "proc-macro2",
  "quote",
