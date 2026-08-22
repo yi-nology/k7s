@@ -14,11 +14,10 @@ SHELL := /bin/bash
 
 # 目录布局: k7/ 下 k7s-frontend/ 与 k7s-android/ 是同级目录
 REPO_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null || pwd)
-PARENT    := $(dir $(REPO_ROOT))
-FRONTEND  := $(PARENT)k7s-frontend
-DIST      := $(PARENT)dist
+FRONTEND  := $(REPO_ROOT)/frontend
+DIST      := $(REPO_ROOT)/dist
 
-VERSION   := $(shell grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
+VERSION   := $(shell grep -m1 '^version' $(REPO_ROOT)/Cargo.toml | sed 's/.*"\(.*\)"/\1/')
 TARGETS   := aarch64-linux-android
 OUTDIR    := gen/android/app/build/outputs
 
@@ -56,7 +55,6 @@ frontend:
 .PHONY: init
 init: check-deps check-tauri-cli frontend
 	@echo "🔧 初始化 Android 项目..."
-	ln -sf $(DIST) $(PARENT)dist 2>/dev/null || true
 	cargo tauri android init
 
 .PHONY: build

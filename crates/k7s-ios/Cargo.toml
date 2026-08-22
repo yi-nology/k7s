@@ -1,31 +1,31 @@
 [package]
 name = "k7s-ios"
-version = "0.4.2"
+version.workspace = true
 description = "k7s — Kubernetes visual monitor for iPad/iOS"
-authors = ["k7s"]
-edition = "2021"
-rust-version = "1.77.2"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
 
 [lib]
 name = "k7s_ios_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build.workspace = true
 
 [dependencies]
-k7s-core = { git = "https://github.com/yi-nology/k7s-core.git", features = ["tauri"] }
-k7s-deps = { git = "https://github.com/yi-nology/k7s-deps.git" }
-tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
-tauri-plugin-dialog = "2"
+k7s-core = { workspace = true, features = ["tauri"] }
+k7s-deps.workspace = true
+tauri.workspace = true
+tauri-plugin-shell.workspace = true
+tauri-plugin-dialog.workspace = true
 # serde must stay as a direct dependency: the `#[derive(Serialize)]` proc macro
 # generates code that references `serde::Serialize` by crate name, so the crate
 # must be in the extern prelude. k7s-deps re-exports serde for non-derive use.
-serde = { version = "1", features = ["derive"] }
+serde.workspace = true
 # apple-native-keyring-store: required on iOS — the keyring crate's default
 # features only enable keychain (macOS), not protected (iOS).
-apple-native-keyring-store = { version = "1", features = ["protected"] }
+apple-native-keyring-store.workspace = true
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
@@ -38,9 +38,3 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 [[bin]]
 name = "k7s-ios"
 path = "src/main.rs"
-
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = "s"
-strip = true
