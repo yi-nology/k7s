@@ -1,6 +1,6 @@
 [package]
 name = "k7s-android"
-version = "0.4.3"
+version = "0.5.0"
 description = "k7s — Kubernetes visual monitor for Android"
 authors = ["k7s"]
 edition = "2021"

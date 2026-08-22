@@ -23,6 +23,7 @@ import { useStore } from '../../store';
 import { LIMITS, DEFAULT_SETTINGS, sanitizeSettings, asTableDensity, type Settings, type TableDensity } from '../../lib/settings';
 import { asTheme, type Theme } from '../../lib/theme';
 import { asLocale, LOCALES, type Locale } from '../../lib/i18n';
+import { APP_VERSION } from '../../lib/version';
 import { useTranslation } from '../../hooks/useI18n';
 import { McpPanel } from './McpPanel';
 import { ScannerPanel } from './ScannerPanel';
@@ -321,7 +322,9 @@ export function SettingsPanel() {
         </div>
 
         <div className={styles.footer}>
-          <span className={styles.note}>{t('chrome.settings.footerNote')}</span>
+          <span className={styles.note}>
+            k7s v{APP_VERSION} · {t('chrome.settings.footerNote')}
+          </span>
           <button
             type="button"
             className={styles.reset}

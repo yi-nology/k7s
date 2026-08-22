@@ -23,3 +23,4 @@ interface ImportMeta {
 interface File {
   readonly path?: string;
 }
+declare const __APP_VERSION__: string | undefined;
