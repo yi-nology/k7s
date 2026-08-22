@@ -1,0 +1,1123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>k7s — Redesign Preview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       k7s redesign proposal — refinements, not reinvention.
+       Keep the existing token names & role-based palette; just add
+       depth (shadows), warmth (subtle gradients), and breathing room
+       so the UI stops looking like a 2018 terminal app.
+       ============================================================ */
+
+    :root {
+      /* Backgrounds — gently lifted from the originals */
+      --bg-app:        #0d0d0f;
+      --bg-panel:      #141417;          /* a touch lighter than #121214 */
+      --bg-chrome:     #111114;          /* softer than #101012 */
+      --bg-control:    #1a1a1e;          /* one step up from current */
+      --bg-terminal:   #0a0a0c;
+      --bg-hover:      #1d1d22;
+      --bg-hover-strong: #25252b;
+      --bg-selected-row: #14233e;
+      --bg-nav-active: #182845;
+      --bg-log-hover:  #161620;
+
+      /* Borders — a hair more visible, in the "structural" tone */
+      --border-default: #2a2a31;
+      --border-control: #33333b;
+      --border-menu:    #3d3d46;
+      --border-hover:   #5a5a66;
+      --border-row:     #1d1d22;
+
+      /* Text — same palette, slightly bolder primary weight */
+      --text-primary:   #f0f0f4;
+      --text-body:      #d6d6dc;
+      --text-secondary: #a8a8b2;
+      --text-muted:     #74747e;
+      --text-faint:     #5b5b65;
+      --text-nav-inactive: #92929c;
+
+      /* Accent & status — keep exact roles */
+      --accent:         #5aa6ff;
+      --accent-hover:   #82bfff;
+      --accent-soft:    rgba(90, 166, 255, 0.16);
+      --accent-softer:  rgba(90, 166, 255, 0.08);
+      --status-ok:      #9ece6a;
+      --status-warn:    #e0af68;
+      --status-err:     #f7768e;
+
+      --badge-bg:       #34343c;
+      --separator:      #3f3f48;
+
+      /* NEW: depth */
+      --shadow-sm:      0 1px 2px rgba(0, 0, 0, 0.4);
+      --shadow-md:      0 4px 12px rgba(0, 0, 0, 0.35);
+      --shadow-lg:      0 10px 32px rgba(0, 0, 0, 0.45);
+      --shadow-panel:   -8px 0 24px rgba(0, 0, 0, 0.3);
+      --shadow-glow:    0 0 0 3px var(--accent-soft);
+      --shadow-glow-strong: 0 0 0 4px var(--accent-soft), 0 0 18px rgba(90, 166, 255, 0.25);
+
+      /* NEW: radii — slightly larger, more "designed" */
+      --radius-sm:      6px;
+      --radius-md:      8px;
+      --radius-lg:      10px;
+
+      /* Type */
+      --font-ui:   "IBM Plex Sans", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #050507;
+      color: var(--text-body);
+      font-family: var(--font-ui);
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    /* Top-of-page label, like a "preview" cover */
+    .label {
+      position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+      z-index: 9999;
+      padding: 6px 14px;
+      background: rgba(20, 20, 23, 0.8);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-default);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+    }
+    .label b { color: var(--accent); font-weight: 600; }
+
+    /* App shell */
+    .app {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ====================== SIDEBAR ====================== */
+    .sidebar {
+      width: 224px;
+      flex: none;
+      display: flex;
+      flex-direction: column;
+      background:
+        linear-gradient(180deg, var(--bg-panel) 0%, #101013 100%);
+      border-right: 1px solid var(--border-default);
+    }
+
+    /* Cluster switcher */
+    .switcher {
+      padding: 12px 12px 10px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .switcherButton {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 10px;
+      background: var(--bg-control);
+      border: 1px solid var(--border-control);
+      border-radius: var(--radius-md);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .switcherButton:hover {
+      border-color: var(--border-hover);
+      background: #1f1f24;
+    }
+    .badge {
+      width: 26px;
+      height: 26px;
+      flex: none;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, #3a3a44 0%, #2a2a32 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-body);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+    .switcherText { flex: 1; min-width: 0; }
+    .clusterName {
+      font-weight: 600;
+      font-size: 12.5px;
+      color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: -0.005em;
+    }
+    .statusLine {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+    }
+    .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      flex: none;
+      position: relative;
+    }
+    .dot.connected {
+      background: var(--status-ok);
+      box-shadow: 0 0 0 2px rgba(158, 206, 106, 0.18);
+    }
+    .chevron {
+      color: var(--text-muted);
+      font-size: 9px;
+    }
+
+    /* Nav */
+    .nav {
+      flex: 1; overflow-y: auto;
+      padding: 8px 0 12px;
+    }
+    .sectionHeader {
+      padding: 14px 16px 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      color: var(--text-faint);
+      text-transform: uppercase;
+    }
+    .navItem {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 1px 10px;
+      padding: 6px 10px 6px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background 0.12s ease;
+    }
+    .navItem:hover { background: var(--bg-hover); }
+    .navItemActive {
+      background: var(--bg-nav-active);
+      border-left-color: var(--accent);
+      box-shadow: inset 0 0 0 1px rgba(90, 166, 255, 0.08);
+    }
+    .navItemActive::after {
+      content: "";
+      position: absolute;
+    }
+    .navIcon {
+      width: 14px;
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-faint);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .navItemActive .navIcon { color: var(--accent); }
+    .navLabel {
+      flex: 1;
+      font-size: 12.5px;
+      color: var(--text-nav-inactive);
+      font-weight: 500;
+    }
+    .navItemActive .navLabel {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .navCount {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .navItemActive .navCount { color: var(--text-secondary); }
+
+    /* Watch footer */
+    .footer {
+      padding: 11px 16px;
+      border-top: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      background: rgba(10, 10, 12, 0.4);
+    }
+    .footerDot {
+      width: 7px; height: 7px; border-radius: 50%;
+      flex: none;
+      background: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-softer), 0 0 8px var(--accent-soft);
+      animation: livePulse 2s infinite;
+    }
+    .footerText { flex: 1; min-width: 0; }
+    .gear {
+      flex: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 4px 6px;
+      border-radius: var(--radius-sm);
+      transition: all 0.12s ease;
+    }
+    .gear:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+    @keyframes livePulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.92); }
+    }
+
+    /* ====================== MAIN ====================== */
+    .main {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+    }
+
+    /* Top bar */
+    .topbar {
+      flex: none;
+      display: flex; align-items: center;
+      gap: 14px;
+      height: 50px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--border-default);
+      background: rgba(13, 13, 15, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .breadcrumb {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      color: var(--text-muted);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .breadcrumb .sep { color: var(--separator); opacity: 0.6; }
+    .breadcrumb .kind {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .spacer { flex: 1; }
+
+    /* Top-right controls */
+    .control {
+      display: flex; align-items: center;
+      gap: 7px;
+      padding: 5px 11px;
+      background: var(--bg-control);
+      border: 1px solid var(--border-control);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      transition: all 0.12s ease;
+    }
+    .control:hover {
+      border-color: var(--border-hover);
+      background: #1f1f24;
+    }
+    .control .prefix { color: var(--text-faint); }
+    .control .value { color: var(--text-primary); font-weight: 500; }
+    .control .chev { color: var(--text-faint); font-size: 8px; }
+
+    .kbd {
+      padding: 2px 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-control);
+      border-radius: 4px;
+      line-height: 1;
+    }
+
+    /* ====================== CONTENT ====================== */
+    .content {
+      flex: 1; min-height: 0;
+      display: flex;
+    }
+
+    /* Resource table */
+    .tableWrap {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+    }
+    .toolbar {
+      flex: none;
+      display: flex; align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border-row);
+      background: rgba(16, 16, 18, 0.4);
+    }
+    .search {
+      display: flex; align-items: center;
+      gap: 8px;
+      width: 320px;
+      background: var(--bg-terminal);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 6px 11px;
+      transition: border-color 0.12s ease;
+    }
+    .search:focus-within {
+      border-color: var(--accent);
+      box-shadow: var(--shadow-glow);
+    }
+    .searchIcon { color: var(--text-faint); font-size: 11px; }
+    .searchInput {
+      flex: 1; min-width: 0;
+      background: transparent; border: none; outline: none;
+      color: var(--text-body);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+    .searchInput::placeholder { color: var(--text-faint); }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 9px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-secondary);
+      background: var(--bg-control);
+      border: 1px solid var(--border-control);
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .pill:hover { border-color: var(--border-hover); }
+    .pill .count {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+    .pill.healthy .dot { background: var(--status-ok); box-shadow: 0 0 0 2px rgba(158, 206, 106, 0.18); }
+    .pill.warn .dot { background: var(--status-warn); box-shadow: 0 0 0 2px rgba(224, 175, 104, 0.18); }
+    .pill.err .dot { background: var(--status-err); box-shadow: 0 0 0 2px rgba(247, 118, 142, 0.18); }
+    .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+    .scroller { flex: 1; min-height: 0; overflow: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    thead th {
+      position: sticky; top: 0; z-index: 2;
+      background: rgba(17, 17, 20, 0.95);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      color: var(--text-faint);
+      border-bottom: 1px solid var(--border-default);
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+    tbody td {
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--border-row);
+      white-space: nowrap;
+    }
+    tbody tr {
+      transition: background 0.1s ease;
+    }
+    tbody tr.clickable { cursor: pointer; }
+    tbody tr.clickable:hover td { background: rgba(26, 26, 30, 0.6); }
+    tbody tr.selected td { background: var(--bg-selected-row); }
+    tbody tr.selected:hover td { background: #18324f; }
+
+    .cell-name { color: var(--text-primary); font-weight: 500; }
+    .cell-ns, .cell-age { color: var(--text-muted); }
+    .cell-metric { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+    .cell-warn { color: var(--status-warn); }
+    .cell-err { color: var(--status-err); }
+
+    .status {
+      display: inline-flex; align-items: center; gap: 7px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+    .status .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex: none;
+    }
+    .status.running .dot { background: var(--status-ok); box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.18); }
+    .status.running { color: var(--status-ok); }
+    .status.pending .dot { background: var(--status-warn); box-shadow: 0 0 0 3px rgba(224, 175, 104, 0.18); }
+    .status.pending { color: var(--status-warn); }
+    .status.failed .dot { background: var(--status-err); box-shadow: 0 0 0 3px rgba(247, 118, 142, 0.18); animation: livePulse 1.5s infinite; }
+    .status.failed { color: var(--status-err); }
+
+    .bar-mini {
+      display: inline-block;
+      width: 40px; height: 4px;
+      background: var(--bg-control);
+      border-radius: 2px;
+      vertical-align: middle;
+      margin-right: 6px;
+      overflow: hidden;
+    }
+    .bar-mini > i {
+      display: block; height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* ====================== DETAIL PANEL ====================== */
+    .panel {
+      width: 46%;
+      min-width: 520px;
+      flex: none;
+      display: flex; flex-direction: column;
+      border-left: 1px solid var(--border-default);
+      background:
+        linear-gradient(180deg, #131316 0%, #101012 100%);
+      box-shadow: var(--shadow-panel);
+      min-height: 0;
+    }
+    .panelHeader {
+      flex: none;
+      padding: 14px 18px 0;
+      border-bottom: 1px solid transparent;
+    }
+    .titleRow {
+      display: flex; align-items: center; gap: 11px;
+    }
+    .podDot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: var(--status-ok);
+      box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.18), 0 0 12px rgba(158, 206, 106, 0.35);
+      flex: none;
+    }
+    .name {
+      flex: 1; min-width: 0;
+      font-family: var(--font-mono);
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: -0.01em;
+    }
+    .iconBtn {
+      width: 26px; height: 26px;
+      flex: none;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 14px;
+      background: transparent;
+      border: 1px solid transparent;
+      transition: all 0.12s ease;
+    }
+    .iconBtn:hover {
+      background: var(--bg-hover-strong);
+      color: var(--text-primary);
+      border-color: var(--border-control);
+    }
+
+    .meta {
+      display: flex;
+      gap: 16px;
+      margin: 8px 0 12px;
+      padding-left: 20px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+    .meta b { color: var(--text-secondary); font-weight: 500; }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border-default);
+    }
+    .tab {
+      padding: 9px 14px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.12s ease, border-color 0.12s ease;
+    }
+    .tab:hover { color: var(--text-secondary); }
+    .tabActive {
+      color: var(--text-primary);
+      border-bottom-color: var(--accent);
+    }
+    .tabCount {
+      margin-left: 6px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-faint);
+    }
+    .tabActive .tabCount { color: var(--accent); }
+
+    /* Log area (preview body) */
+    .logs {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column;
+    }
+    .logToolbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 16px;
+      border-bottom: 1px solid var(--border-row);
+    }
+    .logSearch {
+      flex: 1;
+      display: flex; align-items: center; gap: 7px;
+      background: var(--bg-terminal);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      padding: 5px 10px;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: var(--bg-control);
+      border: 1px solid var(--border-control);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .btn:hover { border-color: var(--border-hover); color: var(--text-primary); }
+    .btn-follow {
+      background: rgba(18, 32, 21, 0.8);
+      border-color: var(--status-ok);
+      color: var(--status-ok);
+    }
+    .btn-follow:hover {
+      background: rgba(18, 32, 21, 1);
+      box-shadow: 0 0 0 3px rgba(158, 206, 106, 0.12);
+    }
+    .btn-active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .btn-active:hover { box-shadow: 0 0 0 3px var(--accent-softer); }
+
+    .logArea {
+      flex: 1; min-height: 0;
+      overflow: auto;
+      background: var(--bg-terminal);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.7;
+      padding: 8px 0;
+    }
+    .logLine {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      padding: 0 16px;
+      white-space: pre;
+    }
+    .logLine:hover { background: var(--bg-log-hover); }
+    .logTs { color: var(--text-faint); flex: none; min-width: 80px; }
+    .logLvl {
+      flex: none; min-width: 42px;
+      font-weight: 600;
+    }
+    .logLvl.info { color: var(--accent); }
+    .logLvl.warn { color: var(--status-warn); }
+    .logLvl.err  { color: var(--status-err); }
+    .logLvl.dbg  { color: var(--text-muted); }
+    .logMsg { color: var(--text-secondary); flex: 1; }
+    .logMsg.warn { color: #d8c39a; }
+    .logMsg.err  { color: #f2a5b3; }
+
+    /* Log footer */
+    .logFooter {
+      display: flex; align-items: center; gap: 14px;
+      padding: 6px 16px;
+      border-top: 1px solid var(--border-row);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-faint);
+      background: rgba(10, 10, 12, 0.5);
+    }
+    .logFooter .streaming {
+      display: inline-flex; align-items: center; gap: 5px;
+      color: var(--status-ok);
+    }
+    .logFooter .streaming::before {
+      content: ""; width: 6px; height: 6px;
+      background: var(--status-ok);
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px rgba(158, 206, 106, 0.18);
+      animation: livePulse 1.6s infinite;
+    }
+
+    /* ====================== FORWARDS BAR ====================== */
+    .forwards {
+      flex: none;
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 16px;
+      border-top: 1px solid var(--border-default);
+      background: rgba(20, 20, 23, 0.6);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+    .forwards .label { color: var(--text-faint); }
+    .fwdChip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 3px 9px;
+      border: 1px solid var(--border-control);
+      border-radius: 999px;
+      background: var(--bg-control);
+    }
+    .fwdChip .port { color: var(--accent); font-weight: 500; }
+    .fwdChip .arr { color: var(--text-faint); }
+    .fwdChip .target { color: var(--text-secondary); }
+
+    /* ====================== STATUS BAR ====================== */
+    .statusbar {
+      flex: none;
+      display: flex; align-items: center;
+      gap: 20px;
+      height: 28px;
+      padding: 0 16px;
+      border-top: 1px solid var(--border-default);
+      background: linear-gradient(180deg, #111114 0%, #0d0d0f 100%);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+    .statusbar .cluster { display: inline-flex; align-items: center; gap: 6px; }
+    .statusbar .cluster .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--status-ok);
+      box-shadow: 0 0 0 2px rgba(158, 206, 106, 0.18);
+    }
+    .statusbar .cluster .name { color: var(--text-secondary); font-weight: 500; }
+    .statusbar .sep { color: var(--separator); opacity: 0.5; }
+    .statusbar .ctx { color: var(--text-muted); }
+    .statusbar .ctx b { color: var(--text-secondary); font-weight: 500; }
+
+    /* Sample icon glyphs (using emoji-free unicode) */
+    .ico { display: inline-block; line-height: 1; }
+  </style>
+</head>
+<body>
+  <div class="label">k7s · <b>redesign preview</b> · refinements on the existing token system</div>
+
+  <div class="app">
+    <!-- ============== SIDEBAR ============== -->
+    <aside class="sidebar">
+      <div class="switcher">
+        <div class="switcherButton">
+          <div class="badge">PR</div>
+          <div class="switcherText">
+            <div class="clusterName">production-east</div>
+            <div class="statusLine">
+              <span class="dot connected"></span>
+              connected · v1.31.2
+            </div>
+          </div>
+          <span class="chevron">▾</span>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <div class="sectionHeader">Workloads</div>
+        <div class="navItem navItemActive">
+          <span class="navIcon">◉</span>
+          <span class="navLabel">Pods</span>
+          <span class="navCount">24</span>
+        </div>
+        <div class="navItem">
+          <span class="navIcon">▤</span>
+          <span class="navLabel">Deployments</span>
+          <span class="navCount">8</span>
+        </div>
+        <div class="navItem">
+          <span class="navIcon">≡</span>
+          <span class="navLabel">StatefulSets</span>
+          <span class="navCount">3</span>
+        </div>
+        <div class="navItem">
+          <span class="navIcon">⦿</span>
+          <span class="navLabel">DaemonSets</span>
+          <span class="navCount">2</span>
+        </div>
+        <div class="navItem">
+          <span class="navIcon">▸</span>
+          <span class="navLabel">Jobs</span>
+          <span class="navCount">1</span>
+        </div>
+        <div class="navItem">
+          <span class="navIcon">↻</span>
+          <span class="navLabel">CronJobs</span>
+          <span class="navCount">0</span>
+        </div>
+
+        <div class="sectionHeader">Network</div>
+        <div class="navItem">
+          <span class="navIcon">⇄</span>
+          <span class="navLabel">Services</span>
+          <span class="navCount">12</span>
+        </div>
+        <div class="navItem">
+          <span class="navIcon">⇥</span>
+          <span class="navLabel">Ingresses</span>
+          <span class="navCount">4</span>
+        </div>
+
+        <div class="sectionHeader">Config</div>
+        <div class="navItem">
+          <span class="navIcon">☰</span>
+          <span class="navLabel">ConfigMaps</span>
+          <span class="navCount">9</span>
+        </div>
+        <div class="navItem">
+          <span class="navIcon">⚿</span>
+          <span class="navLabel">Secrets</span>
+          <span class="navCount">5</span>
+        </div>
+
+        <div class="sectionHeader">Cluster</div>
+        <div class="navItem">
+          <span class="navIcon">▢</span>
+          <span class="navLabel">Nodes</span>
+          <span class="navCount">3</span>
+        </div>
+        <div class="navItem">
+          <span class="navIcon">◫</span>
+          <span class="navLabel">Namespaces</span>
+          <span class="navCount">6</span>
+        </div>
+      </nav>
+
+      <div class="footer">
+        <span class="footerDot"></span>
+        <span class="footerText">watch: 9 streams active</span>
+        <span class="gear">⚙</span>
+      </div>
+    </aside>
+
+    <!-- ============== MAIN ============== -->
+    <div class="main">
+      <div class="topbar">
+        <div class="breadcrumb">
+          <span>production-east</span>
+          <span class="sep">/</span>
+          <span>Workloads</span>
+          <span class="sep">/</span>
+          <span class="kind">Pods</span>
+        </div>
+        <div class="spacer"></div>
+        <span class="kbd">⌘K</span>
+        <div class="control">
+          <span class="prefix">ns:</span>
+          <span class="value">all</span>
+          <span class="chev">▾</span>
+        </div>
+        <div class="control">
+          <span class="value">EN</span>
+          <span class="chev">▾</span>
+        </div>
+      </div>
+
+      <div class="content">
+        <!-- Resource table -->
+        <div class="tableWrap">
+          <div class="toolbar">
+            <div class="search">
+              <span class="searchIcon">⌕</span>
+              <input class="searchInput" placeholder="filter pods by name, label, status…" />
+            </div>
+            <span class="pill healthy"><span class="dot"></span><span class="count">22</span> running</span>
+            <span class="pill warn"><span class="dot"></span><span class="count">1</span> pending</span>
+            <span class="pill err"><span class="dot"></span><span class="count">1</span> failed</span>
+          </div>
+          <div class="scroller">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Namespace</th>
+                  <th>Ready</th>
+                  <th>Restarts</th>
+                  <th>CPU</th>
+                  <th>Memory</th>
+                  <th>Age</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="clickable">
+                  <td class="cell-name">api-gateway-7f8b9c6d-xkz2p</td>
+                  <td class="cell-ns">default</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:32%"></i></span>32m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:48%"></i></span>184Mi</td>
+                  <td class="cell-age">3d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">auth-service-6d7f8b9c-m4qr1</td>
+                  <td class="cell-ns">default</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:18%"></i></span>18m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:24%"></i></span>96Mi</td>
+                  <td class="cell-age">3d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">postgres-0</td>
+                  <td class="cell-ns">data</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:62%"></i></span>62m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:71%"></i></span>712Mi</td>
+                  <td class="cell-age">12d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">redis-master-0</td>
+                  <td class="cell-ns">data</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">2</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:8%"></i></span>8m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:42%"></i></span>256Mi</td>
+                  <td class="cell-age">12d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable selected">
+                  <td class="cell-name">worker-cron-7b8c9d-ab12x</td>
+                  <td class="cell-ns">jobs</td>
+                  <td class="cell-metric">0/1</td>
+                  <td class="cell-err">14</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:0%"></i></span>—</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:0%"></i></span>—</td>
+                  <td class="cell-age">2m</td>
+                  <td><span class="status failed"><span class="dot"></span>CrashLoopBackOff</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">web-frontend-5d6e7f-h9k3m</td>
+                  <td class="cell-ns">default</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:22%"></i></span>22m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:36%"></i></span>142Mi</td>
+                  <td class="cell-age">6d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">ingress-nginx-controller-8d7c</td>
+                  <td class="cell-ns">ingress</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:14%"></i></span>14m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:28%"></i></span>112Mi</td>
+                  <td class="cell-age">22d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">cert-manager-webhook-7f8b</td>
+                  <td class="cell-ns">cert-manager</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:4%"></i></span>4m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:18%"></i></span>72Mi</td>
+                  <td class="cell-age">22d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">metrics-server-6d5e4-b2n1p</td>
+                  <td class="cell-ns">kube-system</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:6%"></i></span>6m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:22%"></i></span>88Mi</td>
+                  <td class="cell-age">22d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">coredns-7d8e9f-abc12</td>
+                  <td class="cell-ns">kube-system</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:5%"></i></span>5m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:14%"></i></span>56Mi</td>
+                  <td class="cell-age">22d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">image-builder-jh7g-f1d2e</td>
+                  <td class="cell-ns">jobs</td>
+                  <td class="cell-metric cell-warn">0/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:0%"></i></span>—</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:0%"></i></span>—</td>
+                  <td class="cell-age">8s</td>
+                  <td><span class="status pending"><span class="dot"></span>Pending</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">fluent-bit-9k8j7-g3h4i</td>
+                  <td class="cell-ns">logging</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:11%"></i></span>11m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:32%"></i></span>128Mi</td>
+                  <td class="cell-age">22d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">kafka-broker-0</td>
+                  <td class="cell-ns">messaging</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:38%"></i></span>38m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:55%"></i></span>540Mi</td>
+                  <td class="cell-age">9d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">grafana-7d8e9f-x4y5z</td>
+                  <td class="cell-ns">monitoring</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:9%"></i></span>9m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:24%"></i></span>96Mi</td>
+                  <td class="cell-age">15d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+                <tr class="clickable">
+                  <td class="cell-name">prometheus-0</td>
+                  <td class="cell-ns">monitoring</td>
+                  <td class="cell-metric">1/1</td>
+                  <td class="cell-metric">0</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:44%"></i></span>44m</td>
+                  <td class="cell-metric"><span class="bar-mini"><i style="width:68%"></i></span>1.2Gi</td>
+                  <td class="cell-age">15d</td>
+                  <td><span class="status running"><span class="dot"></span>Running</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Detail panel -->
+        <section class="panel">
+          <div class="panelHeader">
+            <div class="titleRow">
+              <span class="podDot"></span>
+              <div class="name">worker-cron-7b8c9d-ab12x</div>
+              <div class="iconBtn" title="Actions">⋯</div>
+              <div class="iconBtn" title="Close">×</div>
+            </div>
+            <div class="meta">
+              <span><b>ns:</b> jobs</span>
+              <span><b>node:</b> ip-10-0-1-42</span>
+              <span><b>age:</b> 2m</span>
+              <span style="color: var(--status-err);">CrashLoopBackOff</span>
+            </div>
+          </div>
+
+          <div class="tabs">
+            <div class="tab tabActive">Logs<span class="tabCount">147</span></div>
+            <div class="tab">YAML</div>
+            <div class="tab">Events<span class="tabCount">8</span></div>
+            <div class="tab">Shell</div>
+          </div>
+
+          <div class="logs">
+            <div class="logToolbar">
+              <div class="logSearch">
+                <span style="color: var(--text-faint); font-size: 11px;">⌕</span>
+                <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-faint);">filter logs…</span>
+              </div>
+              <div class="btn">main</div>
+              <div class="btn btn-active">ts</div>
+              <div class="btn btn-follow">⏸ pause</div>
+            </div>
+            <div class="logArea">
+              <div class="logLine"><span class="logTs">14:32:18.221</span><span class="logLvl info">INFO</span><span class="logMsg">Starting worker process, pid=4729</span></div>
+              <div class="logLine"><span class="logTs">14:32:18.348</span><span class="logLvl info">INFO</span><span class="logMsg">Loading job config from /etc/jobs/cron.yaml</span></div>
+              <div class="logLine"><span class="logTs">14:32:18.412</span><span class="logLvl info">INFO</span><span class="logMsg">Connecting to postgres at postgres-0.data.svc:5432</span></div>
+              <div class="logLine"><span class="logTs">14:32:18.604</span><span class="logLvl info">INFO</span><span class="logMsg">Pool initialized, size=8</span></div>
+              <div class="logLine"><span class="logTs">14:32:19.118</span><span class="logLvl info">INFO</span><span class="logMsg">Acquired job 88432: refresh materialized view</span></div>
+              <div class="logLine"><span class="logTs">14:32:19.402</span><span class="logLvl warn">WARN</span><span class="logMsg warn">retry budget low: 2/5 remaining</span></div>
+              <div class="logLine"><span class="logTs">14:32:19.880</span><span class="logLvl err">ERROR</span><span class="logMsg err">pg connection lost: connection reset by peer</span></div>
+              <div class="logLine"><span class="logTs">14:32:19.881</span><span class="logLvl err">ERROR</span><span class="logMsg err">job 88432 failed: ECONNRESET after 1.4s</span></div>
+              <div class="logLine"><span class="logTs">14:32:19.882</span><span class="logLvl info">INFO</span><span class="logMsg">exiting with code 1</span></div>
+              <div class="logLine"><span class="logTs">14:32:25.114</span><span class="logLvl info">INFO</span><span class="logMsg">Starting worker process, pid=4731</span></div>
+              <div class="logLine"><span class="logTs">14:32:25.218</span><span class="logLvl info">INFO</span><span class="logMsg">Loading job config from /etc/jobs/cron.yaml</span></div>
+              <div class="logLine"><span class="logTs">14:32:25.290</span><span class="logLvl info">INFO</span><span class="logMsg">Connecting to postgres at postgres-0.data.svc:5432</span></div>
+              <div class="logLine"><span class="logTs">14:32:25.482</span><span class="logLvl info">INFO</span><span class="logMsg">Pool initialized, size=8</span></div>
+              <div class="logLine"><span class="logTs">14:32:26.014</span><span class="logLvl info">INFO</span><span class="logMsg">Acquired job 88433: refresh materialized view</span></div>
+              <div class="logLine"><span class="logTs">14:32:26.298</span><span class="logLvl err">ERROR</span><span class="logMsg err">pg connection lost: connection reset by peer</span></div>
+              <div class="logLine"><span class="logTs">14:32:26.299</span><span class="logLvl err">ERROR</span><span class="logMsg err">job 88433 failed: ECONNRESET after 0.9s</span></div>
+              <div class="logLine"><span class="logTs">14:32:26.300</span><span class="logLvl info">INFO</span><span class="logMsg">exiting with code 1</span></div>
+            </div>
+            <div class="logFooter">
+              <span>147 lines</span>
+              <span>·</span>
+              <span>container: main</span>
+              <span style="flex:1"></span>
+              <span class="streaming">streaming</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="forwards">
+        <span class="label">port-forwards</span>
+        <span class="fwdChip"><span class="port">:8080</span><span class="arr">→</span><span class="target">api-gateway-7f8b9c6d-xkz2p:8080</span></span>
+        <span class="fwdChip"><span class="port">:5432</span><span class="arr">→</span><span class="target">postgres-0:5432</span></span>
+        <span class="fwdChip"><span class="port">:9090</span><span class="arr">→</span><span class="target">prometheus-0:9090</span></span>
+      </div>
+
+      <div class="statusbar">
+        <span class="cluster">
+          <span class="dot"></span>
+          <span class="name">production-east</span>
+        </span>
+        <span class="sep">·</span>
+        <span>api 24ms</span>
+        <span class="sep">·</span>
+        <span>nodes <b style="color: var(--text-secondary);">3/3</b> ready</span>
+        <span class="sep">·</span>
+        <span>cpu <b style="color: var(--text-secondary);">42%</b></span>
+        <span class="sep">·</span>
+        <span>mem <b style="color: var(--text-secondary);">61%</b></span>
+        <span style="flex:1"></span>
+        <span class="ctx">kubectl ctx: <b>arn:aws:eks:us-east-1:...</b></span>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

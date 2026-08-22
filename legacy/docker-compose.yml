@@ -1,0 +1,56 @@
+# docker-compose.yml for k7s-web
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f
+#   docker compose down
+
+services:
+  k7s:
+    image: ghcr.io/yi-nology/k7s:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: k7s-web
+    ports:
+      # Bind to the host's loopback by default so the unauthenticated control
+      # plane is NOT exposed to the network. To share k7s-web across the LAN,
+      # set K7S_PORT_BIND=0.0.0.0 (and put it behind an authenticating reverse
+      # proxy — k7s-web has no built-in auth, see README "Security").
+      - "${K7S_PORT_BIND:-127.0.0.1}:${K7S_PORT:-8080}:8080"
+    volumes:
+      # Mount kubeconfig for Kubernetes access
+      - ${KUBECONFIG:-~/.kube/config}:/home/k7s/.kube/config:ro
+      # Persistent data (preferences, etc.)
+      - k7s-data:/data
+    environment:
+      - KUBECONFIG=/home/k7s/.kube/config
+      - RUST_LOG=${RUST_LOG:-info}
+    # Health check using wget (available in debian:bookworm-slim)
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Resource limits (optional, adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    # Restart policy
+    restart: unless-stopped
+    # Security: run as non-root
+    user: "65532:65532"
+
+volumes:
+  k7s-data:
+    driver: local
+
+# Optional: Define a network if you need to connect to other services
+# networks:
+#   k7s-network:
+#     driver: bridge

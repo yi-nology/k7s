@@ -1,0 +1,61 @@
+# Node / frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Docker image build artifacts (large tarballs, never commit — >100MB breaks GitHub)
+dist-docker/
+
+# Rust / Tauri
+**/target/
+src-tauri/target/
+src-tauri/gen/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Superpowers planning artifacts (local only)
+docs/superpowers/
+.superpowers/
+
+# --- k7s-only additions (legacy / workspace excludes) ---
+# other workspace projects (not part of k7s)
+sshutil/
+
+# local kubeconfig + smoke-test output (never commit secrets)
+kubeconfig
+kubeconfig*.yaml
+dev-server.log
+dev-server.err.log
+.dev-server.log
+.dev-server.err.log
+snap.png
+
+# k7s dev scratch scripts
+fix_mirror*.js
+fix_mirror.sh
+fix_final.sh
+run_fix.cjs
+use_repo_mirror.sh
+verify*.js
+probe_daocloud.sh
+
+# probe crate outputs
+crates/probe/last_run.txt
+crates/probe/last_run.err.txt
+
+# tool artifacts
+.zcode/
+.playwright-mcp/
+tests/e2e/test-results/
+test-results/
