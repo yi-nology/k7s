@@ -204,37 +204,20 @@ fn nav_field(label: &str, value: impl Into<String>, nav: Option<NavTarget>) -> F
 }
 
 /// Map a built-in Kubernetes Kind (PascalCase) to the app's nav id, for the kinds
-/// we list. Returns None for kinds without a table (e.g. ReplicaSet, Endpoints),
+/// we list. Returns None for kinds without a table (e.g. Endpoints, Events, Helm),
 /// so an owner of that kind renders as plain text rather than a dead link (B33).
 pub fn builtin_nav_id(kind: &str) -> Option<&'static str> {
-    Some(match kind {
-        "Pod" => "pods",
-        "Deployment" => "deployments",
-        "ReplicaSet" => "replicasets",
-        "StatefulSet" => "statefulsets",
-        "DaemonSet" => "daemonsets",
-        "Job" => "jobs",
-        "CronJob" => "cronjobs",
-        "Service" => "services",
-        "Ingress" => "ingresses",
-        "IngressClass" => "ingressclasses",
-        "ConfigMap" => "configmaps",
-        "Secret" => "secrets",
-        "ServiceAccount" => "serviceaccounts",
-        "PersistentVolumeClaim" => "persistentvolumeclaims",
-        "PersistentVolume" => "persistentvolumes",
-        "StorageClass" => "storageclasses",
-        "Node" => "nodes",
-        "Namespace" => "namespaces",
-        "Role" => "roles",
-        "ClusterRole" => "clusterroles",
-        "RoleBinding" => "rolebindings",
-        "ClusterRoleBinding" => "clusterrolebindings",
-        "HorizontalPodAutoscaler" => "horizontalpodautoscalers",
-        "NetworkPolicy" => "networkpolicies",
-        "ResourceQuota" => "resourcequotas",
-        _ => return None,
-    })
+    use super::ResourceKind;
+    let rk = ResourceKind::from_kind_name(kind)?;
+    // Exclude kinds that have no nav table in the frontend.
+    match rk {
+        ResourceKind::Events
+        | ResourceKind::Helm
+        | ResourceKind::Mutatingwebhookconfigurations
+        | ResourceKind::Validatingwebhookconfigurations
+        | ResourceKind::Apiservices => None,
+        _ => Some(rk.id()),
+    }
 }
 
 /// Resolve a pod's controller owner into a display string and, where we can

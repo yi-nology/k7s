@@ -272,6 +272,90 @@ impl ResourceKind {
         )
     }
 
+    /// Parse a lowercase kind id (e.g. "deployments") into a `ResourceKind`.
+    ///
+    /// Returns `None` for unknown ids, custom CRD kinds (contain `/`),
+    /// and the special "endpoints" id (not watched, no enum variant).
+    pub fn from_id(id: &str) -> Option<Self> {
+        match id {
+            "pods" => Some(Self::Pods),
+            "deployments" => Some(Self::Deployments),
+            "replicasets" => Some(Self::Replicasets),
+            "statefulsets" => Some(Self::Statefulsets),
+            "daemonsets" => Some(Self::Daemonsets),
+            "jobs" => Some(Self::Jobs),
+            "cronjobs" => Some(Self::Cronjobs),
+            "services" => Some(Self::Services),
+            "ingresses" => Some(Self::Ingresses),
+            "ingressclasses" => Some(Self::Ingressclasses),
+            "configmaps" => Some(Self::Configmaps),
+            "secrets" => Some(Self::Secrets),
+            "serviceaccounts" => Some(Self::Serviceaccounts),
+            "persistentvolumeclaims" => Some(Self::Persistentvolumeclaims),
+            "persistentvolumes" => Some(Self::Persistentvolumes),
+            "storageclasses" => Some(Self::Storageclasses),
+            "networkpolicies" => Some(Self::Networkpolicies),
+            "horizontalpodautoscalers" => Some(Self::Horizontalpodautoscalers),
+            "resourcequotas" => Some(Self::Resourcequotas),
+            "limitranges" => Some(Self::Limitranges),
+            "nodes" => Some(Self::Nodes),
+            "namespaces" => Some(Self::Namespaces),
+            "events" => Some(Self::Events),
+            "helm" => Some(Self::Helm),
+            "roles" => Some(Self::Roles),
+            "clusterroles" => Some(Self::Clusterroles),
+            "rolebindings" => Some(Self::Rolebindings),
+            "clusterrolebindings" => Some(Self::Clusterrolebindings),
+            "poddisruptionbudgets" => Some(Self::Poddisruptionbudgets),
+            "mutatingwebhookconfigurations" => Some(Self::Mutatingwebhookconfigurations),
+            "validatingwebhookconfigurations" => Some(Self::Validatingwebhookconfigurations),
+            "apiservices" => Some(Self::Apiservices),
+            _ => None,
+        }
+    }
+
+    /// Parse a PascalCase kind name (e.g. "Deployment") into a `ResourceKind`.
+    ///
+    /// Returns `None` for unknown kinds, "Endpoints" (not in the enum),
+    /// and custom CRD kinds.
+    pub fn from_kind_name(name: &str) -> Option<Self> {
+        match name {
+            "Pod" => Some(Self::Pods),
+            "Deployment" => Some(Self::Deployments),
+            "ReplicaSet" => Some(Self::Replicasets),
+            "StatefulSet" => Some(Self::Statefulsets),
+            "DaemonSet" => Some(Self::Daemonsets),
+            "Job" => Some(Self::Jobs),
+            "CronJob" => Some(Self::Cronjobs),
+            "Service" => Some(Self::Services),
+            "Ingress" => Some(Self::Ingresses),
+            "IngressClass" => Some(Self::Ingressclasses),
+            "ConfigMap" => Some(Self::Configmaps),
+            "Secret" => Some(Self::Secrets),
+            "ServiceAccount" => Some(Self::Serviceaccounts),
+            "PersistentVolumeClaim" => Some(Self::Persistentvolumeclaims),
+            "PersistentVolume" => Some(Self::Persistentvolumes),
+            "StorageClass" => Some(Self::Storageclasses),
+            "NetworkPolicy" => Some(Self::Networkpolicies),
+            "HorizontalPodAutoscaler" => Some(Self::Horizontalpodautoscalers),
+            "ResourceQuota" => Some(Self::Resourcequotas),
+            "LimitRange" => Some(Self::Limitranges),
+            "Node" => Some(Self::Nodes),
+            "Namespace" => Some(Self::Namespaces),
+            "Event" => Some(Self::Events),
+            "HelmRelease" => Some(Self::Helm),
+            "Role" => Some(Self::Roles),
+            "ClusterRole" => Some(Self::Clusterroles),
+            "RoleBinding" => Some(Self::Rolebindings),
+            "ClusterRoleBinding" => Some(Self::Clusterrolebindings),
+            "PodDisruptionBudget" => Some(Self::Poddisruptionbudgets),
+            "MutatingWebhookConfiguration" => Some(Self::Mutatingwebhookconfigurations),
+            "ValidatingWebhookConfiguration" => Some(Self::Validatingwebhookconfigurations),
+            "APIService" => Some(Self::Apiservices),
+            _ => None,
+        }
+    }
+
     /// Create an ApiResource for DynamicObject-based watchers.
     pub fn api_resource(&self) -> k7s_deps::kube::core::ApiResource {
         let gvk = k7s_deps::kube::core::GroupVersionKind::gvk(self.group(), self.version(), self.kind_name());

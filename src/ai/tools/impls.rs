@@ -11,6 +11,7 @@
 use crate::core::shell_common;
 use crate::error::{AppError, AppResult};
 use crate::kube::manager::{ClientManager, ConnectionInfo};
+use crate::kube::ResourceKind;
 use k7s_deps::kube::api::{Api, DeleteParams, DynamicObject, ListParams, Patch, PatchParams, PostParams};
 use k7s_deps::kube::ResourceExt;
 use std::collections::HashMap;
@@ -99,22 +100,10 @@ pub async fn get_events_impl(
     name: &str,
 ) -> AppResult<k7s_deps::serde_json::Value> {
     let client = manager.client().await.ok_or(AppError::Disconnected)?;
-    let involved_kind = match kind.rsplit('/').next().unwrap_or(kind) {
-        "pods" => "Pod",
-        "deployments" => "Deployment",
-        "replicasets" => "ReplicaSet",
-        "statefulsets" => "StatefulSet",
-        "daemonsets" => "DaemonSet",
-        "jobs" => "Job",
-        "cronjobs" => "CronJob",
-        "services" => "Service",
-        "ingresses" => "Ingress",
-        "configmaps" => "ConfigMap",
-        "secrets" => "Secret",
-        "persistentvolumeclaims" => "PersistentVolumeClaim",
-        "nodes" => "Node",
-        "namespaces" => "Namespace",
-        other => other,
+    let kind_id = kind.rsplit('/').next().unwrap_or(kind);
+    let involved_kind = match ResourceKind::from_id(kind_id) {
+        Some(rk) => rk.kind_name(),
+        None => kind_id,
     };
     let events: Api<k7s_deps::k8s_openapi::api::core::v1::Event> = if namespace.is_empty() {
         Api::all(client)
@@ -305,19 +294,9 @@ pub async fn apply_manifest_impl(
         .as_ref()
         .map(|t| t.kind.clone())
         .ok_or_else(|| AppError::Other("manifest has no apiVersion/kind".into()))?;
-    let kind_id = match kind_str.as_str() {
-        "Pod" => "pods",
-        "Deployment" => "deployments",
-        "StatefulSet" => "statefulsets",
-        "DaemonSet" => "daemonsets",
-        "Service" => "services",
-        "ConfigMap" => "configmaps",
-        "Namespace" => "namespaces",
-        "Job" => "jobs",
-        "CronJob" => "cronjobs",
-        "Ingress" => "ingresses",
-        "PersistentVolumeClaim" => "persistentvolumeclaims",
-        other => return Err(AppError::Other(format!("unsupported kind: {other}"))),
+    let kind_id = match ResourceKind::from_kind_name(&kind_str) {
+        Some(rk) => rk.id(),
+        None => return Err(AppError::Other(format!("unsupported kind: {kind_str}"))),
     };
     shell_common::ensure_writable(kind_id)?;
     let (api, _) = shell_common::dynamic_api(client, kind_id, namespace, manager).await?;

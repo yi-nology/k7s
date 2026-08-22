@@ -139,44 +139,15 @@ pub async fn resource_for(kind: &str, mgr: &ClientManager) -> AppResult<(ApiReso
             None => Err(AppError::Other(format!("unknown custom kind: {kind}"))),
         };
     }
-    let (group, version, k, namespaced) = match kind {
-        "pods" => ("", "v1", "Pod", true),
-        "deployments" => ("apps", "v1", "Deployment", true),
-        "replicasets" => ("apps", "v1", "ReplicaSet", true),
-        "statefulsets" => ("apps", "v1", "StatefulSet", true),
-        "daemonsets" => ("apps", "v1", "DaemonSet", true),
-        "jobs" => ("batch", "v1", "Job", true),
-        "cronjobs" => ("batch", "v1", "CronJob", true),
-        "services" => ("", "v1", "Service", true),
-        "endpoints" => ("", "v1", "Endpoints", true),
-        "ingresses" => ("networking.k8s.io", "v1", "Ingress", true),
-        "ingressclasses" => ("networking.k8s.io", "v1", "IngressClass", false),
-        "networkpolicies" => ("networking.k8s.io", "v1", "NetworkPolicy", true),
-        "configmaps" => ("", "v1", "ConfigMap", true),
-        "secrets" => ("", "v1", "Secret", true),
-        "serviceaccounts" => ("", "v1", "ServiceAccount", true),
-        "persistentvolumeclaims" => ("", "v1", "PersistentVolumeClaim", true),
-        "persistentvolumes" => ("", "v1", "PersistentVolume", false),
-        "storageclasses" => ("storage.k8s.io", "v1", "StorageClass", false),
-        "nodes" => ("", "v1", "Node", false),
-        "namespaces" => ("", "v1", "Namespace", false),
-        "roles" => ("rbac.authorization.k8s.io", "v1", "Role", true),
-        "rolebindings" => ("rbac.authorization.k8s.io", "v1", "RoleBinding", true),
-        "clusterroles" => ("rbac.authorization.k8s.io", "v1", "ClusterRole", false),
-        "clusterrolebindings" => (
-            "rbac.authorization.k8s.io",
-            "v1",
-            "ClusterRoleBinding",
-            false,
-        ),
-        "horizontalpodautoscalers" => ("autoscaling", "v2", "HorizontalPodAutoscaler", true),
-        "poddisruptionbudgets" => ("policy", "v1", "PodDisruptionBudget", true),
-        "resourcequotas" => ("", "v1", "ResourceQuota", true),
-        "limitranges" => ("", "v1", "LimitRange", true),
-        other => return Err(AppError::Other(format!("unknown kind: {other}"))),
-    };
-    let gvk = GroupVersionKind::gvk(group, version, k);
-    Ok((ApiResource::from_gvk_with_plural(&gvk, kind), namespaced))
+    // Endpoints is not in ResourceKind (not watched) but is valid for dynamic API.
+    if kind == "endpoints" {
+        let gvk = GroupVersionKind::gvk("", "v1", "Endpoints");
+        return Ok((ApiResource::from_gvk_with_plural(&gvk, kind), true));
+    }
+    let rk = ResourceKind::from_id(kind)
+        .ok_or_else(|| AppError::Other(format!("unknown kind: {kind}")))?;
+    let gvk = GroupVersionKind::gvk(rk.group(), rk.version(), rk.kind_name());
+    Ok((ApiResource::from_gvk_with_plural(&gvk, kind), rk.is_namespaced()))
 }
 
 /// Build a dynamic API for `kind`, namespaced or cluster-scoped as appropriate.
@@ -231,37 +202,11 @@ pub fn ensure_writable(kind: &str) -> AppResult<()> {
 /// Map a built-in kind id (e.g. "deployments") to its PascalCase kind name
 /// (e.g. "Deployment"). Returns `None` for unknown or custom (CRD) kinds.
 fn expected_kind_name(kind: &str) -> Option<&'static str> {
-    match kind {
-        "pods" => Some("Pod"),
-        "deployments" => Some("Deployment"),
-        "replicasets" => Some("ReplicaSet"),
-        "statefulsets" => Some("StatefulSet"),
-        "daemonsets" => Some("DaemonSet"),
-        "jobs" => Some("Job"),
-        "cronjobs" => Some("CronJob"),
-        "services" => Some("Service"),
-        "endpoints" => Some("Endpoints"),
-        "ingresses" => Some("Ingress"),
-        "ingressclasses" => Some("IngressClass"),
-        "networkpolicies" => Some("NetworkPolicy"),
-        "configmaps" => Some("ConfigMap"),
-        "secrets" => Some("Secret"),
-        "serviceaccounts" => Some("ServiceAccount"),
-        "persistentvolumeclaims" => Some("PersistentVolumeClaim"),
-        "persistentvolumes" => Some("PersistentVolume"),
-        "storageclasses" => Some("StorageClass"),
-        "nodes" => Some("Node"),
-        "namespaces" => Some("Namespace"),
-        "roles" => Some("Role"),
-        "rolebindings" => Some("RoleBinding"),
-        "clusterroles" => Some("ClusterRole"),
-        "clusterrolebindings" => Some("ClusterRoleBinding"),
-        "horizontalpodautoscalers" => Some("HorizontalPodAutoscaler"),
-        "poddisruptionbudgets" => Some("PodDisruptionBudget"),
-        "resourcequotas" => Some("ResourceQuota"),
-        "limitranges" => Some("LimitRange"),
-        _ => None,
+    // Endpoints is not in ResourceKind but is valid for YAML validation.
+    if kind == "endpoints" {
+        return Some("Endpoints");
     }
+    ResourceKind::from_id(kind).map(|rk| rk.kind_name())
 }
 
 /// Validate a parsed `DynamicObject` before applying it to the cluster.
