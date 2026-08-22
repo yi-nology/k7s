@@ -9,12 +9,13 @@
  * Clicking a finding's resource reference navigates to that RBAC resource.
  */
 import { useCallback, useMemo, useState } from 'react';
-import { formatError, getProvider } from '../../providers';
+import { getProvider } from '../../providers';
 import { cx } from '../../lib/cx';
 import type { AuditFinding, AuditReport } from '../../providers/types/security';
 import { useStore } from '../../store';
 import type { KindId } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import styles from './SecurityPanel.module.css';
 
 /** Map the audit's resourceKind string to the store's KindId. */
@@ -48,24 +49,21 @@ export function SecurityPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
   const jumpTo = useStore((s) => s.jumpTo);
 
-  const [report, setReport] = useState<AuditReport | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [severityFilter, setSeverityFilter] = useState<Severity | 'All'>('All');
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const handleRunAudit = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await getProvider().securityAudit();
-      setReport(result);
-    } catch (e: unknown) {
-      setError(formatError(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // The audit only runs on demand — the token gates the query until the user
+  // clicks "Run Audit" (and re-fetches on every subsequent click).
+  const [auditToken, setAuditToken] = useState(0);
+  const auditQuery = useProviderQuery<AuditReport>({
+    query: () => (auditToken > 0 ? getProvider().securityAudit() : null),
+    deps: [auditToken],
+    ttlMs: 0, // an audit must never come back from a stale cache
+  });
+  const report = auditQuery.data ?? null;
+  const loading = auditQuery.loading;
+  const error = auditQuery.error ?? null;
+  const handleRunAudit = useCallback(() => setAuditToken((t) => t + 1), []);
 
   const counts = useMemo(() => {
     if (!report) return { Critical: 0, High: 0, Medium: 0, Low: 0 };

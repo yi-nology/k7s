@@ -5,9 +5,10 @@
  * image name display, status display, row click selection.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HistoryTab } from './HistoryTab';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
+import { clearProviderQueryCache } from '../../hooks/useProviderQuery';
 import type { SbomSummary, SbomResult } from '../../providers/types/sbom';
 
 // Mock useTranslation so we don't depend on the store.
@@ -78,6 +79,13 @@ function makeSbomResult(overrides: Partial<SbomResult> = {}): SbomResult {
 }
 
 let view: RenderResult;
+
+beforeEach(() => {
+  // HistoryTab caches its list under a fixed key; without clearing it, a
+  // later mount would reuse the previous test's cached data instead of the
+  // fresh mock below.
+  clearProviderQueryCache();
+});
 
 afterEach(() => {
   cleanup();

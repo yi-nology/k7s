@@ -11,9 +11,9 @@
  * settled, the overlay can fold back into a tab — the panel itself is
  * stateless about its container.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
-import { useAsyncEffect } from '../../hooks/useAsyncEffect';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { PodFileEntry, ResourceRef } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { sanitizePath, safePathJoin } from '../../lib/security';
@@ -57,11 +57,9 @@ export function PodFilesPanel({
 }) {
   const { t } = useTranslation();
   const [path, setPath] = useState(initialPath);
-  const [entries, setEntries] = useState<PodFileEntry[]>([]);
   const [selected, setSelected] = useState<PodFileEntry | null>(null);
   const [content, setContent] = useState<string>('');
   const [originalContent, setOriginalContent] = useState<string>('');
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<PodFileEntry | null>(null);
   const dirty = content !== originalContent && selected?.kind !== 'dir';
@@ -69,40 +67,35 @@ export function PodFilesPanel({
   const isLarge = content.length > 1_000_000; // >1MB
 
   // Reload listing whenever the path changes.
-  useAsyncEffect(async (isMounted) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const rows = await getProvider().podFilesList(ref, container, path);
-      if (isMounted()) setEntries(rows);
-    } catch (e: unknown) {
-      if (isMounted()) setError(formatError(e));
-    } finally {
-      if (isMounted()) setLoading(false);
-    }
-  }, [ref, container, path]);
+  const listQuery = useProviderQuery<PodFileEntry[]>({
+    query: () => getProvider().podFilesList(ref, container, path),
+    deps: [ref, container, path],
+    key: `podfiles:list:${ref.kind}:${ref.namespace}:${ref.name}:${container}:${path}`,
+  });
+  const entries = listQuery.data ?? [];
 
   // When a file is selected, load its contents.
-  useAsyncEffect(
-    async (isMounted) => {
-      if (!selected || selected.kind === 'dir') return;
-      setLoading(true);
-      setError(null);
-      const fullPath = joinPath(path, selected.name);
-      try {
-        const text = await getProvider().podFilesRead(ref, container, fullPath);
-        if (isMounted()) {
-          setContent(text);
-          setOriginalContent(text);
-        }
-      } catch (e: unknown) {
-        if (isMounted()) setError(formatError(e));
-      } finally {
-        if (isMounted()) setLoading(false);
-      }
-    },
-    [selected, ref, container, path],
-  );
+  const fileQuery = useProviderQuery<string>({
+    query: () =>
+      selected && selected.kind !== 'dir'
+        ? getProvider().podFilesRead(ref, container, joinPath(path, selected.name))
+        : null,
+    deps: [selected, ref, container, path],
+    key: `podfiles:read:${ref.kind}:${ref.namespace}:${ref.name}:${container}:${path}:${selected?.name ?? 'none'}`,
+  });
+
+  // Mirror the fetched file into the editable buffer (only on success — a
+  // failed read keeps the previous buffer, as before).
+  useEffect(() => {
+    if (fileQuery.data !== undefined) {
+      setContent(fileQuery.data);
+      setOriginalContent(fileQuery.data);
+    }
+  }, [fileQuery.data]);
+
+  const loading = listQuery.loading || fileQuery.loading;
+  const fetchError = listQuery.error ?? fileQuery.error ?? null;
+  const displayError = error ?? fetchError;
 
   const navigateInto = useCallback((name: string) => setPath((p) => joinPath(p, name)), []);
   const navigateUp = useCallback(() => setPath((p) => parentPath(p)), []);
@@ -183,7 +176,7 @@ export function PodFilesPanel({
         </div>
       </header>
 
-      {error && <div className={styles.error}>{error}</div>}
+      {displayError && <div className={styles.error}>{displayError}</div>}
 
       <div className={styles.body}>
         <div className={styles.list}>

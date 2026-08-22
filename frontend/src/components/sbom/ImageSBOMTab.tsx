@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import { Search, Loader2 } from 'lucide-react';
-import { formatError, getProvider } from '../../providers';
+import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { SbomResult, SbomFormat } from '../../providers/types/sbom';
 import type { ScannerStatus } from '../../providers/types/scanner';
 import { ComponentTable } from './ComponentTable';
@@ -15,36 +16,37 @@ export function ImageSBOMTab({ onResult }: Props) {
   const { t } = useTranslation();
   const [imageRef, setImageRef] = useState('');
   const [format, setFormat] = useState<SbomFormat>('cyclonedx');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [sbom, setSbom] = useState<SbomResult | null>(null);
-  const [scannerInfo, setScannerInfo] = useState<ScannerStatus | null>(null);
 
-  const fetchScanner = useCallback(async () => {
-    try {
-      setScannerInfo(await getProvider().scannerStatus());
-    } catch {
-      // Non-critical; just don't show the indicator.
-    }
-  }, []);
+  // Non-critical scanner indicator; failures are silently ignored.
+  const scannerQuery = useProviderQuery<ScannerStatus>({
+    query: () => getProvider().scannerStatus(),
+    deps: [],
+    key: 'scanner:status',
+  });
+  const scannerInfo = scannerQuery.data ?? null;
 
+  // Generation runs on demand — the token gates the query until the user
+  // clicks Generate (and re-runs on every subsequent click).
+  const [genToken, setGenToken] = useState(0);
+  const genQuery = useProviderQuery<SbomResult>({
+    query: () =>
+      genToken > 0 && imageRef.trim() ? getProvider().sbomGenerateImage(imageRef, format) : null,
+    deps: [genToken],
+    ttlMs: 0, // generation results are never served from cache
+  });
+  const sbom = genQuery.data ?? null;
+  const loading = genQuery.loading;
+  const error = genQuery.error ?? '';
+
+  // Hand each fresh result to the panel (the history/export buttons use it).
   useEffect(() => {
-    void fetchScanner();
-  }, [fetchScanner]);
+    if (genQuery.data !== undefined) onResult(genQuery.data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [genQuery.data]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
     if (!imageRef.trim()) return;
-    setLoading(true);
-    setError('');
-    try {
-      const result = await getProvider().sbomGenerateImage(imageRef, format);
-      setSbom(result);
-      onResult(result);
-    } catch (e: unknown) {
-      setError(formatError(e));
-    } finally {
-      setLoading(false);
-    }
+    setGenToken((tok) => tok + 1);
   };
 
   return (

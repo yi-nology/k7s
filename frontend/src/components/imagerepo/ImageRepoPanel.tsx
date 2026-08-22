@@ -20,20 +20,19 @@ import type {
   ImageTag,
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './ImageRepoPanel.module.css';
 
 export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [regs, setRegs] = useState<ImageRegistry[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<string | null>(null);
-  const [repos, setRepos] = useState<ImageRepo[]>([]);
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   const [tags, setTags] = useState<ImageTag[]>([]);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [manifest, setManifest] = useState<ImageManifest | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
   // Form state for adding/editing a registry.
@@ -46,64 +45,61 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
     description: '',
   });
 
-  const reload = (): Promise<ImageRegistry[]> =>
-    getProvider()
-      .imageRegistryList()
-      .then((next) => {
-        setRegs(next);
-        return next;
-      })
-      .catch((e: unknown) => {
-        setError(formatError(e));
-        return [];
-      });
+  const regsQuery = useProviderQuery<ImageRegistry[]>({
+    query: () => getProvider().imageRegistryList(),
+    deps: [],
+    key: 'imagerepo:registries',
+  });
+  const regs = regsQuery.data ?? [];
+  const reload = regsQuery.reload;
 
+  // Auto-select the first registry so the right pane is populated
+  // immediately — most clusters will have one, and the empty "Pick a
+  // registry on the left" state is a dead end otherwise.
   useEffect(() => {
-    reload().then((next) => {
-      // Auto-select the first registry so the right pane is populated
-      // immediately — most clusters will have one, and the empty "Pick a
-      // registry on the left" state is a dead end otherwise.
-      if (next.length > 0 && selected == null) {
-        setSelected(next[0].name);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!selected) {
-      setRepos([]);
-      setTags([]);
-      return;
+    if (regs.length > 0 && selected == null) {
+      setSelected(regs[0].name);
     }
-    getProvider()
-      .imageRegistryRepos(selected)
-      .then(setRepos)
-      .catch((e: unknown) => setError(formatError(e)));
+  }, [regs, selected]);
+
+  const reposQuery = useProviderQuery<ImageRepo[]>({
+    query: () => (selected ? getProvider().imageRegistryRepos(selected) : null),
+    deps: [selected],
+    key: `imagerepo:repos:${selected ?? 'none'}`,
+  });
+  const repos = reposQuery.data ?? [];
+
+  // Tags belong to the selected registry; drop them when it changes. Adjusting
+  // during render (the React-sanctioned pattern) instead of in an effect.
+  const [prevSelected, setPrevSelected] = useState(selected);
+  if (prevSelected !== selected) {
+    setPrevSelected(selected);
     setTags([]);
-  }, [selected]);
+  }
+
+  const error = actionError ?? regsQuery.error ?? reposQuery.error ?? null;
 
   const loadTags = (repo: string) => {
     if (!selected) return;
-    setError(null);
+    setActionError(null);
     setSelectedRepo(repo);
     setSelectedTag(null);
     setManifest(null);
     getProvider()
       .imageRegistryTags(selected, repo)
       .then(setTags)
-      .catch((e: unknown) => setError(formatError(e)));
+      .catch((e: unknown) => setActionError(formatError(e)));
   };
 
   const loadManifest = (tag: string) => {
     if (!selected || !selectedRepo) return;
-    setError(null);
+    setActionError(null);
     setSelectedTag(tag);
     setManifest(null);
     getProvider()
       .imageRegistryManifest(selected, selectedRepo, tag)
       .then(setManifest)
-      .catch((e: unknown) => setError(formatError(e)));
+      .catch((e: unknown) => setActionError(formatError(e)));
   };
 
   return (
@@ -160,7 +156,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                     await getProvider().imageRegistryTest(selected);
                     reload();
                   } catch (e) {
-                    setError(formatError(e));
+                    setActionError(formatError(e));
                     reload();
                   }
                 }}
@@ -204,7 +200,7 @@ export function ImageRepoPanel({ onClose }: { onClose?: () => void }) {
                   setAdding(false);
                   reload();
                 } catch (err) {
-                  setError(formatError(err));
+                  setActionError(formatError(err));
                 }
               }}
             >

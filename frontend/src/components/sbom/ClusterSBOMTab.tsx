@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { formatError, getProvider } from '../../providers';
+import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { SbomResult, SbomFormat } from '../../providers/types/sbom';
 import { ComponentTable } from './ComponentTable';
 import { VulnTable } from './VulnTable';
@@ -13,23 +14,26 @@ interface Props {
 export function ClusterSBOMTab({ onResult }: Props) {
   const { t } = useTranslation();
   const [format, setFormat] = useState<SbomFormat>('cyclonedx');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [sbom, setSbom] = useState<SbomResult | null>(null);
 
-  const handleGenerate = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const result = await getProvider().sbomGenerateCluster(format);
-      setSbom(result);
-      onResult(result);
-    } catch (e: unknown) {
-      setError(formatError(e));
-    } finally {
-      setLoading(false);
-    }
-  };
+  // The scan runs on demand — the token gates the query until the user
+  // clicks "Scan Cluster" (and re-runs on every subsequent click).
+  const [scanToken, setScanToken] = useState(0);
+  const scanQuery = useProviderQuery<SbomResult>({
+    query: () => (scanToken > 0 ? getProvider().sbomGenerateCluster(format) : null),
+    deps: [scanToken],
+    ttlMs: 0, // scan results are never served from cache
+  });
+  const sbom = scanQuery.data ?? null;
+  const loading = scanQuery.loading;
+  const error = scanQuery.error ?? '';
+
+  // Hand each fresh result to the panel (the history/export buttons use it).
+  useEffect(() => {
+    if (scanQuery.data !== undefined) onResult(scanQuery.data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scanQuery.data]);
+
+  const handleGenerate = () => setScanToken((tok) => tok + 1);
 
   return (
     <div>

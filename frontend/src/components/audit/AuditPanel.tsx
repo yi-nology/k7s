@@ -4,19 +4,19 @@
  * Lists Loki instances (CRUD), queries kube-apiserver audit events,
  * and renders them in a filterable table.
  */
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import type { AuditEvent, AuditQuery, LokiConfig } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import { formatTimestamp, formatJson, verbStyle, statusStyle } from './auditUtils';
 
 export function AuditPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [instances, setInstances] = useState<LokiConfig[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [events, setEvents] = useState<AuditEvent[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Errors from the add/remove instance handlers (the fetches below carry
+  // their own error state through the query hook).
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Filters
   const [namespace, setNamespace] = useState('');
@@ -34,46 +34,41 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
   // Expanded row
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    getProvider()
-      .lokiList()
-      .then((rows) => {
-        setInstances(rows);
-        if (rows.length > 0 && !selected) setSelected(rows[0].name);
-      })
-      .catch((e: unknown) => setError(formatError(e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const instancesQuery = useProviderQuery<LokiConfig[]>({
+    query: () => getProvider().lokiList(),
+    deps: [],
+    key: 'audit:instances',
+  });
+  const instances = instancesQuery.data ?? [];
 
-  const fetchEvents = useCallback(() => {
-    if (!selected) return;
-    setLoading(true);
-    setError(null);
-    const query: AuditQuery = {
-      instance: selected,
-      namespace,
-      resource,
-      user,
-      sinceSeconds,
-      limit: 200,
-    };
-    getProvider()
-      .auditEvents(query)
-      .then((evts) => {
-        setEvents(evts);
-        setLoading(false);
-      })
-      .catch((e: unknown) => {
-        setError(formatError(e));
-        setLoading(false);
-      });
-  }, [selected, namespace, resource, user, sinceSeconds]);
-
+  // Auto-select the first instance once the list arrives.
   useEffect(() => {
-    fetchEvents();
-  }, [fetchEvents]);
+    if (instances.length > 0 && !selected) setSelected(instances[0].name);
+  }, [instances, selected]);
+
+  const eventsQuery = useProviderQuery<AuditEvent[]>({
+    query: () => {
+      if (!selected) return null;
+      const query: AuditQuery = {
+        instance: selected,
+        namespace,
+        resource,
+        user,
+        sinceSeconds,
+        limit: 200,
+      };
+      return getProvider().auditEvents(query);
+    },
+    deps: [selected, namespace, resource, user, sinceSeconds],
+    key: `audit:events:${selected ?? 'none'}:${namespace}:${resource}:${user}:${sinceSeconds}`,
+  });
+  const events = eventsQuery.data ?? [];
+  const error = actionError ?? instancesQuery.error ?? eventsQuery.error ?? null;
+  const loading = eventsQuery.loading;
+  const fetchEvents = () => eventsQuery.reload();
 
   const handleAddInstance = async () => {
+    setActionError(null);
     try {
       await getProvider().lokiUpsert({
         name: addName,
@@ -82,27 +77,26 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
         password: addPass,
         description: '',
       });
-      const rows = await getProvider().lokiList();
-      setInstances(rows);
       setSelected(addName);
       setShowAdd(false);
       setAddName('');
       setAddUrl('');
       setAddUser('');
       setAddPass('');
+      instancesQuery.reload();
     } catch (e: unknown) {
-      setError(formatError(e));
+      setActionError(formatError(e));
     }
   };
 
   const handleRemoveInstance = async (name: string) => {
+    setActionError(null);
     try {
       await getProvider().lokiRemove(name);
-      const rows = await getProvider().lokiList();
-      setInstances(rows);
-      if (selected === name) setSelected(rows[0]?.name ?? null);
+      if (selected === name) setSelected(null);
+      instancesQuery.reload();
     } catch (e: unknown) {
-      setError(formatError(e));
+      setActionError(formatError(e));
     }
   };
 

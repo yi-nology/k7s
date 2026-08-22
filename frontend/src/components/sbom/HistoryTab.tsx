@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { formatError, getProvider } from '../../providers';
+import { useState } from 'react';
+import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { SbomSummary, SbomResult } from '../../providers/types/sbom';
 
 interface Props {
@@ -9,29 +10,29 @@ interface Props {
 
 export function HistoryTab({ onSelect }: Props) {
   const { t } = useTranslation();
-  const [history, setHistory] = useState<SbomSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
 
-  useEffect(() => {
-    getProvider()
-      .sbomListHistory()
-      .then(setHistory)
-      .catch((e) => setError(formatError(e)))
-      .finally(() => setLoading(false));
-  }, []);
+  const historyQuery = useProviderQuery<SbomSummary[]>({
+    query: () => getProvider().sbomListHistory(),
+    deps: [],
+    key: 'sbom:history',
+  });
+  const history = historyQuery.data ?? [];
+  const error = actionError || (historyQuery.error ?? '');
 
   const handleSelect = async (id: string) => {
     try {
-      setError('');
+      setActionError('');
       const sbom = await getProvider().sbomGet(id);
       onSelect(sbom);
     } catch (e) {
-      setError(t('sbom.historyLoadFailed', String(e)));
+      setActionError(t('sbom.historyLoadFailed', String(e)));
     }
   };
 
-  if (loading) return <div>{t('sbom.history.loading', 'Loading...')}</div>;
+  if (historyQuery.loading) {
+    return <div>{t('sbom.history.loading', 'Loading...')}</div>;
+  }
 
   return (
     <div>

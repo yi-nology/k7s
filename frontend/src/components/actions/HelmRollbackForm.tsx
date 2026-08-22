@@ -7,10 +7,10 @@
  *     confirm dialog, then calls `undoRollout` (previous revision).
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import styles from './ActionList.module.css';
 import { formatError, getProvider } from '../../providers';
-import { useAsyncEffect } from '../../hooks/useAsyncEffect';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import { useTranslation } from '../../hooks/useI18n';
 import type { KindId, ResourceRef, Row, HelmRevisionEntry } from '../../providers/types';
 import { isRolloutKind } from '../../lib/actions';
@@ -136,32 +136,31 @@ function HelmRevisionPicker({
   tr: (k: string, ...a: unknown[]) => string;
 }) {
   const [busy, setBusy] = useState(false);
-  const [revisions, setRevisions] = useState<HelmRevisionEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
 
   const release = row.name;
   const namespace = row.namespace ?? '';
 
   // Fetch revision history on mount.
-  useAsyncEffect(async (isMounted) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const revs = await getProvider().helmReleaseHistory(release, namespace);
-      if (!isMounted()) return;
-      setRevisions(revs);
-      // Default to the second-to-last revision (the one before current).
-      if (revs.length >= 2) setSelected(revs[revs.length - 2].revision);
-      else if (revs.length === 1) setSelected(revs[0].revision);
-      setLoading(false);
-    } catch (e) {
-      if (!isMounted()) return;
-      setError(formatError(e));
-      setLoading(false);
-    }
-  }, [release, namespace]);
+  const historyQuery = useProviderQuery<HelmRevisionEntry[]>({
+    query: () => getProvider().helmReleaseHistory(release, namespace),
+    deps: [release, namespace],
+    key: `helm-rollback:revisions:${namespace}/${release}`,
+  });
+  const revisions = historyQuery.data ?? [];
+  // Until the first load settles either way, treat it as loading (matches
+  // the pre-hook initial loading state).
+  const loading =
+    historyQuery.loading || (historyQuery.data === undefined && !historyQuery.error);
+  const error = historyQuery.error ?? null;
+
+  // Default to the second-to-last revision (the one before current).
+  useEffect(() => {
+    const revs = historyQuery.data;
+    if (!revs) return;
+    if (revs.length >= 2) setSelected(revs[revs.length - 2].revision);
+    else if (revs.length === 1) setSelected(revs[0].revision);
+  }, [historyQuery.data]);
 
   const handleRollback = useCallback(async () => {
     if (selected === null) return;

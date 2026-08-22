@@ -20,6 +20,7 @@ import type {
   GrafanaDashboardSearchResult,
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './GrafanaPanel.module.css';
 
@@ -34,19 +35,57 @@ function getRangeOptions(t: (key: string) => string) {
 
 export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [instances, setInstances] = useState<GrafanaConfig[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<string | null>(null);
-  const [presets, setPresets] = useState<DashboardPreset[]>([]);
   const [activePreset, setActivePreset] = useState<string | null>(null);
-  const [iframeUrl, setIframeUrl] = useState<string | null>(null);
   const [rangeMinutes, setRangeMinutes] = useState(60);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   // Dashboard search
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GrafanaDashboardSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+
+  const instancesQuery = useProviderQuery<GrafanaConfig[]>({
+    query: () => getProvider().grafanaList(),
+    deps: [],
+    key: 'grafana:instances',
+  });
+  const instances = instancesQuery.data ?? [];
+  const reload = instancesQuery.reload;
+
+  // Auto-select the first instance once the list arrives.
+  useEffect(() => {
+    if (instances.length > 0 && !selected) setSelected(instances[0].name);
+  }, [instances, selected]);
+
+  // Preset dashboards are static; failures stay silent (as before).
+  const presetsQuery = useProviderQuery<DashboardPreset[]>({
+    query: () => getProvider().grafanaPresets(),
+    deps: [],
+    key: 'grafana:presets',
+  });
+  const presets = presetsQuery.data ?? [];
+
+  useEffect(() => {
+    if (presets.length > 0 && !activePreset) setActivePreset(presets[0].uid);
+  }, [presets, activePreset]);
+
+  const dashboardUrlQuery = useProviderQuery<string>({
+    query: () => {
+      if (!selected || !activePreset) return null;
+      const endMs = Date.now();
+      const startMs = endMs - rangeMinutes * 60 * 1000;
+      return getProvider().grafanaDashboardUrl(selected, activePreset, startMs, endMs);
+    },
+    deps: [selected, activePreset, rangeMinutes],
+    key: `grafana:url:${selected ?? 'none'}:${activePreset ?? 'none'}:${rangeMinutes}`,
+  });
+  const iframeUrl =
+    selected && activePreset ? dashboardUrlQuery.data ?? null : null;
+
+  const error =
+    actionError ?? instancesQuery.error ?? dashboardUrlQuery.error ?? null;
 
   const handleSearch = useCallback(
     (q: string) => {
@@ -63,7 +102,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
           setSearching(false);
         })
         .catch((e: unknown) => {
-          setError(formatError(e));
+          setActionError(formatError(e));
           setSearching(false);
         });
     },
@@ -78,44 +117,6 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
     defaultDatasource: 'Prometheus',
     description: '',
   });
-
-  const reload = () =>
-    getProvider()
-      .grafanaList()
-      .then((rows) => {
-        setInstances(rows);
-        if (!selected && rows.length > 0) {
-          setSelected(rows[0].name);
-        }
-      })
-      .catch((e: unknown) => setError(formatError(e)));
-
-  useEffect(() => {
-    reload();
-    getProvider()
-      .grafanaPresets()
-      .then((p) => {
-        setPresets(p);
-        if (p.length > 0 && !activePreset) {
-          setActivePreset(p[0].uid);
-        }
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!selected || !activePreset) {
-      setIframeUrl(null);
-      return;
-    }
-    const endMs = Date.now();
-    const startMs = endMs - rangeMinutes * 60 * 1000;
-    getProvider()
-      .grafanaDashboardUrl(selected, activePreset, startMs, endMs)
-      .then(setIframeUrl)
-      .catch((e: unknown) => setError(formatError(e)));
-  }, [selected, activePreset, rangeMinutes]);
 
   return (
     <>
@@ -170,7 +171,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                     await getProvider().grafanaTest(selected);
                     reload();
                   } catch (e) {
-                    setError(formatError(e));
+                    setActionError(formatError(e));
                     reload();
                   }
                 }}
@@ -215,7 +216,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
                   setAdding(false);
                   reload();
                 } catch (err) {
-                  setError(formatError(err));
+                  setActionError(formatError(err));
                 }
               }}
             >

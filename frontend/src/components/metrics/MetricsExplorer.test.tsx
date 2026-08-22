@@ -85,7 +85,9 @@ describe('MetricsExplorer', () => {
 
   it('renders run button', () => {
     view = render(<MetricsExplorer />);
-    expect(view.queryByText('Run')).not.toBeNull();
+    // Matches both states — with warm instances the auto-run starts inside
+    // the first act() and the label reads "Running…".
+    expect(view.queryByText(/^Run(ning…)?$/)).not.toBeNull();
   });
 
   it('renders save button', () => {

@@ -11,39 +11,34 @@
  * thing to look at. Surfacing it as its own kind makes the link from
  * "Service is broken" → "here's why" one click instead of three.
  */
-import { useEffect, useState } from 'react';
-import { formatError, getProvider } from '../../providers';
+import { useState } from 'react';
+import { getProvider } from '../../providers';
 import type { EndpointAddress, EndpointRow } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import styles from './EndpointsPanel.module.css';
 
 export function EndpointsPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [rows, setRows] = useState<EndpointRow[]>([]);
   const [selected, setSelected] = useState<EndpointRow | null>(null);
-  const [addresses, setAddresses] = useState<EndpointAddress[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setLoading(true);
-    getProvider()
-      .listEndpoints()
-      .then((r) => setRows(r))
-      .catch((e: unknown) => setError(formatError(e)))
-      .finally(() => setLoading(false));
-  }, []);
+  const rowsQuery = useProviderQuery<EndpointRow[]>({
+    query: () => getProvider().listEndpoints(),
+    deps: [],
+    key: 'endpoints:slices',
+  });
+  const rows = rowsQuery.data ?? [];
+  const loading = rowsQuery.loading;
 
-  useEffect(() => {
-    if (!selected) {
-      setAddresses([]);
-      return;
-    }
-    getProvider()
-      .listEndpointAddresses(selected.namespace, selected.name)
-      .then(setAddresses)
-      .catch((e: unknown) => setError(formatError(e)));
-  }, [selected]);
+  const addressesQuery = useProviderQuery<EndpointAddress[]>({
+    query: () =>
+      selected ? getProvider().listEndpointAddresses(selected.namespace, selected.name) : null,
+    deps: [selected],
+    key: `endpoints:addresses:${selected ? `${selected.namespace}/${selected.name}` : 'none'}`,
+  });
+  const addresses = addressesQuery.data ?? [];
+
+  const error = rowsQuery.error ?? addressesQuery.error ?? null;
 
   return (
     <div className={styles.panel}>

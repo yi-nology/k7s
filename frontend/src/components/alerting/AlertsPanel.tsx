@@ -15,6 +15,7 @@ import type {
   Silence,
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import styles from './AlertsPanel.module.css';
 import { AlertList } from './AlertList';
 import { SilenceList } from './SilenceList';
@@ -23,72 +24,71 @@ import { RuleList } from './RuleList';
 
 export function AlertsPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [instances, setInstances] = useState<AlertManager[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [silences, setSilences] = useState<Silence[]>([]);
-  const [ruleGroups, setRuleGroups] = useState<RuleGroup[]>([]);
   const [tab, setTab] = useState<'alerts' | 'silences' | 'rules'>('alerts');
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
+  const instancesQuery = useProviderQuery<AlertManager[]>({
+    query: () => getProvider().alertManagerList(),
+    deps: [],
+    key: 'alerts:instances',
+  });
+  const instances = instancesQuery.data ?? [];
+
+  // Auto-select the first instance once the list arrives.
   useEffect(() => {
-    getProvider()
-      .alertManagerList()
-      .then((rows) => {
-        setInstances(rows);
-        if (rows.length > 0 && !selected) {
-          setSelected(rows[0].name);
-        }
-      })
-      .catch((e: unknown) => setError(formatError(e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (instances.length > 0 && !selected) setSelected(instances[0].name);
+  }, [instances, selected]);
+
+  // Alerts / silences are each fetched when their tab is active; the other's
+  // data is retained so the tab counts stay visible while switching.
+  const alertsQuery = useProviderQuery<Alert[]>({
+    query: () => (selected && tab === 'alerts' ? getProvider().alertManagerAlerts(selected) : null),
+    deps: [selected, tab],
+    key: `alerts:list:${selected ?? 'none'}`,
+  });
+  const alerts = alertsQuery.data ?? [];
+
+  const silencesQuery = useProviderQuery<Silence[]>({
+    query: () =>
+      selected && tab === 'silences' ? getProvider().alertManagerSilences(selected) : null,
+    deps: [selected, tab],
+    key: `alerts:silences:${selected ?? 'none'}`,
+  });
+  const silences = silencesQuery.data ?? [];
+
+  // Rules come from Prometheus, fetched when the rules tab opens. Use the
+  // first instance by convention (the instance name matches the
+  // AlertManager name; if not, we just try the first one).
+  const rulesQuery = useProviderQuery<RuleGroup[]>({
+    query: () => {
+      if (tab !== 'rules' || instances.length === 0) return null;
+      const promInstance = selected ?? instances[0]?.name;
+      return promInstance ? getProvider().prometheusRules(promInstance) : null;
+    },
+    deps: [tab, selected, instances],
+    key: `alerts:rules:${selected ?? 'none'}`,
+  });
+  const ruleGroups = rulesQuery.data ?? [];
+
+  const error = actionError ?? instancesQuery.error ?? alertsQuery.error ?? silencesQuery.error ??
+    rulesQuery.error ?? null;
 
   const refresh = useCallback(() => {
-    if (!selected) return;
-    setError(null);
-    if (tab === 'alerts') {
-      getProvider()
-        .alertManagerAlerts(selected)
-        .then(setAlerts)
-        .catch((e: unknown) => setError(formatError(e)));
-    } else if (tab === 'silences') {
-      getProvider()
-        .alertManagerSilences(selected)
-        .then(setSilences)
-        .catch((e: unknown) => setError(formatError(e)));
-    }
-  }, [selected, tab]);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-
-  // Fetch rules from Prometheus when switching to rules tab.
-  useEffect(() => {
-    if (tab !== 'rules') return;
-    if (instances.length === 0) return;
-    // Use the first Prometheus instance (by convention the instance name
-    // matches the AlertManager name; if not, we just try the first one).
-    const promInstance = selected ?? instances[0]?.name;
-    if (!promInstance) return;
-    setError(null);
-    getProvider()
-      .prometheusRules(promInstance)
-      .then(setRuleGroups)
-      .catch((e: unknown) => setError(formatError(e)));
-  }, [tab, selected, instances]);
+    if (tab === 'alerts') alertsQuery.reload();
+    else if (tab === 'silences') silencesQuery.reload();
+  }, [tab, alertsQuery.reload, silencesQuery.reload]);
 
   const handleExpireSilence = useCallback(
     async (silenceId: string) => {
       if (!selected) return;
-      setError(null);
+      setActionError(null);
       try {
         await getProvider().alertManagerDeleteSilence(selected, silenceId);
         refresh();
       } catch (e: unknown) {
-        setError(formatError(e));
+        setActionError(formatError(e));
       }
     },
     [selected, refresh]
@@ -97,14 +97,14 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
   const handleCreateSilence = useCallback(
     async (request: CreateSilenceRequest) => {
       if (!selected) return;
-      setError(null);
+      setActionError(null);
       try {
         await getProvider().alertManagerCreateSilence(selected, request);
         setShowCreateForm(false);
         setTab('silences');
         refresh();
       } catch (e: unknown) {
-        setError(formatError(e));
+        setActionError(formatError(e));
       }
     },
     [selected, refresh]

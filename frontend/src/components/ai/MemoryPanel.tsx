@@ -1,9 +1,10 @@
 /**
  * MemoryPanel — shows the four-tier cluster memory / knowledge base.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from '../../hooks/useI18n';
 import { formatError, getProvider } from '../../providers';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { MemoryEntry, MemoryTier, UserPreference } from '../../lib/ai/types';
 import styles from './AiChat.module.css';
 
@@ -70,60 +71,66 @@ export function MemoryPanel({ kubeContext }: Props) {
     longTerm: t('ai.memory.tierLongTerm'),
     knowledgeVault: t('ai.memory.tierVault'),
   };
-  const [entries, setEntries] = useState<MemoryEntry[]>([]);
-  const [prefs, setPrefs] = useState<UserPreference[]>([]);
   const [query, setQuery] = useState('');
   const [tier, setTier] = useState<TierFilter>('all');
   const [newNote, setNewNote] = useState('');
   const [newTags, setNewTags] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [showPrefs, setShowPrefs] = useState(false);
   const provider = getProvider();
 
-  const load = async () => {
-    try {
-      setError(null);
-      if (query.trim()) {
-        const results = await provider.aiMemorySearch(kubeContext, query.trim());
-        setEntries(tier === 'all' ? results : results.filter((e) => e.tier === tier));
-      } else {
-        setEntries(await provider.aiMemoryList(kubeContext, tier === 'all' ? undefined : tier));
+  const entriesQuery = useProviderQuery<MemoryEntry[]>({
+    query: () => {
+      const q = query.trim();
+      if (q) {
+        return getProvider()
+          .aiMemorySearch(kubeContext, q)
+          .then((results) => (tier === 'all' ? results : results.filter((e) => e.tier === tier)));
       }
-      setPrefs(await provider.aiMemoryPreferences(kubeContext));
-    } catch (e) {
-      setError(formatError(e));
-    } finally {
-      setLoading(false);
-    }
-  };
+      return getProvider().aiMemoryList(kubeContext, tier === 'all' ? undefined : tier);
+    },
+    deps: [kubeContext, query, tier],
+    key: `ai:memory:${kubeContext}`,
+  });
+  const entries = entriesQuery.data ?? [];
 
-  useEffect(() => {
-    setLoading(true);
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kubeContext, query, tier]);
+  const prefsQuery = useProviderQuery<UserPreference[]>({
+    query: () => getProvider().aiMemoryPreferences(kubeContext),
+    deps: [kubeContext],
+    key: `ai:memory-prefs:${kubeContext}`,
+  });
+  const prefs = prefsQuery.data ?? [];
+
+  // Until the first load settles either way, treat it as loading (matches
+  // the pre-hook initial loading state).
+  const loading =
+    entriesQuery.loading || prefsQuery.loading ||
+    (entriesQuery.data === undefined && !entriesQuery.error);
+  const error = actionError ?? entriesQuery.error ?? prefsQuery.error ?? null;
+  const reload = entriesQuery.reload;
 
   const addNote = async () => {
     const text = newNote.trim();
     if (!text) return;
     const tags = newTags.split(',').map((tag) => tag.trim()).filter(Boolean);
+    setActionError(null);
     try {
       await provider.aiMemoryAdd(kubeContext, text, tags, tier === 'all' ? 'longTerm' : tier);
       setNewNote('');
       setNewTags('');
-      await load();
+      reload();
     } catch (e) {
-      setError(formatError(e));
+      setActionError(formatError(e));
     }
   };
 
   const deleteEntry = async (id: string) => {
+    setActionError(null);
     try {
       await provider.aiMemoryDelete(kubeContext, id);
-      await load();
+      reload();
     } catch (e) {
-      setError(formatError(e));
+      setActionError(formatError(e));
     }
   };
 

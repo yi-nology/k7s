@@ -14,12 +14,18 @@ import { useEffect, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import type { MetricsConfig, PromQueryResult, SavedQuery } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import { Plot } from '../detail/PlotChart';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './MetricsExplorer.module.css';
 import { InstantTable } from './InstantTable';
 
 type Mode = 'instant' | 'range';
+
+/** What to run next: the typed PromQL, or a saved query (cached run). */
+type RunSpec =
+  | { kind: 'promql'; nonce: number }
+  | { kind: 'saved'; nonce: number; q: SavedQuery; force: boolean };
 
 const RANGE_PRESETS: Array<{ label: string; minutes: number }> = [
   { label: '5m', minutes: 5 },
@@ -31,19 +37,15 @@ const RANGE_PRESETS: Array<{ label: string; minutes: number }> = [
 
 export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [instances, setInstances] = useState<MetricsConfig[]>([]);
   const [instance, setInstance] = useState<string>('');
   const [mode, setMode] = useState<Mode>('range');
   const [promql, setPromql] = useState('up');
   const [rangeMinutes, setRangeMinutes] = useState(60);
-  const [result, setResult] = useState<PromQueryResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [saved, setSaved] = useState<SavedQuery[]>([]);
   const [showSave, setShowSave] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [saveNote, setSaveNote] = useState('');
   const [cacheBust, setCacheBust] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
   // "saving" guards the save action button during the in-flight
   // `savedQueriesUpsert` so a double-click can't queue a second
   // write. Pre-fix (pass-11), the button was always enabled
@@ -59,85 +61,83 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   // had no idea whether anything happened.
   const [cacheState, setCacheState] = useState<'idle' | 'ok'>('idle');
 
-  // The save bar's typed name matches an existing saved query
-  // (case-insensitive, trim-insensitive) → the action button
-  // labels itself "Update" / "更新" and a small inline hint
-  // surfaces the overwrite. Pre-fix (pass-11), the save bar
-  // gave no visual hint that a same-name save would overwrite
-  // a query the user might have forgotten they had.
-  const trimmedName = saveName.trim();
-  const isOverwrite =
-    trimmedName.length > 0 && saved.some((q) => q.name.toLowerCase() === trimmedName.toLowerCase());
-
   // Load configured instances.
-  useEffect(() => {
-    getProvider()
-      .metricsList()
-      .then((rows) => {
-        setInstances(rows);
-        if (rows.length > 0 && !instance) {
-          setInstance(rows[0].name);
-        }
-      })
-      .catch((e: unknown) => setError(formatError(e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const instancesQuery = useProviderQuery<MetricsConfig[]>({
+    query: () => getProvider().metricsList(),
+    deps: [],
+    key: 'metrics:instances',
+  });
+  const instances = instancesQuery.data ?? [];
 
-  // Load saved queries.
   useEffect(() => {
-    getProvider()
-      .savedQueriesList()
-      .then(setSaved)
-      .catch((e: unknown) => setError(formatError(e)));
-  }, [cacheBust]);
-
-  const run = async () => {
-    if (!instance || !promql.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      let r: PromQueryResult;
-      if (mode === 'instant') {
-        r = await getProvider().metricsQuery(instance, promql);
-      } else {
-        const endMs = Date.now();
-        const startMs = endMs - rangeMinutes * 60 * 1000;
-        r = await getProvider().metricsQueryRange(
-          instance,
-          promql,
-          startMs,
-          endMs,
-          Math.max(15, Math.floor((rangeMinutes * 60) / 240))
-        );
-      }
-      setResult(r);
-    } catch (e) {
-      setError(formatError(e));
-      setResult(null);
-    } finally {
-      setLoading(false);
+    if (instances.length > 0 && !instance) {
+      setInstance(instances[0].name);
     }
-  };
+  }, [instances, instance]);
 
-  const runSaved = async (q: SavedQuery, forceRefresh = false) => {
+  // Load saved queries (cacheBust bumps after every save/remove).
+  const savedQuery = useProviderQuery<SavedQuery[]>({
+    query: () => getProvider().savedQueriesList(),
+    deps: [cacheBust],
+    key: 'metrics:saved',
+  });
+  const saved = savedQuery.data ?? [];
+
+  // Which query to run. Bumping `nonce` re-runs; the auto-run effect below
+  // resets it to the promql kind whenever the source controls change.
+  const [runSpec, setRunSpec] = useState<RunSpec>({ kind: 'promql', nonce: 0 });
+
+  // Auto-run when the user switches instance or mode. Adjusting during render
+  // (the React-sanctioned pattern) instead of in an effect.
+  const srcKey = `${mode}:${rangeMinutes}:${instance ?? ''}`;
+  const [prevSrcKey, setPrevSrcKey] = useState(srcKey);
+  if (prevSrcKey !== srcKey) {
+    setPrevSrcKey(srcKey);
+    setRunSpec((s) => ({ kind: 'promql', nonce: s.nonce + 1 }));
+  }
+
+  const runQuery = useProviderQuery<PromQueryResult>({
+    query: () => {
+      if (runSpec.kind === 'saved') {
+        return instance
+          ? getProvider().savedQueriesRun(runSpec.q, instance, runSpec.force)
+          : null;
+      }
+      if (!instance || !promql.trim()) return null;
+      if (mode === 'instant') {
+        return getProvider().metricsQuery(instance, promql);
+      }
+      const endMs = Date.now();
+      const startMs = endMs - rangeMinutes * 60 * 1000;
+      return getProvider().metricsQueryRange(
+        instance,
+        promql,
+        startMs,
+        endMs,
+        Math.max(15, Math.floor((rangeMinutes * 60) / 240)),
+      );
+    },
+    deps: [runSpec],
+    ttlMs: 0, // query results are never served from cache
+  });
+  const loading = runQuery.loading;
+  // A failed run clears the chart, exactly like the pre-hook code did.
+  const result = runQuery.error ? null : (runQuery.data ?? null);
+  const error =
+    actionError ?? instancesQuery.error ?? savedQuery.error ?? runQuery.error ?? null;
+
+  const run = () => setRunSpec((s) => ({ kind: 'promql', nonce: s.nonce + 1 }));
+
+  const runSaved = (q: SavedQuery, forceRefresh = false) => {
     if (!instance) return;
     setPromql(q.promql);
-    setLoading(true);
-    setError(null);
-    try {
-      const r = await getProvider().savedQueriesRun(q, instance, forceRefresh);
-      setResult(r);
-    } catch (e) {
-      setError(formatError(e));
-      setResult(null);
-    } finally {
-      setLoading(false);
-    }
+    setRunSpec((s) => ({ kind: 'saved', nonce: s.nonce + 1, q, force: forceRefresh }));
   };
 
   const saveCurrent = async () => {
     if (!saveName.trim() || !promql.trim() || saving) return;
     setSaving(true);
+    setActionError(null);
     try {
       await getProvider().savedQueriesUpsert({
         name: saveName.trim(),
@@ -150,7 +150,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
       setSaveNote('');
       setCacheBust((c) => c + 1);
     } catch (e) {
-      setError(formatError(e));
+      setActionError(formatError(e));
     } finally {
       setSaving(false);
     }
@@ -182,13 +182,15 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
     setTimeout(() => setCacheState('idle'), 1500);
   };
 
-  // Auto-run when the user switches instance or mode.
-  useEffect(() => {
-    if (instance && promql) {
-      void run();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, rangeMinutes, instance]);
+  // The save bar's typed name matches an existing saved query
+  // (case-insensitive, trim-insensitive) → the action button
+  // labels itself "Update" / "更新" and a small inline hint
+  // surfaces the overwrite. Pre-fix (pass-11), the save bar
+  // gave no visual hint that a same-name save would overwrite
+  // a query the user might have forgotten they had.
+  const trimmedName = saveName.trim();
+  const isOverwrite =
+    trimmedName.length > 0 && saved.some((q) => q.name.toLowerCase() === trimmedName.toLowerCase());
 
   return (
     <>

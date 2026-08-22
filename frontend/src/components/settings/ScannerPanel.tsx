@@ -7,12 +7,12 @@
  * Advanced block of the Settings panel.
  */
 
-import { useEffect, useState, useCallback } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useStore } from '../../store';
 import { sanitizeSettings } from '../../lib/settings';
-import { getProvider, formatError } from '../../providers';
+import { getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { ScannerStatus, ScannerEngineInfo } from '../../providers/types/scanner';
 import styles from './SettingsPanel.module.css';
 
@@ -41,26 +41,16 @@ export function ScannerPanel() {
   const { t } = useTranslation();
   const settings = useStore((s) => s.settings);
   const setSettings = useStore((s) => s.setSettings);
-  const [status, setStatus] = useState<ScannerStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  const fetchStatus = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const s = await getProvider().scannerStatus();
-      setStatus(s);
-    } catch (e) {
-      setError(formatError(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchStatus();
-  }, [fetchStatus]);
+  const statusQuery = useProviderQuery<ScannerStatus>({
+    query: () => getProvider().scannerStatus(),
+    deps: [],
+    key: 'scanner:status',
+  });
+  const status = statusQuery.data ?? null;
+  const loading = statusQuery.loading;
+  const error = statusQuery.error ?? '';
+  const refresh = statusQuery.reload;
 
   const update = (patch: Partial<typeof settings>) =>
     setSettings(sanitizeSettings({ ...settings, ...patch }));
@@ -90,7 +80,7 @@ export function ScannerPanel() {
           </span>
           <button
             type="button"
-            onClick={fetchStatus}
+            onClick={refresh}
             disabled={loading}
             style={{
               background: 'none',

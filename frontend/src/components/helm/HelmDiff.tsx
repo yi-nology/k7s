@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getProvider } from '../../providers';
 import { diffLines, diffStat, type DiffLine } from '../../lib/diff';
 import { useTranslation } from '../../hooks/useI18n';
-import { formatError } from '../../providers';
+import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { HelmRevisionEntry } from '../../providers/types/helm';
 import styles from './HelmDiff.module.css';
 
@@ -21,52 +21,47 @@ interface HelmDiffProps {
 
 export function HelmDiff({ namespace, name }: HelmDiffProps) {
   const { t } = useTranslation();
-  const [revisions, setRevisions] = useState<HelmRevisionEntry[]>([]);
   const [revA, setRevA] = useState<number | null>(null);
   const [revB, setRevB] = useState<number | null>(null);
-  const [manifestA, setManifestA] = useState('');
-  const [manifestB, setManifestB] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   // Fetch revision history on mount.
+  const revisionsQuery = useProviderQuery<HelmRevisionEntry[]>({
+    query: () => getProvider().helmReleaseHistory(name, namespace),
+    deps: [namespace, name],
+    key: `helm-diff:revisions:${namespace}/${name}`,
+  });
+  const revisions = revisionsQuery.data ?? [];
+
+  // Default the selectors to the two newest revisions.
   useEffect(() => {
-    const provider = getProvider();
-    provider
-      .helmReleaseHistory(name, namespace)
-      .then((revs) => {
-        setRevisions(revs);
-        if (revs.length >= 2) {
-          setRevB(revs[0].revision);
-          setRevA(revs[1].revision);
-        } else if (revs.length === 1) {
-          setRevA(revs[0].revision);
-        }
-      })
-      .catch((e: unknown) => setError(formatError(e)));
-  }, [namespace, name]);
+    const revs = revisionsQuery.data;
+    if (!revs) return;
+    if (revs.length >= 2) {
+      setRevB(revs[0].revision);
+      setRevA(revs[1].revision);
+    } else if (revs.length === 1) {
+      setRevA(revs[0].revision);
+    }
+  }, [revisionsQuery.data]);
 
   // Fetch manifests when both revisions are selected.
-  useEffect(() => {
-    if (revA === null || revB === null) return;
-    setLoading(true);
-    setError(null);
-    const provider = getProvider();
-    Promise.all([
-      provider.helmManifestRevision(namespace, name, revA),
-      provider.helmManifestRevision(namespace, name, revB),
-    ])
-      .then(([a, b]) => {
-        setManifestA(a);
-        setManifestB(b);
-      })
-      .catch((e: unknown) => {
-        setError(formatError(e));
-        setManifestA('');
-        setManifestB('');
-      })
-      .finally(() => setLoading(false));
-  }, [namespace, name, revA, revB]);
+  const manifestsQuery = useProviderQuery<{ a: string; b: string }>({
+    query: () => {
+      if (revA === null || revB === null) return null;
+      return Promise.all([
+        getProvider().helmManifestRevision(namespace, name, revA),
+        getProvider().helmManifestRevision(namespace, name, revB),
+      ]).then(([a, b]) => ({ a, b }));
+    },
+    deps: [namespace, name, revA, revB],
+    ttlMs: 0,
+  });
+  // A failed fetch clears the manifests (as before), so the diff view
+  // doesn't keep rendering stale sides next to the error banner.
+  const manifestA = manifestsQuery.error ? '' : (manifestsQuery.data?.a ?? '');
+  const manifestB = manifestsQuery.error ? '' : (manifestsQuery.data?.b ?? '');
+  const loading = manifestsQuery.loading;
+  const error = revisionsQuery.error ?? manifestsQuery.error ?? null;
 
   // Compute the diff.
   const diffResult = useMemo(
@@ -79,8 +74,6 @@ export function HelmDiff({ namespace, name }: HelmDiffProps) {
   const swap = () => {
     setRevA(revB);
     setRevB(revA);
-    setManifestA(manifestB);
-    setManifestB(manifestA);
   };
 
   if (revisions.length === 0 && !error) {
