@@ -7,7 +7,9 @@ use k7s_core::error::{AppError, AppResult};
 #[cfg(not(target_os = "android"))]
 use k7s_core::kube::{image::archive, image::export, image::import, image::sync};
 use k7s_core::kube::{image::repo, pod_files, templates};
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 // ---------------------------------------------------------------------------
@@ -38,6 +40,7 @@ pub async fn pod_files_list_impl(
     pod_files::list_dir(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn pod_files_list(
     namespace: String,
@@ -72,6 +75,7 @@ pub async fn pod_files_read_impl(
     pod_files::read_file(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn pod_files_read(
     namespace: String,
@@ -116,6 +120,7 @@ pub async fn pod_files_write_impl(
     .await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn pod_files_write(
     namespace: String,
@@ -159,6 +164,7 @@ pub async fn pod_files_download_impl(
     pod_files::download_path(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn pod_files_download(
     namespace: String,
@@ -206,6 +212,7 @@ pub async fn pod_files_upload_impl(
     .await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn pod_files_upload(
     namespace: String,
@@ -230,11 +237,13 @@ pub async fn pod_files_upload(
 // Image registry management (Phase 5 of KubePi parity).
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn image_registry_list() -> AppResult<Vec<repo::ImageRegistry>> {
     repo::list_registries()
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn image_registry_upsert(
     name: String,
@@ -247,6 +256,7 @@ pub fn image_registry_upsert(
     repo::upsert_registry(&name, &url, &username, &password, insecure, &description)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn image_registry_remove(name: String) -> AppResult<()> {
     repo::remove_registry(&name)
@@ -267,6 +277,7 @@ pub async fn image_registry_test_impl(name: String) -> AppResult<()> {
     repo::test_connect(&reg).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_registry_test(name: String) -> AppResult<()> {
     image_registry_test_impl(name).await
@@ -287,6 +298,7 @@ pub async fn image_registry_repos_impl(name: String) -> AppResult<Vec<repo::Repo
     repo::list_repositories(&reg).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_registry_repos(name: String) -> AppResult<Vec<repo::RepoEntry>> {
     image_registry_repos_impl(name).await
@@ -311,6 +323,7 @@ pub async fn image_registry_tags_impl(
     repo::list_tags(&reg, &repo).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_registry_tags(name: String, repo: String) -> AppResult<Vec<repo::TagEntry>> {
     image_registry_tags_impl(name, repo).await
@@ -338,6 +351,7 @@ pub async fn apply_yaml_bundle_impl(
     templates::multi_apply(&yaml, client, &mgr.manager).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn apply_yaml_bundle(
     yaml: String,
@@ -364,6 +378,7 @@ pub async fn dry_run_yaml_bundle_impl(
     templates::multi_dry_run(&yaml, client).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn dry_run_yaml_bundle(
     yaml: String,
@@ -419,6 +434,7 @@ pub async fn import_image_to_node_impl(
     import::import_to_node(client, &node, &tar_bytes).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn import_image_to_node(
     node: String,
@@ -444,6 +460,7 @@ pub async fn image_sync_status_impl() -> AppResult<sync::SkopeoAvailability> {
     Ok(sync::check_skopeo().await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_sync_status() -> AppResult<sync::SkopeoAvailability> {
     image_sync_status_impl().await
@@ -456,6 +473,7 @@ pub async fn image_sync_status() -> AppResult<sync::SkopeoAvailability> {
 /// are used automatically). Streams each stdout/stderr line as an
 /// `image-sync-log` event so the UI can render a live progress log.
 #[cfg(not(target_os = "android"))]
+#[cfg(feature = "ipc")]
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn image_copy(
@@ -497,6 +515,7 @@ pub async fn image_inspect_archive_impl(tar_path: String) -> AppResult<archive::
     archive::inspect_archive(&tar_path).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_inspect_archive(tar_path: String) -> AppResult<archive::ArchiveInfo> {
     image_inspect_archive_impl(tar_path).await
@@ -527,6 +546,7 @@ pub async fn export_from_node_impl(
     export::export_from_node(client, &node, &image_ref, &save_path).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn export_from_node(
     node: String,
@@ -554,6 +574,7 @@ pub async fn list_node_images_impl(
     export::list_node_images(client, &node).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_node_images(
     node: String,
@@ -587,6 +608,7 @@ pub async fn export_from_registry_impl(
     sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn export_from_registry(
     registry_name: String,
@@ -632,6 +654,7 @@ pub async fn image_registry_manifest_impl(
     repo::manifest(&reg, &repo, &tag).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_registry_manifest(
     name: String,

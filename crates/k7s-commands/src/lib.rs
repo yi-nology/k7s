@@ -14,6 +14,7 @@ pub mod registry;
 /// ```ignore
 /// .invoke_handler(k7s_commands::register_commands!())
 /// ```
+#[cfg(feature = "ipc")]
 #[macro_export]
 macro_rules! register_commands {
     () => {

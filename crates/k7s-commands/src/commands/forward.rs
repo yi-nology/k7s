@@ -9,6 +9,7 @@ use k7s_core::kube::portforward;
 use k7s_deps::tokio::sync::{mpsc, oneshot};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 /// Start forwarding a pod port to a local TCP port; returns the forward (with the
@@ -37,6 +38,7 @@ pub async fn start_port_forward_impl(
     spawn_forward(manager, client, namespace, pod, None, remote_port).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn start_port_forward(
     namespace: String,
@@ -84,6 +86,7 @@ pub async fn start_service_port_forward_impl(
     .await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn start_service_port_forward(
     namespace: String,
@@ -172,6 +175,7 @@ pub async fn stop_port_forward_impl(mgr: std::sync::Arc<CoreState>, id: String) 
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn stop_port_forward(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     stop_port_forward_impl(mgr.inner().clone(), id).await
@@ -182,6 +186,7 @@ pub async fn list_port_forwards_impl(mgr: std::sync::Arc<CoreState>) -> AppResul
     Ok(mgr.manager.list_forwards().await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_port_forwards(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<ForwardDto>> {
     list_port_forwards_impl(mgr.inner().clone()).await

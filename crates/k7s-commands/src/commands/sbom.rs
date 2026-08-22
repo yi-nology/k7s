@@ -6,7 +6,9 @@ use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
 use k7s_core::kube::security::sbom::{SbomEngine, SbomFormat, SbomResult, SbomSummary};
 use k7s_core::kube::security::sbom_storage::{validate_export_path, SbomStorage};
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 fn get_storage(data_dir: &std::path::Path) -> SbomStorage {
@@ -53,6 +55,7 @@ pub async fn sbom_generate_image_impl(
     Ok(sbom)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn sbom_generate_image(
     image_ref: String,
@@ -85,6 +88,7 @@ pub async fn sbom_generate_cluster_impl(
     ))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn sbom_generate_cluster(
     format: String,
@@ -99,6 +103,7 @@ pub async fn sbom_list_history_impl(mgr: std::sync::Arc<CoreState>) -> AppResult
     storage.list()
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn sbom_list_history(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<SbomSummary>> {
     sbom_list_history_impl(mgr.inner().clone()).await
@@ -117,6 +122,7 @@ pub async fn sbom_get_impl(mgr: std::sync::Arc<CoreState>, id: String) -> AppRes
     storage.load(&id)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn sbom_get(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<SbomResult> {
     sbom_get_impl(mgr.inner().clone(), id).await
@@ -149,6 +155,7 @@ pub async fn sbom_export_impl(
     Ok(canonical_path.to_string_lossy().to_string())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn sbom_export(
     id: String,

@@ -7,7 +7,9 @@ use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
 use k7s_core::kube::nodeshell;
 use k7s_deps::kube::api::Api;
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 /// Start an interactive shell in a pod container; returns the session id.
@@ -38,6 +40,7 @@ pub async fn start_shell_impl(
     .await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn start_shell(
     namespace: String,
@@ -71,6 +74,7 @@ pub async fn start_node_shell_impl(
     shell_common::spawn_node_shell_session(&mgr.manager, client, node, &mgr.data_dir).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn start_node_shell(
     node: String,
@@ -108,6 +112,7 @@ pub async fn stop_node_shell_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn stop_node_shell(
     stream_id: String,
@@ -135,6 +140,7 @@ pub async fn shell_input_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn shell_input(
     stream_id: String,
@@ -164,6 +170,7 @@ pub async fn shell_resize_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn shell_resize(
     stream_id: String,
@@ -187,6 +194,7 @@ pub async fn stop_shell_impl(mgr: std::sync::Arc<CoreState>, stream_id: String) 
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn stop_shell(stream_id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     stop_shell_impl(mgr.inner().clone(), stream_id).await

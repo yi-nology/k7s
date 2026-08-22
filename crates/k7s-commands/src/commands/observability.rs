@@ -11,7 +11,9 @@ use k7s_core::kube::{
     observability::saved_queries,
 };
 use k7s_deps::kube::api::Api;
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 // ---------------------------------------------------------------------------
@@ -29,6 +31,7 @@ pub async fn list_endpoints_impl(
     endpoints::list_all(&client).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_endpoints(
     mgr: State<'_, Arc<CoreState>>,
@@ -55,6 +58,7 @@ pub async fn list_endpoints_for_service_impl(
     endpoints::list_for_service(&client, &namespace, &name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_endpoints_for_service(
     namespace: String,
@@ -82,6 +86,7 @@ pub async fn list_endpoint_addresses_impl(
     endpoints::addresses_for(&client, &namespace, &name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_endpoint_addresses(
     namespace: String,
@@ -154,6 +159,7 @@ pub async fn trigger_cronjob_impl(
     Ok(job_name)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn trigger_cronjob(
     namespace: String,
@@ -167,11 +173,13 @@ pub async fn trigger_cronjob(
 // Metrics / Prometheus multi-instance (Phase 1 Tier-2 of KubePi parity).
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn metrics_list() -> AppResult<Vec<metrics_config::MetricsConfig>> {
     metrics_config::list()
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn metrics_upsert(
     name: String,
@@ -183,6 +191,7 @@ pub fn metrics_upsert(
     metrics_config::upsert(&name, &url, &username, &password, &description)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn metrics_remove(name: String) -> AppResult<()> {
     metrics_config::remove(&name)
@@ -199,6 +208,7 @@ pub async fn metrics_test_impl(name: String) -> AppResult<()> {
     metrics_config::test_connect(&name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn metrics_test(name: String) -> AppResult<()> {
     metrics_test_impl(name).await
@@ -219,6 +229,7 @@ pub async fn metrics_query_impl(
     metrics_config::query(&name, &promql).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn metrics_query(name: String, promql: String) -> AppResult<metrics_config::QueryResult> {
     metrics_query_impl(name, promql).await
@@ -245,6 +256,7 @@ pub async fn metrics_query_range_impl(
     metrics_config::query_range(&name, &promql, start_ms, end_ms, step_seconds).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn metrics_query_range(
     name: String,
@@ -265,12 +277,14 @@ pub async fn metrics_query_range(
 mod grafana_cmds {
     use super::*;
 
-    #[tauri::command]
+    #[cfg(feature = "ipc")]
+#[tauri::command]
     pub fn grafana_list() -> AppResult<Vec<grafana::GrafanaConfig>> {
         grafana::list()
     }
 
-    #[tauri::command]
+    #[cfg(feature = "ipc")]
+#[tauri::command]
     pub fn grafana_upsert(
         name: String,
         url: String,
@@ -291,7 +305,8 @@ mod grafana_cmds {
         )
     }
 
-    #[tauri::command]
+    #[cfg(feature = "ipc")]
+#[tauri::command]
     pub fn grafana_remove(name: String) -> AppResult<()> {
         grafana::remove(&name)
     }
@@ -307,17 +322,20 @@ mod grafana_cmds {
         grafana::test_connect(&name).await
     }
 
-    #[tauri::command]
+    #[cfg(feature = "ipc")]
+#[tauri::command]
     pub async fn grafana_test(name: String) -> AppResult<()> {
         grafana_test_impl(name).await
     }
 
-    #[tauri::command]
+    #[cfg(feature = "ipc")]
+#[tauri::command]
     pub fn grafana_presets() -> Vec<grafana::DashboardPreset> {
         grafana::preset_dashboards()
     }
 
-    #[tauri::command]
+    #[cfg(feature = "ipc")]
+#[tauri::command]
     pub fn grafana_dashboard_url(
         name: String,
         uid: String,
@@ -342,7 +360,8 @@ mod grafana_cmds {
         grafana::search_dashboards(&name, &query).await
     }
 
-    #[tauri::command]
+    #[cfg(feature = "ipc")]
+#[tauri::command]
     pub async fn grafana_search_dashboards(
         name: String,
         query: String,
@@ -357,11 +376,13 @@ pub use grafana_cmds::*;
 // AlertManager (Phase 1 Tier-2 of KubePi parity).
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn alertmanager_list() -> AppResult<Vec<alerting::AlertManager>> {
     alerting::list()
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn alertmanager_upsert(
     name: String,
@@ -372,6 +393,7 @@ pub fn alertmanager_upsert(
     alerting::upsert(&name, &url, &bearer_token, &description)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn alertmanager_remove(name: String) -> AppResult<()> {
     alerting::remove(&name)
@@ -388,6 +410,7 @@ pub async fn alertmanager_test_impl(name: String) -> AppResult<()> {
     alerting::test_connect(&name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn alertmanager_test(name: String) -> AppResult<()> {
     alertmanager_test_impl(name).await
@@ -404,6 +427,7 @@ pub async fn alertmanager_alerts_impl(name: String) -> AppResult<Vec<alerting::A
     alerting::list_alerts(&name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn alertmanager_alerts(name: String) -> AppResult<Vec<alerting::Alert>> {
     alertmanager_alerts_impl(name).await
@@ -420,6 +444,7 @@ pub async fn alertmanager_silences_impl(name: String) -> AppResult<Vec<alerting:
     alerting::list_silences(&name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn alertmanager_silences(name: String) -> AppResult<Vec<alerting::Silence>> {
     alertmanager_silences_impl(name).await
@@ -440,6 +465,7 @@ pub async fn alertmanager_create_silence_impl(
     alerting::create_silence(&instance, &request).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn alertmanager_create_silence(
     instance: String,
@@ -463,6 +489,7 @@ pub async fn alertmanager_delete_silence_impl(
     alerting::delete_silence(&instance, &silence_id).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn alertmanager_delete_silence(instance: String, silence_id: String) -> AppResult<()> {
     alertmanager_delete_silence_impl(instance, silence_id).await
@@ -479,6 +506,7 @@ pub async fn prometheus_rules_impl(instance: String) -> AppResult<Vec<alerting::
     alerting::prometheus_rules(&instance).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn prometheus_rules(instance: String) -> AppResult<Vec<alerting::RuleGroup>> {
     prometheus_rules_impl(instance).await
@@ -488,11 +516,13 @@ pub async fn prometheus_rules(instance: String) -> AppResult<Vec<alerting::RuleG
 // Loki / K8s Audit log (Phase 3 — KubePi parity).
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn loki_list() -> AppResult<Vec<audit::LokiConfig>> {
     audit::list()
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn loki_upsert(
     name: String,
@@ -504,6 +534,7 @@ pub fn loki_upsert(
     audit::upsert(&name, &url, &username, &password, &description)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn loki_remove(name: String) -> AppResult<()> {
     audit::remove(&name)
@@ -520,6 +551,7 @@ pub async fn loki_test_impl(name: String) -> AppResult<()> {
     audit::test_connect(&name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn loki_test(name: String) -> AppResult<()> {
     loki_test_impl(name).await
@@ -536,6 +568,7 @@ pub async fn audit_events_impl(query: audit::AuditQuery) -> AppResult<Vec<audit:
     audit::query_audit_events(&query).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn audit_events(query: audit::AuditQuery) -> AppResult<Vec<audit::AuditEvent>> {
     audit_events_impl(query).await
@@ -545,11 +578,13 @@ pub async fn audit_events(query: audit::AuditQuery) -> AppResult<Vec<audit::Audi
 // Saved PromQL queries (Phase 2 — named queries + in-memory cache).
 // ---------------------------------------------------------------------------
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn saved_queries_list() -> AppResult<Vec<saved_queries::SavedQuery>> {
     saved_queries::list()
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn saved_queries_upsert(
     query: saved_queries::SavedQuery,
@@ -557,11 +592,13 @@ pub fn saved_queries_upsert(
     saved_queries::upsert(query)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn saved_queries_remove(name: String) -> AppResult<()> {
     saved_queries::remove(&name)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn saved_queries_clear_cache() {
     saved_queries::clear_cache();
@@ -584,6 +621,7 @@ pub async fn saved_queries_run_impl(
     saved_queries::run_saved(&query, &instance, force_refresh).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn saved_queries_run(
     query: saved_queries::SavedQuery,

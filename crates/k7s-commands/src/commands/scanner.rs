@@ -7,7 +7,9 @@ use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
 use k7s_core::kube::image::scan;
 use serde::Serialize;
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 /// Information about a single scanning engine.
@@ -117,6 +119,7 @@ pub async fn scanner_status_impl(mgr: std::sync::Arc<CoreState>) -> AppResult<Sc
     })
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn scanner_status(mgr: State<'_, Arc<CoreState>>) -> AppResult<ScannerStatus> {
     scanner_status_impl(mgr.inner().clone()).await

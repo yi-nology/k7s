@@ -3,7 +3,9 @@
 use k7s_core::ai::cron::{CronScheduler, CronTask};
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 /// Shared cron scheduler — created lazily and stored in CoreState.
@@ -17,6 +19,7 @@ pub async fn ai_cron_list_impl(state: std::sync::Arc<CoreState>) -> AppResult<Ve
     Ok(scheduler(&state).list().await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cron_list(state: State<'_, Arc<CoreState>>) -> AppResult<Vec<CronTask>> {
     ai_cron_list_impl(state.inner().clone()).await
@@ -26,6 +29,7 @@ pub async fn ai_cron_presets_impl() -> AppResult<Vec<CronTask>> {
     Ok(k7s_core::ai::cron::builtin_presets())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cron_presets() -> AppResult<Vec<CronTask>> {
     ai_cron_presets_impl().await
@@ -44,6 +48,7 @@ pub async fn ai_cron_add_impl(state: std::sync::Arc<CoreState>, task: CronTask) 
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cron_add(task: CronTask, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
     ai_cron_add_impl(state.inner().clone(), task).await
@@ -64,6 +69,7 @@ pub async fn ai_cron_update_impl(
     Ok(scheduler(&state).update(&task).await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cron_update(task: CronTask, state: State<'_, Arc<CoreState>>) -> AppResult<bool> {
     ai_cron_update_impl(state.inner().clone(), task).await
@@ -81,6 +87,7 @@ pub async fn ai_cron_delete_impl(state: std::sync::Arc<CoreState>, id: String) -
     Ok(scheduler(&state).delete(&id).await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cron_delete(id: String, state: State<'_, Arc<CoreState>>) -> AppResult<bool> {
     ai_cron_delete_impl(state.inner().clone(), id).await
@@ -98,6 +105,7 @@ pub async fn ai_cron_toggle_impl(state: std::sync::Arc<CoreState>, id: String) -
     Ok(scheduler(&state).toggle(&id).await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cron_toggle(id: String, state: State<'_, Arc<CoreState>>) -> AppResult<bool> {
     ai_cron_toggle_impl(state.inner().clone(), id).await
@@ -118,6 +126,7 @@ pub async fn ai_cron_history_impl(
     Ok(scheduler(&state).history(task_id.as_deref()).await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cron_history(
     task_id: Option<String>,

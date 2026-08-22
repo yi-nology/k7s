@@ -2,7 +2,9 @@
 //! restart, rollout, custom kinds, drain, node stats, events, secrets,
 //! properties, and log streams.
 
-use k7s_core::core::prefs::{self, Prefs};
+use k7s_core::core::prefs::{self};
+#[cfg(feature = "ipc")]
+use k7s_core::core::prefs::Prefs;
 use k7s_core::core::shell_common;
 use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
@@ -18,9 +20,11 @@ use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::ResourceExt;
 use serde::Serialize;
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 /// Path to the app config dir (Tauri-specific). Used by prefs I/O.
+#[cfg(feature = "ipc")]
 pub(crate) fn app_data_dir(app: &tauri::AppHandle) -> AppResult<std::path::PathBuf> {
     use tauri::Manager;
     app.path()
@@ -29,6 +33,7 @@ pub(crate) fn app_data_dir(app: &tauri::AppHandle) -> AppResult<std::path::PathB
 }
 
 /// Load persisted preferences, or None if absent/unreadable.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn load_prefs(app: tauri::AppHandle) -> Option<Prefs> {
     let dir = app_data_dir(&app).ok()?;
@@ -36,6 +41,7 @@ pub fn load_prefs(app: tauri::AppHandle) -> Option<Prefs> {
 }
 
 /// Save preferences (best-effort; creates the config dir if needed).
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn save_prefs(app: tauri::AppHandle, prefs: Prefs) -> AppResult<()> {
     let dir = app_data_dir(&app)?;
@@ -49,6 +55,7 @@ pub async fn list_contexts_impl(mgr: std::sync::Arc<CoreState>) -> AppResult<Vec
     Ok(shell_common::merged_contexts(&mgr.manager).await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_contexts(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<ContextInfo>> {
     list_contexts_impl(mgr.inner().clone()).await
@@ -96,6 +103,7 @@ pub async fn restore_imports_impl(
     Ok(alive)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn restore_imports(
     paths: Vec<String>,
@@ -109,6 +117,7 @@ pub async fn default_kubeconfig_path_impl() -> AppResult<String> {
     Ok(client::default_kubeconfig_path())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn default_kubeconfig_path() -> String {
     client::default_kubeconfig_path()
@@ -148,6 +157,7 @@ pub async fn import_kubeconfig_impl(
     Ok(shell_common::merged_contexts(&manager).await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn import_kubeconfig(
     path: String,
@@ -247,6 +257,7 @@ pub async fn connect_impl(
     })
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn connect(context: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<ClusterInfo> {
     connect_impl(mgr.inner().clone(), context).await
@@ -273,6 +284,7 @@ pub async fn get_yaml_impl(
     shell_common::fetch_object_yaml(client, &kind, &namespace, &name, &mgr.manager).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn get_yaml(
     kind: String,
@@ -306,6 +318,7 @@ pub async fn apply_yaml_impl(
     shell_common::apply_yaml_core(client, &kind, &namespace, &name, &yaml, &mgr.manager).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn apply_yaml(
     kind: String,
@@ -348,6 +361,7 @@ pub async fn dry_run_yaml_impl(
     shell_common::dry_run_yaml_core(client, &kind, &namespace, &name, &yaml, &mgr.manager).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn dry_run_yaml(
     kind: String,
@@ -380,6 +394,7 @@ pub async fn delete_resource_impl(
     shell_common::delete_resource_core(client, &kind, &namespace, &name, &mgr.manager).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn delete_resource(
     kind: String,
@@ -413,6 +428,7 @@ pub async fn scale_resource_impl(
         .await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn scale_resource(
     kind: String,
@@ -442,6 +458,7 @@ pub async fn set_cordon_impl(
     shell_common::set_cordon_core(client, &name, unschedulable, &mgr.manager).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn set_cordon(
     name: String,
@@ -473,6 +490,7 @@ pub async fn restart_pod_impl(
     shell_common::restart_pod_core(client, &namespace, &name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn restart_pod(
     namespace: String,
@@ -504,6 +522,7 @@ pub async fn restart_rollout_impl(
     shell_common::restart_rollout_core(client, &kind, &namespace, &name, &mgr.manager).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn restart_rollout(
     kind: String,
@@ -539,6 +558,7 @@ pub async fn list_revisions_impl(
     rollout::list_revisions(client, &kind, &namespace, &name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_revisions(
     kind: String,
@@ -577,6 +597,7 @@ pub async fn undo_rollout_impl(
     rollout::undo_to(client, &kind, &namespace, &name, to_revision).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn undo_rollout(
     kind: String,
@@ -615,6 +636,7 @@ pub async fn watch_custom_kind_impl(mgr: std::sync::Arc<CoreState>, kind: String
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn watch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     watch_custom_kind_impl(mgr.inner().clone(), kind).await
@@ -637,6 +659,7 @@ pub async fn unwatch_custom_kind_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn unwatch_custom_kind(kind: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     unwatch_custom_kind_impl(mgr.inner().clone(), kind).await
@@ -654,6 +677,7 @@ pub async fn custom_kind_counts_impl(
     k7s_core::kube::custom_kind_counts(&client).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn custom_kind_counts(
     mgr: State<'_, Arc<CoreState>>,
@@ -689,6 +713,7 @@ pub async fn drain_node_impl(mgr: std::sync::Arc<CoreState>, name: String) -> Ap
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn drain_node(name: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     drain_node_impl(mgr.inner().clone(), name).await
@@ -722,6 +747,7 @@ pub async fn node_history_impl(
     promql::node_history(&client, &svc, &node, now, 3600, 30).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn node_history(
     node: String,
@@ -752,6 +778,7 @@ pub async fn pod_history_impl(
     promql::pod_history(&client, &namespace, &pod, 3600).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn pod_history(
     namespace: String,
@@ -796,6 +823,7 @@ pub async fn watch_node_stats_impl(mgr: std::sync::Arc<CoreState>, node: String)
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn watch_node_stats(node: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     watch_node_stats_impl(mgr.inner().clone(), node).await
@@ -818,6 +846,7 @@ pub async fn unwatch_node_stats_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn unwatch_node_stats(node: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     unwatch_node_stats_impl(mgr.inner().clone(), node).await
@@ -847,6 +876,7 @@ pub async fn diagnose_pod_impl(
         .map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn diagnose_pod(
     namespace: String,
@@ -908,6 +938,7 @@ pub async fn get_secret_data_impl(
     Ok(entries)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn get_secret_data(
     namespace: String,
@@ -941,6 +972,7 @@ pub async fn configmap_snapshots_impl(
         .await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn configmap_snapshots(
     namespace: String,
@@ -971,6 +1003,7 @@ pub async fn secret_snapshots_impl(
     config_snapshots::snapshot_secret(mgr.manager.snapshot_store(), client, &namespace, &name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn secret_snapshots(
     namespace: String,
@@ -1011,6 +1044,7 @@ pub async fn configmap_snapshot_yaml_impl(
         .map(|s| s.yaml))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn configmap_snapshot_yaml(
     kind: String,
@@ -1033,6 +1067,7 @@ pub async fn dependency_graph_impl(
         .map_err(|e| AppError::Other(format!("serialize error: {e}")))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn dependency_graph(
     mgr: State<'_, Arc<CoreState>>,
@@ -1059,6 +1094,7 @@ pub async fn debug_ingress_impl(
     ingress_debug::debug_ingress(client, &namespace, &name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn debug_ingress(
     namespace: String,
@@ -1072,6 +1108,7 @@ pub async fn debug_ingress(
 ///
 /// Answers "can pod A in namespace X talk to pod B in namespace Y on port Z?"
 /// by evaluating all applicable NetworkPolicies for both egress and ingress.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn simulate_connectivity(
@@ -1118,6 +1155,7 @@ pub async fn get_properties_impl(
     properties::gather(client, &kind, &namespace, &name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn get_properties(
     kind: String,
@@ -1166,6 +1204,7 @@ pub async fn get_events_impl(
     Ok(items)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn get_events(
     namespace: String,
@@ -1176,6 +1215,7 @@ pub async fn get_events(
 }
 
 /// Start following a container's logs; returns the new stream id.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
 pub async fn start_log_stream(
@@ -1250,6 +1290,7 @@ pub async fn export_logs_impl(
     Ok(lines)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn export_logs(
     namespace: String,
@@ -1288,6 +1329,7 @@ pub async fn stop_log_stream_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn stop_log_stream(stream_id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     stop_log_stream_impl(mgr.inner().clone(), stream_id).await

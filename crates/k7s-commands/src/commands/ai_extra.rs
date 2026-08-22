@@ -5,7 +5,9 @@ use k7s_core::ai::embedded_models::{self, LocalModel, LocalPreset};
 use k7s_core::ai::session::{Session, SessionManager};
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 // -- Embedded Models --
@@ -24,6 +26,7 @@ pub async fn ai_discover_local_models_impl(base_url: Option<String>) -> AppResul
         .unwrap_or_default())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_discover_local_models(base_url: Option<String>) -> AppResult<Vec<LocalModel>> {
     ai_discover_local_models_impl(base_url).await
@@ -33,6 +36,7 @@ pub async fn ai_local_model_presets_impl() -> Vec<LocalPreset> {
     embedded_models::local_presets()
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_local_model_presets() -> Vec<LocalPreset> {
     ai_local_model_presets_impl().await
@@ -51,6 +55,7 @@ pub async fn ai_check_local_model_impl(base_url: String, model: String) -> AppRe
     Ok(embedded_models::check_model_health(&base_url, &model).await?)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_check_local_model(base_url: String, model: String) -> AppResult<String> {
     ai_check_local_model_impl(base_url, model).await
@@ -74,6 +79,7 @@ pub async fn ai_fetch_url_impl(
     Ok(k7s_core::ai::browser::fetch_url(&url, max_chars.unwrap_or(5000)).await?)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_fetch_url(
     url: String,
@@ -94,6 +100,7 @@ pub async fn ai_web_search_impl(query: String) -> AppResult<k7s_core::ai::browse
     Ok(k7s_core::ai::browser::web_search(&query).await?)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_web_search(query: String) -> AppResult<k7s_core::ai::browser::SearchResult> {
     ai_web_search_impl(query).await
@@ -109,6 +116,7 @@ pub async fn ai_session_list_impl(state: std::sync::Arc<CoreState>) -> AppResult
     Ok(session_mgr(&state).list().await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_session_list(state: State<'_, Arc<CoreState>>) -> AppResult<Vec<Session>> {
     ai_session_list_impl(state.inner().clone()).await
@@ -131,6 +139,7 @@ pub async fn ai_session_create_impl(
     Ok(session_mgr(&state).create(&name, kube_context).await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_session_create(
     name: String,
@@ -155,6 +164,7 @@ pub async fn ai_session_delete_impl(
     Ok(session_mgr(&state).delete(&id).await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_session_delete(id: String, state: State<'_, Arc<CoreState>>) -> AppResult<bool> {
     ai_session_delete_impl(state.inner().clone(), id).await
@@ -164,6 +174,7 @@ pub async fn ai_session_queue_size_impl(state: std::sync::Arc<CoreState>) -> App
     Ok(session_mgr(&state).queue_size().await)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_session_queue_size(state: State<'_, Arc<CoreState>>) -> AppResult<usize> {
     ai_session_queue_size_impl(state.inner().clone()).await

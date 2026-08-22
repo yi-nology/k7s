@@ -5,7 +5,9 @@ use k7s_core::ai::knowledge_sync::{self, SyncReport};
 use k7s_core::ai::sandbox::{self, SandboxConfig};
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 // -- Evolution --
@@ -17,6 +19,7 @@ pub async fn ai_evolution_strategies_impl(
     Ok(store.list_strategies().to_vec())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_evolution_strategies(state: State<'_, Arc<CoreState>>) -> AppResult<Vec<Strategy>> {
     ai_evolution_strategies_impl(state.inner().clone()).await
@@ -40,6 +43,7 @@ pub async fn ai_evolution_record_run_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_evolution_record_run(
     outcome: RunOutcome,
@@ -64,6 +68,7 @@ pub async fn ai_evolution_delete_strategy_impl(
     Ok(store.delete_strategy(&id))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_evolution_delete_strategy(
     id: String,
@@ -81,6 +86,7 @@ pub async fn ai_sandbox_presets_impl() -> Vec<(String, SandboxConfig)> {
         .collect()
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_sandbox_presets() -> Vec<(String, SandboxConfig)> {
     ai_sandbox_presets_impl().await
@@ -98,6 +104,7 @@ pub async fn ai_knowledge_sync_impl(state: std::sync::Arc<CoreState>) -> AppResu
     Ok(knowledge_sync::sync_from_cluster(&state.manager, &state.data_dir, &context).await?)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_knowledge_sync(state: State<'_, Arc<CoreState>>) -> AppResult<SyncReport> {
     ai_knowledge_sync_impl(state.inner().clone()).await
@@ -128,6 +135,7 @@ pub async fn ai_knowledge_import_impl(
     )?)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_knowledge_import(
     source_dir: String,

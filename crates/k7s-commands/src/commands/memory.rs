@@ -3,7 +3,9 @@
 use k7s_core::ai::memory::{MemoryEntry, MemorySource, MemoryStore, Tier, UserPreference};
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 /// Wire arguments for [`ai_memory_list`] (camelCase on the wire).
@@ -30,6 +32,7 @@ pub async fn ai_memory_list_impl(
     Ok(store.list(tier_filter).into_iter().cloned().collect())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_memory_list(
     kube_context: String,
@@ -57,6 +60,7 @@ pub async fn ai_memory_search_impl(
     Ok(store.search(&query))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_memory_search(
     kube_context: String,
@@ -84,6 +88,7 @@ pub async fn ai_memory_search_vault_impl(
     Ok(store.search_vault(&query))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_memory_search_vault(
     kube_context: String,
@@ -122,6 +127,7 @@ pub async fn ai_memory_add_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_memory_add(
     kube_context: String,
@@ -151,6 +157,7 @@ pub async fn ai_memory_delete_impl(
     Ok(store.delete(&id))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_memory_delete(
     kube_context: String,
@@ -185,6 +192,7 @@ pub async fn ai_memory_clear_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_memory_clear(
     kube_context: String,
@@ -217,6 +225,7 @@ pub async fn ai_memory_add_runbook_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_memory_add_runbook(
     kube_context: String,
@@ -244,6 +253,7 @@ pub async fn ai_memory_preferences_impl(
     Ok(store.preferences().to_vec())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_memory_preferences(
     kube_context: String,

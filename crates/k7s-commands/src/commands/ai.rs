@@ -10,15 +10,18 @@
 //! cancellation flags) keyed by run id. The LLM client is built per-run from
 //! freshly-loaded config, so settings changes take effect on the next chat.
 
+#[cfg(feature = "ipc")]
 use k7s_core::ai::agent::{AgentEvent, EventSink};
 use k7s_core::ai::config::{self, AiConfig, AiConfigView};
 use k7s_core::ai::llm::{LlmClient, Message, OpenAiClient};
+#[cfg(feature = "ipc")]
 use k7s_core::ai::{AgentLoop, ChatRequest, ToolRegistry};
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
 use k7s_deps::tokio::sync::{oneshot, Mutex};
 use std::collections::HashMap;
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::{AppHandle, Emitter, State};
 
 /// The Tauri event name the frontend listens on for [`AgentEvent`]s.
@@ -71,12 +74,14 @@ impl AiRuntime {
 ///
 /// Named `AiTauriSink` to avoid confusion with `core::events::TauriEventSink`
 /// which pushes Kubernetes resource updates to the webview.
+#[cfg(feature = "ipc")]
 pub struct AiTauriSink {
     app: AppHandle,
     runtime: AiRuntime,
     run_id: String,
 }
 
+#[cfg(feature = "ipc")]
 impl EventSink for AiTauriSink {
     fn emit(&self, ev: AgentEvent) {
         let _ = self.app.emit(
@@ -137,6 +142,7 @@ pub async fn ai_get_context_impl(state: std::sync::Arc<CoreState>) -> AppResult<
         .unwrap_or_default())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_get_context(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
     ai_get_context_impl(state.inner().clone()).await
@@ -149,6 +155,7 @@ pub async fn ai_get_config_impl(state: std::sync::Arc<CoreState>) -> AppResult<A
     Ok(k7s_deps::tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??)
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_get_config(state: State<'_, Arc<CoreState>>) -> AppResult<AiConfigView> {
     ai_get_config_impl(state.inner().clone()).await
@@ -172,6 +179,7 @@ pub async fn ai_save_config_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_save_config(
     config_input: AiConfig,
@@ -198,6 +206,7 @@ pub async fn ai_save_api_key_impl(
     Ok(())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_save_api_key(api_key: String, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
     ai_save_api_key_impl(state.inner().clone(), api_key).await
@@ -230,6 +239,7 @@ pub async fn ai_test_connection_impl(state: std::sync::Arc<CoreState>) -> AppRes
     Ok(format!("connected (model replied: {:?})", got.trim()))
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
     ai_test_connection_impl(state.inner().clone()).await
@@ -243,6 +253,7 @@ pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<S
 ///   localhost:11434 for Ollama and uses it automatically.
 /// - **Sessions**: if `session_id` is provided, loads history from the
 ///   session and saves new messages after the run.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_chat(
     request: ChatRequest,
@@ -373,6 +384,7 @@ pub async fn ai_chat(
 }
 
 /// Respond to a pending_approval event. `approved=true` lets the write proceed.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_approve_tool_call(
     run_id: String,
@@ -393,6 +405,7 @@ pub async fn ai_approve_tool_call(
 }
 
 /// Cancel the active run.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cancel(run_id: String, runtime: State<'_, Arc<AiRuntime>>) -> AppResult<()> {
     let mut map = runtime.inner.lock().await;

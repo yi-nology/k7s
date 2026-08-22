@@ -4,7 +4,9 @@
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
 use k7s_core::kube::{helm::market, helm::ops};
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 // ---------------------------------------------------------------------------
@@ -12,18 +14,21 @@ use tauri::State;
 // ---------------------------------------------------------------------------
 
 /// Seed the default chart repos on first launch. Called from `setup`.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn helm_seed_repos() -> AppResult<()> {
     market::seed_default_repos()
 }
 
 /// List the user's helm chart repositories (sorted most-recently-touched first).
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn helm_list_repos() -> AppResult<Vec<market::HelmRepo>> {
     market::list_repos()
 }
 
 /// Add a new chart repo. Returns the freshly-created entry.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn helm_add_repo(
     name: String,
@@ -34,6 +39,7 @@ pub fn helm_add_repo(
 }
 
 /// Remove a chart repo and its cached index.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn helm_remove_repo(name: String) -> AppResult<()> {
     market::remove_repo(&name)
@@ -53,6 +59,7 @@ pub async fn helm_update_repo_impl(name: String) -> AppResult<market::HelmRepo> 
     market::update_repo_index(&name).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn helm_update_repo(name: String) -> AppResult<market::HelmRepo> {
     helm_update_repo_impl(name).await
@@ -64,6 +71,7 @@ pub async fn helm_update_all_repos_impl() -> AppResult<Vec<market::HelmRepo>> {
     market::update_all_indexes().await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn helm_update_all_repos() -> AppResult<Vec<market::HelmRepo>> {
     helm_update_all_repos_impl().await
@@ -71,12 +79,14 @@ pub async fn helm_update_all_repos() -> AppResult<Vec<market::HelmRepo>> {
 
 /// Search across every cached index. Empty query returns everything
 /// (the "browse" view). Results are sorted by version desc, name asc.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn helm_search_charts(query: String) -> AppResult<Vec<market::ChartSummary>> {
     market::search_charts(&query)
 }
 
 /// All known versions of one (repo, chart) pair, newest first.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn helm_chart_versions(
     repo: String,
@@ -106,6 +116,7 @@ pub async fn helm_export_chart_impl(
     Ok(path.to_string_lossy().to_string())
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn helm_export_chart(
     repo: String,
@@ -117,6 +128,7 @@ pub async fn helm_export_chart(
 }
 
 /// Import a local chart .tgz into the chart cache.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn helm_import_chart(file_path: String, repo_name: String) -> AppResult<String> {
     let path = market::import_chart(&file_path, &repo_name)?;
@@ -124,6 +136,7 @@ pub fn helm_import_chart(file_path: String, repo_name: String) -> AppResult<Stri
 }
 
 /// List locally imported chart archives for a repo.
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn helm_local_charts(repo_name: String) -> AppResult<Vec<String>> {
     market::list_local_charts(&repo_name)
@@ -148,6 +161,7 @@ pub async fn helm_render_default_values_impl(
     ops::render_default_values(&chart, &version, kubeconfig.as_deref()).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn helm_render_default_values(
     chart: String,
@@ -182,6 +196,7 @@ pub async fn helm_run_op_impl(
     ops::run_op(op, sink).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn helm_run_op(
     op: ops::HelmOp,
@@ -208,6 +223,7 @@ pub async fn helm_release_history_impl(
     ops::release_history(&release, &namespace, kubeconfig.as_deref()).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn helm_release_history(
     release: String,
@@ -237,6 +253,7 @@ pub async fn helm_manifest_revision_impl(
     k7s_core::kube::helm::helm_manifest_revision(client, &namespace, &name, revision).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn helm_manifest_revision(
     mgr: State<'_, Arc<CoreState>>,
@@ -267,6 +284,7 @@ pub async fn helm_values_revision_impl(
     k7s_core::kube::helm::helm_values_revision(client, &namespace, &name, revision).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn helm_values_revision(
     mgr: State<'_, Arc<CoreState>>,

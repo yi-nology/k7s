@@ -4,7 +4,9 @@ use crate::commands::core::require_client;
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
 use k7s_core::kube::{security::rbac_matrix, security::security_audit};
+#[cfg(feature = "ipc")]
 use std::sync::Arc;
+#[cfg(feature = "ipc")]
 use tauri::State;
 
 /// Run an RBAC security audit on the connected cluster.
@@ -15,6 +17,7 @@ pub async fn security_audit_run_impl(
     security_audit::run_audit(client).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn security_audit_run(
     mgr: State<'_, Arc<CoreState>>,
@@ -30,6 +33,7 @@ pub async fn rbac_permission_matrix_impl(
     rbac_matrix::build_rbac_matrix(client).await
 }
 
+#[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn rbac_permission_matrix(
     mgr: State<'_, Arc<CoreState>>,
