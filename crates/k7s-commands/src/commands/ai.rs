@@ -38,6 +38,12 @@ pub struct AiRuntime {
     inner: Arc<Mutex<HashMap<String, RunState>>>,
 }
 
+impl Default for AiRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AiRuntime {
     pub fn new() -> Self {
         Self {
