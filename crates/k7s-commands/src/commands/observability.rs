@@ -4,9 +4,9 @@
 use crate::commands::core::require_client;
 use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
-use k7s_core::kube::{alerting, audit, endpoints, metrics_config, saved_queries};
+use k7s_core::kube::{observability::alerting, observability::audit, endpoints, observability::metrics_config, observability::saved_queries};
 #[cfg(not(target_os = "ios"))]
-use k7s_core::kube::grafana;
+use k7s_core::kube::observability::grafana;
 use k7s_deps::kube::api::Api;
 use std::sync::Arc;
 use tauri::State;

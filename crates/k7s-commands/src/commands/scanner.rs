@@ -5,7 +5,7 @@
 use k7s_core::core::prefs::read_prefs;
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
-use k7s_core::kube::image_scan;
+use k7s_core::kube::image::scan;
 use serde::Serialize;
 use std::sync::Arc;
 use tauri::State;
@@ -48,7 +48,7 @@ pub fn resolve_trivy(prefs_trivy_path: Option<&str>) -> (Option<String>, String)
         }
     }
     // Fall back to auto-detection.
-    (image_scan::which_trivy(), "auto-detected".to_string())
+    (scan::which_trivy(), "auto-detected".to_string())
 }
 
 /// Resolve the grype path: user-configured > auto-detected.
@@ -59,7 +59,7 @@ pub fn resolve_grype(prefs_grype_path: Option<&str>) -> (Option<String>, String)
             return (Some(trimmed.to_string()), "configured".to_string());
         }
     }
-    (image_scan::which_grype(), "auto-detected".to_string())
+    (scan::which_grype(), "auto-detected".to_string())
 }
 
 /// `scanner_status` — Return the availability and configuration of all scanning

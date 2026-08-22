@@ -3,7 +3,7 @@
 
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
-use k7s_core::kube::{helm_market, helm_ops};
+use k7s_core::kube::{helm::market, helm::ops};
 use std::sync::Arc;
 use tauri::State;
 
@@ -14,13 +14,13 @@ use tauri::State;
 /// Seed the default chart repos on first launch. Called from `setup`.
 #[tauri::command]
 pub fn helm_seed_repos() -> AppResult<()> {
-    helm_market::seed_default_repos()
+    market::seed_default_repos()
 }
 
 /// List the user's helm chart repositories (sorted most-recently-touched first).
 #[tauri::command]
-pub fn helm_list_repos() -> AppResult<Vec<helm_market::HelmRepo>> {
-    helm_market::list_repos()
+pub fn helm_list_repos() -> AppResult<Vec<market::HelmRepo>> {
+    market::list_repos()
 }
 
 /// Add a new chart repo. Returns the freshly-created entry.
@@ -29,14 +29,14 @@ pub fn helm_add_repo(
     name: String,
     url: String,
     description: String,
-) -> AppResult<helm_market::HelmRepo> {
-    helm_market::add_repo(&name, &url, &description)
+) -> AppResult<market::HelmRepo> {
+    market::add_repo(&name, &url, &description)
 }
 
 /// Remove a chart repo and its cached index.
 #[tauri::command]
 pub fn helm_remove_repo(name: String) -> AppResult<()> {
-    helm_market::remove_repo(&name)
+    market::remove_repo(&name)
 }
 
 /// Re-fetch one repo's index from its URL. On failure the repo's
@@ -49,31 +49,31 @@ pub(crate) struct HelmUpdateRepoArgs {
     pub name: String,
 }
 
-pub async fn helm_update_repo_impl(name: String) -> AppResult<helm_market::HelmRepo> {
-    helm_market::update_repo_index(&name).await
+pub async fn helm_update_repo_impl(name: String) -> AppResult<market::HelmRepo> {
+    market::update_repo_index(&name).await
 }
 
 #[tauri::command]
-pub async fn helm_update_repo(name: String) -> AppResult<helm_market::HelmRepo> {
+pub async fn helm_update_repo(name: String) -> AppResult<market::HelmRepo> {
     helm_update_repo_impl(name).await
 }
 
 /// Re-fetch every repo's index, in parallel. Per-repo failures are logged
 /// but do not short-circuit the rest.
-pub async fn helm_update_all_repos_impl() -> AppResult<Vec<helm_market::HelmRepo>> {
-    helm_market::update_all_indexes().await
+pub async fn helm_update_all_repos_impl() -> AppResult<Vec<market::HelmRepo>> {
+    market::update_all_indexes().await
 }
 
 #[tauri::command]
-pub async fn helm_update_all_repos() -> AppResult<Vec<helm_market::HelmRepo>> {
+pub async fn helm_update_all_repos() -> AppResult<Vec<market::HelmRepo>> {
     helm_update_all_repos_impl().await
 }
 
 /// Search across every cached index. Empty query returns everything
 /// (the "browse" view). Results are sorted by version desc, name asc.
 #[tauri::command]
-pub fn helm_search_charts(query: String) -> AppResult<Vec<helm_market::ChartSummary>> {
-    helm_market::search_charts(&query)
+pub fn helm_search_charts(query: String) -> AppResult<Vec<market::ChartSummary>> {
+    market::search_charts(&query)
 }
 
 /// All known versions of one (repo, chart) pair, newest first.
@@ -81,8 +81,8 @@ pub fn helm_search_charts(query: String) -> AppResult<Vec<helm_market::ChartSumm
 pub fn helm_chart_versions(
     repo: String,
     chart: String,
-) -> AppResult<Vec<helm_market::ChartVersionEntry>> {
-    helm_market::chart_versions(&repo, &chart)
+) -> AppResult<Vec<market::ChartVersionEntry>> {
+    market::chart_versions(&repo, &chart)
 }
 
 /// Export a chart .tgz to a local directory (air-gap / offline).
@@ -97,7 +97,7 @@ pub(crate) struct HelmExportChartArgs {
 }
 
 pub async fn helm_export_chart_impl(repo: String, chart: String, version: String, output_dir: String) -> AppResult<String> {
-    let path = helm_market::export_chart(&repo, &chart, &version, &output_dir).await?;
+    let path = market::export_chart(&repo, &chart, &version, &output_dir).await?;
     Ok(path.to_string_lossy().to_string())
 }
 
@@ -109,14 +109,14 @@ pub async fn helm_export_chart(repo: String, chart: String, version: String, out
 /// Import a local chart .tgz into the chart cache.
 #[tauri::command]
 pub fn helm_import_chart(file_path: String, repo_name: String) -> AppResult<String> {
-    let path = helm_market::import_chart(&file_path, &repo_name)?;
+    let path = market::import_chart(&file_path, &repo_name)?;
     Ok(path.to_string_lossy().to_string())
 }
 
 /// List locally imported chart archives for a repo.
 #[tauri::command]
 pub fn helm_local_charts(repo_name: String) -> AppResult<Vec<String>> {
-    helm_market::list_local_charts(&repo_name)
+    market::list_local_charts(&repo_name)
 }
 
 /// Default values.yaml for a chart at a given version. Delegates to
@@ -131,7 +131,7 @@ pub(crate) struct HelmRenderDefaultValuesArgs {
 }
 
 pub async fn helm_render_default_values_impl(chart: String, version: String, kubeconfig: Option<String>) -> AppResult<String> {
-    helm_ops::render_default_values(&chart, &version, kubeconfig.as_deref()).await
+    ops::render_default_values(&chart, &version, kubeconfig.as_deref()).await
 }
 
 #[tauri::command]
@@ -149,20 +149,20 @@ pub async fn helm_render_default_values(chart: String, version: String, kubeconf
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct HelmRunOpArgs {
-    pub op: helm_ops::HelmOp,
+    pub op: ops::HelmOp,
 }
 
-pub async fn helm_run_op_impl(mgr: std::sync::Arc<CoreState>, op: helm_ops::HelmOp) -> AppResult<helm_ops::HelmOpResult> {
+pub async fn helm_run_op_impl(mgr: std::sync::Arc<CoreState>, op: ops::HelmOp) -> AppResult<ops::HelmOpResult> {
     // The frontend doesn't track a per-connection EventSink directly; pull it
     // off the manager. The Tauri sink in `core::events` is what the manager
     // already uses, so re-using it here means helm log lines reach the same
     // webview that called us.
     let sink = mgr.manager.sink().clone();
-    helm_ops::run_op(op, sink).await
+    ops::run_op(op, sink).await
 }
 
 #[tauri::command]
-pub async fn helm_run_op(op: helm_ops::HelmOp, mgr: State<'_, Arc<CoreState>>) -> AppResult<helm_ops::HelmOpResult> {
+pub async fn helm_run_op(op: ops::HelmOp, mgr: State<'_, Arc<CoreState>>) -> AppResult<ops::HelmOpResult> {
     helm_run_op_impl(mgr.inner().clone(), op).await
 }
 
@@ -176,12 +176,12 @@ pub(crate) struct HelmReleaseHistoryArgs {
     pub kubeconfig: Option<String>,
 }
 
-pub async fn helm_release_history_impl(release: String, namespace: String, kubeconfig: Option<String>) -> AppResult<Vec<helm_ops::RevisionEntry>> {
-    helm_ops::release_history(&release, &namespace, kubeconfig.as_deref()).await
+pub async fn helm_release_history_impl(release: String, namespace: String, kubeconfig: Option<String>) -> AppResult<Vec<ops::RevisionEntry>> {
+    ops::release_history(&release, &namespace, kubeconfig.as_deref()).await
 }
 
 #[tauri::command]
-pub async fn helm_release_history(release: String, namespace: String, kubeconfig: Option<String>) -> AppResult<Vec<helm_ops::RevisionEntry>> {
+pub async fn helm_release_history(release: String, namespace: String, kubeconfig: Option<String>) -> AppResult<Vec<ops::RevisionEntry>> {
     helm_release_history_impl(release, namespace, kubeconfig).await
 }
 

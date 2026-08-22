@@ -4,8 +4,8 @@ use crate::commands::core::require_client;
 use k7s_core::core::prefs::read_prefs;
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
-use k7s_core::kube::sbom::{SbomEngine, SbomFormat, SbomResult, SbomSummary};
-use k7s_core::kube::sbom_storage::{validate_export_path, SbomStorage};
+use k7s_core::kube::security::sbom::{SbomEngine, SbomFormat, SbomResult, SbomSummary};
+use k7s_core::kube::security::sbom_storage::{validate_export_path, SbomStorage};
 use std::sync::Arc;
 use tauri::State;
 

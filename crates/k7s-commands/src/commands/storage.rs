@@ -4,9 +4,9 @@
 use crate::commands::core::require_client;
 use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
-use k7s_core::kube::{imagerepo, pod_files, templates};
+use k7s_core::kube::{image::repo, pod_files, templates};
 #[cfg(not(target_os = "android"))]
-use k7s_core::kube::{image_archive, image_sync, imageexport, imageimport};
+use k7s_core::kube::{image::archive, image::sync, image::export, image::import};
 use std::sync::Arc;
 use tauri::State;
 
@@ -151,8 +151,8 @@ pub async fn pod_files_upload(namespace: String, pod: String, container: Option<
 // ---------------------------------------------------------------------------
 
 #[tauri::command]
-pub fn image_registry_list() -> AppResult<Vec<imagerepo::ImageRegistry>> {
-    imagerepo::list_registries()
+pub fn image_registry_list() -> AppResult<Vec<repo::ImageRegistry>> {
+    repo::list_registries()
 }
 
 #[tauri::command]
@@ -163,13 +163,13 @@ pub fn image_registry_upsert(
     password: String,
     insecure: bool,
     description: String,
-) -> AppResult<imagerepo::ImageRegistry> {
-    imagerepo::upsert_registry(&name, &url, &username, &password, insecure, &description)
+) -> AppResult<repo::ImageRegistry> {
+    repo::upsert_registry(&name, &url, &username, &password, insecure, &description)
 }
 
 #[tauri::command]
 pub fn image_registry_remove(name: String) -> AppResult<()> {
-    imagerepo::remove_registry(&name)
+    repo::remove_registry(&name)
 }
 
 /// Wire arguments for [`image_registry_test`] (camelCase on the wire).
@@ -180,11 +180,11 @@ pub(crate) struct ImageRegistryTestArgs {
 }
 
 pub async fn image_registry_test_impl(name: String) -> AppResult<()> {
-    let reg = imagerepo::list_registries()?
+    let reg = repo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
         .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
-    imagerepo::test_connect(&reg).await
+    repo::test_connect(&reg).await
 }
 
 #[tauri::command]
@@ -199,16 +199,16 @@ pub(crate) struct ImageRegistryReposArgs {
     pub name: String,
 }
 
-pub async fn image_registry_repos_impl(name: String) -> AppResult<Vec<imagerepo::RepoEntry>> {
-    let reg = imagerepo::list_registries()?
+pub async fn image_registry_repos_impl(name: String) -> AppResult<Vec<repo::RepoEntry>> {
+    let reg = repo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
         .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
-    imagerepo::list_repositories(&reg).await
+    repo::list_repositories(&reg).await
 }
 
 #[tauri::command]
-pub async fn image_registry_repos(name: String) -> AppResult<Vec<imagerepo::RepoEntry>> {
+pub async fn image_registry_repos(name: String) -> AppResult<Vec<repo::RepoEntry>> {
     image_registry_repos_impl(name).await
 }
 
@@ -220,16 +220,16 @@ pub(crate) struct ImageRegistryTagsArgs {
     pub repo: String,
 }
 
-pub async fn image_registry_tags_impl(name: String, repo: String) -> AppResult<Vec<imagerepo::TagEntry>> {
-    let reg = imagerepo::list_registries()?
+pub async fn image_registry_tags_impl(name: String, repo: String) -> AppResult<Vec<repo::TagEntry>> {
+    let reg = repo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
         .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
-    imagerepo::list_tags(&reg, &repo).await
+    repo::list_tags(&reg, &repo).await
 }
 
 #[tauri::command]
-pub async fn image_registry_tags(name: String, repo: String) -> AppResult<Vec<imagerepo::TagEntry>> {
+pub async fn image_registry_tags(name: String, repo: String) -> AppResult<Vec<repo::TagEntry>> {
     image_registry_tags_impl(name, repo).await
 }
 
@@ -302,7 +302,7 @@ pub(crate) struct ImportImageToNodeArgs {
     pub path: String,
 }
 
-pub async fn import_image_to_node_impl(mgr: std::sync::Arc<CoreState>, node: String, path: String) -> AppResult<imageimport::ImportResult> {
+pub async fn import_image_to_node_impl(mgr: std::sync::Arc<CoreState>, node: String, path: String) -> AppResult<import::ImportResult> {
     let client = require_client(&mgr.manager).await?;
     // Stat first so a path to a huge file fails fast with a clear message
     // rather than reading 8 GiB into RAM before refusing.
@@ -317,11 +317,11 @@ pub async fn import_image_to_node_impl(mgr: std::sync::Arc<CoreState>, node: Str
     }
     let tar_bytes =
         std::fs::read(&path).map_err(|e| AppError::Other(format!("read file '{}': {e}", path)))?;
-    imageimport::import_to_node(client, &node, &tar_bytes).await
+    import::import_to_node(client, &node, &tar_bytes).await
 }
 
 #[tauri::command]
-pub async fn import_image_to_node(node: String, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<imageimport::ImportResult> {
+pub async fn import_image_to_node(node: String, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<import::ImportResult> {
     import_image_to_node_impl(mgr.inner().clone(), node, path).await
 }
 
@@ -337,12 +337,12 @@ pub async fn import_image_to_node(node: String, path: String, mgr: State<'_, Arc
 /// --version`), so the UI can call it on panel open to gate the To-Registry
 /// tab.
 #[cfg(not(target_os = "android"))]
-pub async fn image_sync_status_impl() -> AppResult<image_sync::SkopeoAvailability> {
-    Ok(image_sync::check_skopeo().await)
+pub async fn image_sync_status_impl() -> AppResult<sync::SkopeoAvailability> {
+    Ok(sync::check_skopeo().await)
 }
 
 #[tauri::command]
-pub async fn image_sync_status() -> AppResult<image_sync::SkopeoAvailability> {
+pub async fn image_sync_status() -> AppResult<sync::SkopeoAvailability> {
     image_sync_status_impl().await
 }
 
@@ -364,9 +364,9 @@ pub async fn image_copy(
     insecure_src: bool,
     insecure_dest: bool,
     mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<image_sync::ImageSyncResult> {
+) -> AppResult<sync::ImageSyncResult> {
     let sink = mgr.manager.sink();
-    image_sync::copy_image(
+    sync::copy_image(
         &source,
         &dest_registry,
         &dest_repo,
@@ -390,12 +390,12 @@ pub(crate) struct ImageInspectArchiveArgs {
     pub tar_path: String,
 }
 
-pub async fn image_inspect_archive_impl(tar_path: String) -> AppResult<image_archive::ArchiveInfo> {
-    image_archive::inspect_archive(&tar_path).await
+pub async fn image_inspect_archive_impl(tar_path: String) -> AppResult<archive::ArchiveInfo> {
+    archive::inspect_archive(&tar_path).await
 }
 
 #[tauri::command]
-pub async fn image_inspect_archive(tar_path: String) -> AppResult<image_archive::ArchiveInfo> {
+pub async fn image_inspect_archive(tar_path: String) -> AppResult<archive::ArchiveInfo> {
     image_inspect_archive_impl(tar_path).await
 }
 
@@ -414,13 +414,13 @@ pub(crate) struct ExportFromNodeArgs {
     pub save_path: String,
 }
 
-pub async fn export_from_node_impl(mgr: std::sync::Arc<CoreState>, node: String, image_ref: String, save_path: String) -> AppResult<imageexport::ExportResult> {
+pub async fn export_from_node_impl(mgr: std::sync::Arc<CoreState>, node: String, image_ref: String, save_path: String) -> AppResult<export::ExportResult> {
     let client = require_client(&mgr.manager).await?;
-    imageexport::export_from_node(client, &node, &image_ref, &save_path).await
+    export::export_from_node(client, &node, &image_ref, &save_path).await
 }
 
 #[tauri::command]
-pub async fn export_from_node(node: String, image_ref: String, save_path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<imageexport::ExportResult> {
+pub async fn export_from_node(node: String, image_ref: String, save_path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<export::ExportResult> {
     export_from_node_impl(mgr.inner().clone(), node, image_ref, save_path).await
 }
 
@@ -435,7 +435,7 @@ pub(crate) struct ListNodeImagesArgs {
 
 pub async fn list_node_images_impl(mgr: std::sync::Arc<CoreState>, node: String) -> AppResult<Vec<String>> {
     let client = require_client(&mgr.manager).await?;
-    imageexport::list_node_images(client, &node).await
+    export::list_node_images(client, &node).await
 }
 
 #[tauri::command]
@@ -456,14 +456,14 @@ pub(crate) struct ExportFromRegistryArgs {
     pub insecure_src: bool,
 }
 
-pub async fn export_from_registry_impl(mgr: std::sync::Arc<CoreState>, registry_name: String, repo: String, tag: String, save_path: String, insecure_src: bool) -> AppResult<image_sync::ExportRegistryResult> {
+pub async fn export_from_registry_impl(mgr: std::sync::Arc<CoreState>, registry_name: String, repo: String, tag: String, save_path: String, insecure_src: bool) -> AppResult<sync::ExportRegistryResult> {
     let sink = mgr.manager.sink();
-    image_sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink)
+    sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink)
         .await
 }
 
 #[tauri::command]
-pub async fn export_from_registry(registry_name: String, repo: String, tag: String, save_path: String, insecure_src: bool, mgr: State<'_, Arc<CoreState>>) -> AppResult<image_sync::ExportRegistryResult> {
+pub async fn export_from_registry(registry_name: String, repo: String, tag: String, save_path: String, insecure_src: bool, mgr: State<'_, Arc<CoreState>>) -> AppResult<sync::ExportRegistryResult> {
     export_from_registry_impl(mgr.inner().clone(), registry_name, repo, tag, save_path, insecure_src).await
 }
 
@@ -480,15 +480,15 @@ pub(crate) struct ImageRegistryManifestArgs {
     pub tag: String,
 }
 
-pub async fn image_registry_manifest_impl(name: String, repo: String, tag: String) -> AppResult<imagerepo::ImageManifest> {
-    let reg = imagerepo::list_registries()?
+pub async fn image_registry_manifest_impl(name: String, repo: String, tag: String) -> AppResult<repo::ImageManifest> {
+    let reg = repo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
         .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
-    imagerepo::manifest(&reg, &repo, &tag).await
+    repo::manifest(&reg, &repo, &tag).await
 }
 
 #[tauri::command]
-pub async fn image_registry_manifest(name: String, repo: String, tag: String) -> AppResult<imagerepo::ImageManifest> {
+pub async fn image_registry_manifest(name: String, repo: String, tag: String) -> AppResult<repo::ImageManifest> {
     image_registry_manifest_impl(name, repo, tag).await
 }

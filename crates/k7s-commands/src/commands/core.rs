@@ -8,10 +8,7 @@ use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
 use k7s_core::kube::client::{self, ClusterInfo, ContextInfo};
 use k7s_core::kube::manager::{ClientManager, ImportedContext};
-use k7s_core::kube::{
-    config_snapshots, drain, exporter, ingress_debug, logs, mappers, metrics, nodestats, promql,
-    properties, rollout, watchers,
-};
+use k7s_core::kube::{config_snapshots, drain, observability::exporter, ingress_debug, logs, mappers, observability::metrics, observability::nodestats, observability::promql, properties, rollout, watchers};
 use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
 use k7s_deps::kube::api::{Api, ListParams};
 use k7s_deps::kube::ResourceExt;
@@ -882,9 +879,9 @@ pub async fn simulate_connectivity(
     port: Option<i32>,
     protocol: Option<String>,
     mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<k7s_core::kube::netpol_sim::SimulationResult> {
+) -> AppResult<k7s_core::kube::security::netpol_sim::SimulationResult> {
     let client = require_client(&mgr.manager).await?;
-    k7s_core::kube::netpol_sim::simulate_connectivity(
+    k7s_core::kube::security::netpol_sim::simulate_connectivity(
         client,
         &src_namespace,
         &src_pod,

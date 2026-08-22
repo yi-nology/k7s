@@ -3,7 +3,7 @@
 use crate::commands::core::require_client;
 use k7s_core::core::CoreState;
 use k7s_core::error::AppResult;
-use k7s_core::kube::{rbac_matrix, security_audit};
+use k7s_core::kube::{security::rbac_matrix, security::security_audit};
 use std::sync::Arc;
 use tauri::State;
 
