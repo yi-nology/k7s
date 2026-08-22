@@ -10,7 +10,7 @@
 
 use axum::body::Body;
 use axum::http::{header, Request, StatusCode};
-use k7s_deps::http_body_util::BodyExt;
+use http_body_util::BodyExt;
 use tower::ServiceExt; // for .oneshot()
 
 // ---------------------------------------------------------------------------
@@ -18,14 +18,14 @@ use tower::ServiceExt; // for .oneshot()
 // ---------------------------------------------------------------------------
 
 /// Create a WebState with a temp directory.
-fn make_state() -> k7s_lib::web::state::WebState {
+fn make_state() -> k7s_server::web::state::WebState {
     let dir = std::env::temp_dir().join(format!("k7s-test-{}", std::process::id()));
     let _ = std::fs::create_dir_all(&dir);
-    k7s_lib::web::state::WebState::new(dir, "127.0.0.1:0".parse().unwrap())
+    k7s_server::web::state::WebState::new(dir, "127.0.0.1:0".parse().unwrap())
 }
 
 /// Get the auth token from state.
-fn auth_token(state: &k7s_lib::web::state::WebState) -> &str {
+fn auth_token(state: &k7s_server::web::state::WebState) -> &str {
     &state.web_token
 }
 
@@ -45,10 +45,10 @@ async fn body_json(response: axum::response::Response) -> k7s_deps::serde_json::
 // Health endpoints
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn health_endpoint_returns_ok() {
     let state = make_state();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -65,10 +65,10 @@ async fn health_endpoint_returns_ok() {
     assert_eq!(body, "ok");
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn api_health_endpoint_returns_ok() {
     let state = make_state();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -89,10 +89,10 @@ async fn api_health_endpoint_returns_ok() {
 // Auth middleware
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn protected_endpoint_without_token_returns_401() {
     let state = make_state();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -109,10 +109,10 @@ async fn protected_endpoint_without_token_returns_401() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn protected_endpoint_with_wrong_token_returns_401() {
     let state = make_state();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -130,11 +130,11 @@ async fn protected_endpoint_with_wrong_token_returns_401() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn protected_endpoint_with_valid_token_returns_ok() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -156,10 +156,10 @@ async fn protected_endpoint_with_valid_token_returns_ok() {
 // Public endpoints bypass auth
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn health_endpoint_bypasses_auth() {
     let state = make_state();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     // /health should work without any auth header
     let response = app
@@ -175,10 +175,10 @@ async fn health_endpoint_bypasses_auth() {
     assert_eq!(response.status(), StatusCode::OK);
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn status_endpoint_bypasses_auth() {
     let state = make_state();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -197,10 +197,10 @@ async fn status_endpoint_bypasses_auth() {
 // Status endpoint
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn status_returns_disconnected_when_no_cluster() {
     let state = make_state();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -231,11 +231,11 @@ async fn status_returns_disconnected_when_no_cluster() {
 // Prefs round-trip
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn prefs_round_trip() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     // Save prefs
     let response = app
@@ -285,11 +285,11 @@ async fn prefs_round_trip() {
 // Not-implemented catch-all
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn unimplemented_endpoint_returns_ok_false() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -318,11 +318,11 @@ async fn unimplemented_endpoint_returns_ok_false() {
 // Import kubeconfig content
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn import_kubeconfig_parses_valid_yaml() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let kubeconfig = k7s_deps::serde_json::json!({
         "apiVersion": "v1",
@@ -335,7 +335,7 @@ async fn import_kubeconfig_parses_valid_yaml() {
 
     let body = k7s_deps::serde_json::json!({
         "filename": "test.yaml",
-        "contents": k7s_deps::serde_yaml::to_string(&kubeconfig).unwrap()
+        "contents": k7s_deps::serde_json::to_string(&kubeconfig).unwrap()
     });
 
     let response = app
@@ -363,11 +363,11 @@ async fn import_kubeconfig_parses_valid_yaml() {
     assert!(data.get("path").is_some(), "data should have path");
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn import_kubeconfig_rejects_invalid_yaml() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let body = k7s_deps::serde_json::json!({
         "filename": "bad.yaml",
@@ -400,11 +400,11 @@ async fn import_kubeconfig_rejects_invalid_yaml() {
 // Connect without cluster
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn connect_without_kubeconfig_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -433,11 +433,11 @@ async fn connect_without_kubeconfig_returns_error() {
 // Resource endpoints without connection
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn get_yaml_without_connection_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -462,11 +462,11 @@ async fn get_yaml_without_connection_returns_error() {
     );
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn get_events_without_connection_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -491,11 +491,11 @@ async fn get_events_without_connection_returns_error() {
     );
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn get_properties_without_connection_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -520,11 +520,11 @@ async fn get_properties_without_connection_returns_error() {
     );
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn get_secret_data_without_connection_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -551,11 +551,11 @@ async fn get_secret_data_without_connection_returns_error() {
 // Mutation endpoints without connection (should fail gracefully)
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn apply_yaml_without_connection_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -581,11 +581,11 @@ async fn apply_yaml_without_connection_returns_error() {
     assert!(json.get("error").is_some());
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn delete_resource_without_connection_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -610,11 +610,11 @@ async fn delete_resource_without_connection_returns_error() {
     );
 }
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn scale_resource_without_connection_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -643,10 +643,10 @@ async fn scale_resource_without_connection_returns_error() {
 // SSE events endpoint
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn events_endpoint_returns_sse() {
     let state = make_state();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -674,11 +674,11 @@ async fn events_endpoint_returns_sse() {
 // Default kubeconfig path
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn default_kubeconfig_path_returns_value() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -706,11 +706,11 @@ async fn default_kubeconfig_path_returns_value() {
 // List endpoints without connection
 // ---------------------------------------------------------------------------
 
-#[k7s_deps::tokio::test]
+#[tokio::test]
 async fn list_endpoints_without_connection_returns_error() {
     let state = make_state();
     let token = auth_token(&state).to_string();
-    let app = k7s_lib::web::server::api_router(state);
+    let app = k7s_server::web::server::api_router(state);
 
     let response = app
         .oneshot(
@@ -731,4 +731,92 @@ async fn list_endpoints_without_connection_returns_error() {
         json.get("ok"),
         Some(&k7s_deps::serde_json::Value::Bool(false))
     );
+}
+
+// ---------------------------------------------------------------------------
+// Registry dispatch — the dynamic /invoke/{cmd} route
+
+/// The dynamic catch-all resolves registry commands with the same envelope
+/// the hand-written handlers used: `{ok: true, data}` on success.
+#[tokio::test]
+async fn invoke_registry_dispatches_known_command() {
+    let state = make_state();
+    let app = k7s_server::web::server::api_router(state.clone());
+
+    // default_kubeconfig_path is a registry command with no arguments.
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/invoke/default_kubeconfig_path")
+                .header(axum::http::header::AUTHORIZATION, format!("Bearer {}", auth_token(&state)))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = body_json(response).await;
+    assert_eq!(body.get("ok").and_then(|v| v.as_bool()), Some(true));
+    assert!(body.get("data").is_some());
+}
+
+/// Unknown commands come back as `{ok: false, error}` — not a bare 404 — so
+/// the frontend's error path stays uniform.
+#[tokio::test]
+async fn invoke_registry_rejects_unknown_command() {
+    let state = make_state();
+    let app = k7s_server::web::server::api_router(state.clone());
+
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/invoke/definitely_not_a_command")
+                .header(axum::http::header::AUTHORIZATION, format!("Bearer {}", auth_token(&state)))
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+    let body = body_json(response).await;
+    assert_eq!(body.get("ok").and_then(|v| v.as_bool()), Some(false));
+    assert!(body
+        .get("error")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .contains("unknown command"));
+}
+
+/// Malformed arguments surface the registry's deserialization error instead
+/// of a transport-level rejection.
+#[tokio::test]
+async fn invoke_registry_reports_bad_arguments() {
+    let state = make_state();
+    let app = k7s_server::web::server::api_router(state.clone());
+
+    // get_yaml needs kind/namespace/name strings; send wrong types.
+    let response = app
+        .oneshot(
+            axum::http::Request::builder()
+                .method("POST")
+                .uri("/api/invoke/get_yaml")
+                .header(axum::http::header::AUTHORIZATION, format!("Bearer {}", auth_token(&state)))
+                .header(axum::http::header::CONTENT_TYPE, "application/json")
+                .body(axum::body::Body::from(r#"{"kind": 42}"#))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    let body = body_json(response).await;
+    assert_eq!(body.get("ok").and_then(|v| v.as_bool()), Some(false));
+    assert!(body
+        .get("error")
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .contains("bad arguments"));
 }

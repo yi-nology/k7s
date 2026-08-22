@@ -122,8 +122,7 @@ impl EventSink for AiTauriSink {
 // ---------------------------------------------------------------------------
 
 /// Get the current kubeconfig context name (for memory/session scoping).
-#[tauri::command]
-pub async fn ai_get_context(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
+pub async fn ai_get_context_impl(state: std::sync::Arc<CoreState>) -> AppResult<String> {
     Ok(state
         .manager
         .connection_info()
@@ -133,7 +132,11 @@ pub async fn ai_get_context(state: State<'_, Arc<CoreState>>) -> AppResult<Strin
 }
 
 #[tauri::command]
-pub async fn ai_get_config(state: State<'_, Arc<CoreState>>) -> AppResult<AiConfigView> {
+pub async fn ai_get_context(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
+    ai_get_context_impl(state.inner().clone()).await
+}
+
+pub async fn ai_get_config_impl(state: std::sync::Arc<CoreState>) -> AppResult<AiConfigView> {
     // config::load is synchronous (std::fs); wrap in spawn_blocking so the
     // Tauri command runtime doesn't block the async executor on disk I/O.
     let dir = state.data_dir.clone();
@@ -141,10 +144,19 @@ pub async fn ai_get_config(state: State<'_, Arc<CoreState>>) -> AppResult<AiConf
 }
 
 #[tauri::command]
-pub async fn ai_save_config(
-    config_input: AiConfig,
-    state: State<'_, Arc<CoreState>>,
-) -> AppResult<()> {
+pub async fn ai_get_config(state: State<'_, Arc<CoreState>>) -> AppResult<AiConfigView> {
+    ai_get_config_impl(state.inner().clone()).await
+}
+
+/// Wire arguments for [`ai_save_config`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // AI commands are not registry-routed; the web shell keeps bespoke handlers
+pub(crate) struct AiSaveConfigArgs {
+    pub config_input: AiConfig,
+}
+
+pub async fn ai_save_config_impl(state: std::sync::Arc<CoreState>, config_input: AiConfig) -> AppResult<()> {
     let dir = state.data_dir.clone();
     k7s_deps::tokio::task::spawn_blocking(move || config::save(Some(&dir), &config_input))
         .await??;
@@ -152,17 +164,33 @@ pub async fn ai_save_config(
 }
 
 #[tauri::command]
-pub async fn ai_save_api_key(api_key: String, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
+pub async fn ai_save_config(config_input: AiConfig, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    ai_save_config_impl(state.inner().clone(), config_input).await
+}
+
+/// Wire arguments for [`ai_save_api_key`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)] // AI commands are not registry-routed; the web shell keeps bespoke handlers
+pub(crate) struct AiSaveApiKeyArgs {
+    pub api_key: String,
+}
+
+pub async fn ai_save_api_key_impl(state: std::sync::Arc<CoreState>, api_key: String) -> AppResult<()> {
     let dir = state.data_dir.clone();
     k7s_deps::tokio::task::spawn_blocking(move || config::save_api_key(Some(&dir), &api_key))
         .await??;
     Ok(())
 }
 
+#[tauri::command]
+pub async fn ai_save_api_key(api_key: String, state: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    ai_save_api_key_impl(state.inner().clone(), api_key).await
+}
+
 /// Probe the configured provider with a minimal request. Returns Ok with a
 /// short status string, or Err with the failure message.
-#[tauri::command]
-pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
+pub async fn ai_test_connection_impl(state: std::sync::Arc<CoreState>) -> AppResult<String> {
     let dir = state.data_dir.clone();
     let view = k7s_deps::tokio::task::spawn_blocking(move || config::load(Some(&dir))).await??;
     let cfg = view.config;
@@ -185,6 +213,11 @@ pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<S
         }
     }
     Ok(format!("connected (model replied: {:?})", got.trim()))
+}
+
+#[tauri::command]
+pub async fn ai_test_connection(state: State<'_, Arc<CoreState>>) -> AppResult<String> {
+    ai_test_connection_impl(state.inner().clone()).await
 }
 
 /// Start a streaming chat. Returns the run id immediately; events arrive via

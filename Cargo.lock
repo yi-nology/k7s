@@ -2761,6 +2761,8 @@ dependencies = [
  "argon2",
  "axum",
  "hostname",
+ "http-body-util",
+ "k7s-commands",
  "k7s-core",
  "k7s-deps",
  "local-ip-address",

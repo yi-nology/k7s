@@ -5,6 +5,7 @@
 //! attributes so each target compiles exactly its historical feature set.
 
 pub mod commands;
+pub mod registry;
 
 /// Expand to the full `tauri::generate_handler!` list for the current target.
 ///

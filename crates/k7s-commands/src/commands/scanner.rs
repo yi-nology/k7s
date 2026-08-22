@@ -65,8 +65,7 @@ pub fn resolve_grype(prefs_grype_path: Option<&str>) -> (Option<String>, String)
 /// `scanner_status` — Return the availability and configuration of all scanning
 /// engines. The frontend calls this to render the scanner status panel and to
 /// determine which engine will be used for the next SBOM or vulnerability scan.
-#[tauri::command]
-pub async fn scanner_status(mgr: State<'_, Arc<CoreState>>) -> AppResult<ScannerStatus> {
+pub async fn scanner_status_impl(mgr: std::sync::Arc<CoreState>) -> AppResult<ScannerStatus> {
     let dir = mgr.data_dir.clone();
     let prefs = k7s_deps::tokio::task::spawn_blocking(move || read_prefs(&dir))
         .await
@@ -116,4 +115,9 @@ pub async fn scanner_status(mgr: State<'_, Arc<CoreState>>) -> AppResult<Scanner
         active_engine,
         timeout,
     })
+}
+
+#[tauri::command]
+pub async fn scanner_status(mgr: State<'_, Arc<CoreState>>) -> AppResult<ScannerStatus> {
+    scanner_status_impl(mgr.inner().clone()).await
 }

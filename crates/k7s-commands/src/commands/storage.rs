@@ -17,43 +17,62 @@ use tauri::State;
 
 /// List a directory inside a pod's container. Returns file / dir / symlink
 /// entries with sizes, mtimes, and POSIX modes.
-#[tauri::command]
-pub async fn pod_files_list(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    path: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<pod_files::FileEntry>> {
+/// Wire arguments for [`pod_files_list`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PodFilesListArgs {
+    pub namespace: String,
+    pub pod: String,
+    pub container: Option<String>,
+    pub path: String,
+}
+
+pub async fn pod_files_list_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, path: String) -> AppResult<Vec<pod_files::FileEntry>> {
     let client = require_client(&mgr.manager).await?;
     pod_files::list_dir(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
+#[tauri::command]
+pub async fn pod_files_list(namespace: String, pod: String, container: Option<String>, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<pod_files::FileEntry>> {
+    pod_files_list_impl(mgr.inner().clone(), namespace, pod, container, path).await
+}
+
 /// Read a file's text contents. Returns UTF-8 lossy so logs/configs work
 /// even if the bytes aren't valid UTF-8 (e.g. UTF-16 BOM'd files).
-#[tauri::command]
-pub async fn pod_files_read(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    path: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<String> {
+/// Wire arguments for [`pod_files_read`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PodFilesReadArgs {
+    pub namespace: String,
+    pub pod: String,
+    pub container: Option<String>,
+    pub path: String,
+}
+
+pub async fn pod_files_read_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, path: String) -> AppResult<String> {
     let client = require_client(&mgr.manager).await?;
     pod_files::read_file(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
+#[tauri::command]
+pub async fn pod_files_read(namespace: String, pod: String, container: Option<String>, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<String> {
+    pod_files_read_impl(mgr.inner().clone(), namespace, pod, container, path).await
+}
+
 /// Write a file's contents inside a container. Creates parent directories
 /// as needed.
-#[tauri::command]
-pub async fn pod_files_write(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    path: String,
-    content: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<()> {
+/// Wire arguments for [`pod_files_write`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PodFilesWriteArgs {
+    pub namespace: String,
+    pub pod: String,
+    pub container: Option<String>,
+    pub path: String,
+    pub content: String,
+}
+
+pub async fn pod_files_write_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, path: String, content: String) -> AppResult<()> {
     let client = require_client(&mgr.manager).await?;
     pod_files::write_file(
         client,
@@ -66,30 +85,46 @@ pub async fn pod_files_write(
     .await
 }
 
+#[tauri::command]
+pub async fn pod_files_write(namespace: String, pod: String, container: Option<String>, path: String, content: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    pod_files_write_impl(mgr.inner().clone(), namespace, pod, container, path, content).await
+}
+
 /// Download a path as a tar archive. The frontend turns the bytes into a
 /// user-saved file.
-#[tauri::command]
-pub async fn pod_files_download(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    path: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<u8>> {
+/// Wire arguments for [`pod_files_download`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PodFilesDownloadArgs {
+    pub namespace: String,
+    pub pod: String,
+    pub container: Option<String>,
+    pub path: String,
+}
+
+pub async fn pod_files_download_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, path: String) -> AppResult<Vec<u8>> {
     let client = require_client(&mgr.manager).await?;
     pod_files::download_path(client, &namespace, &pod, container.as_deref(), &path).await
 }
 
-/// Upload a tar archive (bytes) into a directory inside a container.
 #[tauri::command]
-pub async fn pod_files_upload(
-    namespace: String,
-    pod: String,
-    container: Option<String>,
-    dest_dir: String,
-    tar_b64: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<()> {
+pub async fn pod_files_download(namespace: String, pod: String, container: Option<String>, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<u8>> {
+    pod_files_download_impl(mgr.inner().clone(), namespace, pod, container, path).await
+}
+
+/// Upload a tar archive (bytes) into a directory inside a container.
+/// Wire arguments for [`pod_files_upload`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PodFilesUploadArgs {
+    pub namespace: String,
+    pub pod: String,
+    pub container: Option<String>,
+    pub dest_dir: String,
+    pub tar_b64: String,
+}
+
+pub async fn pod_files_upload_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, container: Option<String>, dest_dir: String, tar_b64: String) -> AppResult<()> {
     use k7s_deps::base64::Engine;
     let bytes = k7s_deps::base64::engine::general_purpose::STANDARD
         .decode(&tar_b64)
@@ -104,6 +139,11 @@ pub async fn pod_files_upload(
         &bytes,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn pod_files_upload(namespace: String, pod: String, container: Option<String>, dest_dir: String, tar_b64: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    pod_files_upload_impl(mgr.inner().clone(), namespace, pod, container, dest_dir, tar_b64).await
 }
 
 // ---------------------------------------------------------------------------
@@ -132,8 +172,14 @@ pub fn image_registry_remove(name: String) -> AppResult<()> {
     imagerepo::remove_registry(&name)
 }
 
-#[tauri::command]
-pub async fn image_registry_test(name: String) -> AppResult<()> {
+/// Wire arguments for [`image_registry_test`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageRegistryTestArgs {
+    pub name: String,
+}
+
+pub async fn image_registry_test_impl(name: String) -> AppResult<()> {
     let reg = imagerepo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
@@ -142,7 +188,18 @@ pub async fn image_registry_test(name: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub async fn image_registry_repos(name: String) -> AppResult<Vec<imagerepo::RepoEntry>> {
+pub async fn image_registry_test(name: String) -> AppResult<()> {
+    image_registry_test_impl(name).await
+}
+
+/// Wire arguments for [`image_registry_repos`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageRegistryReposArgs {
+    pub name: String,
+}
+
+pub async fn image_registry_repos_impl(name: String) -> AppResult<Vec<imagerepo::RepoEntry>> {
     let reg = imagerepo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
@@ -151,15 +208,29 @@ pub async fn image_registry_repos(name: String) -> AppResult<Vec<imagerepo::Repo
 }
 
 #[tauri::command]
-pub async fn image_registry_tags(
-    name: String,
-    repo: String,
-) -> AppResult<Vec<imagerepo::TagEntry>> {
+pub async fn image_registry_repos(name: String) -> AppResult<Vec<imagerepo::RepoEntry>> {
+    image_registry_repos_impl(name).await
+}
+
+/// Wire arguments for [`image_registry_tags`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageRegistryTagsArgs {
+    pub name: String,
+    pub repo: String,
+}
+
+pub async fn image_registry_tags_impl(name: String, repo: String) -> AppResult<Vec<imagerepo::TagEntry>> {
     let reg = imagerepo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
         .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
     imagerepo::list_tags(&reg, &repo).await
+}
+
+#[tauri::command]
+pub async fn image_registry_tags(name: String, repo: String) -> AppResult<Vec<imagerepo::TagEntry>> {
+    image_registry_tags_impl(name, repo).await
 }
 
 // ---------------------------------------------------------------------------
@@ -169,25 +240,41 @@ pub async fn image_registry_tags(
 /// Apply a multi-document YAML bundle. Returns one `ApplyResult` per doc,
 /// with `action` set to "created", "updated", or "failed" and a per-doc
 /// error message on failure.
-#[tauri::command]
-pub async fn apply_yaml_bundle(
-    yaml: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<templates::ApplyResult>> {
+/// Wire arguments for [`apply_yaml_bundle`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ApplyYamlBundleArgs {
+    pub yaml: String,
+}
+
+pub async fn apply_yaml_bundle_impl(mgr: std::sync::Arc<CoreState>, yaml: String) -> AppResult<Vec<templates::ApplyResult>> {
     let client = require_client(&mgr.manager).await?;
     templates::multi_apply(&yaml, client, &mgr.manager).await
+}
+
+#[tauri::command]
+pub async fn apply_yaml_bundle(yaml: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<templates::ApplyResult>> {
+    apply_yaml_bundle_impl(mgr.inner().clone(), yaml).await
 }
 
 /// Dry-run a multi-document YAML bundle without writing (YAML-import create
 /// mode's Preview step). The single-doc `dry_run_yaml` can't handle a
 /// multi-kind create bundle, so this reuses `templates::multi_dry_run`.
-#[tauri::command]
-pub async fn dry_run_yaml_bundle(
-    yaml: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<templates::DocDryRun>> {
+/// Wire arguments for [`dry_run_yaml_bundle`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DryRunYamlBundleArgs {
+    pub yaml: String,
+}
+
+pub async fn dry_run_yaml_bundle_impl(mgr: std::sync::Arc<CoreState>, yaml: String) -> AppResult<Vec<templates::DocDryRun>> {
     let client = require_client(&mgr.manager).await?;
     templates::multi_dry_run(&yaml, client).await
+}
+
+#[tauri::command]
+pub async fn dry_run_yaml_bundle(yaml: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<templates::DocDryRun>> {
+    dry_run_yaml_bundle_impl(mgr.inner().clone(), yaml).await
 }
 
 // ---------------------------------------------------------------------------
@@ -207,12 +294,15 @@ const IMAGE_IMPORT_MAX_BYTES: u64 = 8 * 1024 * 1024 * 1024; // 8 GiB
 /// picker. The file is read server-side (not base64 over IPC) because a tar
 /// can be gigabytes; streaming one through the frontend would balloon memory.
 #[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub async fn import_image_to_node(
-    node: String,
-    path: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<imageimport::ImportResult> {
+/// Wire arguments for [`import_image_to_node`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImportImageToNodeArgs {
+    pub node: String,
+    pub path: String,
+}
+
+pub async fn import_image_to_node_impl(mgr: std::sync::Arc<CoreState>, node: String, path: String) -> AppResult<imageimport::ImportResult> {
     let client = require_client(&mgr.manager).await?;
     // Stat first so a path to a huge file fails fast with a clear message
     // rather than reading 8 GiB into RAM before refusing.
@@ -230,6 +320,11 @@ pub async fn import_image_to_node(
     imageimport::import_to_node(client, &node, &tar_bytes).await
 }
 
+#[tauri::command]
+pub async fn import_image_to_node(node: String, path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<imageimport::ImportResult> {
+    import_image_to_node_impl(mgr.inner().clone(), node, path).await
+}
+
 // ---------------------------------------------------------------------------
 // Image sync (skopeo) — copy an image into a configured private registry.
 // Air-gapped clusters with an internal registry use this; the per-node
@@ -242,9 +337,13 @@ pub async fn import_image_to_node(
 /// --version`), so the UI can call it on panel open to gate the To-Registry
 /// tab.
 #[cfg(not(target_os = "android"))]
+pub async fn image_sync_status_impl() -> AppResult<image_sync::SkopeoAvailability> {
+    Ok(image_sync::check_skopeo().await)
+}
+
 #[tauri::command]
 pub async fn image_sync_status() -> AppResult<image_sync::SkopeoAvailability> {
-    Ok(image_sync::check_skopeo().await)
+    image_sync_status_impl().await
 }
 
 /// Copy an image into a configured destination registry via `skopeo copy`.
@@ -284,9 +383,20 @@ pub async fn image_copy(
 /// name, tags, digest, architecture, os, and total size. Lets the user confirm
 /// a tar's contents (and that it's linux/amd64) before pushing.
 #[cfg(not(target_os = "android"))]
+/// Wire arguments for [`image_inspect_archive`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageInspectArchiveArgs {
+    pub tar_path: String,
+}
+
+pub async fn image_inspect_archive_impl(tar_path: String) -> AppResult<image_archive::ArchiveInfo> {
+    image_archive::inspect_archive(&tar_path).await
+}
+
 #[tauri::command]
 pub async fn image_inspect_archive(tar_path: String) -> AppResult<image_archive::ArchiveInfo> {
-    image_archive::inspect_archive(&tar_path).await
+    image_inspect_archive_impl(tar_path).await
 }
 
 // ---------------------------------------------------------------------------
@@ -295,57 +405,90 @@ pub async fn image_inspect_archive(tar_path: String) -> AppResult<image_archive:
 
 /// Export a container image from a K8s node to a local .tar file.
 #[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub async fn export_from_node(
-    node: String,
-    image_ref: String,
-    save_path: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<imageexport::ExportResult> {
+/// Wire arguments for [`export_from_node`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ExportFromNodeArgs {
+    pub node: String,
+    pub image_ref: String,
+    pub save_path: String,
+}
+
+pub async fn export_from_node_impl(mgr: std::sync::Arc<CoreState>, node: String, image_ref: String, save_path: String) -> AppResult<imageexport::ExportResult> {
     let client = require_client(&mgr.manager).await?;
     imageexport::export_from_node(client, &node, &image_ref, &save_path).await
 }
 
+#[tauri::command]
+pub async fn export_from_node(node: String, image_ref: String, save_path: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<imageexport::ExportResult> {
+    export_from_node_impl(mgr.inner().clone(), node, image_ref, save_path).await
+}
+
 /// List container images present on a K8s node.
 #[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub async fn list_node_images(
-    node: String,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<String>> {
+/// Wire arguments for [`list_node_images`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ListNodeImagesArgs {
+    pub node: String,
+}
+
+pub async fn list_node_images_impl(mgr: std::sync::Arc<CoreState>, node: String) -> AppResult<Vec<String>> {
     let client = require_client(&mgr.manager).await?;
     imageexport::list_node_images(client, &node).await
 }
 
+#[tauri::command]
+pub async fn list_node_images(node: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<String>> {
+    list_node_images_impl(mgr.inner().clone(), node).await
+}
+
 /// Export an image from a configured private registry to a local .tar file.
 #[cfg(not(target_os = "android"))]
-#[tauri::command]
-pub async fn export_from_registry(
-    registry_name: String,
-    repo: String,
-    tag: String,
-    save_path: String,
-    insecure_src: bool,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<image_sync::ExportRegistryResult> {
+/// Wire arguments for [`export_from_registry`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ExportFromRegistryArgs {
+    pub registry_name: String,
+    pub repo: String,
+    pub tag: String,
+    pub save_path: String,
+    pub insecure_src: bool,
+}
+
+pub async fn export_from_registry_impl(mgr: std::sync::Arc<CoreState>, registry_name: String, repo: String, tag: String, save_path: String, insecure_src: bool) -> AppResult<image_sync::ExportRegistryResult> {
     let sink = mgr.manager.sink();
     image_sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink)
         .await
+}
+
+#[tauri::command]
+pub async fn export_from_registry(registry_name: String, repo: String, tag: String, save_path: String, insecure_src: bool, mgr: State<'_, Arc<CoreState>>) -> AppResult<image_sync::ExportRegistryResult> {
+    export_from_registry_impl(mgr.inner().clone(), registry_name, repo, tag, save_path, insecure_src).await
 }
 
 // ---------------------------------------------------------------------------
 // Image manifest drill-down.
 // ---------------------------------------------------------------------------
 
-#[tauri::command]
-pub async fn image_registry_manifest(
-    name: String,
-    repo: String,
-    tag: String,
-) -> AppResult<imagerepo::ImageManifest> {
+/// Wire arguments for [`image_registry_manifest`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageRegistryManifestArgs {
+    pub name: String,
+    pub repo: String,
+    pub tag: String,
+}
+
+pub async fn image_registry_manifest_impl(name: String, repo: String, tag: String) -> AppResult<imagerepo::ImageManifest> {
     let reg = imagerepo::list_registries()?
         .into_iter()
         .find(|r| r.name == name)
         .ok_or_else(|| AppError::NotFound(format!("registry '{name}' not found")))?;
     imagerepo::manifest(&reg, &repo, &tag).await
+}
+
+#[tauri::command]
+pub async fn image_registry_manifest(name: String, repo: String, tag: String) -> AppResult<imagerepo::ImageManifest> {
+    image_registry_manifest_impl(name, repo, tag).await
 }

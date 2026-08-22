@@ -13,13 +13,16 @@ use tauri::State;
 
 /// Start forwarding a pod port to a local TCP port; returns the forward (with the
 /// chosen local port). Errors if the pod doesn't exist or the listener can't bind.
-#[tauri::command]
-pub async fn start_port_forward(
-    namespace: String,
-    pod: String,
-    remote_port: u16,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<ForwardDto> {
+/// Wire arguments for [`start_port_forward`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StartPortForwardArgs {
+    pub namespace: String,
+    pub pod: String,
+    pub remote_port: u16,
+}
+
+pub async fn start_port_forward_impl(mgr: std::sync::Arc<CoreState>, namespace: String, pod: String, remote_port: u16) -> AppResult<ForwardDto> {
     let client = require_client(&mgr.manager).await?;
     let manager: Arc<ClientManager> = mgr.manager.clone();
 
@@ -29,18 +32,26 @@ pub async fn start_port_forward(
     spawn_forward(manager, client, namespace, pod, None, remote_port).await
 }
 
+#[tauri::command]
+pub async fn start_port_forward(namespace: String, pod: String, remote_port: u16, mgr: State<'_, Arc<CoreState>>) -> AppResult<ForwardDto> {
+    start_port_forward_impl(mgr.inner().clone(), namespace, pod, remote_port).await
+}
+
 /// Start forwarding a *Service* port (B16): pick a Ready backing pod and resolve
 /// the service port's targetPort, then forward to that pod exactly as above.
 ///
 /// This is what `kubectl port-forward svc/x` does — Kubernetes has no service-level
 /// forward — so the forward follows one pod and does not load-balance.
-#[tauri::command]
-pub async fn start_service_port_forward(
-    namespace: String,
-    service: String,
-    remote_port: u16,
-    mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<ForwardDto> {
+/// Wire arguments for [`start_service_port_forward`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StartServicePortForwardArgs {
+    pub namespace: String,
+    pub service: String,
+    pub remote_port: u16,
+}
+
+pub async fn start_service_port_forward_impl(mgr: std::sync::Arc<CoreState>, namespace: String, service: String, remote_port: u16) -> AppResult<ForwardDto> {
     let client = require_client(&mgr.manager).await?;
     let manager: Arc<ClientManager> = mgr.manager.clone();
 
@@ -56,6 +67,11 @@ pub async fn start_service_port_forward(
         target_port,
     )
     .await
+}
+
+#[tauri::command]
+pub async fn start_service_port_forward(namespace: String, service: String, remote_port: u16, mgr: State<'_, Arc<CoreState>>) -> AppResult<ForwardDto> {
+    start_service_port_forward_impl(mgr.inner().clone(), namespace, service, remote_port).await
 }
 
 /// Bind a local listener, spawn the forward's accept loop, and register it.
@@ -124,14 +140,29 @@ async fn spawn_forward(
 }
 
 /// Stop a port-forward (idempotent).
-#[tauri::command]
-pub async fn stop_port_forward(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+/// Wire arguments for [`stop_port_forward`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StopPortForwardArgs {
+    pub id: String,
+}
+
+pub async fn stop_port_forward_impl(mgr: std::sync::Arc<CoreState>, id: String) -> AppResult<()> {
     mgr.manager.remove_forward(&id).await;
     Ok(())
 }
 
+#[tauri::command]
+pub async fn stop_port_forward(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    stop_port_forward_impl(mgr.inner().clone(), id).await
+}
+
 /// List active port-forwards.
+pub async fn list_port_forwards_impl(mgr: std::sync::Arc<CoreState>) -> AppResult<Vec<ForwardDto>> {
+    Ok(mgr.manager.list_forwards().await)
+}
+
 #[tauri::command]
 pub async fn list_port_forwards(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<ForwardDto>> {
-    Ok(mgr.manager.list_forwards().await)
+    list_port_forwards_impl(mgr.inner().clone()).await
 }
