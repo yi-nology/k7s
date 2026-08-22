@@ -82,7 +82,7 @@ jobs:
           df -h /
 
       - name: set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: set up Docker Buildx
         uses: docker/setup-buildx-action@v3
