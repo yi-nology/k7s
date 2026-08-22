@@ -2566,7 +2566,7 @@ dependencies = [
 
 [[package]]
 name = "k7s"
-version = "0.4.0"
+version = "0.4.2"
 dependencies = [
  "http-body-util",
  "k7s-core",
