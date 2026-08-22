@@ -14,10 +14,12 @@ default = ["ipc"]
 # The #[tauri::command] wrappers + the register_commands! macro. The web
 # binary consumes only the `*_impl` business functions and the registry, so
 # it disables this and stays tauri-free (musl-static friendly).
-ipc = ["dep:tauri"]
+ipc = ["dep:tauri", "k7s-core/tauri"]
 
 [dependencies]
-k7s-core = { git = "https://github.com/yi-nology/k7s-core.git", features = ["tauri"] }
+# tauri stays off by default; the `ipc` feature turns on both the wrappers
+# and k7s-core's tauri support, keeping the web (musl) binary tauri-free.
+k7s-core = { git = "https://github.com/yi-nology/k7s-core.git", default-features = false }
 k7s-deps = { git = "https://github.com/yi-nology/k7s-deps.git" }
 tauri = { version = "2", features = [], optional = true }
 serde = { version = "1", features = ["derive"] }
