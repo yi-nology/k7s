@@ -1,0 +1,20 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Node / frontend
+node_modules/
+frontend/dist/
+dist/
+
+# macOS
+.DS_Store
+
+# Tooling artifacts
+.playwright-mcp/
+.superpowers/
+.zcode/
+
+# Env
+.env
+.env.local
