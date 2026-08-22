@@ -4,21 +4,44 @@
 //! request/response operations plus starting/stopping log streams.
 
 pub mod ai;
-pub mod ai_deep;
-pub mod ai_extra;
+// Shared across desktop/android/ios — single source of truth.
+pub mod ai_deep {
+    include!("../../../k7s-commands/ai_deep.rs");
+}
+pub mod ai_extra {
+    include!("../../../k7s-commands/ai_extra.rs");
+}
 pub mod core;
-pub mod cron;
-pub mod forward;
+pub mod cron {
+    include!("../../../k7s-commands/cron.rs");
+}
+pub mod forward {
+    include!("../../../k7s-commands/forward.rs");
+}
 pub mod helm;
-pub mod memory;
-pub mod observability;
+pub mod memory {
+    include!("../../../k7s-commands/memory.rs");
+}
+pub mod observability {
+    include!("../../../k7s-commands/observability.rs");
+}
 #[cfg(not(target_os = "android"))]
-pub mod sbom;
+pub mod sbom {
+    include!("../../../k7s-commands/sbom.rs");
+}
 #[cfg(not(target_os = "android"))]
-pub mod scanner;
-pub mod security;
-pub mod shell;
-pub mod skills;
+pub mod scanner {
+    include!("../../../k7s-commands/scanner.rs");
+}
+pub mod security {
+    include!("../../../k7s-commands/security.rs");
+}
+pub mod shell {
+    include!("../../../k7s-commands/shell.rs");
+}
+pub mod skills {
+    include!("../../../k7s-commands/skills.rs");
+}
 pub mod storage;
 
 // Re-export all commands so `commands::func` paths in lib.rs still work.
