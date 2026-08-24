@@ -173,14 +173,12 @@ pub async fn trigger_cronjob(
 // Metrics / Prometheus multi-instance (Phase 1 Tier-2 of KubePi parity).
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn metrics_list() -> AppResult<Vec<metrics_config::MetricsConfig>> {
     metrics_config::list()
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn metrics_upsert(
     name: String,
     url: String,
@@ -191,8 +189,7 @@ pub fn metrics_upsert(
     metrics_config::upsert(&name, &url, &username, &password, &description)
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn metrics_remove(name: String) -> AppResult<()> {
     metrics_config::remove(&name)
 }
@@ -278,13 +275,13 @@ mod grafana_cmds {
     use super::*;
 
     #[cfg(feature = "ipc")]
-#[tauri::command]
+    #[tauri::command]
     pub fn grafana_list() -> AppResult<Vec<grafana::GrafanaConfig>> {
         grafana::list()
     }
 
     #[cfg(feature = "ipc")]
-#[tauri::command]
+    #[tauri::command]
     pub fn grafana_upsert(
         name: String,
         url: String,
@@ -306,7 +303,7 @@ mod grafana_cmds {
     }
 
     #[cfg(feature = "ipc")]
-#[tauri::command]
+    #[tauri::command]
     pub fn grafana_remove(name: String) -> AppResult<()> {
         grafana::remove(&name)
     }
@@ -323,19 +320,19 @@ mod grafana_cmds {
     }
 
     #[cfg(feature = "ipc")]
-#[tauri::command]
+    #[tauri::command]
     pub async fn grafana_test(name: String) -> AppResult<()> {
         grafana_test_impl(name).await
     }
 
     #[cfg(feature = "ipc")]
-#[tauri::command]
+    #[tauri::command]
     pub fn grafana_presets() -> Vec<grafana::DashboardPreset> {
         grafana::preset_dashboards()
     }
 
     #[cfg(feature = "ipc")]
-#[tauri::command]
+    #[tauri::command]
     pub fn grafana_dashboard_url(
         name: String,
         uid: String,
@@ -361,7 +358,7 @@ mod grafana_cmds {
     }
 
     #[cfg(feature = "ipc")]
-#[tauri::command]
+    #[tauri::command]
     pub async fn grafana_search_dashboards(
         name: String,
         query: String,
@@ -376,14 +373,12 @@ pub use grafana_cmds::*;
 // AlertManager (Phase 1 Tier-2 of KubePi parity).
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn alertmanager_list() -> AppResult<Vec<alerting::AlertManager>> {
     alerting::list()
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn alertmanager_upsert(
     name: String,
     url: String,
@@ -393,8 +388,7 @@ pub fn alertmanager_upsert(
     alerting::upsert(&name, &url, &bearer_token, &description)
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn alertmanager_remove(name: String) -> AppResult<()> {
     alerting::remove(&name)
 }
@@ -516,14 +510,12 @@ pub async fn prometheus_rules(instance: String) -> AppResult<Vec<alerting::RuleG
 // Loki / K8s Audit log (Phase 3 — KubePi parity).
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn loki_list() -> AppResult<Vec<audit::LokiConfig>> {
     audit::list()
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn loki_upsert(
     name: String,
     url: String,
@@ -534,8 +526,7 @@ pub fn loki_upsert(
     audit::upsert(&name, &url, &username, &password, &description)
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn loki_remove(name: String) -> AppResult<()> {
     audit::remove(&name)
 }
@@ -578,28 +569,24 @@ pub async fn audit_events(query: audit::AuditQuery) -> AppResult<Vec<audit::Audi
 // Saved PromQL queries (Phase 2 — named queries + in-memory cache).
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn saved_queries_list() -> AppResult<Vec<saved_queries::SavedQuery>> {
     saved_queries::list()
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn saved_queries_upsert(
     query: saved_queries::SavedQuery,
 ) -> AppResult<saved_queries::SavedQuery> {
     saved_queries::upsert(query)
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn saved_queries_remove(name: String) -> AppResult<()> {
     saved_queries::remove(&name)
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn saved_queries_clear_cache() {
     saved_queries::clear_cache();
 }
@@ -629,4 +616,71 @@ pub async fn saved_queries_run(
     force_refresh: bool,
 ) -> AppResult<metrics_config::QueryResult> {
     saved_queries_run_impl(query, instance, force_refresh).await
+}
+
+/// Wire arguments for [`alertmanager_remove`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AlertmanagerRemoveArgs {
+    pub name: String,
+}
+
+/// Wire arguments for [`alertmanager_upsert`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct AlertmanagerUpsertArgs {
+    pub name: String,
+    pub url: String,
+    pub bearer_token: String,
+    pub description: String,
+}
+
+/// Wire arguments for [`loki_remove`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LokiRemoveArgs {
+    pub name: String,
+}
+
+/// Wire arguments for [`loki_upsert`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LokiUpsertArgs {
+    pub name: String,
+    pub url: String,
+    pub username: String,
+    pub password: String,
+    pub description: String,
+}
+
+/// Wire arguments for [`metrics_remove`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MetricsRemoveArgs {
+    pub name: String,
+}
+
+/// Wire arguments for [`metrics_upsert`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct MetricsUpsertArgs {
+    pub name: String,
+    pub url: String,
+    pub username: String,
+    pub password: String,
+    pub description: String,
+}
+
+/// Wire arguments for [`saved_queries_remove`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SavedQueriesRemoveArgs {
+    pub name: String,
+}
+
+/// Wire arguments for [`saved_queries_upsert`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SavedQueriesUpsertArgs {
+    pub query: saved_queries::SavedQuery,
 }

@@ -609,5 +609,201 @@ pub fn build_registry() -> CommandRegistry {
     r.register("rbac_permission_matrix", |mgr, _a: NoArgs| async move {
         commands::security::rbac_permission_matrix_impl(mgr).await
     });
+    r.register("alertmanager_list", |_mgr, _a: NoArgs| async move {
+        commands::observability::alertmanager_list()
+    });
+    r.register(
+        "alertmanager_remove",
+        |_mgr, a: commands::observability::AlertmanagerRemoveArgs| async move {
+            commands::observability::alertmanager_remove(a.name)
+        },
+    );
+    r.register(
+        "alertmanager_upsert",
+        |_mgr, a: commands::observability::AlertmanagerUpsertArgs| async move {
+            commands::observability::alertmanager_upsert(
+                a.name,
+                a.url,
+                a.bearer_token,
+                a.description,
+            )
+        },
+    );
+    r.register(
+        "helm_add_repo",
+        |_mgr, a: commands::helm::HelmAddRepoArgs| async move {
+            commands::helm::helm_add_repo(a.name, a.url, a.description)
+        },
+    );
+    r.register(
+        "helm_chart_versions",
+        |_mgr, a: commands::helm::HelmChartVersionsArgs| async move {
+            commands::helm::helm_chart_versions(a.repo, a.chart)
+        },
+    );
+    r.register(
+        "helm_import_chart",
+        |_mgr, a: commands::helm::HelmImportChartArgs| async move {
+            commands::helm::helm_import_chart(a.file_path, a.repo_name)
+        },
+    );
+    r.register("helm_list_repos", |_mgr, _a: NoArgs| async move {
+        commands::helm::helm_list_repos()
+    });
+    r.register(
+        "helm_local_charts",
+        |_mgr, a: commands::helm::HelmLocalChartsArgs| async move {
+            commands::helm::helm_local_charts(a.repo_name)
+        },
+    );
+    r.register(
+        "helm_remove_repo",
+        |_mgr, a: commands::helm::HelmRemoveRepoArgs| async move {
+            commands::helm::helm_remove_repo(a.name)
+        },
+    );
+    r.register(
+        "helm_search_charts",
+        |_mgr, a: commands::helm::HelmSearchChartsArgs| async move {
+            commands::helm::helm_search_charts(a.query)
+        },
+    );
+    r.register("helm_seed_repos", |_mgr, _a: NoArgs| async move {
+        commands::helm::helm_seed_repos()
+    });
+    #[cfg(not(target_os = "android"))]
+    r.register(
+        "image_copy",
+        |mgr, a: commands::storage::ImageCopyArgs| async move {
+            commands::storage::image_copy_impl(
+                mgr,
+                a.source,
+                a.dest_registry,
+                a.dest_repo,
+                a.dest_tag,
+                a.src_creds,
+                a.insecure_src,
+                a.insecure_dest,
+            )
+            .await
+        },
+    );
+    r.register("image_registry_list", |_mgr, _a: NoArgs| async move {
+        commands::storage::image_registry_list()
+    });
+    r.register(
+        "image_registry_remove",
+        |_mgr, a: commands::storage::ImageRegistryRemoveArgs| async move {
+            commands::storage::image_registry_remove(a.name)
+        },
+    );
+    r.register(
+        "image_registry_upsert",
+        |_mgr, a: commands::storage::ImageRegistryUpsertArgs| async move {
+            commands::storage::image_registry_upsert(
+                a.name,
+                a.url,
+                a.username,
+                a.password,
+                a.insecure,
+                a.description,
+            )
+        },
+    );
+    r.register("loki_list", |_mgr, _a: NoArgs| async move {
+        commands::observability::loki_list()
+    });
+    r.register(
+        "loki_remove",
+        |_mgr, a: commands::observability::LokiRemoveArgs| async move {
+            commands::observability::loki_remove(a.name)
+        },
+    );
+    r.register(
+        "loki_upsert",
+        |_mgr, a: commands::observability::LokiUpsertArgs| async move {
+            commands::observability::loki_upsert(
+                a.name,
+                a.url,
+                a.username,
+                a.password,
+                a.description,
+            )
+        },
+    );
+    r.register("metrics_list", |_mgr, _a: NoArgs| async move {
+        commands::observability::metrics_list()
+    });
+    r.register(
+        "metrics_remove",
+        |_mgr, a: commands::observability::MetricsRemoveArgs| async move {
+            commands::observability::metrics_remove(a.name)
+        },
+    );
+    r.register(
+        "metrics_upsert",
+        |_mgr, a: commands::observability::MetricsUpsertArgs| async move {
+            commands::observability::metrics_upsert(
+                a.name,
+                a.url,
+                a.username,
+                a.password,
+                a.description,
+            )
+        },
+    );
+    r.register("saved_queries_clear_cache", |_mgr, _a: NoArgs| async move {
+        {
+            commands::observability::saved_queries_clear_cache();
+            Ok(())
+        }
+    });
+    r.register("saved_queries_list", |_mgr, _a: NoArgs| async move {
+        commands::observability::saved_queries_list()
+    });
+    r.register(
+        "saved_queries_remove",
+        |_mgr, a: commands::observability::SavedQueriesRemoveArgs| async move {
+            commands::observability::saved_queries_remove(a.name)
+        },
+    );
+    r.register(
+        "saved_queries_upsert",
+        |_mgr, a: commands::observability::SavedQueriesUpsertArgs| async move {
+            commands::observability::saved_queries_upsert(a.query)
+        },
+    );
+    r.register(
+        "simulate_connectivity",
+        |mgr, a: commands::core::SimulateConnectivityArgs| async move {
+            commands::core::simulate_connectivity_impl(
+                mgr,
+                a.src_namespace,
+                a.src_pod,
+                a.dst_namespace,
+                a.dst_pod,
+                a.port,
+                a.protocol,
+            )
+            .await
+        },
+    );
+    r.register(
+        "start_log_stream",
+        |mgr, a: commands::core::StartLogStreamArgs| async move {
+            commands::core::start_log_stream_impl(
+                mgr,
+                a.namespace,
+                a.pod,
+                a.container,
+                a.tail,
+                a.since_time,
+                a.since_seconds,
+                a.previous,
+            )
+            .await
+        },
+    );
+
     r
 }

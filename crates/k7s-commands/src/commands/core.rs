@@ -2,9 +2,9 @@
 //! restart, rollout, custom kinds, drain, node stats, events, secrets,
 //! properties, and log streams.
 
-use k7s_core::core::prefs::{self};
 #[cfg(feature = "ipc")]
 use k7s_core::core::prefs::Prefs;
+use k7s_core::core::prefs::{self};
 use k7s_core::core::shell_common;
 use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
@@ -1108,6 +1108,29 @@ pub async fn debug_ingress(
 ///
 /// Answers "can pod A in namespace X talk to pod B in namespace Y on port Z?"
 /// by evaluating all applicable NetworkPolicies for both egress and ingress.
+#[allow(clippy::too_many_arguments)]
+pub async fn simulate_connectivity_impl(
+    mgr: std::sync::Arc<CoreState>,
+    src_namespace: String,
+    src_pod: String,
+    dst_namespace: String,
+    dst_pod: String,
+    port: Option<i32>,
+    protocol: Option<String>,
+) -> AppResult<k7s_core::kube::security::netpol_sim::SimulationResult> {
+    let client = require_client(&mgr.manager).await?;
+    k7s_core::kube::security::netpol_sim::simulate_connectivity(
+        client,
+        &src_namespace,
+        &src_pod,
+        &dst_namespace,
+        &dst_pod,
+        port,
+        protocol,
+    )
+    .await
+}
+
 #[cfg(feature = "ipc")]
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -1120,13 +1143,12 @@ pub async fn simulate_connectivity(
     protocol: Option<String>,
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<k7s_core::kube::security::netpol_sim::SimulationResult> {
-    let client = require_client(&mgr.manager).await?;
-    k7s_core::kube::security::netpol_sim::simulate_connectivity(
-        client,
-        &src_namespace,
-        &src_pod,
-        &dst_namespace,
-        &dst_pod,
+    simulate_connectivity_impl(
+        mgr.inner().clone(),
+        src_namespace,
+        src_pod,
+        dst_namespace,
+        dst_pod,
         port,
         protocol,
     )
@@ -1215,6 +1237,27 @@ pub async fn get_events(
 }
 
 /// Start following a container's logs; returns the new stream id.
+#[allow(clippy::too_many_arguments)]
+pub async fn start_log_stream_impl(
+    mgr: std::sync::Arc<CoreState>,
+    namespace: String,
+    pod: String,
+    container: String,
+    tail: Option<i64>,
+    since_time: Option<String>,
+    since_seconds: Option<i64>,
+    previous: bool,
+) -> AppResult<String> {
+    let client = require_client(&mgr.manager).await?;
+    let opts = logs::LogStreamOptions {
+        tail,
+        since_time,
+        since_seconds,
+        previous,
+    };
+    Ok(shell_common::spawn_log_stream(&mgr.manager, client, namespace, pod, container, opts).await)
+}
+
 #[cfg(feature = "ipc")]
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -1364,4 +1407,29 @@ fn event_age(e: &Event) -> String {
     let seen = last_seen(e);
     let secs = now.duration_since(seen).as_secs().max(0);
     mappers::humanize_duration(secs)
+}
+
+/// Wire arguments for [`simulate_connectivity`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct SimulateConnectivityArgs {
+    pub src_namespace: String,
+    pub src_pod: String,
+    pub dst_namespace: String,
+    pub dst_pod: String,
+    pub port: Option<i32>,
+    pub protocol: Option<String>,
+}
+
+/// Wire arguments for [`start_log_stream`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct StartLogStreamArgs {
+    pub namespace: String,
+    pub pod: String,
+    pub container: String,
+    pub tail: Option<i64>,
+    pub since_time: Option<String>,
+    pub since_seconds: Option<i64>,
+    pub previous: bool,
 }

@@ -237,14 +237,12 @@ pub async fn pod_files_upload(
 // Image registry management (Phase 5 of KubePi parity).
 // ---------------------------------------------------------------------------
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn image_registry_list() -> AppResult<Vec<repo::ImageRegistry>> {
     repo::list_registries()
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn image_registry_upsert(
     name: String,
     url: String,
@@ -256,8 +254,7 @@ pub fn image_registry_upsert(
     repo::upsert_registry(&name, &url, &username, &password, insecure, &description)
 }
 
-#[cfg(feature = "ipc")]
-#[tauri::command]
+#[cfg_attr(feature = "ipc", tauri::command)]
 pub fn image_registry_remove(name: String) -> AppResult<()> {
     repo::remove_registry(&name)
 }
@@ -473,6 +470,32 @@ pub async fn image_sync_status() -> AppResult<sync::SkopeoAvailability> {
 /// are used automatically). Streams each stdout/stderr line as an
 /// `image-sync-log` event so the UI can render a live progress log.
 #[cfg(not(target_os = "android"))]
+#[allow(clippy::too_many_arguments)]
+pub async fn image_copy_impl(
+    mgr: std::sync::Arc<CoreState>,
+    source: String,
+    dest_registry: String,
+    dest_repo: String,
+    dest_tag: String,
+    src_creds: Option<String>,
+    insecure_src: bool,
+    insecure_dest: bool,
+) -> AppResult<sync::ImageSyncResult> {
+    let sink = mgr.manager.sink();
+    sync::copy_image(
+        &source,
+        &dest_registry,
+        &dest_repo,
+        &dest_tag,
+        src_creds.as_deref(),
+        insecure_src,
+        insecure_dest,
+        sink,
+    )
+    .await
+}
+
+#[cfg(not(target_os = "android"))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -486,16 +509,15 @@ pub async fn image_copy(
     insecure_dest: bool,
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<sync::ImageSyncResult> {
-    let sink = mgr.manager.sink();
-    sync::copy_image(
-        &source,
-        &dest_registry,
-        &dest_repo,
-        &dest_tag,
-        src_creds.as_deref(),
+    image_copy_impl(
+        mgr.inner().clone(),
+        source,
+        dest_registry,
+        dest_repo,
+        dest_tag,
+        src_creds,
         insecure_src,
         insecure_dest,
-        sink,
     )
     .await
 }
@@ -662,4 +684,36 @@ pub async fn image_registry_manifest(
     tag: String,
 ) -> AppResult<repo::ImageManifest> {
     image_registry_manifest_impl(name, repo, tag).await
+}
+
+/// Wire arguments for [`image_copy`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageCopyArgs {
+    pub source: String,
+    pub dest_registry: String,
+    pub dest_repo: String,
+    pub dest_tag: String,
+    pub src_creds: Option<String>,
+    pub insecure_src: bool,
+    pub insecure_dest: bool,
+}
+
+/// Wire arguments for [`image_registry_remove`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageRegistryRemoveArgs {
+    pub name: String,
+}
+
+/// Wire arguments for [`image_registry_upsert`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ImageRegistryUpsertArgs {
+    pub name: String,
+    pub url: String,
+    pub username: String,
+    pub password: String,
+    pub insecure: bool,
+    pub description: String,
 }
