@@ -106,7 +106,24 @@
   --ansi-black: #08080c;
   --ansi-magenta: #bb9af7;
   --ansi-cyan: #7dcfff;
-  --editor-selection: #23324a; /* xterm + CodeMirror selection */
+  --editor-selection: #23324a;
+
+  /* Legacy aliases — mirror for the dark-panel surface (same rationale as
+   * the :root / light blocks; var() picks up this block's dark values). */
+  --fg: var(--text-body);
+  --danger: var(--status-err);
+  --error: var(--status-err);
+  --error-bg: var(--status-err-soft);
+  --accent-bg: var(--accent-soft);
+  --accent-dim: var(--status-warn-soft);
+  --bg-input: var(--bg-control);
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-secondary: var(--bg-panel);
+  --bg-surface: var(--bg-elevated);
+  --bg-toolbar: var(--bg-chrome);
+  --bg-active: var(--bg-hover);
+  --bg-hover-row: var(--bg-hover);
+  --bg-card: var(--bg-control); /* xterm + CodeMirror selection */
 
   /* ================ Overlays ================ */
   --scrim: rgba(0, 0, 0, 0.55); /* modal backdrop (settings, palette) */
@@ -154,6 +171,26 @@
   --surface-2: var(--bg-control);
   --surface-3: var(--bg-hover);
   --surface-warn: var(--status-warn-soft);
+
+  /* ================ Legacy aliases ================ */
+  /* Older components reference these names; mapped to the canonical tokens
+   * (var() indirection, so the light theme's overrides apply automatically)
+   * so no usage ever falls back to a hardcoded value — an undefined var on a
+   * native <button> lets the UA's white default bleed through. */
+  --fg: var(--text-body);
+  --danger: var(--status-err);
+  --error: var(--status-err);
+  --error-bg: var(--status-err-soft);
+  --accent-bg: var(--accent-soft);
+  --accent-dim: var(--status-warn-soft);
+  --bg-input: var(--bg-control);
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-secondary: var(--bg-panel);
+  --bg-surface: var(--bg-elevated);
+  --bg-toolbar: var(--bg-chrome);
+  --bg-active: var(--bg-hover);
+  --bg-hover-row: var(--bg-hover);
+  --bg-card: var(--bg-control);
 
   /* ================ Z-index scale ================ */
   --z-wash: 0;
@@ -298,6 +335,24 @@
   --glow-err: rgba(207, 78, 102, 0.4);
   --bg-footer: rgba(0, 0, 0, 0.06);
   --bg-topbar-glass-light: rgba(255, 255, 255, 0.72);
+
+  /* Legacy aliases — mirror of the :root block; var() indirection keeps them
+   * pointing at this palette's overrides (the palette-parity test enforces
+   * both blocks stay in sync). */
+  --fg: var(--text-body);
+  --danger: var(--status-err);
+  --error: var(--status-err);
+  --error-bg: var(--status-err-soft);
+  --accent-bg: var(--accent-soft);
+  --accent-dim: var(--status-warn-soft);
+  --bg-input: var(--bg-control);
+  --bg-overlay: rgba(0, 0, 0, 0.45);
+  --bg-secondary: var(--bg-panel);
+  --bg-surface: var(--bg-elevated);
+  --bg-toolbar: var(--bg-chrome);
+  --bg-active: var(--bg-hover);
+  --bg-hover-row: var(--bg-hover);
+  --bg-card: var(--bg-control);
 }
 
 /*
@@ -375,6 +430,23 @@
   --ansi-magenta: #bb9af7;
   --ansi-cyan: #7dcfff;
   --editor-selection: #23324a;
+
+  /* Legacy aliases — mirror for the dark-panel surface (same rationale as
+   * the :root / light blocks; var() picks up this block's dark values). */
+  --fg: var(--text-body);
+  --danger: var(--status-err);
+  --error: var(--status-err);
+  --error-bg: var(--status-err-soft);
+  --accent-bg: var(--accent-soft);
+  --accent-dim: var(--status-warn-soft);
+  --bg-input: var(--bg-control);
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+  --bg-secondary: var(--bg-panel);
+  --bg-surface: var(--bg-elevated);
+  --bg-toolbar: var(--bg-chrome);
+  --bg-active: var(--bg-hover);
+  --bg-hover-row: var(--bg-hover);
+  --bg-card: var(--bg-control);
 
   --scrim: rgba(0, 0, 0, 0.55);
   --bg-edit-hover: #1b2a4a;

@@ -12,7 +12,7 @@
 .categoryTitle {
   font-size: 12px;
   text-transform: uppercase;
-  color: var(--text-dim, #777);
+  color: var(--text-faint);
   margin: 16px 0 8px;
 }
 
@@ -22,20 +22,24 @@
   gap: 10px;
 }
 
+/* Buttons carry the UA default (white) background until CSS applies — use the
+ * real design tokens (no fallbacks) so the card surface is always themed. */
 .card {
   padding: 14px;
-  border: 1px solid var(--border, #ffffff1a);
+  border: 1px solid var(--border-control);
   border-radius: 10px;
-  background: var(--bg-card, #ffffff08);
-  color: var(--text, #eee);
+  background: var(--bg-control);
+  color: var(--text-body);
   cursor: pointer;
   text-align: left;
 }
 
 .card:hover {
-  border-color: var(--accent, #6ea8fe);
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
 }
 
 .cardTitle {
   font-size: 13px;
+  color: inherit;
 }
