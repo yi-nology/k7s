@@ -14,8 +14,11 @@ jobs:
     name: build frontend
     runs-on: ubuntu-22.04
     steps:
-      - name: checkout
+      - name: checkout k7s-frontend
         uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-frontend
+          path: k7s-frontend
 
       - name: setup Node
         uses: actions/setup-node@v4
@@ -29,7 +32,7 @@ jobs:
 
       - name: build frontend
         run: |
-          cd frontend
+          cd k7s-frontend
           pnpm install --frozen-lockfile
           pnpm build
 
@@ -37,7 +40,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-dist
-          path: frontend/dist
+          path: k7s-frontend/dist
           retention-days: 1
 
   release:
@@ -57,14 +60,41 @@ jobs:
             rust: stable
     runs-on: ${{ matrix.os }}
     steps:
-      - name: checkout
+      - name: checkout k7s-desktop
         uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-desktop
+          path: k7s-desktop
 
-      - name: download frontend artifact
+      - name: checkout k7s-server
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-server
+          path: k7s-server
+
+      - name: checkout k7s-core
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-core
+          path: k7s-core
+
+      - name: checkout k7s-deps
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-deps
+          path: k7s-deps
+
+      - name: checkout k7s-commands
+        uses: actions/checkout@v4
+        with:
+          repository: yi-nology/k7s-commands
+          path: k7s-commands
+
+      - name: download frontend artifact (desktop embed)
         uses: actions/download-artifact@v4
         with:
           name: frontend-dist
-          path: crates/k7s-desktop/dist
+          path: k7s-desktop/dist
 
       - name: install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -74,7 +104,7 @@ jobs:
       - name: cache Rust build
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: . -> target
+          workspaces: k7s-desktop -> target
 
       - name: install Linux system deps
         if: runner.os == 'Linux'
@@ -99,27 +129,7 @@ jobs:
           releaseName: 'k7s ${{ github.ref_name }}'
           releaseDraft: false
           prerelease: false
-          projectPath: crates/k7s-desktop
-
-      # ── 校验和: 每个桌面产物配一个 .sha256, install.sh 下载后核对 ──
-      - name: generate desktop bundle checksums
-        if: always() && steps.tauri.conclusion == 'success'
-        shell: bash
-        run: |
-          cd crates/k7s-desktop/target/release/bundle
-          find . -type f \( -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*-setup.exe" -o -name "*.msi" \) | while read -r f; do
-            (cd "$(dirname "$f")" && shasum -a 256 "$(basename "$f")" > "$(basename "$f").sha256") || sha256sum "$f" > "$f.sha256"
-            echo "checksum written: $f.sha256"
-          done
-
-      - name: upload desktop bundle checksums
-        if: always() && steps.tauri.conclusion == 'success'
-        uses: softprops/action-gh-release@v3
-        with:
-          files: |
-            crates/k7s-desktop/target/release/bundle/**/*.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          projectPath: k7s-desktop
 
       # ── 注入 glibc 2.35 到 AppImage, 兼容麒麟桌面 (glibc 2.31) ──
       - name: bundle glibc into AppImage (Kylin compatibility)
@@ -127,15 +137,13 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
-          # 安装 appimagetool (本身也是 AppImage, 需要 APPIMAGE_EXTRACT_AND_RUN).
-          # Pinned to the tagged 1.9.1 release instead of the floating
-          # `continuous` channel for supply-chain reproducibility.
-          wget -q "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage" \
+          # 安装 appimagetool (本身也是 AppImage, 需要 APPIMAGE_EXTRACT_AND_RUN)
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" \
             -O /tmp/appimagetool
           chmod +x /tmp/appimagetool
 
           # 找到 Tauri 生成的 AppImage
-          APPIMAGE=$(find crates/k7s-desktop/target/release/bundle/appimage -name "*.AppImage" | head -1)
+          APPIMAGE=$(find k7s-desktop/target/release/bundle/appimage -name "*.AppImage" | head -1)
           if [ -z "$APPIMAGE" ]; then
             echo "No AppImage found, skipping glibc bundling"
             exit 0
@@ -172,41 +180,59 @@ jobs:
 
           # 重新打包
           /tmp/appimagetool squashfs-root \
-            "$GITHUB_WORKSPACE/crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage"
+            "$GITHUB_WORKSPACE/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage"
 
           echo "✓ AppImage with bundled glibc 2.35 created"
 
       - name: checksum Kylin AppImage
         if: runner.os == 'Linux' && runner.arch == 'X64'
-        run: shasum -a 256 crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage > crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage.sha256
+        run: shasum -a 256 k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage > k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage.sha256
 
       - name: upload Kylin-compatible AppImage
         if: runner.os == 'Linux' && runner.arch == 'X64'
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
-            crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage.sha256
+            k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
+            k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # k7s-web embeds the frontend from its own ./dist (rust-embed).
+      # ── 校验和: 每个桌面产物配一个 .sha256, install.sh 下载后核对 ──
+      - name: generate desktop bundle checksums
+        if: always() && steps.tauri.conclusion == 'success'
+        shell: bash
+        run: |
+          cd k7s-desktop/target/release/bundle 2>/dev/null || exit 0
+          find . -type f \( -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*-setup.exe" -o -name "*.msi" \) | while read -r f; do
+            (cd "$(dirname "$f")" && shasum -a 256 "$(basename "$f")" > "$(basename "$f").sha256") || sha256sum "$f" > "$f.sha256"
+            echo "checksum written: $f.sha256"
+          done
+
+      - name: upload desktop bundle checksums
+        if: always() && steps.tauri.conclusion == 'success'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: k7s-desktop/target/release/bundle/**/*.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: copy dist for k7s-server rust-embed
         shell: bash
-        run: cp -r crates/k7s-desktop/dist crates/k7s-server/dist
+        run: cp -r k7s-desktop/dist k7s-server/dist
 
       # ── Dynamic-linked build (native glibc) — macOS/Windows only ──
       # Linux ships only the musl static binary (see below).
       - name: build k7s-web (dynamic)
         if: runner.os != 'Linux'
-        run: cargo build --release --features web --bin k7s-web --manifest-path crates/k7s-server/Cargo.toml
-        working-directory: crates/k7s-server
+        run: cargo build --release --features web --bin k7s-web
+        working-directory: k7s-server
 
       - name: rename and upload k7s-web
         if: runner.os != 'Linux'
         shell: bash
         run: |
-          cd crates/k7s-server/target/release
+          cd k7s-server/target/release
           if [ "${{ runner.os }}" = "Windows" ]; then
             cp k7s-web.exe k7s-web-windows-x64.exe
           elif [ "${{ runner.os }}" = "macOS" ]; then
@@ -221,7 +247,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            crates/k7s-server/target/release/k7s-web-*
+            k7s-server/target/release/k7s-web-*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -238,22 +264,22 @@ jobs:
             SUFFIX=aarch64
           fi
           rustup target add "$TARGET"
-          cargo build --release --features web --bin k7s-web --manifest-path crates/k7s-server/Cargo.toml \
+          cargo build --release --features web --bin k7s-web \
             --target "$TARGET"
           # Note: do NOT strip musl binaries — strip can corrupt them.
           cp "target/${TARGET}/release/k7s-web" \
-             "../../k7s-web-linux-${SUFFIX}-static"
-          cd ../..
+             "../k7s-web-linux-${SUFFIX}-static"
+          cd ..
           (shasum -a 256 "k7s-web-linux-${SUFFIX}-static" > "k7s-web-linux-${SUFFIX}-static.sha256" \
             || sha256sum "k7s-web-linux-${SUFFIX}-static" > "k7s-web-linux-${SUFFIX}-static.sha256")
-        working-directory: crates/k7s-server
+        working-directory: k7s-server
 
       - name: upload k7s-web (musl static)
         if: runner.os == 'Linux'
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            k7s-web-linux-*-static
-            k7s-web-linux-*-static.sha256
+            k7s-server/../k7s-web-linux-*-static
+            k7s-server/../k7s-web-linux-*-static.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
