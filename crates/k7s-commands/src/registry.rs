@@ -381,53 +381,53 @@ pub fn build_registry() -> CommandRegistry {
         },
     );
     // Helm marketplace — module is desktop + android only (see commands/mod.rs).
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_update_repo",
         |_mgr, a: commands::helm::HelmUpdateRepoArgs| async move {
             commands::helm::helm_update_repo_impl(a.name).await
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register("helm_update_all_repos", |_mgr, _a: NoArgs| async move {
         commands::helm::helm_update_all_repos_impl().await
     });
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_export_chart",
         |_mgr, a: commands::helm::HelmExportChartArgs| async move {
             commands::helm::helm_export_chart_impl(a.repo, a.chart, a.version, a.output_dir).await
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_render_default_values",
         |_mgr, a: commands::helm::HelmRenderDefaultValuesArgs| async move {
             commands::helm::helm_render_default_values_impl(a.chart, a.version, a.kubeconfig).await
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_run_op",
         |mgr, a: commands::helm::HelmRunOpArgs| async move {
             commands::helm::helm_run_op_impl(mgr, a.op).await
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_release_history",
         |_mgr, a: commands::helm::HelmReleaseHistoryArgs| async move {
             commands::helm::helm_release_history_impl(a.release, a.namespace, a.kubeconfig).await
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_manifest_revision",
         |mgr, a: commands::helm::HelmManifestRevisionArgs| async move {
             commands::helm::helm_manifest_revision_impl(mgr, a.namespace, a.name, a.revision).await
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_values_revision",
         |mgr, a: commands::helm::HelmValuesRevisionArgs| async move {
@@ -719,53 +719,53 @@ pub fn build_registry() -> CommandRegistry {
         },
     );
     // Helm marketplace — module is desktop + android only (see commands/mod.rs).
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_add_repo",
         |_mgr, a: commands::helm::HelmAddRepoArgs| async move {
             commands::helm::helm_add_repo(a.name, a.url, a.description)
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_chart_versions",
         |_mgr, a: commands::helm::HelmChartVersionsArgs| async move {
             commands::helm::helm_chart_versions(a.repo, a.chart)
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_import_chart",
         |_mgr, a: commands::helm::HelmImportChartArgs| async move {
             commands::helm::helm_import_chart(a.file_path, a.repo_name)
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register("helm_list_repos", |_mgr, _a: NoArgs| async move {
         commands::helm::helm_list_repos()
     });
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_local_charts",
         |_mgr, a: commands::helm::HelmLocalChartsArgs| async move {
             commands::helm::helm_local_charts(a.repo_name)
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_remove_repo",
         |_mgr, a: commands::helm::HelmRemoveRepoArgs| async move {
             commands::helm::helm_remove_repo(a.name)
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_search_charts",
         |_mgr, a: commands::helm::HelmSearchChartsArgs| async move {
             commands::helm::helm_search_charts(a.query)
         },
     );
-    #[cfg(not(target_os = "ios"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register("helm_seed_repos", |_mgr, _a: NoArgs| async move {
         commands::helm::helm_seed_repos()
     });

@@ -38,8 +38,8 @@ pub mod security;
 #[cfg(not(target_os = "ios"))]
 pub mod skills;
 
-// Helm marketplace — desktop and android only.
-#[cfg(not(target_os = "ios"))]
+// Helm — desktop/web only: the commands shell out to the helm binary.
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub mod helm;
 
 // SBOM / scanner — desktop only (CLI tools unavailable on mobile targets).
@@ -59,7 +59,7 @@ pub use core::*;
 #[cfg(not(target_os = "ios"))]
 pub use cron::*;
 pub use forward::*;
-#[cfg(not(target_os = "ios"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub use helm::*;
 #[cfg(not(target_os = "ios"))]
 pub use memory::*;
