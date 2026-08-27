@@ -63,3 +63,51 @@ jobs:
         working-directory: frontend
       - run: pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build
         working-directory: frontend
+
+  # Cross-compile smoke checks. The iOS/Android shells and the musl web
+  # binary used to compile-break silently — ci.yml only built host targets,
+  # so a cfg gap in k7s-commands shipped unnoticed. cargo check needs no
+  # NDK/signing; it catches missing modules, wrong cfg attrs and absent
+  # types. Linux deps are needed even for `check` (webkit headers etc.).
+  cross-targets:
+    name: check (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-ios
+            check: cargo check -p k7s-commands --target
+          - os: ubuntu-22.04
+            target: aarch64-linux-android
+            check: cargo check -p k7s-commands --target
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+            check: cargo check -p k7s-server --features web,mcp --target
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: install Linux system deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev build-essential file musl-tools
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "26"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: make dist
+      - run: ${{ matrix.check }} ${{ matrix.target }}
+      - run: scripts/check-versions.sh
