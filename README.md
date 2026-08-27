@@ -61,7 +61,7 @@ docker run -d -p 7180:8080 \
 | [k7s-commands](https://github.com/yi-nology/k7s-commands) | 全部 `#[tauri::command]`（唯一命令面，平台差异用 cfg 表达） |
 | [k7s-server](https://github.com/yi-nology/k7s-server) | axum Web 壳 + MCP 服务器（k7s-web / k7s-mcp） |
 | [k7s-desktop](https://github.com/yi-nology/k7s-desktop) | 桌面薄壳 |
-| [k7s-ios](https://github.com/yi-nology/k7s-ios) / [k7s-android](https://github.com/yi-nology/k7s-android) | 移动薄壳 |
+| [k7s-ios](https://github.com/yi-nology/k7s-ios) / [k7s-android](https://github.com/yi-nology/k7s-android) | 移动薄壳（**实验性**：目标可编译有 CI 门禁，无发布流水线） |
 | [k7s-frontend](https://github.com/yi-nology/k7s-frontend) | React 19 + Vite 前端 |
 | **k7s**（本仓） | 文档、发布工作流、部署资产 |
 
@@ -97,7 +97,7 @@ cd k7s-desktop && cp -r ../k7s-frontend/dist dist && cargo run
 - **k7s-web / MCP（`/mcp`）**：除 `/health`、`/api/health`、`/api/auth/*` 外全部要求
   `Authorization: Bearer <K7S_WEB_TOKEN>`（或有效的密码会话 Cookie）。loopback 部署自动生成
   token（SPA 从 `GET /api/web-token` 自取）；非 loopback 必须显式设置 `K7S_WEB_TOKEN`
-  （Docker 部署通过 compose 环境变量透传）。跨网暴露请置于 TLS 反代之后——服务本身是明文 HTTP。
+  （Docker 部署通过 compose 环境变量透传）。跨网暴露请启用内置 TLS（`--tls-cert/--tls-key`，容器用 `K7S_TLS_CERT/_KEY`）或置于 TLS 反代之后。
 - **登录限速**：密码错误 5 次/60 秒后返回 429。
 - **AI/MCP 默认只读**：web 端 agent 强制 ReadOnly；cron 定时任务 headless 执行，写操作审批一律拒绝。
 - **Secret 脱敏**：AI describe 与选中上下文默认将 Secret 的 `data`/`stringData` 打码
