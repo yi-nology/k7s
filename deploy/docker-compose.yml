@@ -45,6 +45,10 @@ services:
       # Auth token for API + MCP access. If unset, k7s-web generates one into
       # the k7s-data volume — readable via `docker exec k7s-web cat /data/web-token`.
       - K7S_WEB_TOKEN=${K7S_WEB_TOKEN:-}
+      # First-party TLS: mount the cert/key (see .env.example) and the
+      # published port speaks HTTPS directly.
+      - K7S_TLS_CERT=${K7S_TLS_CERT:-}
+      - K7S_TLS_KEY=${K7S_TLS_KEY:-}
       # Separate bearer token for the AI webhook endpoints (/hooks/*);
       # leave unset to keep webhooks disabled.
       # - K7S_HOOK_TOKEN=${K7S_HOOK_TOKEN:-}

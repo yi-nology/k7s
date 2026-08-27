@@ -1,6 +1,6 @@
 {
   "name": "k7s-frontend",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "packageManager": "pnpm@10.33.0",
   "description": "React frontend for k7s — a Lens-style Kubernetes visual monitor.",
   "type": "module",

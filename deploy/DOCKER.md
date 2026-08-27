@@ -1,5 +1,26 @@
 # Docker 部署指南
 
+## 启用 HTTPS（内置 TLS）
+
+k7s-web 自带 TLS 终结，无需反代：
+
+```bash
+# 1. 准备证书（自签示例）
+openssl req -x509 -newkey rsa:2048 -nodes -days 365 \
+  -keyout certs/server.key -out certs/server.crt -subj "/CN=k7s.example.com"
+
+# 2. compose 挂载 + 环境变量（见 .env.example 的 TLS 段）
+volumes:
+  - ./certs/server.crt:/certs/server.crt:ro
+  - ./certs/server.key:/certs/server.key:ro
+K7S_TLS_CERT=/certs/server.crt
+K7S_TLS_KEY=/certs/server.key
+
+# 3. 裸进程方式等价：k7s-web --tls-cert server.crt --tls-key server.key
+```
+
+跨网暴露的推荐组合：`K7S_PORT_BIND=0.0.0.0` + 强随机 `K7S_WEB_TOKEN` + 内置 TLS（或你自己的 TLS 反代）。
+
 ## 快速开始
 
 ### 使用 Docker Compose（推荐）

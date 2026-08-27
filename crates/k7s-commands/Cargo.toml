@@ -1,6 +1,6 @@
 [package]
 name = "k7s-commands"
-version = "0.5.2"
+version = "0.6.0"
 description = "k7s commands — the full Tauri command surface shared by all shells"
 authors = ["k7s"]
 edition = "2021"

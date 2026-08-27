@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.6.0 (未发布)
+## v0.6.0 (2026-08-28)
 
 以 2026-08-27 全库评审为依据的完整加固版本（P0 安全止血 → P3 MCP 工具面质量，详见 [docs/ROADMAP.md](docs/ROADMAP.md)）。
 
@@ -27,6 +27,13 @@
 
 - 工具错误结构化 `{error, hint, retryable}`——模型可自纠（未连接→提示先 connect、NotFound→提示先 list、权限→标记不可重试）。
 - `list_resources` 分页（limit/continueToken，默认形状向后兼容）。
+
+### 其他
+
+- **k7s-web 内置 TLS**：`--tls-cert/--tls-key`（或容器环境变量 `K7S_TLS_CERT/_KEY`）直接以 HTTPS 服务，无需反代；compose/DOCKER.md/env.example 配套。
+- **移动端**：iOS/Android 目标修复到可编译并由 CI 门禁（cross-targets job），移动壳定位实验性；发布流水线待建。
+- 首次上线 hub 装配式 CI：从 8 个子仓组装 workspace 跑全量验证（fmt/clippy/测试/对账/版本一致性/三端交叉检查）。
+- 前端质量三件套：ErrorBoundary 下沉面板级、AiChat busy 状态复位、LogsTab 高亮对齐。
 
 ## v0.5.2 (2026-08-24)
 
