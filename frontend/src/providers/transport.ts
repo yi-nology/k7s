@@ -214,6 +214,13 @@ const sharedEventBus = (() => {
             }
           }
         }
+        // The server closed the stream cleanly (done). Reconnect so live
+        // updates resume — the old code just fell out of the loop here,
+        // leaving `controller` truthy so neither `connect()` nor a later
+        // `subscribe()` would ever reopen, and the event bus went silently
+        // dead until a full page reload. (An intentional abort never reaches
+        // this point: abort makes `read()` reject and returns via catch.)
+        scheduleReconnect();
       } catch (e) {
         if ((e as Error).name === 'AbortError') return; // intentional
 
