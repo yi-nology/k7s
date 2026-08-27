@@ -2,9 +2,17 @@
 //! `POST /api/invoke/{cmd}` route dispatches through.
 //!
 //! Every non-AI command is registered here next to its `#[tauri::command]`
-//! wrapper in `commands/`; the AI surface keeps its bespoke web handlers
-//! (ReadOnly enforcement, SSE streaming, approval flow) and is deliberately
-//! not routed through the registry.
+//! wrapper in `commands/`. The INTERACTIVE AI surface (ai_chat, ai_cancel,
+//! ai_approve_tool_call, ai_poll_events) keeps its bespoke web handlers —
+//! ReadOnly enforcement, SSE streaming and the approval flow need the
+//! WebState, not just the CoreState — while the non-interactive ai_*
+//! helpers (presets, discovery, sessions, cron CRUD, memory runbooks,
+//! knowledge sync, fetch/search) go through the registry like everything
+//! else, so they are reachable from both transports.
+//!
+//! `tests/reconciliation.rs` locks the invariant: every command in the
+//! `register_commands!` macro list is invocable on the web — either through
+//! this registry or through a dedicated route in k7s-server.
 
 use crate::commands;
 use k7s_core::core::commands::CommandRegistry;
@@ -880,6 +888,124 @@ pub fn build_registry() -> CommandRegistry {
                 a.previous,
             )
             .await
+        },
+    );
+
+    // ------------------------------------------------------------------
+    // Non-interactive AI helpers. Registered like any other command so the
+    // web shell reaches them via /api/invoke/{cmd}; the interactive AI
+    // surface (chat/approve/cancel/poll) stays on dedicated handlers.
+    // iOS excludes the whole ai/cron/memory modules (see commands/mod.rs).
+    // ------------------------------------------------------------------
+    #[cfg(not(target_os = "ios"))]
+    r.register("ai_sandbox_presets", |_mgr, _a: NoArgs| async move {
+        Ok(commands::ai_deep::ai_sandbox_presets_impl().await)
+    });
+    #[cfg(not(target_os = "ios"))]
+    r.register("ai_local_model_presets", |_mgr, _a: NoArgs| async move {
+        Ok(commands::ai_extra::ai_local_model_presets_impl().await)
+    });
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_discover_local_models",
+        |_mgr, a: commands::ai_extra::AiDiscoverLocalModelsArgs| async move {
+            commands::ai_extra::ai_discover_local_models_impl(a.base_url).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_check_local_model",
+        |_mgr, a: commands::ai_extra::AiCheckLocalModelArgs| async move {
+            commands::ai_extra::ai_check_local_model_impl(a.base_url, a.model).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_fetch_url",
+        |_mgr, a: commands::ai_extra::AiFetchUrlArgs| async move {
+            commands::ai_extra::ai_fetch_url_impl(a.url, a.max_chars).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_web_search",
+        |_mgr, a: commands::ai_extra::AiWebSearchArgs| async move {
+            commands::ai_extra::ai_web_search_impl(a.query).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register("ai_session_list", |mgr, _a: NoArgs| async move {
+        commands::ai_extra::ai_session_list_impl(mgr).await
+    });
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_session_create",
+        |mgr, a: commands::ai_extra::AiSessionCreateArgs| async move {
+            commands::ai_extra::ai_session_create_impl(mgr, a.name, a.kube_context).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_session_delete",
+        |mgr, a: commands::ai_extra::AiSessionDeleteArgs| async move {
+            commands::ai_extra::ai_session_delete_impl(mgr, a.id).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register("ai_session_queue_size", |mgr, _a: NoArgs| async move {
+        commands::ai_extra::ai_session_queue_size_impl(mgr).await
+    });
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_memory_add_runbook",
+        |mgr, a: commands::memory::AiMemoryAddRunbookArgs| async move {
+            commands::memory::ai_memory_add_runbook_impl(
+                mgr,
+                a.kube_context,
+                a.title,
+                a.content,
+                a.tags,
+            )
+            .await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register("ai_knowledge_sync", |mgr, _a: NoArgs| async move {
+        commands::ai_deep::ai_knowledge_sync_impl(mgr).await
+    });
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_knowledge_import",
+        |mgr, a: commands::ai_deep::AiKnowledgeImportArgs| async move {
+            commands::ai_deep::ai_knowledge_import_impl(mgr, a.source_dir).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_cron_update",
+        |mgr, a: commands::cron::AiCronUpdateArgs| async move {
+            commands::cron::ai_cron_update_impl(mgr, a.task).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_cron_history",
+        |mgr, a: commands::cron::AiCronHistoryArgs| async move {
+            commands::cron::ai_cron_history_impl(mgr, a.task_id).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_evolution_record_run",
+        |mgr, a: commands::ai_deep::AiEvolutionRecordRunArgs| async move {
+            commands::ai_deep::ai_evolution_record_run_impl(mgr, a.outcome).await
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "ai_evolution_delete_strategy",
+        |mgr, a: commands::ai_deep::AiEvolutionDeleteStrategyArgs| async move {
+            commands::ai_deep::ai_evolution_delete_strategy_impl(mgr, a.id).await
         },
     );
 
