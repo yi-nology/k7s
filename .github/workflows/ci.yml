@@ -100,6 +100,25 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libsoup-3.0-dev libayatana-appindicator3-dev \
             librsvg2-dev libssl-dev build-essential file musl-tools
+      # ring/aws-lc-sys (via rustls) compile C for the target: the Android
+      # check needs the NDK toolchain, the musl check needs musl-gcc.
+      - name: set up Android NDK toolchain env
+        if: matrix.target == 'aarch64-linux-android'
+        uses: android-actions/setup-ndk@v3
+        with:
+          api-level: 26
+      - name: export cross CC env
+        if: runner.os == 'Linux'
+        run: |
+          if [ "${{ matrix.target }}" = "aarch64-linux-android" ]; then
+            TC="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+            echo "CC_aarch64_linux_android=$TC/aarch64-linux-android26-clang" >> "$GITHUB_ENV"
+            echo "AR_aarch64_linux_android=$TC/llvm-ar" >> "$GITHUB_ENV"
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$TC/aarch64-linux-android26-clang" >> "$GITHUB_ENV"
+          elif [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+            echo "CC_x86_64_unknown_linux_musl=musl-gcc" >> "$GITHUB_ENV"
+            echo "CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc" >> "$GITHUB_ENV"
+          fi
       - uses: pnpm/action-setup@v4
         with:
           version: 10

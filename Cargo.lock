@@ -2709,6 +2709,7 @@ name = "k7s-deps"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "apple-native-keyring-store",
  "async-stream",
  "async-trait",
  "base64 0.23.1",

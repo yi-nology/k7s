@@ -44,7 +44,12 @@ jiff = "0.2"
 
 # 工具库
 uuid = { version = "1", features = ["v4"] }
-keyring = "4"
+# iOS: keyring needs a store backend, and the apple one hard-errors at
+# compile time without its `protected` feature (the v0.5.x mobile shells
+# hit exactly this). Declared here so every consumer (core → commands →
+# shells) inherits both; harmless on other targets.
+keyring = { version = "4", features = ["apple-native-keyring-store"] }
+apple-native-keyring-store = { version = "1", features = ["protected"] }
 urlencoding = "2"
 regex = "1"
 rand = "0.10"
