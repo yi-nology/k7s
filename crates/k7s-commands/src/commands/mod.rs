@@ -4,11 +4,17 @@
 //! operations plus starting/stopping log streams.
 //!
 //! Platform surface (mirrors the historical per-shell trimmed lists):
-//! - all platforms: core, storage, shell, forward, observability
-//! - desktop + android: the AI assistant surface and Helm marketplace
+//! - all platforms: core, shell, forward, observability
+//! - desktop + android: the AI assistant surface, storage (pod files /
+//!   image registry / templates — the k7s-core modules backing those are
+//!   iOS-excluded), and the Helm marketplace
 //! - desktop only: SBOM / scanner (external CLI tools)
 
 pub mod core;
+
+// Storage — desktop + android only: pod files, image registry, and YAML
+// templates all live in k7s-core modules that are cfg'd out on iOS.
+#[cfg(not(target_os = "ios"))]
 pub mod storage;
 
 // All platforms.
@@ -67,4 +73,5 @@ pub use security::*;
 pub use shell::*;
 #[cfg(not(target_os = "ios"))]
 pub use skills::*;
+#[cfg(not(target_os = "ios"))]
 pub use storage::*;

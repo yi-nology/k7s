@@ -186,21 +186,21 @@ macro_rules! register_commands {
             $crate::commands::saved_queries_run,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::image_registry_manifest,
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::sbom_generate_image,
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::sbom_generate_cluster,
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::sbom_list_history,
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::sbom_get,
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::sbom_export,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::security_audit_run,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::rbac_permission_matrix,
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::scanner_status,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::ai_get_context,

@@ -195,6 +195,7 @@ pub fn build_registry() -> CommandRegistry {
     r.register("dependency_graph", |mgr, _a: NoArgs| async move {
         commands::core::dependency_graph_impl(mgr).await
     });
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "debug_ingress",
         |mgr, a: commands::core::DebugIngressArgs| async move {
@@ -234,6 +235,7 @@ pub fn build_registry() -> CommandRegistry {
             commands::core::stop_log_stream_impl(mgr, a.stream_id).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "pod_files_list",
         |mgr, a: commands::storage::PodFilesListArgs| async move {
@@ -241,6 +243,7 @@ pub fn build_registry() -> CommandRegistry {
                 .await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "pod_files_read",
         |mgr, a: commands::storage::PodFilesReadArgs| async move {
@@ -248,6 +251,7 @@ pub fn build_registry() -> CommandRegistry {
                 .await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "pod_files_write",
         |mgr, a: commands::storage::PodFilesWriteArgs| async move {
@@ -262,6 +266,7 @@ pub fn build_registry() -> CommandRegistry {
             .await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "pod_files_download",
         |mgr, a: commands::storage::PodFilesDownloadArgs| async move {
@@ -269,6 +274,7 @@ pub fn build_registry() -> CommandRegistry {
                 .await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "pod_files_upload",
         |mgr, a: commands::storage::PodFilesUploadArgs| async move {
@@ -283,30 +289,35 @@ pub fn build_registry() -> CommandRegistry {
             .await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "image_registry_test",
         |_mgr, a: commands::storage::ImageRegistryTestArgs| async move {
             commands::storage::image_registry_test_impl(a.name).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "image_registry_repos",
         |_mgr, a: commands::storage::ImageRegistryReposArgs| async move {
             commands::storage::image_registry_repos_impl(a.name).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "image_registry_tags",
         |_mgr, a: commands::storage::ImageRegistryTagsArgs| async move {
             commands::storage::image_registry_tags_impl(a.name, a.repo).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "apply_yaml_bundle",
         |mgr, a: commands::storage::ApplyYamlBundleArgs| async move {
             commands::storage::apply_yaml_bundle_impl(mgr, a.yaml).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "dry_run_yaml_bundle",
         |mgr, a: commands::storage::DryRunYamlBundleArgs| async move {
@@ -314,40 +325,40 @@ pub fn build_registry() -> CommandRegistry {
         },
     );
     // Image import/export/sync — the underlying k7s-core image modules are
-    // desktop/iOS only (skopeo, docker-archive tooling is absent on Android).
-    #[cfg(not(target_os = "android"))]
+    // desktop only (skopeo, docker-archive tooling is absent on mobile).
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "import_image_to_node",
         |mgr, a: commands::storage::ImportImageToNodeArgs| async move {
             commands::storage::import_image_to_node_impl(mgr, a.node, a.path).await
         },
     );
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register("image_sync_status", |_mgr, _a: NoArgs| async move {
         commands::storage::image_sync_status_impl().await
     });
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "image_inspect_archive",
         |_mgr, a: commands::storage::ImageInspectArchiveArgs| async move {
             commands::storage::image_inspect_archive_impl(a.tar_path).await
         },
     );
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "export_from_node",
         |mgr, a: commands::storage::ExportFromNodeArgs| async move {
             commands::storage::export_from_node_impl(mgr, a.node, a.image_ref, a.save_path).await
         },
     );
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "list_node_images",
         |mgr, a: commands::storage::ListNodeImagesArgs| async move {
             commands::storage::list_node_images_impl(mgr, a.node).await
         },
     );
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "export_from_registry",
         |mgr, a: commands::storage::ExportFromRegistryArgs| async move {
@@ -362,6 +373,7 @@ pub fn build_registry() -> CommandRegistry {
             .await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "image_registry_manifest",
         |_mgr, a: commands::storage::ImageRegistryManifestArgs| async move {
@@ -774,15 +786,18 @@ pub fn build_registry() -> CommandRegistry {
             .await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register("image_registry_list", |_mgr, _a: NoArgs| async move {
         commands::storage::image_registry_list()
     });
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "image_registry_remove",
         |_mgr, a: commands::storage::ImageRegistryRemoveArgs| async move {
             commands::storage::image_registry_remove(a.name)
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "image_registry_upsert",
         |_mgr, a: commands::storage::ImageRegistryUpsertArgs| async move {

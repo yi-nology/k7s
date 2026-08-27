@@ -4,8 +4,9 @@
 use crate::commands::core::require_client;
 use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 use k7s_core::kube::{image::archive, image::export, image::import, image::sync};
+#[cfg(not(target_os = "ios"))]
 use k7s_core::kube::{image::repo, pod_files, templates};
 #[cfg(feature = "ipc")]
 use std::sync::Arc;
@@ -393,6 +394,7 @@ pub async fn dry_run_yaml_bundle(
 /// Soft cap on a single import's tar size. Real images rarely exceed a few GB;
 /// this guards against a typo'd path to a disk image OOMing the app. Tunable
 /// later via prefs if real-world images are larger.
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 const IMAGE_IMPORT_MAX_BYTES: u64 = 8 * 1024 * 1024 * 1024; // 8 GiB
 
 /// Import a local `.tar` image archive into a node's container runtime.
@@ -400,7 +402,7 @@ const IMAGE_IMPORT_MAX_BYTES: u64 = 8 * 1024 * 1024 * 1024; // 8 GiB
 /// `path` is an absolute filesystem path from `tauri-plugin-dialog`'s native
 /// picker. The file is read server-side (not base64 over IPC) because a tar
 /// can be gigabytes; streaming one through the frontend would balloon memory.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 /// Wire arguments for [`import_image_to_node`] (camelCase on the wire).
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -409,7 +411,7 @@ pub(crate) struct ImportImageToNodeArgs {
     pub path: String,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub async fn import_image_to_node_impl(
     mgr: std::sync::Arc<CoreState>,
     node: String,
@@ -432,7 +434,7 @@ pub async fn import_image_to_node_impl(
     import::import_to_node(client, &node, &tar_bytes).await
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn import_image_to_node(
@@ -454,12 +456,12 @@ pub async fn import_image_to_node(
 /// Whether skopeo is installed and usable on this host. Cheap (`skopeo
 /// --version`), so the UI can call it on panel open to gate the To-Registry
 /// tab.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub async fn image_sync_status_impl() -> AppResult<sync::SkopeoAvailability> {
     Ok(sync::check_skopeo().await)
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_sync_status() -> AppResult<sync::SkopeoAvailability> {
@@ -528,7 +530,7 @@ pub async fn image_copy(
 /// Inspect a local `docker save` tarball before copying it: returns the image
 /// name, tags, digest, architecture, os, and total size. Lets the user confirm
 /// a tar's contents (and that it's linux/amd64) before pushing.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 /// Wire arguments for [`image_inspect_archive`] (camelCase on the wire).
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -536,12 +538,12 @@ pub(crate) struct ImageInspectArchiveArgs {
     pub tar_path: String,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub async fn image_inspect_archive_impl(tar_path: String) -> AppResult<archive::ArchiveInfo> {
     archive::inspect_archive(&tar_path).await
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_inspect_archive(tar_path: String) -> AppResult<archive::ArchiveInfo> {
@@ -553,7 +555,7 @@ pub async fn image_inspect_archive(tar_path: String) -> AppResult<archive::Archi
 // ---------------------------------------------------------------------------
 
 /// Export a container image from a K8s node to a local .tar file.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 /// Wire arguments for [`export_from_node`] (camelCase on the wire).
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -563,7 +565,7 @@ pub(crate) struct ExportFromNodeArgs {
     pub save_path: String,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub async fn export_from_node_impl(
     mgr: std::sync::Arc<CoreState>,
     node: String,
@@ -574,7 +576,7 @@ pub async fn export_from_node_impl(
     export::export_from_node(client, &node, &image_ref, &save_path).await
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn export_from_node(
@@ -587,7 +589,7 @@ pub async fn export_from_node(
 }
 
 /// List container images present on a K8s node.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 /// Wire arguments for [`list_node_images`] (camelCase on the wire).
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -595,7 +597,7 @@ pub(crate) struct ListNodeImagesArgs {
     pub node: String,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub async fn list_node_images_impl(
     mgr: std::sync::Arc<CoreState>,
     node: String,
@@ -604,7 +606,7 @@ pub async fn list_node_images_impl(
     export::list_node_images(client, &node).await
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_node_images(
@@ -615,7 +617,7 @@ pub async fn list_node_images(
 }
 
 /// Export an image from a configured private registry to a local .tar file.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 /// Wire arguments for [`export_from_registry`] (camelCase on the wire).
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -627,7 +629,7 @@ pub(crate) struct ExportFromRegistryArgs {
     pub insecure_src: bool,
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub async fn export_from_registry_impl(
     mgr: std::sync::Arc<CoreState>,
     registry_name: String,
@@ -640,7 +642,7 @@ pub async fn export_from_registry_impl(
     sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink).await
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn export_from_registry(
@@ -698,6 +700,7 @@ pub async fn image_registry_manifest(
 }
 
 /// Wire arguments for [`image_copy`] (camelCase on the wire).
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ImageCopyArgs {

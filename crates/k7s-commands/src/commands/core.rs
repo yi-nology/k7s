@@ -10,10 +10,12 @@ use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
 use k7s_core::kube::client::{self, ClusterInfo, ContextInfo};
 use k7s_core::kube::manager::{ClientManager, ImportedContext};
+// Ingress debugging shells out to desktop-only tooling in k7s-core.
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
+use k7s_core::kube::ingress_debug;
 use k7s_core::kube::{
-    config_snapshots, drain, ingress_debug, logs, mappers, observability::exporter,
-    observability::metrics, observability::nodestats, observability::promql, properties, rollout,
-    watchers,
+    config_snapshots, drain, logs, mappers, observability::exporter, observability::metrics,
+    observability::nodestats, observability::promql, properties, rollout, watchers,
 };
 use k7s_deps::k8s_openapi::api::core::v1::{Event, Secret};
 use k7s_deps::kube::api::{Api, ListParams};
@@ -223,31 +225,35 @@ pub async fn connect_impl(
 
     // Auto-sync knowledge from the cluster (ConfigMaps, pod annotations)
     // in the background. Non-blocking — the connect response returns
-    // immediately while sync runs behind the scenes.
-    let sync_manager = manager.clone();
-    let sync_data_dir = mgr.data_dir.clone();
-    let sync_context = context.clone();
-    k7s_deps::tokio::spawn(async move {
-        match k7s_core::ai::knowledge_sync::sync_from_cluster(
-            &sync_manager,
-            &sync_data_dir,
-            &sync_context,
-        )
-        .await
-        {
-            Ok(report) => {
-                if report.config_maps + report.pod_annotations + report.deploy_annotations > 0 {
-                    k7s_deps::tracing::info!(
-                        cm = report.config_maps,
-                        pods = report.pod_annotations,
-                        deps = report.deploy_annotations,
-                        "knowledge sync completed"
-                    );
+    // immediately while sync runs behind the scenes. The AI knowledge store
+    // is desktop + android only (k7s-core cfgs out `crate::ai` on iOS).
+    #[cfg(not(target_os = "ios"))]
+    {
+        let sync_manager = manager.clone();
+        let sync_data_dir = mgr.data_dir.clone();
+        let sync_context = context.clone();
+        k7s_deps::tokio::spawn(async move {
+            match k7s_core::ai::knowledge_sync::sync_from_cluster(
+                &sync_manager,
+                &sync_data_dir,
+                &sync_context,
+            )
+            .await
+            {
+                Ok(report) => {
+                    if report.config_maps + report.pod_annotations + report.deploy_annotations > 0 {
+                        k7s_deps::tracing::info!(
+                            cm = report.config_maps,
+                            pods = report.pod_annotations,
+                            deps = report.deploy_annotations,
+                            "knowledge sync completed"
+                        );
+                    }
                 }
+                Err(e) => k7s_deps::tracing::debug!("knowledge sync skipped: {e}"),
             }
-            Err(e) => k7s_deps::tracing::debug!("knowledge sync skipped: {e}"),
-        }
-    });
+        });
+    }
 
     Ok(ClusterInfo {
         context: context.clone(),
@@ -1079,6 +1085,7 @@ pub async fn dependency_graph(
 /// Debug an Ingress's routing chain: trace rules through Services to endpoint
 /// Pods and report the health of each hop.
 /// Wire arguments for [`debug_ingress`] (camelCase on the wire).
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct DebugIngressArgs {
@@ -1086,6 +1093,7 @@ pub(crate) struct DebugIngressArgs {
     pub name: String,
 }
 
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 pub async fn debug_ingress_impl(
     mgr: std::sync::Arc<CoreState>,
     namespace: String,
@@ -1095,6 +1103,7 @@ pub async fn debug_ingress_impl(
     ingress_debug::debug_ingress(client, &namespace, &name).await
 }
 
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn debug_ingress(
