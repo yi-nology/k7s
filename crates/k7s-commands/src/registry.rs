@@ -113,6 +113,7 @@ pub fn build_registry() -> CommandRegistry {
             commands::core::unwatch_custom_kind_impl(mgr, a.kind).await
         },
     );
+    #[cfg(not(target_os = "android"))]
     r.register("custom_kind_counts", |mgr, _a: NoArgs| async move {
         commands::core::custom_kind_counts_impl(mgr).await
     });
@@ -304,33 +305,41 @@ pub fn build_registry() -> CommandRegistry {
             commands::storage::dry_run_yaml_bundle_impl(mgr, a.yaml).await
         },
     );
+    // Image import/export/sync — the underlying k7s-core image modules are
+    // desktop/iOS only (skopeo, docker-archive tooling is absent on Android).
+    #[cfg(not(target_os = "android"))]
     r.register(
         "import_image_to_node",
         |mgr, a: commands::storage::ImportImageToNodeArgs| async move {
             commands::storage::import_image_to_node_impl(mgr, a.node, a.path).await
         },
     );
+    #[cfg(not(target_os = "android"))]
     r.register("image_sync_status", |_mgr, _a: NoArgs| async move {
         commands::storage::image_sync_status_impl().await
     });
+    #[cfg(not(target_os = "android"))]
     r.register(
         "image_inspect_archive",
         |_mgr, a: commands::storage::ImageInspectArchiveArgs| async move {
             commands::storage::image_inspect_archive_impl(a.tar_path).await
         },
     );
+    #[cfg(not(target_os = "android"))]
     r.register(
         "export_from_node",
         |mgr, a: commands::storage::ExportFromNodeArgs| async move {
             commands::storage::export_from_node_impl(mgr, a.node, a.image_ref, a.save_path).await
         },
     );
+    #[cfg(not(target_os = "android"))]
     r.register(
         "list_node_images",
         |mgr, a: commands::storage::ListNodeImagesArgs| async move {
             commands::storage::list_node_images_impl(mgr, a.node).await
         },
     );
+    #[cfg(not(target_os = "android"))]
     r.register(
         "export_from_registry",
         |mgr, a: commands::storage::ExportFromRegistryArgs| async move {
@@ -351,45 +360,54 @@ pub fn build_registry() -> CommandRegistry {
             commands::storage::image_registry_manifest_impl(a.name, a.repo, a.tag).await
         },
     );
+    // Helm marketplace — module is desktop + android only (see commands/mod.rs).
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_update_repo",
         |_mgr, a: commands::helm::HelmUpdateRepoArgs| async move {
             commands::helm::helm_update_repo_impl(a.name).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register("helm_update_all_repos", |_mgr, _a: NoArgs| async move {
         commands::helm::helm_update_all_repos_impl().await
     });
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_export_chart",
         |_mgr, a: commands::helm::HelmExportChartArgs| async move {
             commands::helm::helm_export_chart_impl(a.repo, a.chart, a.version, a.output_dir).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_render_default_values",
         |_mgr, a: commands::helm::HelmRenderDefaultValuesArgs| async move {
             commands::helm::helm_render_default_values_impl(a.chart, a.version, a.kubeconfig).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_run_op",
         |mgr, a: commands::helm::HelmRunOpArgs| async move {
             commands::helm::helm_run_op_impl(mgr, a.op).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_release_history",
         |_mgr, a: commands::helm::HelmReleaseHistoryArgs| async move {
             commands::helm::helm_release_history_impl(a.release, a.namespace, a.kubeconfig).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_manifest_revision",
         |mgr, a: commands::helm::HelmManifestRevisionArgs| async move {
             commands::helm::helm_manifest_revision_impl(mgr, a.namespace, a.name, a.revision).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_values_revision",
         |mgr, a: commands::helm::HelmValuesRevisionArgs| async move {
@@ -505,12 +523,52 @@ pub fn build_registry() -> CommandRegistry {
             .await
         },
     );
+    // Grafana — module is excluded from iPadOS build (see commands/mod.rs).
+    #[cfg(not(target_os = "ios"))]
+    r.register("grafana_list", |_mgr, _a: NoArgs| async move {
+        commands::observability::grafana_list()
+    });
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "grafana_upsert",
+        |_mgr, a: commands::observability::GrafanaUpsertArgs| async move {
+            commands::observability::grafana_upsert(
+                a.name,
+                a.url,
+                a.username,
+                a.password,
+                a.api_token,
+                a.default_datasource,
+                a.description,
+            )
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "grafana_remove",
+        |_mgr, a: commands::observability::GrafanaRemoveArgs| async move {
+            commands::observability::grafana_remove(a.name)
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "grafana_test",
         |_mgr, a: commands::observability::GrafanaTestArgs| async move {
             commands::observability::grafana_test_impl(a.name).await
         },
     );
+    #[cfg(not(target_os = "ios"))]
+    r.register("grafana_presets", |_mgr, _a: NoArgs| async move {
+        Ok(commands::observability::grafana_presets())
+    });
+    #[cfg(not(target_os = "ios"))]
+    r.register(
+        "grafana_dashboard_url",
+        |_mgr, a: commands::observability::GrafanaDashboardUrlArgs| async move {
+            commands::observability::grafana_dashboard_url(a.name, a.uid, a.from_ms, a.to_ms)
+        },
+    );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "grafana_search_dashboards",
         |_mgr, a: commands::observability::GrafanaSearchDashboardsArgs| async move {
@@ -573,39 +631,50 @@ pub fn build_registry() -> CommandRegistry {
                 .await
         },
     );
+    // SBOM / scanner — desktop only (external CLI tools; module cfg mirrors
+    // commands/mod.rs).
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "sbom_generate_image",
         |mgr, a: commands::sbom::SbomGenerateImageArgs| async move {
             commands::sbom::sbom_generate_image_impl(mgr, a.image_ref, a.format).await
         },
     );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "sbom_generate_cluster",
         |mgr, a: commands::sbom::SbomGenerateClusterArgs| async move {
             commands::sbom::sbom_generate_cluster_impl(mgr, a.format).await
         },
     );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register("sbom_list_history", |mgr, _a: NoArgs| async move {
         commands::sbom::sbom_list_history_impl(mgr).await
     });
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "sbom_get",
         |mgr, a: commands::sbom::SbomGetArgs| async move {
             commands::sbom::sbom_get_impl(mgr, a.id).await
         },
     );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "sbom_export",
         |mgr, a: commands::sbom::SbomExportArgs| async move {
             commands::sbom::sbom_export_impl(mgr, a.id, a.output_path).await
         },
     );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register("scanner_status", |mgr, _a: NoArgs| async move {
         commands::scanner::scanner_status_impl(mgr).await
     });
+    // Security audit — module is desktop + android only.
+    #[cfg(not(target_os = "ios"))]
     r.register("security_audit_run", |mgr, _a: NoArgs| async move {
         commands::security::security_audit_run_impl(mgr).await
     });
+    #[cfg(not(target_os = "ios"))]
     r.register("rbac_permission_matrix", |mgr, _a: NoArgs| async move {
         commands::security::rbac_permission_matrix_impl(mgr).await
     });
@@ -629,49 +698,58 @@ pub fn build_registry() -> CommandRegistry {
             )
         },
     );
+    // Helm marketplace — module is desktop + android only (see commands/mod.rs).
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_add_repo",
         |_mgr, a: commands::helm::HelmAddRepoArgs| async move {
             commands::helm::helm_add_repo(a.name, a.url, a.description)
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_chart_versions",
         |_mgr, a: commands::helm::HelmChartVersionsArgs| async move {
             commands::helm::helm_chart_versions(a.repo, a.chart)
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_import_chart",
         |_mgr, a: commands::helm::HelmImportChartArgs| async move {
             commands::helm::helm_import_chart(a.file_path, a.repo_name)
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register("helm_list_repos", |_mgr, _a: NoArgs| async move {
         commands::helm::helm_list_repos()
     });
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_local_charts",
         |_mgr, a: commands::helm::HelmLocalChartsArgs| async move {
             commands::helm::helm_local_charts(a.repo_name)
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_remove_repo",
         |_mgr, a: commands::helm::HelmRemoveRepoArgs| async move {
             commands::helm::helm_remove_repo(a.name)
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register(
         "helm_search_charts",
         |_mgr, a: commands::helm::HelmSearchChartsArgs| async move {
             commands::helm::helm_search_charts(a.query)
         },
     );
+    #[cfg(not(target_os = "ios"))]
     r.register("helm_seed_repos", |_mgr, _a: NoArgs| async move {
         commands::helm::helm_seed_repos()
     });
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "image_copy",
         |mgr, a: commands::storage::ImageCopyArgs| async move {

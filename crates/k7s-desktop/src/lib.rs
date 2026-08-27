@@ -58,6 +58,9 @@ pub fn run() {
                 .path()
                 .app_config_dir()
                 .map_err(|e| format!("no config dir: {e}"))?;
+            // Process-wide audit log target — once, here, before any command
+            // can fire (see k7s-core's core::audit).
+            k7s_core::core::audit::set_dir(data_dir.clone());
             let state = CoreState::new(manager, data_dir);
             app.manage(state);
             // The AI assistant runtime holds in-flight run bookkeeping

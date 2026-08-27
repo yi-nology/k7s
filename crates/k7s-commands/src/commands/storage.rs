@@ -409,6 +409,7 @@ pub(crate) struct ImportImageToNodeArgs {
     pub path: String,
 }
 
+#[cfg(not(target_os = "android"))]
 pub async fn import_image_to_node_impl(
     mgr: std::sync::Arc<CoreState>,
     node: String,
@@ -431,6 +432,7 @@ pub async fn import_image_to_node_impl(
     import::import_to_node(client, &node, &tar_bytes).await
 }
 
+#[cfg(not(target_os = "android"))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn import_image_to_node(
@@ -457,6 +459,7 @@ pub async fn image_sync_status_impl() -> AppResult<sync::SkopeoAvailability> {
     Ok(sync::check_skopeo().await)
 }
 
+#[cfg(not(target_os = "android"))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_sync_status() -> AppResult<sync::SkopeoAvailability> {
@@ -469,7 +472,7 @@ pub async fn image_sync_status() -> AppResult<sync::SkopeoAvailability> {
 /// resolved by name from the stored image-registries config (its credentials
 /// are used automatically). Streams each stdout/stderr line as an
 /// `image-sync-log` event so the UI can render a live progress log.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[allow(clippy::too_many_arguments)]
 pub async fn image_copy_impl(
     mgr: std::sync::Arc<CoreState>,
@@ -495,7 +498,7 @@ pub async fn image_copy_impl(
     .await
 }
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "ios", target_os = "android")))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -533,10 +536,12 @@ pub(crate) struct ImageInspectArchiveArgs {
     pub tar_path: String,
 }
 
+#[cfg(not(target_os = "android"))]
 pub async fn image_inspect_archive_impl(tar_path: String) -> AppResult<archive::ArchiveInfo> {
     archive::inspect_archive(&tar_path).await
 }
 
+#[cfg(not(target_os = "android"))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn image_inspect_archive(tar_path: String) -> AppResult<archive::ArchiveInfo> {
@@ -558,6 +563,7 @@ pub(crate) struct ExportFromNodeArgs {
     pub save_path: String,
 }
 
+#[cfg(not(target_os = "android"))]
 pub async fn export_from_node_impl(
     mgr: std::sync::Arc<CoreState>,
     node: String,
@@ -568,6 +574,7 @@ pub async fn export_from_node_impl(
     export::export_from_node(client, &node, &image_ref, &save_path).await
 }
 
+#[cfg(not(target_os = "android"))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn export_from_node(
@@ -588,6 +595,7 @@ pub(crate) struct ListNodeImagesArgs {
     pub node: String,
 }
 
+#[cfg(not(target_os = "android"))]
 pub async fn list_node_images_impl(
     mgr: std::sync::Arc<CoreState>,
     node: String,
@@ -596,6 +604,7 @@ pub async fn list_node_images_impl(
     export::list_node_images(client, &node).await
 }
 
+#[cfg(not(target_os = "android"))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn list_node_images(
@@ -618,6 +627,7 @@ pub(crate) struct ExportFromRegistryArgs {
     pub insecure_src: bool,
 }
 
+#[cfg(not(target_os = "android"))]
 pub async fn export_from_registry_impl(
     mgr: std::sync::Arc<CoreState>,
     registry_name: String,
@@ -630,6 +640,7 @@ pub async fn export_from_registry_impl(
     sync::export_from_registry(&registry_name, &repo, &tag, &save_path, insecure_src, sink).await
 }
 
+#[cfg(not(target_os = "android"))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn export_from_registry(

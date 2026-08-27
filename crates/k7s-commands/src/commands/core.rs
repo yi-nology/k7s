@@ -677,6 +677,7 @@ pub async fn custom_kind_counts_impl(
     k7s_core::kube::custom_kind_counts(&client).await
 }
 
+#[cfg(not(target_os = "android"))]
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn custom_kind_counts(
@@ -1271,14 +1272,17 @@ pub async fn start_log_stream(
     previous: bool,
     mgr: State<'_, Arc<CoreState>>,
 ) -> AppResult<String> {
-    let client = require_client(&mgr.manager).await?;
-    let opts = logs::LogStreamOptions {
+    start_log_stream_impl(
+        mgr.inner().clone(),
+        namespace,
+        pod,
+        container,
         tail,
         since_time,
         since_seconds,
         previous,
-    };
-    Ok(shell_common::spawn_log_stream(&mgr.manager, client, namespace, pod, container, opts).await)
+    )
+    .await
 }
 
 /// Write a pod's full logs to `path` (B29).

@@ -274,14 +274,12 @@ pub async fn metrics_query_range(
 mod grafana_cmds {
     use super::*;
 
-    #[cfg(feature = "ipc")]
-    #[tauri::command]
+    #[cfg_attr(feature = "ipc", tauri::command)]
     pub fn grafana_list() -> AppResult<Vec<grafana::GrafanaConfig>> {
         grafana::list()
     }
 
-    #[cfg(feature = "ipc")]
-    #[tauri::command]
+    #[cfg_attr(feature = "ipc", tauri::command)]
     pub fn grafana_upsert(
         name: String,
         url: String,
@@ -302,10 +300,29 @@ mod grafana_cmds {
         )
     }
 
-    #[cfg(feature = "ipc")]
-    #[tauri::command]
+    /// Wire arguments for [`grafana_upsert`] (camelCase on the wire).
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub(crate) struct GrafanaUpsertArgs {
+        pub name: String,
+        pub url: String,
+        pub username: String,
+        pub password: String,
+        pub api_token: String,
+        pub default_datasource: String,
+        pub description: String,
+    }
+
+    #[cfg_attr(feature = "ipc", tauri::command)]
     pub fn grafana_remove(name: String) -> AppResult<()> {
         grafana::remove(&name)
+    }
+
+    /// Wire arguments for [`grafana_remove`] (camelCase on the wire).
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub(crate) struct GrafanaRemoveArgs {
+        pub name: String,
     }
 
     /// Wire arguments for [`grafana_test`] (camelCase on the wire).
@@ -325,14 +342,12 @@ mod grafana_cmds {
         grafana_test_impl(name).await
     }
 
-    #[cfg(feature = "ipc")]
-    #[tauri::command]
+    #[cfg_attr(feature = "ipc", tauri::command)]
     pub fn grafana_presets() -> Vec<grafana::DashboardPreset> {
         grafana::preset_dashboards()
     }
 
-    #[cfg(feature = "ipc")]
-    #[tauri::command]
+    #[cfg_attr(feature = "ipc", tauri::command)]
     pub fn grafana_dashboard_url(
         name: String,
         uid: String,
@@ -340,6 +355,16 @@ mod grafana_cmds {
         to_ms: i64,
     ) -> AppResult<String> {
         grafana::dashboard_url(&name, &uid, from_ms, to_ms)
+    }
+
+    /// Wire arguments for [`grafana_dashboard_url`] (camelCase on the wire).
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub(crate) struct GrafanaDashboardUrlArgs {
+        pub name: String,
+        pub uid: String,
+        pub from_ms: i64,
+        pub to_ms: i64,
     }
 
     /// Wire arguments for [`grafana_search_dashboards`] (camelCase on the wire).

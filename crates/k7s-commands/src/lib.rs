@@ -128,7 +128,7 @@ macro_rules! register_commands {
             $crate::commands::import_image_to_node,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::image_sync_status,
-            #[cfg(not(target_os = "ios"))]
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::image_copy,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::image_inspect_archive,

@@ -33,17 +33,27 @@ pub const AI_EVENT: &str = "ai_event";
 /// In-flight bookkeeping for one run.
 #[cfg(feature = "ipc")]
 struct RunState {
-    /// Pending approvals by tool-call id. Each sender resolves the wait in
-    /// [`AiTauriSink::await_approval`].
-    approvals: HashMap<String, oneshot::Sender<bool>>,
     cancelled: bool,
 }
+
+/// Pending approval senders, keyed by `(run id, tool-call id)`.
+///
+/// Behind a **std** mutex, not a tokio one: the `EventSink` contract requires
+/// [`AiTauriSink::await_approval`] to register its resolution channel
+/// synchronously (before the returned receiver is even polled), so the
+/// critical section must be lockable from sync code — and it never awaits.
+#[cfg(feature = "ipc")]
+type ApprovalTable = HashMap<(String, String), oneshot::Sender<bool>>;
 
 /// Managed state. Clone is cheap (it's an Arc inside).
 #[derive(Clone)]
 #[cfg(feature = "ipc")]
 pub struct AiRuntime {
-    inner: Arc<Mutex<HashMap<String, RunState>>>,
+    /// Per-run cancellation flags (async lock; only touched from async
+    /// commands and `is_cancelled`'s try_lock).
+    runs: Arc<Mutex<HashMap<String, RunState>>>,
+    /// Approval senders shared with [`AiTauriSink::await_approval`].
+    approvals: Arc<std::sync::Mutex<ApprovalTable>>,
 }
 
 #[cfg(feature = "ipc")]
@@ -57,22 +67,28 @@ impl Default for AiRuntime {
 impl AiRuntime {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(HashMap::new())),
+            runs: Arc::new(Mutex::new(HashMap::new())),
+            approvals: Arc::new(std::sync::Mutex::new(HashMap::new())),
         }
     }
 
     async fn register(&self, run_id: &str) {
-        self.inner.lock().await.insert(
-            run_id.to_string(),
-            RunState {
-                approvals: HashMap::new(),
-                cancelled: false,
-            },
-        );
+        self.runs
+            .lock()
+            .await
+            .insert(run_id.to_string(), RunState { cancelled: false });
     }
 
     async fn unregister(&self, run_id: &str) {
-        self.inner.lock().await.remove(run_id);
+        self.runs.lock().await.remove(run_id);
+        // Drop never-answered approval senders so their waiters observe a
+        // closed channel instead of hanging on a leaked table entry. Lock
+        // order is always `runs` -> `approvals`, and the std guard is never
+        // held across an await, so this can't nest or deadlock.
+        self.approvals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .retain(|(rid, _), _| rid != run_id);
     }
 }
 
@@ -99,36 +115,22 @@ impl EventSink for AiTauriSink {
 
     fn await_approval(&self, call_id: &str) -> oneshot::Receiver<bool> {
         let (tx, rx) = oneshot::channel();
-        let inner = self.runtime.inner.clone();
-        let run_id = self.run_id.clone();
-        let call_id = call_id.to_string();
-        // Best-effort: try_lock first; if contended (rare), spawn an async wait.
-        // We match on the result bound to its own binding so the temporary
-        // lock-guard borrow doesn't keep `inner` borrowed across the move in
-        // the contended branch.
-        let lock_result = inner.try_lock();
-        if let Ok(mut map) = lock_result {
-            if let Some(run) = map.get_mut(&run_id) {
-                run.approvals.insert(call_id, tx);
-            }
-            rx
-        } else {
-            // `inner` is no longer borrowed here (lock_result held a guard only
-            // in the Ok arm, which returned), so we can move it into the task.
-            drop(lock_result);
-            k7s_deps::tokio::spawn(async move {
-                let mut map = inner.lock().await;
-                if let Some(run) = map.get_mut(&run_id) {
-                    run.approvals.insert(call_id, tx);
-                }
-            });
-            rx
-        }
+        // Register synchronously before returning: the `EventSink` contract
+        // forbids a spawned registration — an approve arriving before a
+        // spawned task got the lock would find no entry and be rejected.
+        // The std-mutex critical section is a plain insert (no await), so a
+        // guard held here can't deadlock against the async run table.
+        self.runtime
+            .approvals
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert((self.run_id.clone(), call_id.to_string()), tx);
+        rx
     }
 
     fn is_cancelled(&self) -> bool {
         self.runtime
-            .inner
+            .runs
             .try_lock()
             .map(|map| map.get(&self.run_id).map(|r| r.cancelled).unwrap_or(false))
             .unwrap_or(false)
@@ -399,12 +401,16 @@ pub async fn ai_approve_tool_call(
     approved: bool,
     runtime: State<'_, Arc<AiRuntime>>,
 ) -> AppResult<()> {
-    let mut map = runtime.inner.lock().await;
-    if let Some(run) = map.get_mut(&run_id) {
-        if let Some(tx) = run.approvals.remove(&call_id) {
-            let _ = tx.send(approved);
-            return Ok(());
-        }
+    // The std lock is released before the oneshot send's receiver can react,
+    // and `await_approval` only ever inserts under it — no await while held.
+    if let Some(tx) = runtime
+        .approvals
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&(run_id, call_id))
+    {
+        let _ = tx.send(approved);
+        return Ok(());
     }
     Err(k7s_core::error::AppError::Other(
         "no pending approval for that call".into(),
@@ -415,12 +421,26 @@ pub async fn ai_approve_tool_call(
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub async fn ai_cancel(run_id: String, runtime: State<'_, Arc<AiRuntime>>) -> AppResult<()> {
-    let mut map = runtime.inner.lock().await;
-    if let Some(run) = map.get_mut(&run_id) {
-        run.cancelled = true;
-        // Decline any pending approvals so the run unblocks.
-        for (_, tx) in run.approvals.drain() {
-            let _ = tx.send(false);
+    {
+        let mut map = runtime.runs.lock().await;
+        if let Some(run) = map.get_mut(&run_id) {
+            run.cancelled = true;
+        }
+    }
+    // Decline any pending approvals so the run unblocks. The run-table guard
+    // is already dropped (scoped above) — the same `runs` -> `approvals`
+    // order as `unregister`, never nested the other way around.
+    {
+        let mut table = runtime.approvals.lock().unwrap_or_else(|e| e.into_inner());
+        let pending: Vec<_> = table
+            .keys()
+            .filter(|(rid, _)| rid == &run_id)
+            .cloned()
+            .collect();
+        for key in pending {
+            if let Some(tx) = table.remove(&key) {
+                let _ = tx.send(false);
+            }
         }
     }
     Ok(())
