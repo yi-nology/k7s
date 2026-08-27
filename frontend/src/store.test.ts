@@ -308,7 +308,7 @@ describe('setSection (P1 section nav)', () => {
   });
 
   it('closes an open overlay like setNav does', () => {
-    useStore.setState({ overlay: 'dashboard', overlayPodRef: null });
+    useStore.getState().openOverlay('metrics');
     useStore.getState().setSection('tools');
     expect(useStore.getState().overlay).toBeNull();
   });

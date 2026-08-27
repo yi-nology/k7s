@@ -1267,7 +1267,6 @@ export const zh: Dictionary = {
     imageRepos: '镜像仓库',
     imageTransfer: '镜像传输',
     templates: '模板',
-    dashboard: '总览',
     metricsExplorer: '指标查询',
     grafana: 'Grafana',
     endpoints: 'Endpoints',

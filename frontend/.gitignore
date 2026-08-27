@@ -25,3 +25,4 @@ playwright-report/
 # Tool artifacts
 .zcode/
 .playwright-mcp/
+tsbuildinfo

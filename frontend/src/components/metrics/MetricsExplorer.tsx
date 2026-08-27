@@ -10,11 +10,12 @@
  * back inline — the bar at the top shows the Prometheus error message,
  * so a typo in PromQL doesn't vanish into a black Plotly box.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import type { MetricsConfig, PromQueryResult, SavedQuery } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { useProviderQuery } from '../../hooks/useProviderQuery';
+import { useFirstInstance, mergeErrors } from '../../hooks/useAutoSelect';
 import { Plot } from '../detail/PlotChart';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './MetricsExplorer.module.css';
@@ -37,7 +38,6 @@ const RANGE_PRESETS: Array<{ label: string; minutes: number }> = [
 
 export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [instance, setInstance] = useState<string>('');
   const [mode, setMode] = useState<Mode>('range');
   const [promql, setPromql] = useState('up');
   const [rangeMinutes, setRangeMinutes] = useState(60);
@@ -68,12 +68,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
     key: 'metrics:instances',
   });
   const instances = instancesQuery.data ?? [];
-
-  useEffect(() => {
-    if (instances.length > 0 && !instance) {
-      setInstance(instances[0].name);
-    }
-  }, [instances, instance]);
+  const [instance, setInstance] = useFirstInstance(instances);
 
   // Load saved queries (cacheBust bumps after every save/remove).
   const savedQuery = useProviderQuery<SavedQuery[]>({
@@ -123,8 +118,12 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
   const loading = runQuery.loading;
   // A failed run clears the chart, exactly like the pre-hook code did.
   const result = runQuery.error ? null : (runQuery.data ?? null);
-  const error =
-    actionError ?? instancesQuery.error ?? savedQuery.error ?? runQuery.error ?? null;
+  const error = mergeErrors(
+    actionError,
+    instancesQuery.error,
+    savedQuery.error,
+    runQuery.error
+  );
 
   const run = () => setRunSpec((s) => ({ kind: 'promql', nonce: s.nonce + 1 }));
 
@@ -220,7 +219,7 @@ export function MetricsExplorer({ onClose }: { onClose?: () => void }) {
         <div className={styles.controls}>
           <label className={styles.field}>
             <span>{t('metricsExplorer.instance', 'Prometheus')}</span>
-            <select value={instance} onChange={(e) => setInstance(e.target.value)}>
+            <select value={instance ?? ''} onChange={(e) => setInstance(e.target.value)}>
               {instances.length === 0 && <option value="">— none configured —</option>}
               {instances.map((i) => (
                 <option key={i.name} value={i.name}>

@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   packages: write
+  id-token: write # cosign keyless signing (provenance attestation + signature)
 
 jobs:
   build-frontend:
@@ -89,6 +90,7 @@ jobs:
           flavor: latest=auto
 
       - name: build & push multi-arch
+        id: push
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -99,4 +101,14 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: false
+
+      # Keyless signing via the job's OIDC token. Signing by digest covers
+      # every tag pushed above for the same manifest. Registry credentials
+      # come from the ghcr.io login step (shared docker config).
+      - name: install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: sign image (keyless)
+        env:
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: cosign sign --yes "ghcr.io/yi-nology/k7s@${DIGEST}"

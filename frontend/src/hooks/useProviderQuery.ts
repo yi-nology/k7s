@@ -70,9 +70,43 @@ const cache = new Map<string, CacheEntry>();
 /** Default cache TTL: 30s. */
 const DEFAULT_TTL_MS = 30_000;
 
+/**
+ * Upper bound on cache size. The cache exists to smooth remounts of the same
+ * panel (its keys embed the selection), not to act as a data store — without
+ * a cap it would grow once per panel-per-selection for the app's lifetime.
+ */
+const MAX_CACHE_ENTRIES = 100;
+
+/**
+ * Age at which a write-time sweep drops an entry regardless of its key's
+ * read-time TTL — a backstop for keys whose panels never come back (the
+ * read path already treats older entries as misses, this just frees them).
+ */
+const SWEEP_AGE_MS = 10 * DEFAULT_TTL_MS;
+
 /** Empty the query cache. Exported for tests (and manual invalidation). */
 export function clearProviderQueryCache(): void {
   cache.clear();
+}
+
+/**
+ * Insert an entry, keeping the cache bounded. Cleanup piggybacks on writes —
+ * the Map is only written on successful fetches, so a timer would run almost
+ * always idle. Map iterates in insertion order: delete-before-set re-queues
+ * refreshed keys, making the overflow eviction below oldest-first (LRU-ish).
+ */
+function writeCache(key: string, data: unknown): void {
+  const now = Date.now();
+  for (const [k, entry] of cache) {
+    if (now - entry.at >= SWEEP_AGE_MS) cache.delete(k);
+  }
+  cache.delete(key);
+  cache.set(key, { at: now, data });
+  while (cache.size > MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
 }
 
 /** Return fresh cached data for `key`, or undefined when absent/expired. */
@@ -132,7 +166,7 @@ export function useProviderQuery<T>(opts: QueryOptions<T>): QueryResult<T> {
         (value) => {
           if (!mounted.current || id !== runId.current) return;
           if (key !== undefined && ttlMs > 0) {
-            cache.set(key, { at: Date.now(), data: value });
+            writeCache(key, value);
           }
           setData(value);
           setLoading(false);

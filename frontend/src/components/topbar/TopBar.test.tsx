@@ -55,9 +55,9 @@ describe('TopBar', () => {
     });
 
     it('renders the overlay label when an overlay is active', () => {
-      useStore.setState({ overlay: 'dashboard' });
+      useStore.getState().openOverlay('metrics');
       view = render(<TopBar />);
-      expect(view.queryByText('Dashboard')).not.toBeNull();
+      expect(view.queryByText('Metrics Explorer')).not.toBeNull();
     });
 
     it('falls back to k7s when no cluster name or context', () => {
@@ -97,7 +97,7 @@ describe('TopBar', () => {
     });
 
     it('disables the ns button while a tool panel (overlay) is open', () => {
-      useStore.setState({ overlay: 'dashboard' });
+      useStore.getState().openOverlay('metrics');
       view = render(<TopBar />);
       const nsButton = view.container.querySelector('[class*="nsButton"]') as HTMLButtonElement;
       expect(nsButton).not.toBeNull();

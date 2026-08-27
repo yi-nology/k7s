@@ -5,6 +5,8 @@
  * is testable — and so both the live stream and the export ask for the same thing.
  */
 
+import type { LogLine } from '../providers/types';
+
 /** How far back the log read reaches. */
 export type SinceOption = 'all' | '5m' | '1h' | '24h';
 
@@ -46,4 +48,24 @@ export function exportFilename(pod: string, container: string, previous: boolean
   // An empty container means the interleaved all-containers view (B7).
   const part = container === '' ? 'all' : container;
   return `${pod}.${part}${previous ? '.previous' : ''}.log`;
+}
+
+/**
+ * Indices into `lines` whose message or level contains the query
+ * (case-insensitive). Pure so the search is testable — and so the caller is
+ * forced to pass the *rendered* list: match indices are only meaningful
+ * against the same array the viewport maps over (level-filtered when a level
+ * chip is active, the raw buffer otherwise). Computing them against a
+ * different array made the highlight and Enter-to-jump land on wrong rows.
+ */
+export function findLogMatches(lines: LogLine[], query: string): number[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const indices: number[] = [];
+  lines.forEach((line, i) => {
+    if (line.msg.toLowerCase().includes(q) || line.level.toLowerCase().includes(q)) {
+      indices.push(i);
+    }
+  });
+  return indices;
 }

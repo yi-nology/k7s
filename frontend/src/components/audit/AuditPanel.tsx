@@ -4,16 +4,16 @@
  * Lists Loki instances (CRUD), queries kube-apiserver audit events,
  * and renders them in a filterable table.
  */
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import type { AuditEvent, AuditQuery, LokiConfig } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { useProviderQuery } from '../../hooks/useProviderQuery';
+import { useFirstInstance, mergeErrors } from '../../hooks/useAutoSelect';
 import { formatTimestamp, formatJson, verbStyle, statusStyle } from './auditUtils';
 
 export function AuditPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [selected, setSelected] = useState<string | null>(null);
   // Errors from the add/remove instance handlers (the fetches below carry
   // their own error state through the query hook).
   const [actionError, setActionError] = useState<string | null>(null);
@@ -40,11 +40,7 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
     key: 'audit:instances',
   });
   const instances = instancesQuery.data ?? [];
-
-  // Auto-select the first instance once the list arrives.
-  useEffect(() => {
-    if (instances.length > 0 && !selected) setSelected(instances[0].name);
-  }, [instances, selected]);
+  const [selected, setSelected] = useFirstInstance(instances);
 
   const eventsQuery = useProviderQuery<AuditEvent[]>({
     query: () => {
@@ -63,7 +59,7 @@ export function AuditPanel({ onClose }: { onClose?: () => void }) {
     key: `audit:events:${selected ?? 'none'}:${namespace}:${resource}:${user}:${sinceSeconds}`,
   });
   const events = eventsQuery.data ?? [];
-  const error = actionError ?? instancesQuery.error ?? eventsQuery.error ?? null;
+  const error = mergeErrors(actionError, instancesQuery.error, eventsQuery.error);
   const loading = eventsQuery.loading;
   const fetchEvents = () => eventsQuery.reload();
 

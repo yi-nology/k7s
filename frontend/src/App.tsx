@@ -208,7 +208,12 @@ export default function App() {
                 </div>
                 {aiOpen && AI_ENABLED && (
                   <Suspense fallback={null}>
-                    <AiChat onClose={() => setAiOpen(false)} />
+                    {/* Panel-local boundary: the AI panel drags in shiki and
+                        react-markdown — a crash there closes the panel, not
+                        the app. */}
+                    <ErrorBoundary compact onReset={() => setAiOpen(false)}>
+                      <AiChat onClose={() => setAiOpen(false)} />
+                    </ErrorBoundary>
                   </Suspense>
                 )}
               </div>
@@ -229,7 +234,12 @@ export default function App() {
                   >
                     <div className={styles.overlay} role="dialog" aria-modal="true">
                       <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
-                        <Panel onClose={closeOverlay} />
+                        {/* Panel-local boundary: a crash inside one heavy lazy
+                            panel (Plotly, topology, shiki) closes that overlay
+                            instead of white-screening the whole app. */}
+                        <ErrorBoundary compact onReset={closeOverlay}>
+                          <Panel onClose={closeOverlay} />
+                        </ErrorBoundary>
                       </Suspense>
                     </div>
                   </div>
@@ -244,22 +254,26 @@ export default function App() {
                 >
                   <div className={styles.overlay} role="dialog" aria-modal="true">
                     <Suspense fallback={<div className={styles.overlayEmpty}>…</div>}>
-                      {overlayPodRef ? (
-                        <PodFilesPanel
-                          ref={{
-                            kind: 'pods',
-                            namespace: overlayPodRef.namespace,
-                            name: overlayPodRef.name,
-                          }}
-                          container={overlayPodRef.container}
-                          onClose={closeOverlay}
-                        />
-                      ) : (
-                        // No pod picked yet — show a friendly empty state.
-                        <div className={styles.overlayEmpty}>
-                          {t('podFiles.noPod', "Open Pod Files from a Pod's row context menu.")}
-                        </div>
-                      )}
+                      {/* Same panel-local crash containment as the dispatch
+                          table above. */}
+                      <ErrorBoundary compact onReset={closeOverlay}>
+                        {overlayPodRef ? (
+                          <PodFilesPanel
+                            ref={{
+                              kind: 'pods',
+                              namespace: overlayPodRef.namespace,
+                              name: overlayPodRef.name,
+                            }}
+                            container={overlayPodRef.container}
+                            onClose={closeOverlay}
+                          />
+                        ) : (
+                          // No pod picked yet — show a friendly empty state.
+                          <div className={styles.overlayEmpty}>
+                            {t('podFiles.noPod', "Open Pod Files from a Pod's row context menu.")}
+                          </div>
+                        )}
+                      </ErrorBoundary>
                     </Suspense>
                   </div>
                 </div>

@@ -124,6 +124,14 @@
   font-size: var(--text-sm);
   line-height: 1.65;
 }
+/* Windowed mode (>WINDOW_THRESHOLD lines) pins every row to one line:
+   rowWindow's spacer math assumes a constant row height, and wrapped rows
+   (white-space: pre-wrap) have heights the math can't predict — the window
+   would drift out of step with the scrollbar. Long lines stay one line and
+   scroll horizontally instead; short lists keep the wrap toggle. */
+.viewportWindowed .line {
+  white-space: pre;
+}
 .line {
   display: flex;
   gap: 10px;

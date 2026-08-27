@@ -32,7 +32,6 @@ function getOverlayLabels(t: ReturnType<typeof useTranslation>['t']): Partial<Re
     'image-repos': t('overlayLabels.imageRepos'),
     'image-transfer': t('overlayLabels.imageTransfer'),
     templates: t('overlayLabels.templates'),
-    dashboard: t('overlayLabels.dashboard'),
     metrics: t('overlayLabels.metricsExplorer'),
     grafana: t('overlayLabels.grafana'),
     endpoints: t('overlayLabels.endpoints'),

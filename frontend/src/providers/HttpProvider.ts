@@ -44,12 +44,10 @@ import type {
   AlertManagerUpsert,
   ClusterStatus,
   DataProvider,
-  DashboardPreset,
   DrainProgress,
   EventItem,
   ForwardInfo,
-  GrafanaConfig,
-  GrafanaConfigUpsert,
+  GrafanaDashboardSearchResult,
   HelmChartSummary,
   HelmChartVersionEntry,
   HelmOp,
@@ -613,10 +611,16 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
 
   // ---- Endpoints / metrics / grafana / alerting (Phase 1 Tier-2) ----
   // listEndpoints / listEndpointsForService / listEndpointAddresses are
-  // inherited from BaseRpcProvider (faithful bridges). The rest of this
-  // section is not proxied through the web shell yet; the k7s-web server
-  // doesn't implement these routes. Throw for mutations, return [] for reads
-  // so the UI renders "no data" rather than an error.
+  // inherited from BaseRpcProvider (faithful bridges). The whole grafana
+  // CRUD family is too: k7s-commands registered grafana_list/upsert/remove/
+  // test/presets/dashboard_url/search_dashboards in the web-reachable
+  // registry (same command names as desktop), so the base-class rpc bridges
+  // just work over /api/invoke/{cmd} — see grafanaSearchDashboards below,
+  // the one method the base class still leaves as an empty default.
+  // The rest of this section (metrics/alerting/audit) is not proxied through
+  // the web shell yet; the k7s-web server doesn't implement these routes.
+  // Throw for mutations, return [] for reads so the UI renders "no data"
+  // rather than an error.
   async triggerCronjob(_ns: string, _name: string): Promise<string> {
     return notImplemented('trigger_cronjob');
   }
@@ -637,29 +641,6 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
     return { resultType: 'matrix', series: [] };
   }
   // metricsQueryRange is inherited from BaseRpcProvider (empty default).
-  async grafanaList(): Promise<GrafanaConfig[]> {
-    return [];
-  }
-  async grafanaUpsert(_input: GrafanaConfigUpsert): Promise<GrafanaConfig> {
-    return notImplemented('grafana_upsert');
-  }
-  async grafanaRemove(_name: string): Promise<void> {
-    /* no-op */
-  }
-  async grafanaTest(_name: string): Promise<void> {
-    /* no-op */
-  }
-  async grafanaPresets(): Promise<DashboardPreset[]> {
-    return [];
-  }
-  async grafanaDashboardUrl(
-    _name: string,
-    _uid: string,
-    _fromMs: number,
-    _toMs: number
-  ): Promise<string> {
-    return '';
-  }
   async alertManagerList(): Promise<AlertManager[]> {
     return [];
   }
@@ -701,7 +682,15 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   async auditEvents(_query: import('./types').AuditQuery): Promise<import('./types').AuditEvent[]> {
     return [];
   }
-  // grafanaSearchDashboards is inherited from BaseRpcProvider (empty default).
+  // grafanaSearchDashboards: BaseRpcProvider ships only an empty default
+  // (it predates the command), so bridge it here — the web registry serves
+  // grafana_search_dashboards with the same name/args as the desktop side.
+  grafanaSearchDashboards(
+    name: string,
+    query: string
+  ): Promise<GrafanaDashboardSearchResult[]> {
+    return this.rpc<GrafanaDashboardSearchResult[]>('grafana_search_dashboards', { name, query });
+  }
 
   // ---- Saved queries (Http shell: not proxied yet) ----
   async savedQueriesList(): Promise<SavedQuery[]> {

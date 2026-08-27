@@ -103,4 +103,30 @@ describe('ErrorBoundary', () => {
       expect(reloadSpy).toHaveBeenCalled();
     });
   });
+
+  describe('compact variant (panel-local containment)', () => {
+    it('recovers via onReset instead of a page reload', () => {
+      const reloadSpy = vi.fn();
+      Object.defineProperty(window, 'location', {
+        value: { reload: reloadSpy },
+        writable: true,
+      });
+      const onReset = vi.fn();
+      const ThrowingChild = () => {
+        throw new Error('panel crash');
+      };
+      view = render(
+        <ErrorBoundary compact onReset={onReset}>
+          <ThrowingChild />
+        </ErrorBoundary>
+      );
+      // cachedLocale() reads localStorage (empty in jsdom → zh), so accept
+      // either dictionary's label for chrome.common.close.
+      const closeBtn = view.queryByText(/close|关闭/i);
+      expect(closeBtn).not.toBeNull();
+      view.click(closeBtn!);
+      expect(onReset).toHaveBeenCalled();
+      expect(reloadSpy).not.toHaveBeenCalled();
+    });
+  });
 });

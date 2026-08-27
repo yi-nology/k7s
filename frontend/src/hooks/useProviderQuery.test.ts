@@ -268,4 +268,28 @@ describe('useProviderQuery', () => {
     expect(providerMocks.listItems).toHaveBeenCalledTimes(1);
     probe.unmount();
   });
+
+  // The cache used to be write-only: entries for every panel-selection pair
+  // lived forever. Writes must now evict beyond the cap (oldest first) and
+  // drop stale entries, so a long session can't grow it without bound.
+  it('bounds the cache: exceeding 100 entries evicts the oldest', async () => {
+    providerMocks.listItems.mockResolvedValue(['v']);
+    // 101 distinct keys via dep changes on one probe: each write leaves one
+    // entry, so the 101st must push the 1st out.
+    const probe = renderProbe<string[]>({ query: () => provider().listItems(), deps: ['k0'], key: 'k0' });
+    await flush();
+    for (let i = 1; i <= 100; i++) {
+      probe.rerender({ query: () => provider().listItems(), deps: [`k${i}`], key: `k${i}` });
+      await flush();
+    }
+    // 'k0' was evicted — remounting with that key refetches instead of
+    // seeding from cache.
+    const callsAfterEviction = providerMocks.listItems.mock.calls.length;
+    const again = renderProbe<string[]>({ query: () => provider().listItems(), deps: ['k0'], key: 'k0' });
+    await flush();
+    expect(providerMocks.listItems.mock.calls.length).toBeGreaterThan(callsAfterEviction);
+    expect(again.latest().data).toEqual(['v']);
+    probe.unmount();
+    again.unmount();
+  });
 });

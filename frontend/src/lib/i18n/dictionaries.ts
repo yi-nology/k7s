@@ -1436,7 +1436,6 @@ export interface Dictionary {
     imageRepos: string;
     imageTransfer: string;
     templates: string;
-    dashboard: string;
     metricsExplorer: string;
     grafana: string;
     endpoints: string;

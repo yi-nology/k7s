@@ -127,8 +127,10 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
-          # 安装 appimagetool (本身也是 AppImage, 需要 APPIMAGE_EXTRACT_AND_RUN)
-          wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" \
+          # 安装 appimagetool (本身也是 AppImage, 需要 APPIMAGE_EXTRACT_AND_RUN).
+          # Pinned to the tagged 1.9.1 release instead of the floating
+          # `continuous` channel for supply-chain reproducibility.
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage" \
             -O /tmp/appimagetool
           chmod +x /tmp/appimagetool
 

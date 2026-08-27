@@ -1273,7 +1273,6 @@ export const en: Dictionary = {
     imageRepos: 'Image Repos',
     imageTransfer: 'Image Transfer',
     templates: 'Templates',
-    dashboard: 'Dashboard',
     metricsExplorer: 'Metrics Explorer',
     grafana: 'Grafana',
     endpoints: 'Endpoints',

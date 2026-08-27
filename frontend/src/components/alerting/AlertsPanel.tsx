@@ -5,7 +5,7 @@
  * Supports creating and expiring silences, and viewing Prometheus
  * alerting rules (read-only).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import type {
   Alert,
@@ -16,6 +16,7 @@ import type {
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { useProviderQuery } from '../../hooks/useProviderQuery';
+import { useFirstInstance, mergeErrors } from '../../hooks/useAutoSelect';
 import styles from './AlertsPanel.module.css';
 import { AlertList } from './AlertList';
 import { SilenceList } from './SilenceList';
@@ -24,7 +25,6 @@ import { RuleList } from './RuleList';
 
 export function AlertsPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [selected, setSelected] = useState<string | null>(null);
   const [tab, setTab] = useState<'alerts' | 'silences' | 'rules'>('alerts');
   const [actionError, setActionError] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -35,11 +35,7 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
     key: 'alerts:instances',
   });
   const instances = instancesQuery.data ?? [];
-
-  // Auto-select the first instance once the list arrives.
-  useEffect(() => {
-    if (instances.length > 0 && !selected) setSelected(instances[0].name);
-  }, [instances, selected]);
+  const [selected, setSelected] = useFirstInstance(instances);
 
   // Alerts / silences are each fetched when their tab is active; the other's
   // data is retained so the tab counts stay visible while switching.
@@ -72,8 +68,13 @@ export function AlertsPanel({ onClose }: { onClose?: () => void }) {
   });
   const ruleGroups = rulesQuery.data ?? [];
 
-  const error = actionError ?? instancesQuery.error ?? alertsQuery.error ?? silencesQuery.error ??
-    rulesQuery.error ?? null;
+  const error = mergeErrors(
+    actionError,
+    instancesQuery.error,
+    alertsQuery.error,
+    silencesQuery.error,
+    rulesQuery.error
+  );
 
   const refresh = useCallback(() => {
     if (tab === 'alerts') alertsQuery.reload();

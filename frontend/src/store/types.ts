@@ -60,14 +60,15 @@ export interface DetailTab2 {
 /** Which dropdown menu (if any) is currently open — only one at a time. */
 export type OpenMenu = 'cluster' | 'ns' | 'lang' | null;
 
-/** Which feature overlay is open above the resource table. */
+/** Which feature overlay is open above the resource table. Note: the
+ *  dashboard is NOT an overlay — it renders inline as the overview section's
+ *  content (P1 IA); the palette routes its 'dashboard' action to setSection. */
 export type OverlayKey =
   | 'helm-market'
   | 'pod-files'
   | 'image-repos'
   | 'image-transfer'
   | 'templates'
-  | 'dashboard'
   | 'metrics'
   | 'grafana'
   | 'endpoints'

@@ -5,17 +5,32 @@
  * The stream lifecycle lives in useLogStream.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import styles from './LogsTab.module.css';
 import { useStore } from '../../store';
 import { formatError, getProvider } from '../../providers';
 import { useLogStream } from '../../hooks/useLogStream';
 import { useTranslation } from '../../hooks/useI18n';
 import { cx } from '../../lib/cx';
-import { hasPrevious, sinceSeconds, SINCE_OPTIONS } from '../../lib/logview';
+import { findLogMatches, hasPrevious, sinceSeconds, SINCE_OPTIONS } from '../../lib/logview';
+import { rowWindow } from '../../lib/virtual';
 import { useSelectedRow } from '../../hooks/useStoreHooks';
 import { LOG_LEVELS } from './logUtils';
 import { LogRow } from './LogRow';
+
+/**
+ * Above this many *rendered* lines the viewport switches to fixed-height
+ * windowing (rowWindow + spacer divs) — logBufferCap goes up to 5000 and a
+ * full DOM of that size stutters on every streamed line. Windowing needs a
+ * constant row height, so windowed mode pins each row to one line (see
+ * `.viewportWindowed .line` in the CSS module): wrapped rows have
+ * unpredictable heights and would drift the window out of step with the
+ * scrollbar. Under the threshold nothing changes, wrap included.
+ */
+const WINDOW_THRESHOLD = 500;
+
+/** Rows kept rendered beyond each edge of the visible span. */
+const OVERSCAN = 10;
 
 export function LogsTab() {
   // Drive the stream for as long as this tab is mounted.
@@ -54,27 +69,88 @@ export function LogsTab() {
 
   // --- Highlight + navigate search ---
 
-  const [matchIndices, setMatchIndices] = useState<number[]>([]);
-  const [currentMatchIdx, setCurrentMatchIdx] = useState(-1);
   const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Recompute match indices when logBuffer or query changes.
+  // Filter logBuffer by level. Memoized: the streaming buffer changes on
+  // every appended line, and both the render list and the match list below
+  // derive from this one array without re-running the filter twice.
+  const filteredBuffer = useMemo(
+    () => (levelFilter === 'ALL' ? logBuffer : logBuffer.filter((line) => line.level === levelFilter)),
+    [logBuffer, levelFilter]
+  );
+
+  // Matches are computed against the *rendered* list, not the raw buffer:
+  // with a level filter active the viewport maps over filteredBuffer, so
+  // buffer-based indices highlighted and jumped to wrong rows.
+  const matchIndices = useMemo(() => findLogMatches(filteredBuffer, logSearch), [filteredBuffer, logSearch]);
+  const [currentMatchIdx, setCurrentMatchIdx] = useState(-1);
+  // A new match set (query/buffer/level change) restarts navigation at the top.
   useEffect(() => {
-    const q = logSearch.trim().toLowerCase();
-    if (!q) {
-      setMatchIndices([]);
-      setCurrentMatchIdx(-1);
-      return;
-    }
-    const indices: number[] = [];
-    logBuffer.forEach((line, i) => {
-      if (line.msg.toLowerCase().includes(q) || line.level.toLowerCase().includes(q)) {
-        indices.push(i);
-      }
-    });
-    setMatchIndices(indices);
-    setCurrentMatchIdx(indices.length > 0 ? 0 : -1);
-  }, [logBuffer, logSearch]);
+    setCurrentMatchIdx(matchIndices.length > 0 ? 0 : -1);
+  }, [matchIndices]);
+
+  // --- Virtualized viewport (large buffers only) ---
+  // Mirrors the resource table's windowing (lib/virtual + useVirtualRows):
+  // track scroll + viewport size, derive the rendered slice, and stand in for
+  // the unrendered rows with spacer divs so the scrollbar stays honest.
+
+  // Auto-scroll to the bottom on new lines, but only while following.
+  const viewportRef = useRef<HTMLDivElement>(null);
+
+  // Row height is measured, not hardcoded: it follows the user's font size.
+  // The probe is a hidden single-line `.line`; until it reports a real height
+  // (or when the buffer is short) the full list renders as before.
+  const probeRef = useRef<HTMLDivElement>(null);
+  const [rowHeight, setRowHeight] = useState(0);
+  useLayoutEffect(() => {
+    const el = probeRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setRowHeight(el.getBoundingClientRect().height));
+    ro.observe(el);
+    setRowHeight(el.getBoundingClientRect().height);
+    return () => ro.disconnect();
+  }, []);
+
+  const windowed = filteredBuffer.length > WINDOW_THRESHOLD && rowHeight > 0;
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportH, setViewportH] = useState(0);
+  // A ref so the scroll handler doesn't have to be re-attached when it flips.
+  const windowedRef = useRef(windowed);
+  windowedRef.current = windowed;
+
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      // Short lists render whole; re-rendering them on every scroll event
+      // would be pure waste. The effect below repairs the state when this
+      // stops (the browser can clamp scrollTop while windowing is off).
+      if (windowedRef.current) setScrollTop(el.scrollTop);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const ro = new ResizeObserver(() => setViewportH(el.clientHeight));
+    ro.observe(el);
+    setViewportH(el.clientHeight);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      ro.disconnect();
+    };
+  }, []);
+
+  // Seed scrollTop whenever windowing engages — the handler above ignored
+  // scrolling while it was off, so the state can be stale by now. Windowing
+  // around an abandoned offset would render rows behind a huge spacer.
+  useEffect(() => {
+    if (windowed && viewportRef.current) setScrollTop(viewportRef.current.scrollTop);
+  }, [windowed]);
+
+  const rowSlice = useMemo(
+    () =>
+      windowed
+        ? rowWindow(filteredBuffer.length, scrollTop, viewportH, rowHeight, OVERSCAN)
+        : { start: 0, end: filteredBuffer.length, padTop: 0, padBottom: 0 },
+    [windowed, filteredBuffer.length, scrollTop, viewportH, rowHeight]
+  );
 
   const goToMatch = useCallback(
     (idx: number) => {
@@ -83,9 +159,19 @@ export function LogsTab() {
       setCurrentMatchIdx(wrapped);
       const lineIdx = matchIndices[wrapped];
       const el = lineRefs.current.get(lineIdx);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      // Windowed viewport: the target row is not mounted, so there is no ref
+      // to scrollIntoView. Jump by row offset instead — the scroll listener
+      // re-renders the window around the new offset, which mounts the row.
+      if (windowed && viewportRef.current) {
+        const vp = viewportRef.current;
+        vp.scrollTop = Math.max(0, lineIdx * rowHeight - vp.clientHeight / 2);
+      }
     },
-    [matchIndices]
+    [matchIndices, windowed, rowHeight]
   );
 
   const nextMatch = useCallback(() => goToMatch(currentMatchIdx + 1), [goToMatch, currentMatchIdx]);
@@ -118,13 +204,9 @@ export function LogsTab() {
     return () => clearTimeout(timer);
   }, [saveNote, t]);
 
-  // Auto-scroll to the bottom on new lines, but only while following.
-  const viewportRef = useRef<HTMLDivElement>(null);
-
-  // Filter logBuffer by level.
-  const filteredBuffer = levelFilter === 'ALL'
-    ? logBuffer
-    : logBuffer.filter((line) => line.level === levelFilter);
+  // Auto-scroll to the bottom on new lines, but only while following. With
+  // windowing on, scrollHeight is dominated by the bottom spacer, which is
+  // exactly the full-list height — so following works unchanged.
   useLayoutEffect(() => {
     if (following && viewportRef.current) {
       const el = viewportRef.current;
@@ -282,27 +364,39 @@ export function LogsTab() {
       </div>
 
       <div
-        className={styles.viewport}
+        className={cx(styles.viewport, windowed && styles.viewportWindowed)}
         ref={viewportRef}
         style={{ whiteSpace: wrap ? 'pre-wrap' : 'pre' }}
       >
-        {filteredBuffer.map((line, i) => (
-          <div
-            key={i}
-            ref={(el) => {
-              if (el) lineRefs.current.set(i, el);
-              else lineRefs.current.delete(i);
-            }}
-          >
-            <LogRow
-              line={line}
-              showTs={showTimestamps}
-              showContainer={showContainerTag}
-              query={logSearch}
-              isCurrentMatch={matchIndices[currentMatchIdx] === i}
-            />
-          </div>
-        ))}
+        {/* Hidden single-line probe — measures the row height the windowing
+            math is computed from (see the virtualization block above). */}
+        <div ref={probeRef} className={styles.line} aria-hidden="true" style={{ position: 'absolute', visibility: 'hidden', pointerEvents: 'none' }}>
+          {'\u200b'}
+        </div>
+        {/* Spacers stand in for the unrendered rows on either side of the
+            window, keeping the scrollbar proportional to the full list. */}
+        {rowSlice.padTop > 0 && <div style={{ height: rowSlice.padTop }} aria-hidden="true" />}
+        {filteredBuffer.slice(rowSlice.start, rowSlice.end).map((line, i) => {
+          const idx = rowSlice.start + i;
+          return (
+            <div
+              key={idx}
+              ref={(el) => {
+                if (el) lineRefs.current.set(idx, el);
+                else lineRefs.current.delete(idx);
+              }}
+            >
+              <LogRow
+                line={line}
+                showTs={showTimestamps}
+                showContainer={showContainerTag}
+                query={logSearch}
+                isCurrentMatch={matchIndices[currentMatchIdx] === idx}
+              />
+            </div>
+          );
+        })}
+        {rowSlice.padBottom > 0 && <div style={{ height: rowSlice.padBottom }} aria-hidden="true" />}
       </div>
 
       <div className={styles.footer}>

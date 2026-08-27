@@ -21,6 +21,7 @@ import { MarkdownMessage } from './MarkdownMessage';
 import { ToolCallCard } from './ToolCallCard';
 import { QuickActions } from './QuickActions';
 import { AiWelcome } from './AiWelcome';
+import { pollAiRun } from './pollAiRun';
 import { AiStatusBar } from './AiStatusBar';
 import { SkillsPanel } from './SkillsPanel';
 import { MemoryPanel } from './MemoryPanel';
@@ -235,44 +236,31 @@ export function AiChat({ selectedContext, onClose }: Props) {
       activeRunId.current = id;
       setRunId(id);
       // Poll for events instead of SSE (avoids browser connection-limit issues).
+      // The loop and its error contract live in pollAiRun (tested there):
+      // ok:false and N consecutive failures both push an error row and clear
+      // the busy/runId state, so a lost run can no longer wedge the panel.
       pollCancelRef.current = false;
-      const poll = async () => {
-        let afterIndex = 0;
-        while (!pollCancelRef.current) {
-          await new Promise((r) => setTimeout(r, 800));
-          if (pollCancelRef.current) break;
-          // One AbortController per iteration so an in-flight request is
-          // cancelled when the component unmounts (pollAbortRef.abort() in
-          // the cleanup effect).
+      void pollAiRun(id, {
+        fetchImpl: fetch,
+        headers: apiHeaders,
+        sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        isCancelled: () => pollCancelRef.current,
+        // One AbortController per iteration so an in-flight request is
+        // cancelled when the component unmounts (pollAbortRef.abort() in
+        // the cleanup effect).
+        signalFor: () => {
           const ac = new AbortController();
           pollAbortRef.current = ac;
-          try {
-            const res = await fetch('/api/invoke/ai_poll_events', {
-              method: 'POST',
-              headers: await apiHeaders(),
-              body: JSON.stringify({ runId: id, afterIndex }),
-              signal: ac.signal,
-            });
-            const json = await res.json();
-            // The API wraps responses in { ok, data }. Unwrap it.
-            const data = json.ok ? json.data : json;
-            if (data?.events) {
-              for (const evt of data.events) {
-                if (evt.runId === activeRunId.current) {
-                  processEventRef.current(evt.event);
-                }
-              }
-              afterIndex = data.total ?? afterIndex + data.events.length;
-            }
-            if (data?.done) break;
-          } catch (e) {
-            // AbortError is expected on unmount; anything else stops the loop.
-            if ((e as Error)?.name === 'AbortError') return;
-            break;
-          }
-        }
-      };
-      void poll();
+          return ac.signal;
+        },
+        onEvent: (ev) => processEventRef.current(ev),
+        onError: (message) => pushRow({ kind: 'error', text: message }),
+        onFinish: () => {
+          setBusy(false);
+          activeRunId.current = null;
+          setRunId(null);
+        },
+      });
     } catch (e) {
       pushRow({ kind: 'error', text: String(e) });
       setBusy(false);

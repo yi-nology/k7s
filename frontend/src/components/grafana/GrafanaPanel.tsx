@@ -21,6 +21,7 @@ import type {
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { useProviderQuery } from '../../hooks/useProviderQuery';
+import { useFirstInstance, mergeErrors } from '../../hooks/useAutoSelect';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './GrafanaPanel.module.css';
 
@@ -35,7 +36,6 @@ function getRangeOptions(t: (key: string) => string) {
 
 export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   const { t } = useTranslation();
-  const [selected, setSelected] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [activePreset, setActivePreset] = useState<string | null>(null);
   const [rangeMinutes, setRangeMinutes] = useState(60);
@@ -53,11 +53,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   });
   const instances = instancesQuery.data ?? [];
   const reload = instancesQuery.reload;
-
-  // Auto-select the first instance once the list arrives.
-  useEffect(() => {
-    if (instances.length > 0 && !selected) setSelected(instances[0].name);
-  }, [instances, selected]);
+  const [selected, setSelected] = useFirstInstance(instances);
 
   // Preset dashboards are static; failures stay silent (as before).
   const presetsQuery = useProviderQuery<DashboardPreset[]>({
@@ -84,8 +80,7 @@ export function GrafanaPanel({ onClose }: { onClose?: () => void }) {
   const iframeUrl =
     selected && activePreset ? dashboardUrlQuery.data ?? null : null;
 
-  const error =
-    actionError ?? instancesQuery.error ?? dashboardUrlQuery.error ?? null;
+  const error = mergeErrors(actionError, instancesQuery.error, dashboardUrlQuery.error);
 
   const handleSearch = useCallback(
     (q: string) => {

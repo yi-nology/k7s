@@ -43,5 +43,7 @@ pub use keyring;
 pub use rand;
 pub use regex;
 pub use rustls;
+pub use rustls_pemfile;
+pub use tokio_rustls;
 pub use urlencoding;
 pub use uuid;

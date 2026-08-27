@@ -146,6 +146,32 @@ describe('LogsTab', () => {
       expect(view.queryByText('High memory usage')).not.toBeNull();
       expect(view.container.querySelector('mark')).not.toBeNull();
     });
+
+    // Regression (search-index mismatch): with a level filter active the
+    // rendered list is a subset of the buffer. Matches, the counter, and the
+    // current-match highlight must all use indices into that subset — the
+    // pre-fix code matched against the raw buffer, so the "1/1" counter and
+    // the highlight pointed at indices the viewport wasn't showing.
+    it('counts and highlights matches against the level-filtered list', () => {
+      const pod = createMockPodRow({
+        uid: 'pod-1',
+        name: 'nginx',
+        pod: createMockPodMeta({ containers: ['app'] }),
+      });
+      // "error" matches only the ERROR line (by level). Filtering to ERROR
+      // leaves it as rendered index 0 — the highlight must land on it.
+      useStore.setState({ selectedRow: pod, logBuffer: MOCK_LINES, logSearch: 'error' });
+      view = render(<LogsTab />);
+      view.click(view.getByText('ERROR'));
+      // Rendered subset: only the ERROR line.
+      expect(view.queryByText('Connection refused')).not.toBeNull();
+      expect(view.queryByText('Server started')).toBeNull();
+      // One match in the rendered list, and it is the highlighted row.
+      expect(view.queryByText('1/1')).not.toBeNull();
+      const active = view.container.querySelector('[class*="lineActive"]');
+      expect(active).not.toBeNull();
+      expect(active!.textContent).toContain('Connection refused');
+    });
   });
 
   describe('follow/pause', () => {

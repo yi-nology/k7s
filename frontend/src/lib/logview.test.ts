@@ -3,7 +3,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { exportFilename, hasPrevious, sinceSeconds, SINCE_OPTIONS } from './logview';
+import { exportFilename, findLogMatches, hasPrevious, sinceSeconds, SINCE_OPTIONS } from './logview';
+import type { LogLine } from '../providers/types';
 
 describe('sinceSeconds', () => {
   it('maps each window to its seconds', () => {
@@ -59,5 +60,39 @@ describe('exportFilename', () => {
 
   it('names the all-containers view', () => {
     expect(exportFilename('api-x', '', false)).toBe('api-x.all.log');
+  });
+});
+
+describe('findLogMatches', () => {
+  const lines: LogLine[] = [
+    { ts: '10:00:01', level: 'INFO', msg: 'Server started' },
+    { ts: '10:00:02', level: 'ERROR', msg: 'Connection refused' },
+    { ts: '10:00:03', level: 'INFO', msg: 'error retry scheduled' },
+    { ts: '10:00:04', level: 'DEBUG', msg: 'Retry attempt 1' },
+  ];
+
+  it('matches message content case-insensitively', () => {
+    expect(findLogMatches(lines, 'server')).toEqual([0]);
+    expect(findLogMatches(lines, 'CONNECTION')).toEqual([1]);
+  });
+
+  it('matches the level column too', () => {
+    // Line 2 matches by message, line 3 by level — both are reported.
+    expect(findLogMatches(lines, 'error')).toEqual([1, 2]);
+    expect(findLogMatches(lines, 'debug')).toEqual([3]);
+  });
+
+  it('returns [] for empty or whitespace-only queries', () => {
+    expect(findLogMatches(lines, '')).toEqual([]);
+    expect(findLogMatches(lines, '   ')).toEqual([]);
+  });
+
+  // Regression: indices are only meaningful against the array the viewport
+  // renders. With a level filter active the rendered list is a subset, so the
+  // caller must pass the filtered array — the pre-fix code matched against
+  // the raw buffer and highlighted/jumped to wrong rows.
+  it('indexes the array it is given, not the buffer it came from', () => {
+    const errorsOnly = lines.filter((l) => l.level === 'ERROR');
+    expect(findLogMatches(errorsOnly, 'error')).toEqual([0]);
   });
 });
