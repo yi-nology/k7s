@@ -61,8 +61,16 @@ pub fn run() {
             // Process-wide audit log target — once, here, before any command
             // can fire (see k7s-core's core::audit).
             k7s_core::core::audit::set_dir(data_dir.clone());
-            let state = CoreState::new(manager, data_dir);
+            let state = CoreState::new(manager.clone(), data_dir.clone());
             app.manage(state);
+            // Scheduled AI tasks (ai_cron_*): headless runs, approvals
+            // auto-denied — same executor semantics as the web shell but
+            // with the user's saved permission mode.
+            let cron_manager = manager.clone();
+            let cron_dir = data_dir.clone();
+            tauri::async_runtime::spawn(async move {
+                k7s_core::ai::cron::spawn_configured_runner(cron_dir, cron_manager, false).await;
+            });
             // The AI assistant runtime holds in-flight run bookkeeping
             // (approvals + cancellation). It's cheap and self-contained.
             app.manage(Arc::new(k7s_commands::commands::ai::AiRuntime::new()));
