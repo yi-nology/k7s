@@ -1,4 +1,15 @@
 # docker-compose.yml for k7s-web
+#
+# Auth model — k7s-web exposes the full Kubernetes control plane over HTTP
+# (apply/delete/drain/exec, Secret reads), so every endpoint is gated:
+#   * Browser: single-user password gate (/api/auth/* issues an HttpOnly
+#     session cookie; the password is set on first visit).
+#   * API & MCP clients: `Authorization: Bearer $K7S_WEB_TOKEN` on every
+#     request — including /mcp (MCP over HTTP, exposes shell/exec tools),
+#     /api/events (SSE) and /api/status. Only /api/health stays public.
+#   * If K7S_WEB_TOKEN is unset, k7s-web generates a random token into the
+#     k7s-data volume: `docker exec k7s-web cat /data/web-token`.
+#
 # Usage:
 #   docker compose up -d
 #   docker compose logs -f
@@ -13,11 +24,16 @@ services:
     container_name: k7s-web
     ports:
       # Bind to the host's loopback by default so the cluster control plane
-      # is NOT exposed to the network. To share k7s-web across the LAN, set
-      # K7S_PORT_BIND=0.0.0.0 AND K7S_WEB_TOKEN (clients must present it as
-      # `Authorization: Bearer <token>`), ideally behind a TLS-terminating
-      # reverse proxy — k7s-web speaks plaintext HTTP.
+      # is NOT exposed to the network.
       - "${K7S_PORT_BIND:-127.0.0.1}:${K7S_PORT:-8080}:8080"
+      # ── LAN exposure example (set in .env, not here) ─────────────────
+      # Sharing k7s-web beyond this host requires ALL of:
+      #   K7S_PORT_BIND=0.0.0.0
+      #   K7S_WEB_TOKEN=$(openssl rand -base64 32)  # strong random secret;
+      #                                             # API/MCP clients send it
+      #                                             # as a Bearer token
+      # plus a TLS-terminating reverse proxy (nginx/Caddy/traefik) in front —
+      # k7s-web itself speaks plaintext HTTP only.
     volumes:
       # Mount kubeconfig for Kubernetes access
       - ${KUBECONFIG:-~/.kube/config}:/home/k7s/.kube/config:ro
@@ -29,6 +45,12 @@ services:
       # Auth token for API + MCP access. If unset, k7s-web generates one into
       # the k7s-data volume — readable via `docker exec k7s-web cat /data/web-token`.
       - K7S_WEB_TOKEN=${K7S_WEB_TOKEN:-}
+      # Separate bearer token for the AI webhook endpoints (/hooks/*);
+      # leave unset to keep webhooks disabled.
+      # - K7S_HOOK_TOKEN=${K7S_HOOK_TOKEN:-}
+      # Extra allowed CORS origins (comma-separated), e.g. a browser SPA
+      # served from another origin: https://app.example.com
+      # - K7S_ALLOWED_ORIGINS=${K7S_ALLOWED_ORIGINS:-}
     # Health check using wget (available in debian:bookworm-slim)
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
