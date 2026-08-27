@@ -64,3 +64,15 @@ cargo test                      # git 依赖自动解析同级仓
 # 发布
 # k7s 仓的 .github/workflows/release-desktop.yml / release-docker.yml
 ```
+
+## 安全模型
+
+- **k7s-web / MCP（`/mcp`）**：除 `/health`、`/api/health`、`/api/auth/*` 外全部要求
+  `Authorization: Bearer <K7S_WEB_TOKEN>`（或有效的密码会话 Cookie）。loopback 部署自动生成
+  token（SPA 从 `GET /api/web-token` 自取）；非 loopback 必须显式设置 `K7S_WEB_TOKEN`
+  （Docker 部署通过 compose 环境变量透传）。跨网暴露请置于 TLS 反代之后——服务本身是明文 HTTP。
+- **登录限速**：密码错误 5 次/60 秒后返回 429。
+- **AI/MCP 默认只读**：web 端 agent 强制 ReadOnly；cron 定时任务 headless 执行，写操作审批一律拒绝。
+- **Secret 脱敏**：AI describe 与选中上下文默认将 Secret 的 `data`/`stringData` 打码
+  （`include_secrets: true` 显式开启）。
+- **审计日志**：危险操作（delete/apply/drain/node shell/helm 等）记录到 `<data_dir>/audit.log`（JSONL）。
