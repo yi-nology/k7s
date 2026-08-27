@@ -44,10 +44,13 @@ jiff = "0.2"
 
 # 工具库
 uuid = { version = "1", features = ["v4"] }
-# iOS: keyring needs a store backend, and the apple one hard-errors at
-# compile time without its `protected` feature (the v0.5.x mobile shells
-# hit exactly this). Declared here so every consumer (core → commands →
-# shells) inherits both; harmless on other targets.
+keyring = { version = "4" }
+
+# Apple targets: keyring needs the native store, which hard-errors at
+# compile time without its `protected` feature (the v0.5.x iOS shell hit
+# exactly this). The store package is macOS/iOS-only code — compiling it on
+# Linux breaks (security_framework imports), hence the cfg gate.
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 keyring = { version = "4", features = ["apple-native-keyring-store"] }
 apple-native-keyring-store = { version = "1", features = ["protected"] }
 urlencoding = "2"
