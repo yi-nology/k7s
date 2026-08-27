@@ -2644,7 +2644,7 @@ dependencies = [
 
 [[package]]
 name = "k7s"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "http-body-util",
  "k7s-commands",
@@ -2665,7 +2665,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-android"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "k7s-commands",
  "k7s-core",
@@ -2680,7 +2680,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-commands"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "k7s-core",
  "k7s-deps",
@@ -2691,7 +2691,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-core"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "k7s-deps",
  "proptest",
@@ -2740,7 +2740,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-ios"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "apple-native-keyring-store",
  "k7s-commands",
@@ -2756,7 +2756,7 @@ dependencies = [
 
 [[package]]
 name = "k7s-server"
-version = "0.5.0"
+version = "0.5.2"
 dependencies = [
  "argon2",
  "axum",
