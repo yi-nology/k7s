@@ -26,3 +26,6 @@ playwright-report/
 .zcode/
 .playwright-mcp/
 tsbuildinfo
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
