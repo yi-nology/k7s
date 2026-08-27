@@ -2745,7 +2745,6 @@ dependencies = [
 name = "k7s-ios"
 version = "0.5.2"
 dependencies = [
- "apple-native-keyring-store",
  "k7s-commands",
  "k7s-core",
  "k7s-deps",
