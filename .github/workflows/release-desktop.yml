@@ -101,6 +101,26 @@ jobs:
           prerelease: false
           projectPath: crates/k7s-desktop
 
+      # ── 校验和: 每个桌面产物配一个 .sha256, install.sh 下载后核对 ──
+      - name: generate desktop bundle checksums
+        if: always() && steps.tauri.conclusion == 'success'
+        shell: bash
+        run: |
+          cd crates/k7s-desktop/target/release/bundle
+          find . -type f \( -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*-setup.exe" -o -name "*.msi" \) | while read -r f; do
+            (cd "$(dirname "$f")" && shasum -a 256 "$(basename "$f")" > "$(basename "$f").sha256") || sha256sum "$f" > "$f.sha256"
+            echo "checksum written: $f.sha256"
+          done
+
+      - name: upload desktop bundle checksums
+        if: always() && steps.tauri.conclusion == 'success'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            crates/k7s-desktop/target/release/bundle/**/*.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # ── 注入 glibc 2.35 到 AppImage, 兼容麒麟桌面 (glibc 2.31) ──
       - name: bundle glibc into AppImage (Kylin compatibility)
         if: runner.os == 'Linux' && runner.arch == 'X64'
@@ -154,11 +174,17 @@ jobs:
 
           echo "✓ AppImage with bundled glibc 2.35 created"
 
+      - name: checksum Kylin AppImage
+        if: runner.os == 'Linux' && runner.arch == 'X64'
+        run: shasum -a 256 crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage > crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage.sha256
+
       - name: upload Kylin-compatible AppImage
         if: runner.os == 'Linux' && runner.arch == 'X64'
         uses: softprops/action-gh-release@v3
         with:
-          files: crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
+          files: |
+            crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
+            crates/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -184,6 +210,9 @@ jobs:
           elif [ "${{ runner.os }}" = "macOS" ]; then
             cp k7s-web k7s-web-macos-$(uname -m)
           fi
+          for f in k7s-web-*; do
+            [ -f "$f" ] && (shasum -a 256 "$f" > "$f.sha256" || sha256sum "$f" > "$f.sha256")
+          done
 
       - name: upload k7s-web
         if: runner.os != 'Linux'
@@ -212,12 +241,17 @@ jobs:
           # Note: do NOT strip musl binaries — strip can corrupt them.
           cp "target/${TARGET}/release/k7s-web" \
              "../../k7s-web-linux-${SUFFIX}-static"
+          cd ../..
+          (shasum -a 256 "k7s-web-linux-${SUFFIX}-static" > "k7s-web-linux-${SUFFIX}-static.sha256" \
+            || sha256sum "k7s-web-linux-${SUFFIX}-static" > "k7s-web-linux-${SUFFIX}-static.sha256")
         working-directory: crates/k7s-server
 
       - name: upload k7s-web (musl static)
         if: runner.os == 'Linux'
         uses: softprops/action-gh-release@v3
         with:
-          files: k7s-web-linux-*-static
+          files: |
+            k7s-web-linux-*-static
+            k7s-web-linux-*-static.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
