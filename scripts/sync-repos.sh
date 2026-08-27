@@ -56,7 +56,7 @@ for entry in "${REPOS[@]}"; do
   fi
 
   repo="k7s-$name"
-  url="git@github.com:${ORG}/${repo}.git"
+  url="${K7S_REMOTE_SCHEME:-https}://github.com/${ORG}/${repo}.git"
   tmp_branch="sync/${name}-$(date +%s)"
 
   echo "▶ $repo  ($prefix → $branch)"
