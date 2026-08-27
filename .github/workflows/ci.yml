@@ -241,10 +241,10 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libsoup-3.0-dev libayatana-appindicator3-dev \
             librsvg2-dev libssl-dev build-essential file musl-tools
-      - uses: android-actions/setup-ndk@v3
+      - uses: nttld/setup-ndk@v1
         if: matrix.target == 'aarch64-linux-android'
         with:
-          api-level: 26
+          ndk-version: r26d
       - name: export cross CC env
         if: runner.os == 'Linux'
         run: |
