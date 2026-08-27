@@ -107,10 +107,14 @@ install_macos() {
   hdiutil detach "$mount_point" -quiet 2>/dev/null || true
   rmdir "$mount_point" 2>/dev/null || true
 
-  # Remove Gatekeeper quarantine attribute so the app opens without
-  # the "k7s is damaged" error on unsigned builds.
-  info "Removing Gatekeeper quarantine attribute..."
-  xattr -cr /Applications/k7s.app 2>/dev/null || true
+  # Unsigned builds carry macOS's quarantine attribute, which blocks launch
+  # with a misleading "k7s is damaged" error. Remove ONLY that attribute —
+  # `xattr -cr` would strip every extended attribute wholesale, disabling
+  # Gatekeeper checks on the whole bundle.
+  info "Removing quarantine attribute (unsigned build)..."
+  xattr -d com.apple.quarantine /Applications/k7s.app 2>/dev/null || true
+  echo "  Note: the app is unsigned. Prefer a signed build or verify the"
+  echo "  download checksum (this installer did) before trusting it."
 }
 
 install_linux() {
@@ -214,8 +218,40 @@ main() {
 
   if ! curl -fSL --progress-bar -o "$file_path" "$url"; then
     rm -rf "$tmp_dir"
-    die "Download failed. The artifact may not exist for your platform.\n  URL: ${url}\n  Check: https://github.com/${REPO}/releases"
+    die "Download failed. The artifact may not exist for your platform.\n  URL: $url\n  Check: https://github.com/${REPO}/releases"
   fi
+
+  # ── Verify checksum (if the release publishes .sha256 sidecars) ───────────
+  verify_checksum() {
+    local file="$1" url="$2" sum_file
+    sum_file="${file}.sha256"
+    if ! curl -fsSL -o "$sum_file" "${url}.sha256"; then
+      warn "No .sha256 published for this artifact — skipping verification."
+      warn "Verify manually before trusting the binary."
+      return 0
+    fi
+    info "Verifying SHA256 checksum..."
+    local expected actual
+    expected="$(grep -oE '^[a-f0-9]{64}' "$sum_file" | head -1)"
+    if [[ -z "$expected" ]]; then
+      warn "Malformed .sha256 sidecar — skipping verification."
+      return 0
+    fi
+    if command -v shasum >/dev/null 2>&1; then
+      actual="$(shasum -a 256 "$file" | cut -d' ' -f1)"
+    elif command -v sha256sum >/dev/null 2>&1; then
+      actual="$(sha256sum "$file" | cut -d' ' -f1)"
+    else
+      warn "No sha256 tool found — skipping verification."
+      return 0
+    fi
+    if [[ "$actual" != "$expected" ]]; then
+      rm -rf "$tmp_dir"
+      die "Checksum mismatch!\n  expected: $expected\n  actual:   $actual\n  The download may be corrupted or tampered with."
+    fi
+    ok "Checksum verified."
+  }
+  verify_checksum "$file_path" "$url"
 
   ok "Downloaded to ${file_path}"
 
