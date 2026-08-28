@@ -794,23 +794,9 @@ pub fn build_registry() -> CommandRegistry {
         },
     );
     #[cfg(not(any(target_os = "ios", target_os = "android")))]
-    r.register(
-        "helm_import_chart",
-        |_mgr, a: commands::helm::HelmImportChartArgs| async move {
-            commands::helm::helm_import_chart(a.file_path, a.repo_name)
-        },
-    );
-    #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register("helm_list_repos", |_mgr, _a: NoArgs| async move {
         commands::helm::helm_list_repos()
     });
-    #[cfg(not(any(target_os = "ios", target_os = "android")))]
-    r.register(
-        "helm_local_charts",
-        |_mgr, a: commands::helm::HelmLocalChartsArgs| async move {
-            commands::helm::helm_local_charts(a.repo_name)
-        },
-    );
     #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
         "helm_remove_repo",

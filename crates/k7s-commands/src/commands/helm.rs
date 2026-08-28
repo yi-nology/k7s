@@ -121,19 +121,6 @@ pub async fn helm_export_chart(
     helm_export_chart_impl(repo, chart, version, output_dir).await
 }
 
-/// Import a local chart .tgz into the chart cache.
-#[cfg_attr(feature = "ipc", tauri::command)]
-pub fn helm_import_chart(file_path: String, repo_name: String) -> AppResult<String> {
-    let path = market::import_chart(&file_path, &repo_name)?;
-    Ok(path.to_string_lossy().to_string())
-}
-
-/// List locally imported chart archives for a repo.
-#[cfg_attr(feature = "ipc", tauri::command)]
-pub fn helm_local_charts(repo_name: String) -> AppResult<Vec<String>> {
-    market::list_local_charts(&repo_name)
-}
-
 /// Default values.yaml for a chart at a given version. Delegates to
 /// `helm show values` so we don't re-implement chart parsing in Rust.
 /// Wire arguments for [`helm_render_default_values`] (camelCase on the wire).
@@ -336,21 +323,6 @@ pub(crate) struct HelmAddRepoArgs {
 pub(crate) struct HelmChartVersionsArgs {
     pub repo: String,
     pub chart: String,
-}
-
-/// Wire arguments for [`helm_import_chart`] (camelCase on the wire).
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct HelmImportChartArgs {
-    pub file_path: String,
-    pub repo_name: String,
-}
-
-/// Wire arguments for [`helm_local_charts`] (camelCase on the wire).
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct HelmLocalChartsArgs {
-    pub repo_name: String,
 }
 
 /// Wire arguments for [`helm_remove_repo`] (camelCase on the wire).
