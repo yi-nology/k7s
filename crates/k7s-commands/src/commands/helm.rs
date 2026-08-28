@@ -381,6 +381,20 @@ pub(crate) struct LocalChartRemoveArgs {
     pub id: String,
 }
 
+/// Wire arguments for [`local_chart_lint`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalChartLintArgs {
+    pub id: String,
+}
+
+/// Wire arguments for [`local_chart_verify`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalChartVerifyArgs {
+    pub id: String,
+}
+
 /// Scan the local chart library. Pure delegation — `local.rs` does the
 /// sorting (newest first) and metadata parsing.
 pub fn local_charts_list_impl(
@@ -440,6 +454,24 @@ pub fn local_chart_remove_impl(mgr: std::sync::Arc<CoreState>, id: String) -> Ap
     Ok(())
 }
 
+/// `helm lint` a chart from the local library, returning the report.
+/// Read-only (nothing on disk or in a cluster changes) — no audit.
+pub async fn local_chart_lint_impl(
+    mgr: std::sync::Arc<CoreState>,
+    id: String,
+) -> AppResult<String> {
+    local::lint_chart(&local_chart_root(&mgr), &id).await
+}
+
+/// `helm verify` a chart from the local library, returning the report.
+/// Read-only — no audit, same reason as lint.
+pub async fn local_chart_verify_impl(
+    mgr: std::sync::Arc<CoreState>,
+    id: String,
+) -> AppResult<String> {
+    local::verify_chart(&local_chart_root(&mgr), &id).await
+}
+
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn local_charts_list(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<local::LocalChartEntry>> {
@@ -479,6 +511,18 @@ pub fn local_chart_import_content(
 #[tauri::command]
 pub fn local_chart_remove(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     local_chart_remove_impl(mgr.inner().clone(), id)
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub async fn local_chart_lint(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<String> {
+    local_chart_lint_impl(mgr.inner().clone(), id).await
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub async fn local_chart_verify(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<String> {
+    local_chart_verify_impl(mgr.inner().clone(), id).await
 }
 
 // ---------------------------------------------------------------------------

@@ -494,6 +494,21 @@ pub fn build_registry() -> CommandRegistry {
             commands::helm::local_chart_remove_impl(mgr, a.id)
         },
     );
+    // lint/verify shell out to helm but change nothing — read-only, no audit.
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "local_chart_lint",
+        |mgr, a: commands::helm::LocalChartLintArgs| async move {
+            commands::helm::local_chart_lint_impl(mgr, a.id).await
+        },
+    );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "local_chart_verify",
+        |mgr, a: commands::helm::LocalChartVerifyArgs| async move {
+            commands::helm::local_chart_verify_impl(mgr, a.id).await
+        },
+    );
     r.register(
         "start_shell",
         |mgr, a: commands::shell::StartShellArgs| async move {

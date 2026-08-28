@@ -114,7 +114,11 @@ macro_rules! register_commands {
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::local_chart_import_content,
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_chart_lint,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::local_chart_remove,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_chart_verify,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::pod_files_list,
             #[cfg(not(target_os = "ios"))]
@@ -421,7 +425,9 @@ pub const COMMAND_NAMES: &[&str] = &[
     "local_chart_detail",
     "local_chart_file",
     "local_chart_import_content",
+    "local_chart_lint",
     "local_chart_remove",
+    "local_chart_verify",
     "local_charts_list",
     "loki_list",
     "loki_remove",
