@@ -1,0 +1,24 @@
+# Sub-repo pins for CI assembly: <short-name> <main SHA>.
+#
+# `ci.yml` reads `ref:` for every sub-repo checkout from this file, so the
+# assembled workspace is reproducible instead of tracking each remote's main
+# (a push to any sub-repo could otherwise break hub CI nondeterministically).
+#
+# Update after every `make sync-repos` run — the values are simply each
+# repo's current main tip:
+#   for r in deps core commands server desktop ios android frontend; do
+#     echo "$r $(git ls-remote https://github.com/yi-nology/k7s-$r.git refs/heads/main | cut -f1)"
+#   done
+#
+# A missing/empty pin makes that checkout fall back to the default branch,
+# so a stale lock degrades to the old behavior instead of failing the build.
+# The release workflows intentionally do NOT pin — a release should build
+# from each repo's current main.
+deps 600b5e0b827ccf3a23d3c0bb28fe2ba5f5be6e81
+core fb1ee4383a3d59038610c9f46966cb07db58410c
+commands ecebc6cec60744df018f88f7a24d49adb58a7810
+server 3998336f75ee9c760af18fdc5b132c29059e406b
+desktop b4125a715e78875c3a0ff3d72dcefc19bbd916e2
+ios 5178a0adfbfab64196629b1a5db745ca47782793
+android 2b66ddd0afc39f990d211c1a0ba2b7f7b1b61f7f
+frontend 5b8fa2119d40e664085f2285fbd763fd71c62fb8

@@ -26,30 +26,38 @@ jobs:
         os: [ubuntu-22.04, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      - uses: actions/checkout@v4
+      - name: read sub-repo pins (versions.lock; empty pin → default branch)
+        id: pins
+        run: |
+          while read -r name sha; do
+            case "$name" in ''|\#*) continue ;; esac
+            echo "$name=$sha" >> "$GITHUB_OUTPUT"
+          done < versions.lock
       - name: checkout k7s-deps
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-deps, path: crates/k7s-deps }
+        with: { repository: yi-nology/k7s-deps, path: crates/k7s-deps, ref: "${{ steps.pins.outputs.deps }}" }
       - name: checkout k7s-core
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-core, path: crates/k7s-core }
+        with: { repository: yi-nology/k7s-core, path: crates/k7s-core, ref: "${{ steps.pins.outputs.core }}" }
       - name: checkout k7s-commands
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-commands, path: crates/k7s-commands }
+        with: { repository: yi-nology/k7s-commands, path: crates/k7s-commands, ref: "${{ steps.pins.outputs.commands }}" }
       - name: checkout k7s-server
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-server, path: crates/k7s-server }
+        with: { repository: yi-nology/k7s-server, path: crates/k7s-server, ref: "${{ steps.pins.outputs.server }}" }
       - name: checkout k7s-desktop
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-desktop, path: crates/k7s-desktop }
+        with: { repository: yi-nology/k7s-desktop, path: crates/k7s-desktop, ref: "${{ steps.pins.outputs.desktop }}" }
       - name: checkout k7s-ios
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-ios, path: crates/k7s-ios }
+        with: { repository: yi-nology/k7s-ios, path: crates/k7s-ios, ref: "${{ steps.pins.outputs.ios }}" }
       - name: checkout k7s-android
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-android, path: crates/k7s-android }
+        with: { repository: yi-nology/k7s-android, path: crates/k7s-android, ref: "${{ steps.pins.outputs.android }}" }
       - name: checkout k7s-frontend
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-frontend, path: frontend }
+        with: { repository: yi-nology/k7s-frontend, path: frontend, ref: "${{ steps.pins.outputs.frontend }}" }
 
       - name: write aggregation root Cargo.toml
         run: |
@@ -137,7 +145,15 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-frontend, path: frontend }
+      - name: read sub-repo pins (versions.lock; empty pin → default branch)
+        id: pins
+        run: |
+          while read -r name sha; do
+            case "$name" in ''|\#*) continue ;; esac
+            echo "$name=$sha" >> "$GITHUB_OUTPUT"
+          done < versions.lock
+      - uses: actions/checkout@v4
+        with: { repository: yi-nology/k7s-frontend, path: frontend, ref: "${{ steps.pins.outputs.frontend }}" }
       - uses: pnpm/action-setup@v4
         with: { version: 10 }
       - uses: actions/setup-node@v4
@@ -171,30 +187,38 @@ jobs:
             check: cargo check -p k7s-server --features web,mcp --target
     runs-on: ${{ matrix.os }}
     steps:
+      - uses: actions/checkout@v4
+      - name: read sub-repo pins (versions.lock; empty pin → default branch)
+        id: pins
+        run: |
+          while read -r name sha; do
+            case "$name" in ''|\#*) continue ;; esac
+            echo "$name=$sha" >> "$GITHUB_OUTPUT"
+          done < versions.lock
       - name: checkout k7s-deps
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-deps, path: crates/k7s-deps }
+        with: { repository: yi-nology/k7s-deps, path: crates/k7s-deps, ref: "${{ steps.pins.outputs.deps }}" }
       - name: checkout k7s-core
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-core, path: crates/k7s-core }
+        with: { repository: yi-nology/k7s-core, path: crates/k7s-core, ref: "${{ steps.pins.outputs.core }}" }
       - name: checkout k7s-commands
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-commands, path: crates/k7s-commands }
+        with: { repository: yi-nology/k7s-commands, path: crates/k7s-commands, ref: "${{ steps.pins.outputs.commands }}" }
       - name: checkout k7s-server
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-server, path: crates/k7s-server }
+        with: { repository: yi-nology/k7s-server, path: crates/k7s-server, ref: "${{ steps.pins.outputs.server }}" }
       - name: checkout k7s-desktop
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-desktop, path: crates/k7s-desktop }
+        with: { repository: yi-nology/k7s-desktop, path: crates/k7s-desktop, ref: "${{ steps.pins.outputs.desktop }}" }
       - name: checkout k7s-ios
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-ios, path: crates/k7s-ios }
+        with: { repository: yi-nology/k7s-ios, path: crates/k7s-ios, ref: "${{ steps.pins.outputs.ios }}" }
       - name: checkout k7s-android
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-android, path: crates/k7s-android }
+        with: { repository: yi-nology/k7s-android, path: crates/k7s-android, ref: "${{ steps.pins.outputs.android }}" }
       - name: checkout k7s-frontend
         uses: actions/checkout@v4
-        with: { repository: yi-nology/k7s-frontend, path: frontend }
+        with: { repository: yi-nology/k7s-frontend, path: frontend, ref: "${{ steps.pins.outputs.frontend }}" }
 
       - name: write aggregation root Cargo.toml
         run: |
