@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.7.0 (2026-08-28)
 
 - **kubeconfig 导入解析/验证两阶段** — 导入不再止步于 YAML 解析：新增结构验证
   （k7s-core 共享模块，浏览器上传与桌面文件对话框双 shell 同行为）。Error 级
