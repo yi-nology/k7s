@@ -110,6 +110,25 @@ docker run -d --name k7s \
 | 排空节点 | 节点行菜单 → Drain（遵守 PDB） |
 | 模板部署 | 「新建」→ 多文档 YAML 模板 / Helm 市场 |
 
+### Helm 市场与本地 Charts 库
+
+Helm 市场除浏览仓库 chart 外，提供「本地 Charts」tab——一个落在 `<data_dir>/charts/` 的本地 chart 库：
+
+- **上传**：选择 `.tgz` / `.tar.gz` 包（≤50MB，且需为合法 gzip），入库时自动解析 Chart.yaml；web 模式走认证路由 `POST /api/charts/upload`（90MB 路由上限 + 50MB 业务上限）。
+- **目录型 chart**：无需打包，把含 `Chart.yaml` 的目录直接放到 `<data_dir>/charts/` 下即可被扫描识别。
+- **浏览与详情**：列表支持删除；详情面板可查看文件树、values 与 README。
+- **从本地 chart 安装/升级**：详情 →「安装此 chart」进入向导，chart 引用即本地包的绝对路径（helm 原生路径引用），命名空间、values 编辑等向导能力与仓库 chart 一致。
+- **安装/升级开关**：helm install/upgrade 支持 `--set` 覆盖、`--atomic`（失败自动回滚）、`--force`、自定义 `--timeout`（以秒填写，留空或 0 使用默认 5m0s）；upgrade 另支持 `--create-namespace`。
+- **审计**：入库与删除分别写入 `local_chart_import` / `local_chart_remove` 审计事件。
+- **渲染预览**：详情面板的「渲染预览」——values 编辑器预填 chart 默认 values，点「渲染」即在本地执行 `helm template` 输出渲染后的清单（只读展示，附按 kind 的资源统计徽标）。全程离线，**无需连接集群**、不安装任何资源，适合上线前核对模板产物。
+- **版本对比**：「版本对比」视图可选库内任意两个版本做行级 diff——Chart.yaml（版本等元信息）与 values.yaml（默认值漂移）各一段，头部标明 `vA → vB`，选择器默认取最近两个版本；两版本内容一致时明确提示。
+- **升级已有 Release**：详情 →「升级已有 Release」，输入 Release 名与命名空间后进入向导升级模式：chart 固定为本地包绝对路径，release/命名空间只读预填。确认步提供「与当前 Release 对比」——把新版本离线渲染的清单与集群中该 Release 当前的清单做行级 diff。注意：`helm template` 的输出与集群内实际 manifest 存在元数据级差异，属预期；diff 仅作升级前参考，不阻塞升级本身。
+- **部署方案（Profiles）**：向导「配置」步可「保存为方案」/「加载方案」——把 values、`--set`、开关与超时等部署参数存为命名方案，下次部署一键回填；方案按 chart 过滤，只出现在保存它的 chart 的向导里。方案持久化在 `<data_dir>/helm-profiles.json`（同名保存为覆盖；名称限字母/数字/`-`/`_`，不超过 64 字符），保存与删除分别写入 `helm_profile_save` / `helm_profile_delete` 审计事件。
+- **Web 模式**：浏览器端 helm 操作（安装/升级/回滚/卸载、渲染预览、方案管理）现已可用——修复了操作参数在 web 通道大小写不匹配导致开关被静默丢弃的问题。
+- **工具箱**：详情面板的一行 helm CLI 助手，针对当前选中 chart 就地执行——**Lint**（`helm lint`，失败级问题走错误条、警告随输出只读展示）、**Verify**（`helm verify` 校验的是**签名 provenance**——需 `.tgz` 旁有对应 `.prov` 文件，普通导入/打包的 chart 通常没有，此时调用报错属预期；仅 `.tgz` 可用，目录型 chart 会被拒绝）、**Package**（`helm package` 把目录型 chart 打包入库，产物 `<name>-<version>.tgz` 随即出现在列表中；已是 `.tgz` 的 chart 无可再包，会被拒绝）、**Dependencies**（`helm dependency list` 离线查看声明依赖；`build`/`update` 需网络从依赖仓库拉取，写 Chart.lock 与 chart 目录下的 `charts/` 缓存）。四个操作都调用主机上的 helm 二进制；审计口径：Package 与 Deps build/update 分别写 `local_chart_package` / `local_chart_deps` 审计事件，Lint/Verify/list 只读不审计。
+- **MCP 同步**：MCP 工具面补齐本地 chart 五件套 `helm_local_charts` / `helm_render_preview` / `helm_lint_chart` / `helm_package_chart` / `helm_chart_deps`（工具总数 96 → 101，沿用 `/mcp` 既有 token 鉴权；渲染/打包等 shell 类操作要求服务器主机装有 helm）。
+- **体验修复**：回滚对话框默认选中上一 revision（`helm history` 最新在前）；从仓库 chart 安装/升级时默认 values 预填补上了 `repo/` 前缀（此前按裸名请求 `helm show values` 必失败，预填恒为报错占位）。
+
 ## 5. 网络诊断
 
 「运维工具 → 网络诊断」：
@@ -179,7 +198,7 @@ k7s-web --version                              # 版本
 
 ## 11. MCP 接入
 
-k7s 内置 MCP 服务器（96 个工具），可接入 Claude Desktop、Cursor 等任意 MCP 客户端：
+k7s 内置 MCP 服务器（101 个工具），可接入 Claude Desktop、Cursor 等任意 MCP 客户端：
 
 ```json
 {

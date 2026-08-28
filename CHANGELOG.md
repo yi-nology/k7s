@@ -1,5 +1,43 @@
 # Changelog
 
+## Unreleased
+
+- **本地 Chart 工具箱（ChartOps 整合 P2）** — 「本地 Charts」详情面板新增四个 helm CLI
+  助手：Lint（`helm lint`，失败级问题走错误条、警告随输出展示）、Verify（`helm verify`
+  校验的是签名 provenance——需 `.tgz` 旁有 `.prov` 文件，普通导入/打包的 chart 通常没有、
+  调用报错属预期；仅 `.tgz` 可用，目录型被拒）、Package（`helm package`，仅目录型 chart，
+  产物入库并刷新列表）、Dependencies（`dependency list` 离线查看；`build`/`update` 需
+  网络从依赖仓库拉取，写 Chart.lock 与 `charts/` 缓存）。新增命令
+  `local_chart_lint/verify/package/deps`——Package 与 Deps build/update 分别写
+  `local_chart_package` / `local_chart_deps` 审计事件，只读操作不审计。MCP 工具面补齐
+  `helm_local_charts` / `helm_render_preview` / `helm_lint_chart` / `helm_package_chart`
+  / `helm_chart_deps` 五件套（工具总数 96 → 101，沿用 `/mcp` 既有 token 鉴权）。
+- **评审跟进修复** — 回滚对话框默认选中上一 revision（`helm history` 最新在前，含
+  currentRevision 修正）；仓库 chart 的 values 预填补上 `repo/` 前缀（此前 `helm show
+  values` 按裸名解析必失败）；LocalCharts 详情/文件打开竞态守卫；Profiles 删除入口 UI；
+  渲染预览 values 载荷安全校验；移除死命令 `helm_import_chart`/`helm_local_charts`（含
+  market.rs 死函数）；Profile values 256KiB 上限；web auth flaky 测试以 ENV_LOCK 串行化；
+  helm 操作失败的错误信息保留 stdout（`helm lint` 的 `[ERROR]` 明细行在 stdout，此前
+  只回传 stderr 导致失败原因丢失）；回滚确认按钮文案不再双重前缀
+  （此前渲染成 "Rollback to Rollback to #N"）。
+- **本地 Chart 库增强（ChartOps 整合 P1）** — 「渲染预览」：详情面板内 `helm template`
+  离线渲染清单（无需集群，按 kind 资源统计徽标）；「版本对比」：库内两版本的
+  Chart.yaml + values.yaml 行级 diff；「升级已有 Release」向导模式（release/命名空间
+  只读预填，确认步把离线渲染清单与集群当前清单做行级预览 diff——`helm template`
+  输出与集群 manifest 的元数据差异属预期）；部署方案 Profiles：values/开关/超时
+  参数集按 chart 保存与加载（`<data_dir>/helm-profiles.json`，审计
+  `helm_profile_save`/`helm_profile_delete`）。
+- **修复 helm 操作 wire 大小写不匹配**：HelmOp 参数此前按 snake_case 反序列化，
+  前端 camelCase 传入的 `createNamespace`/`timeoutSecs`/`dryRun` 等开关被静默
+  丢弃（P0 引入的缺陷）；运行载荷改为嵌套 `{op}` 结构，`RevisionEntry` 响应字段
+  对齐 camelCase。web 端 helm 操作自此真实可用（陈旧的 notImplemented stub 已删）。
+
+- **本地 Chart 库（ChartOps 整合 P0）** — Helm 页新增「本地 Charts」：上传/浏览/删除
+  `.tgz` 与目录型 chart，查看文件树与 values，从本地包安装（helm 原生路径引用）；
+  web 上传走 `/api/charts/upload`（认证 + 90MB 路由上限 + 50MB 业务上限）；
+  helm install/upgrade 补 `--set`/`--atomic`/`--force`/自定义 `--timeout`/upgrade
+  `--create-namespace`。
+
 ## v0.6.0 (2026-08-28)
 
 以 2026-08-27 全库评审为依据的完整加固版本（P0 安全止血 → P3 MCP 工具面质量，详见 [docs/ROADMAP.md](docs/ROADMAP.md)）。
