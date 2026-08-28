@@ -204,6 +204,9 @@ export const en: Dictionary = {
     import: {
       hint: 'Pick a kubeconfig file to get started.',
       pick: 'Choose file…',
+      parseFailed: "Couldn't parse the file",
+      validationFailed: 'Validation failed',
+      importedWithWarnings: 'Imported, with warnings',
     },
     conn: {
       ok: 'Connected: {cluster}',

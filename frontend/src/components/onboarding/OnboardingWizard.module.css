@@ -115,6 +115,52 @@
   opacity: 0.55;
 }
 
+/* ---------- import errors / warnings ---------- */
+
+.importError,
+.importWarnings {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.importError {
+  border: 1px solid var(--status-err);
+  background: color-mix(in srgb, var(--status-err) 10%, transparent);
+}
+
+.importWarnings {
+  margin: 0 0 12px;
+  border: 1px solid var(--status-warn);
+  background: color-mix(in srgb, var(--status-warn) 10%, transparent);
+}
+
+.issueTitle {
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+
+.issueList {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.issueError {
+  color: var(--status-err);
+}
+
+.issueWarning {
+  color: var(--status-warn);
+}
+
+.issueMessage {
+  margin: 0;
+  word-break: break-word;
+}
+
 /* ---------- step 3 (preferences) ---------- */
 
 .nsLabel {

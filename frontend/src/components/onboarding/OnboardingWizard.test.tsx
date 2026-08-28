@@ -20,6 +20,7 @@ import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 import { OnboardingWizard } from './OnboardingWizard';
 import { CommandPalette } from '../palette/CommandPalette';
 import { ONBOARDED_STORAGE_KEY } from '../../lib/onboarded';
+import { KubeconfigImportError } from '../../providers/transport';
 import type { DataProvider } from '../../providers/types';
 
 // The wizard reaches the cluster only through getProvider().importKubeconfig()
@@ -176,6 +177,62 @@ describe('OnboardingWizard', () => {
     view.click(backdrop);
     expect(useStore.getState().onboardingOpen).toBe(false);
     expect(window.localStorage.getItem(ONBOARDED_STORAGE_KEY)).toBe('1');
+  });
+
+  it('shows inline validation issues when the import is rejected with structure', async () => {
+    importKubeconfig.mockRejectedValue(
+      new KubeconfigImportError(
+        "kubeconfig validation failed (1 issue(s)):\n- [error] context 'c1': cluster 'nope' not found in clusters",
+        [
+          {
+            severity: 'error',
+            code: 'missingClusterRef',
+            message: "cluster 'nope' not found in clusters",
+            context: 'c1',
+          },
+        ]
+      )
+    );
+    view = render(<OnboardingWizard />);
+    view.click(view.getByText('Choose file…'));
+    await flush();
+
+    expect(view.queryByText('Validation failed')).not.toBeNull();
+    expect(view.container.textContent).toContain("cluster 'nope' not found in clusters");
+    // Still on step 1 — the user can pick another file without closing.
+    expect(view.queryByText('Choose file…')).not.toBeNull();
+  });
+
+  it('labels plain parse failures distinctly', async () => {
+    importKubeconfig.mockRejectedValue(new Error("couldn't parse bad.yaml: bad indentation"));
+    view = render(<OnboardingWizard />);
+    view.click(view.getByText('Choose file…'));
+    await flush();
+
+    expect(view.queryByText("Couldn't parse the file")).not.toBeNull();
+    expect(view.container.textContent).toContain('bad indentation');
+  });
+
+  it('advances with a warning banner when the import succeeds with warnings', async () => {
+    importKubeconfig.mockResolvedValue({
+      contexts: [],
+      path: '/tmp/kubeconfig',
+      issues: [
+        {
+          severity: 'warning',
+          code: 'noCredentials',
+          message: "user 'u' defines no credentials",
+          context: 'c1',
+        },
+      ],
+    });
+    view = render(<OnboardingWizard />);
+    view.click(view.getByText('Choose file…'));
+    await flush();
+
+    expect(view.queryByText(/Imported, with warnings/)).not.toBeNull();
+    expect(view.container.textContent).toContain("user 'u' defines no credentials");
+    expect(view.queryByText('Next')).not.toBeNull();
   });
 
   it('palette stays interactive when onboarding is also open (z-order evidence)', () => {

@@ -254,6 +254,10 @@ export interface Dictionary {
     import: {
       hint: string;
       pick: string;
+      /** Inline import-failure headings (kubeconfig issues surface verbatim). */
+      parseFailed: string;
+      validationFailed: string;
+      importedWithWarnings: string;
     };
     conn: {
       /** "Connected: {cluster}" — the component `.replace()`s the placeholder. */

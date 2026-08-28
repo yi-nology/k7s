@@ -209,6 +209,9 @@ export const zh: Dictionary = {
     import: {
       hint: '选择一个 kubeconfig 文件开始导入。',
       pick: '选择文件…',
+      parseFailed: '文件解析失败',
+      validationFailed: '校验失败',
+      importedWithWarnings: '导入成功,但有以下警告',
     },
     conn: {
       ok: '已连接:{cluster}',

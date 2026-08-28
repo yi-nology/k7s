@@ -17,7 +17,8 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../../store';
 import { useTranslation } from '../../hooks/useI18n';
-import { getProvider } from '../../providers';
+import { getProvider, KubeconfigImportError } from '../../providers';
+import type { KubeconfigIssue } from '../../providers/types';
 import { markOnboarded } from '../../lib/onboarded';
 import styles from './OnboardingWizard.module.css';
 
@@ -27,6 +28,11 @@ export function OnboardingWizard() {
   const connection = useStore((s) => s.connection);
   const [step, setStep] = useState(0);
   const [defaultNs, setDefaultNs] = useState('default');
+  // Import-failure detail (parse errors show their message, validation
+  // failures itemize per context) and advisory warnings from a successful
+  // import — both rendered inline so the user sees exactly what's wrong.
+  const [importError, setImportError] = useState<Error | null>(null);
+  const [warnings, setWarnings] = useState<KubeconfigIssue[]>([]);
   const { t } = useTranslation();
 
   /** Close + mark done. Every dismissal path funnels through here so the
@@ -65,6 +71,8 @@ export function OnboardingWizard() {
 
   /** Open the file picker; advance on a successful import. */
   const pick = async () => {
+    setImportError(null);
+    setWarnings([]);
     try {
       const result = await getProvider().importKubeconfig();
       if (!result) return; // cancelled the picker
@@ -73,11 +81,13 @@ export function OnboardingWizard() {
       // cluster switcher perform on import.
       useStore.getState().setContexts(result.contexts);
       useStore.getState().addImportedFile(result.path);
+      setWarnings(result.issues ?? []);
       setStep(1);
     } catch (e) {
-      // Real API errors (not a cancelled picker) — worth a console note;
-      // the provider-level error reporter surfaces it as a toast too.
+      // Real API errors (not a cancelled picker). Rendered inline below —
+      // parse failures show their message, validation failures itemize.
       console.error('[onboarding] import failed:', e);
+      setImportError(e instanceof Error ? e : new Error(String(e)));
     }
   };
 
@@ -108,10 +118,49 @@ export function OnboardingWizard() {
             <button type="button" className={styles.primary} onClick={() => void pick()}>
               {t('onboarding.import.pick', 'Choose file…')}
             </button>
+            {importError && (
+              <div className={styles.importError} role="alert">
+                <p className={styles.issueTitle}>
+                  {importError instanceof KubeconfigImportError && importError.issues?.length
+                    ? t('onboarding.import.validationFailed', 'Validation failed')
+                    : t('onboarding.import.parseFailed', "Couldn't parse the file")}
+                </p>
+                {importError instanceof KubeconfigImportError && importError.issues?.length ? (
+                  <ul className={styles.issueList}>
+                    {importError.issues.map((iss, i) => (
+                      <li
+                        key={i}
+                        className={iss.severity === 'error' ? styles.issueError : styles.issueWarning}
+                      >
+                        {iss.context ? <b>{iss.context}: </b> : null}
+                        {iss.message}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={styles.issueMessage}>{importError.message}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
         {step === 1 && (
           <div>
+            {warnings.length > 0 && (
+              <div className={styles.importWarnings} role="status">
+                <p className={styles.issueTitle}>
+                  {t('onboarding.import.importedWithWarnings', 'Imported, with warnings')}
+                </p>
+                <ul className={styles.issueList}>
+                  {warnings.map((iss, i) => (
+                    <li key={i} className={styles.issueWarning}>
+                      {iss.context ? <b>{iss.context}: </b> : null}
+                      {iss.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <p className={styles.hint}>
               {connection.phase === 'connected'
                 ? t('onboarding.conn.ok', 'Connected: {cluster}').replace(
