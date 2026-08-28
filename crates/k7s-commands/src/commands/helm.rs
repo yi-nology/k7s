@@ -163,6 +163,40 @@ pub async fn helm_render_default_values(
     helm_render_default_values_impl(chart, version, kubeconfig).await
 }
 
+/// Render a chart's templates offline (`helm template`, nothing applied, no
+/// cluster contact) and return the manifest. `chart` may be `repo/name`, an
+/// OCI URL, or a local absolute path; `version` empty = latest; `values`
+/// empty = chart defaults. Used by the ChartOps preview/diff flow.
+/// Wire arguments for [`helm_render_preview`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HelmRenderPreviewArgs {
+    pub chart: String,
+    pub version: String,
+    pub values: String,
+    pub kubeconfig: Option<String>,
+}
+
+pub async fn helm_render_preview_impl(
+    chart: String,
+    version: String,
+    values: String,
+    kubeconfig: Option<String>,
+) -> AppResult<String> {
+    ops::render_chart_templates(&chart, &version, &values, kubeconfig.as_deref()).await
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub async fn helm_render_preview(
+    chart: String,
+    version: String,
+    values: String,
+    kubeconfig: Option<String>,
+) -> AppResult<String> {
+    helm_render_preview_impl(chart, version, values, kubeconfig).await
+}
+
 // ---------------------------------------------------------------------------
 // Helm release ops (install/upgrade/uninstall/rollback + history).
 // ---------------------------------------------------------------------------

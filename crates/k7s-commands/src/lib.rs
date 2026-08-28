@@ -94,6 +94,8 @@ macro_rules! register_commands {
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::helm_render_default_values,
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::helm_render_preview,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::helm_run_op,
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::helm_release_history,
@@ -386,6 +388,7 @@ pub const COMMAND_NAMES: &[&str] = &[
     "helm_release_history",
     "helm_remove_repo",
     "helm_render_default_values",
+    "helm_render_preview",
     "helm_run_op",
     "helm_search_charts",
     "helm_seed_repos",

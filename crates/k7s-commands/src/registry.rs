@@ -408,6 +408,14 @@ pub fn build_registry() -> CommandRegistry {
     );
     #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register(
+        "helm_render_preview",
+        |_mgr, a: commands::helm::HelmRenderPreviewArgs| async move {
+            commands::helm::helm_render_preview_impl(a.chart, a.version, a.values, a.kubeconfig)
+                .await
+        },
+    );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
         "helm_run_op",
         |mgr, a: commands::helm::HelmRunOpArgs| async move {
             commands::helm::helm_run_op_impl(mgr, a.op).await
