@@ -420,6 +420,7 @@
 .localToolbar {
   border-bottom: 1px solid var(--border);
   display: flex;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
 }
 
@@ -498,4 +499,44 @@
   overflow-y: auto;
   padding: var(--space-2);
   white-space: pre-wrap;
+}
+
+/* ---- Render preview (offline `helm template`) ---- */
+
+.renderPreview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 200px;
+}
+
+/* Values editor wrapper — EditorCore fills a definite-height flex column. */
+.renderValues {
+  display: flex;
+  flex-direction: column;
+  height: 220px;
+}
+
+.renderStats {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.renderStatsLabel {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin-right: var(--space-1);
+  text-transform: uppercase;
+}
+
+.statBadge {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 1px var(--space-2);
 }

@@ -217,6 +217,7 @@ describe('HelmInstallWizard (local chart source)', () => {
       modifiedAt: '2026-08-28T00:00:00Z',
     },
     files: [{ path: 'demo/values.yaml', sizeBytes: 10, isDir: false }],
+    chartYaml: 'apiVersion: v2\nname: demo\nversion: 1.0.0\n',
     valuesYaml: 'replicaCount: 2\n',
     readme: '',
   } satisfies LocalChartDetail;

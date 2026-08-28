@@ -13,6 +13,8 @@ import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { LocalChartDetail, LocalChartEntry, LocalChartFile } from '../../providers/types';
 import { EditorCore } from '../editor/EditorCore';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { ChartRenderPreview } from './ChartRenderPreview';
+import { ChartVersionDiff } from './ChartVersionDiff';
 import { HelmInstallWizard } from './HelmInstallWizard';
 import styles from './HelmMarket.module.css';
 
@@ -48,6 +50,10 @@ export function LocalCharts() {
   const { t } = useTranslation();
   const [selected, setSelected] = useState<LocalChartDetail | null>(null);
   const [installing, setInstalling] = useState(false);
+  // Two-version diff swaps the whole detail pane (same pattern as the
+  // install wizard handoff) — it compares any two library charts, so it
+  // opens independently of the current selection.
+  const [diffOpen, setDiffOpen] = useState(false);
   const [fileView, setFileView] = useState<{ path: string; content: string } | null>(null);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -99,6 +105,7 @@ export function LocalCharts() {
 
   const openDetail = async (entry: LocalChartEntry) => {
     setInstalling(false);
+    setDiffOpen(false);
     setFileView(null);
     try {
       const detail = await getProvider().localChartDetail(entry.id);
@@ -128,6 +135,7 @@ export function LocalCharts() {
       if (selected?.entry.id === entry.id) {
         setSelected(null);
         setInstalling(false);
+        setDiffOpen(false);
         setFileView(null);
       }
       listQuery.reload();
@@ -163,6 +171,14 @@ export function LocalCharts() {
               : t('helm.local.upload', 'Upload .tgz')}
           </button>
           <input ref={inputRef} type="file" accept=".tgz,.tar.gz" hidden onChange={onPickFile} />
+          <button
+            className={styles.btn}
+            disabled={charts.length < 2}
+            title={t('helm.local.diff.title', 'Compare versions')}
+            onClick={() => setDiffOpen(true)}
+          >
+            {t('helm.local.diff.title', 'Compare versions')}
+          </button>
         </div>
         {charts.length === 0 ? (
           <div className={styles.empty}>
@@ -204,7 +220,9 @@ export function LocalCharts() {
       </div>
       <div className={styles.detail}>
         {banner && <div className={styles.error}>{banner}</div>}
-        {selected && installing ? (
+        {diffOpen ? (
+          <ChartVersionDiff charts={charts} onClose={() => setDiffOpen(false)} />
+        ) : selected && installing ? (
           <HelmInstallWizard localChart={selected} onDone={() => setInstalling(false)} />
         ) : selected ? (
           <div className={styles.localDetail}>
@@ -229,6 +247,12 @@ export function LocalCharts() {
                 {t('helm.local.detail.install', 'Install this chart')}
               </button>
             </header>
+            {/* Keyed by entry id: the values editor seeds from this chart's
+                defaults, so a different chart must remount the component. */}
+            <section>
+              <h3>{t('helm.local.render.title', 'Render preview')}</h3>
+              <ChartRenderPreview key={selected.entry.id} detail={selected} />
+            </section>
             <section>
               <h3>{t('helm.local.detail.files', 'Files')}</h3>
               <ul className={styles.localFiles}>

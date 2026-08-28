@@ -125,6 +125,9 @@ export interface LocalChartFile {
 export interface LocalChartDetail {
   entry: LocalChartEntry;
   files: LocalChartFile[];
+  /** Empty when the chart ships no Chart.yaml (mirrors the backend's
+   * serde camelCase wire name for `chart_yaml`). */
+  chartYaml: string;
   valuesYaml: string;
   readme: string;
 }

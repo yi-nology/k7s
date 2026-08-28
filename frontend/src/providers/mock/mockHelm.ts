@@ -196,6 +196,7 @@ export class MockHelmMixin {
         { path: `${entry.name}/Chart.yaml`, sizeBytes: 128, isDir: false },
         { path: `${entry.name}/values.yaml`, sizeBytes: 64, isDir: false },
       ],
+      chartYaml: `apiVersion: v2\nname: ${entry.name}\nversion: ${entry.version}\n`,
       valuesYaml: 'replicaCount: 1\n',
       readme: '# demo\n',
     };

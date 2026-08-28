@@ -42,6 +42,7 @@ const detail: LocalChartDetail = {
     { path: 'demo/Chart.yaml', sizeBytes: 200, isDir: false },
     { path: 'demo/values.yaml', sizeBytes: 10, isDir: false },
   ],
+  chartYaml: 'apiVersion: v2\nname: demo\nversion: 1.0.0\n',
   valuesYaml: 'replicaCount: 1\n',
   readme: '# demo chart readme\n',
 };
@@ -193,7 +194,10 @@ describe('LocalCharts', () => {
     view.click(view.getByText(/demo\/values\.yaml/));
     await settle(50);
     expect(mocks.localChartFile).not.toHaveBeenCalled();
-    const textarea = view.container.querySelector('textarea') as HTMLTextAreaElement | null;
+    // The render-preview values editor (above Files) also holds a textarea;
+    // the file view is the last editor in the pane.
+    const textareas = view.querySelectorAll('textarea') as HTMLTextAreaElement[];
+    const textarea = textareas[textareas.length - 1];
     expect(textarea?.value).toBe('replicaCount: 1\n');
   });
 
@@ -205,7 +209,10 @@ describe('LocalCharts', () => {
     view.click(view.getByText(/demo\/Chart\.yaml/));
     await settle(50);
     expect(mocks.localChartFile).toHaveBeenCalledWith('demo-1.0.0.tgz', 'demo/Chart.yaml');
-    const textarea = view.container.querySelector('textarea') as HTMLTextAreaElement | null;
+    // The render-preview values editor (above Files) also holds a textarea;
+    // the file view is the last editor in the pane.
+    const textareas = view.querySelectorAll('textarea') as HTMLTextAreaElement[];
+    const textarea = textareas[textareas.length - 1];
     expect(textarea?.value).toBe('apiVersion: v2\n');
   });
 
