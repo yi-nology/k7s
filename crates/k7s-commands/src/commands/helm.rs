@@ -508,3 +508,94 @@ pub fn local_chart_import_content(
 pub fn local_chart_remove(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
     local_chart_remove_impl(mgr.inner().clone(), id)
 }
+
+// ---------------------------------------------------------------------------
+// Deployment profiles (ChartOps parity) — saved helm install/upgrade
+// parameter sets. Thin wrappers over `k7s_core::kube::helm::profiles`; the
+// file lives directly in the data dir (`<data_dir>/helm-profiles.json`).
+// ---------------------------------------------------------------------------
+
+/// Wire arguments for [`helm_profile_save`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HelmProfileSaveArgs {
+    pub profile: k7s_core::kube::helm::profiles::HelmProfile,
+}
+
+/// Wire arguments for [`helm_profile_delete`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct HelmProfileDeleteArgs {
+    pub name: String,
+}
+
+/// List every saved profile, sorted by name.
+pub fn helm_profile_list_impl(
+    mgr: std::sync::Arc<CoreState>,
+) -> AppResult<Vec<k7s_core::kube::helm::profiles::HelmProfile>> {
+    Ok(k7s_core::kube::helm::profiles::load_profiles(&mgr.data_dir))
+}
+
+/// Save (upsert by name) a profile and return the full sorted list.
+/// `created_at` is stamped here for new profiles; the storage layer
+/// keeps the original on overwrite. Audited: profiles drive deploys.
+pub fn helm_profile_save_impl(
+    mgr: std::sync::Arc<CoreState>,
+    profile: k7s_core::kube::helm::profiles::HelmProfile,
+) -> AppResult<Vec<k7s_core::kube::helm::profiles::HelmProfile>> {
+    use k7s_core::kube::helm::profiles;
+    let mut p = profile;
+    if p.created_at.is_empty() {
+        p.created_at = k7s_deps::chrono::Utc::now().to_rfc3339();
+    }
+    let out = profiles::save_profile(&mgr.data_dir, p.clone())?;
+    k7s_core::core::audit::record(
+        "helm_profile_save",
+        k7s_deps::serde_json::json!({
+            "name": p.name,
+            "chartRef": p.chart_ref,
+        }),
+    );
+    Ok(out)
+}
+
+/// Delete a profile by name and return the remaining sorted list.
+/// Audited, same reason as save.
+pub fn helm_profile_delete_impl(
+    mgr: std::sync::Arc<CoreState>,
+    name: String,
+) -> AppResult<Vec<k7s_core::kube::helm::profiles::HelmProfile>> {
+    use k7s_core::kube::helm::profiles;
+    let out = profiles::delete_profile(&mgr.data_dir, &name)?;
+    k7s_core::core::audit::record(
+        "helm_profile_delete",
+        k7s_deps::serde_json::json!({ "name": name }),
+    );
+    Ok(out)
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub fn helm_profile_list(
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<k7s_core::kube::helm::profiles::HelmProfile>> {
+    helm_profile_list_impl(mgr.inner().clone())
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub fn helm_profile_save(
+    profile: k7s_core::kube::helm::profiles::HelmProfile,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<k7s_core::kube::helm::profiles::HelmProfile>> {
+    helm_profile_save_impl(mgr.inner().clone(), profile)
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub fn helm_profile_delete(
+    name: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<Vec<k7s_core::kube::helm::profiles::HelmProfile>> {
+    helm_profile_delete_impl(mgr.inner().clone(), name)
+}

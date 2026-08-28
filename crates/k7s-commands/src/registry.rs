@@ -442,6 +442,25 @@ pub fn build_registry() -> CommandRegistry {
             commands::helm::helm_values_revision_impl(mgr, a.namespace, a.name, a.revision).await
         },
     );
+    // Deployment profiles (ChartOps parity) — same gate as the helm module.
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register("helm_profile_list", |mgr, _a: NoArgs| async move {
+        commands::helm::helm_profile_list_impl(mgr)
+    });
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "helm_profile_save",
+        |mgr, a: commands::helm::HelmProfileSaveArgs| async move {
+            commands::helm::helm_profile_save_impl(mgr, a.profile)
+        },
+    );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "helm_profile_delete",
+        |mgr, a: commands::helm::HelmProfileDeleteArgs| async move {
+            commands::helm::helm_profile_delete_impl(mgr, a.name)
+        },
+    );
     // Local chart library (ChartOps parity) — same gate as the helm module.
     #[cfg(not(any(target_os = "ios", target_os = "android")))]
     r.register("local_charts_list", |mgr, _a: NoArgs| async move {

@@ -104,6 +104,12 @@ macro_rules! register_commands {
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::helm_values_revision,
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::helm_profile_list,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::helm_profile_save,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::helm_profile_delete,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::local_charts_list,
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::local_chart_detail,
@@ -385,6 +391,9 @@ pub const COMMAND_NAMES: &[&str] = &[
     "helm_list_repos",
     "helm_local_charts",
     "helm_manifest_revision",
+    "helm_profile_delete",
+    "helm_profile_list",
+    "helm_profile_save",
     "helm_release_history",
     "helm_remove_repo",
     "helm_render_default_values",
