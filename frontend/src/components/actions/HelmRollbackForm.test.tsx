@@ -6,6 +6,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { useStore } from '../../store';
 import { HelmRollbackForm } from './HelmRollbackForm';
 import { render, cleanup, createMockRow, type RenderResult } from '../../test/componentUtils';
@@ -186,6 +187,34 @@ describe('HelmRollbackForm', () => {
     }));
   }
 
+  /** Poll until `check` holds, yielding through act() so React state
+   * updates flush between polls. A bare setTimeout(N) raced the
+   * fetch→render→preselect chain (three macrotask hops after mount) under
+   * full-suite worker contention; waiting on the actual condition keeps the
+   * ordering deterministic without loosening the assertions that follow. */
+  async function waitFor(check: () => boolean, what: string, timeoutMs = 2000): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    while (!check()) {
+      if (Date.now() > deadline) {
+        throw new Error(`waitFor timed out: ${what}`);
+      }
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 10));
+      });
+    }
+  }
+
+  /** The revision table with a preselected row — the settled state both
+   * preselection tests assert on. */
+  function preselectionReady(count: number) {
+    return () => {
+      const radios = view.container.querySelectorAll(
+        'input[type="radio"]'
+      ) as NodeListOf<HTMLInputElement>;
+      return radios.length === count && Array.from(radios).some((r) => r.checked);
+    };
+  }
+
   it('defaults the selection to the previous revision of newest-first history', async () => {
     // 4 revisions, newest first: current is rev 4, the one before it is 3.
     providerMocks.helmReleaseHistory.mockResolvedValue(
@@ -206,7 +235,7 @@ describe('HelmRollbackForm', () => {
         onDone={vi.fn()}
       />
     );
-    await new Promise((r) => setTimeout(r, 50));
+    await waitFor(preselectionReady(4), 'revision table rendered with a preselection');
     const radios = view.container.querySelectorAll(
       'input[type="radio"]'
     ) as NodeListOf<HTMLInputElement>;
@@ -240,7 +269,7 @@ describe('HelmRollbackForm', () => {
         onDone={vi.fn()}
       />
     );
-    await new Promise((r) => setTimeout(r, 50));
+    await waitFor(preselectionReady(3), 'revision table rendered with a preselection');
     const radios = view.container.querySelectorAll(
       'input[type="radio"]'
     ) as NodeListOf<HTMLInputElement>;
