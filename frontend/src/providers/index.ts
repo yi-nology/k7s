@@ -37,7 +37,7 @@ export function getProvider(): DataProvider {
 
 export { TauriProvider, MockProvider, HttpProvider };
 export { importKubeconfigViaInput } from './HttpProvider';
-export { IS_DEMO, IS_TAURI } from './transport';
+export { IS_DEMO, IS_TAURI, KubeconfigImportError } from './transport';
 export type { DataProvider } from './types';
 
 // Unified error handling utilities.

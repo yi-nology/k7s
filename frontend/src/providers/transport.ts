@@ -13,6 +13,8 @@
  * which transport they bind to.
  */
 
+import type { KubeconfigIssue } from './types/cluster';
+
 /** True when the app is running inside a Tauri webview. */
 export const IS_TAURI =
   typeof window !== 'undefined' &&
@@ -66,6 +68,23 @@ interface WireResponse<T> {
   ok: boolean;
   data?: T;
   error?: string;
+  /** Structured diagnostics — only `import_kubeconfig_content` sends these. */
+  issues?: KubeconfigIssue[];
+}
+
+/**
+ * A rejected `import_kubeconfig_content` whose failure carries structured
+ * validation issues. `issues` is absent for plain parse failures — callers
+ * branch on it to decide between "couldn't parse" and "validation failed"
+ * UI, and fall back to `message` when it's missing (old back-ends).
+ */
+export class KubeconfigImportError extends Error {
+  issues?: KubeconfigIssue[];
+  constructor(message: string, issues?: KubeconfigIssue[]) {
+    super(message);
+    this.name = 'KubeconfigImportError';
+    this.issues = issues;
+  }
 }
 
 /**
@@ -118,9 +137,11 @@ export const httpInvoke: Invoker = async <T>(cmd: string, args?: unknown): Promi
   }
   const body = (await res.json()) as WireResponse<T>;
   if (!body.ok) {
-    // Surface the server's own error message verbatim — it includes the
-    // k8s API error string for failed calls.
-    throw new Error(body.error ?? `${cmd} failed (no error message)`);
+    const message = body.error ?? `${cmd} failed (no error message)`;
+    // Structured diagnostics ride along when the command provides them.
+    throw body.issues
+      ? new KubeconfigImportError(message, body.issues)
+      : new Error(message);
   }
   return body.data as T;
 };

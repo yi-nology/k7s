@@ -36,12 +36,25 @@ export interface ContextInfo {
   current: boolean;
 }
 
+/** One problem the back-end found while parsing/validating an imported
+ *  kubeconfig. `severity: 'error'` never appears in a success payload. */
+export interface KubeconfigIssue {
+  severity: 'error' | 'warning';
+  /** Stable machine code ("missingClusterRef", …). */
+  code: string;
+  message: string;
+  /** The context the issue belongs to; absent for file-level problems. */
+  context?: string;
+}
+
 /** Result of a successful kubeconfig import. */
 export interface ImportResult {
   /** The merged switcher list: default kubeconfig contexts + all imported ones. */
   contexts: ContextInfo[];
   /** The file that was imported, persisted so it survives a relaunch (B17). */
   path: string;
+  /** Advisory validation warnings — the import succeeded despite them. */
+  issues?: KubeconfigIssue[];
 }
 
 /** Result of a successful {@link DataProvider.connect}. */
