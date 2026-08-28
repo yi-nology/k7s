@@ -395,6 +395,23 @@ pub(crate) struct LocalChartVerifyArgs {
     pub id: String,
 }
 
+/// Wire arguments for [`local_chart_package`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalChartPackageArgs {
+    pub id: String,
+}
+
+/// Wire arguments for [`local_chart_deps`] (camelCase on the wire). `action`
+/// is the lowercase wire verb (`"list" | "build" | "update"`) deserialized
+/// by `local::DepsAction`'s serde; an unknown verb is a wire error.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalChartDepsArgs {
+    pub id: String,
+    pub action: local::DepsAction,
+}
+
 /// Scan the local chart library. Pure delegation — `local.rs` does the
 /// sorting (newest first) and metadata parsing.
 pub fn local_charts_list_impl(
@@ -472,6 +489,44 @@ pub async fn local_chart_verify_impl(
     local::verify_chart(&local_chart_root(&mgr), &id).await
 }
 
+/// `helm package` an unpacked dir chart from the library, returning the
+/// fresh archive's entry. Audited: packaging writes a new `.tgz` to the
+/// library root, like import/remove.
+pub async fn local_chart_package_impl(
+    mgr: std::sync::Arc<CoreState>,
+    id: String,
+) -> AppResult<local::LocalChartEntry> {
+    let entry = local::package_chart(&local_chart_root(&mgr), &id).await?;
+    k7s_core::core::audit::record(
+        "local_chart_package",
+        k7s_deps::serde_json::json!({
+            "id": id,
+            "name": entry.name,
+            "version": entry.version,
+        }),
+    );
+    Ok(entry)
+}
+
+/// `helm dependency list|build|update` on a chart from the library.
+/// `List` is read-only — no audit; `Build`/`Update` write Chart.lock and
+/// the charts/ cache inside the chart dir, so they land in the audit trail
+/// with the serialized lowercase action.
+pub async fn local_chart_deps_impl(
+    mgr: std::sync::Arc<CoreState>,
+    id: String,
+    action: local::DepsAction,
+) -> AppResult<String> {
+    let out = local::chart_deps(&local_chart_root(&mgr), &id, action).await?;
+    if !matches!(action, local::DepsAction::List) {
+        k7s_core::core::audit::record(
+            "local_chart_deps",
+            k7s_deps::serde_json::json!({ "id": id, "action": action }),
+        );
+    }
+    Ok(out)
+}
+
 #[cfg(feature = "ipc")]
 #[tauri::command]
 pub fn local_charts_list(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<local::LocalChartEntry>> {
@@ -523,6 +578,25 @@ pub async fn local_chart_lint(id: String, mgr: State<'_, Arc<CoreState>>) -> App
 #[tauri::command]
 pub async fn local_chart_verify(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<String> {
     local_chart_verify_impl(mgr.inner().clone(), id).await
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub async fn local_chart_package(
+    id: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<local::LocalChartEntry> {
+    local_chart_package_impl(mgr.inner().clone(), id).await
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub async fn local_chart_deps(
+    id: String,
+    action: local::DepsAction,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<String> {
+    local_chart_deps_impl(mgr.inner().clone(), id, action).await
 }
 
 // ---------------------------------------------------------------------------

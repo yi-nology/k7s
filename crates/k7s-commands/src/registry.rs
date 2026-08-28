@@ -509,6 +509,22 @@ pub fn build_registry() -> CommandRegistry {
             commands::helm::local_chart_verify_impl(mgr, a.id).await
         },
     );
+    // package/deps mutate the library (new .tgz / Chart.lock + cache) —
+    // the impls audit after success; List stays un-audited.
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "local_chart_package",
+        |mgr, a: commands::helm::LocalChartPackageArgs| async move {
+            commands::helm::local_chart_package_impl(mgr, a.id).await
+        },
+    );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "local_chart_deps",
+        |mgr, a: commands::helm::LocalChartDepsArgs| async move {
+            commands::helm::local_chart_deps_impl(mgr, a.id, a.action).await
+        },
+    );
     r.register(
         "start_shell",
         |mgr, a: commands::shell::StartShellArgs| async move {

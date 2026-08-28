@@ -119,6 +119,10 @@ macro_rules! register_commands {
             $crate::commands::local_chart_remove,
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::local_chart_verify,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_chart_package,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_chart_deps,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::pod_files_list,
             #[cfg(not(target_os = "ios"))]
@@ -422,10 +426,12 @@ pub const COMMAND_NAMES: &[&str] = &[
     "list_port_forwards",
     "list_revisions",
     "load_prefs",
+    "local_chart_deps",
     "local_chart_detail",
     "local_chart_file",
     "local_chart_import_content",
     "local_chart_lint",
+    "local_chart_package",
     "local_chart_remove",
     "local_chart_verify",
     "local_charts_list",
