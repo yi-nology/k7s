@@ -308,7 +308,7 @@ function HelmRevisionPicker({
           >
             {busy
               ? tr('actions.rollbackForm.applying', 'Rolling back…')
-              : tr('actions.rollbackForm.rollbackTo', `Rollback to #${selected ?? '?'}`)}
+              : tr('actions.rollbackForm.rollbackTo', `#${selected ?? '?'}`)}
           </button>
         </div>
       </div>

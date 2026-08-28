@@ -246,9 +246,10 @@ describe('HelmRollbackForm', () => {
     // Only the current (first, newest) row is disabled.
     expect(radios[0].disabled).toBe(true);
     expect(radios[1].disabled).toBe(false);
-    // The apply button announces the intended target. (The dictionary
-    // leaf re-wraps the passed-in label, so match the "#N" tail.)
-    expect(view.queryByText(/Rollback to #3/)).not.toBeNull();
+    // The apply button announces the intended target. (The component passes
+    // the bare "#N" token and the dictionary leaf wraps it — exact match so a
+    // double-wrapped "Rollback to Rollback to #3" can't sneak back in.)
+    expect(view.queryByText('Rollback to #3')).not.toBeNull();
   });
 
   it('defaults to revision 2 and marks rev 3 current for three newest-first revisions', async () => {
@@ -279,6 +280,6 @@ describe('HelmRollbackForm', () => {
     // Revision 3 is the current one — disabled, not the oldest row.
     expect(radios[0].disabled).toBe(true);
     expect(radios[2].disabled).toBe(false);
-    expect(view.queryByText(/Rollback to #2/)).not.toBeNull();
+    expect(view.queryByText('Rollback to #2')).not.toBeNull();
   });
 });
