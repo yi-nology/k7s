@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **kubeconfig 导入解析/验证两阶段** — 导入不再止步于 YAML 解析：新增结构验证
+  （k7s-core 共享模块，浏览器上传与桌面文件对话框双 shell 同行为）。Error 级
+  阻止导入并逐条报告：文件无 context、cluster/user 引用悬空、cluster 缺
+  `server`（kube 0.99 中该字段可缺，此前能静默通过导入直到 connect 才炸）、
+  server 非合法 http(s) URL。Warning 级放行但随导入提示：current-context 悬空、
+  https 无 CA 且未跳过 TLS 校验、user 无任何凭证（token/证书/密码/exec/
+  auth-provider）。web 失败返回结构化 `{ok, error, issues}` 信封（issue 含
+  severity/code/message/context），成功带 warnings；桌面 `import_kubeconfig`
+  返回值升级为 `{contexts, path, issues}`（wire 变更，前端已同步）。前端此前
+  导入失败页面零反馈——现 OnboardingWizard inline 区分「文件解析失败/校验
+  失败」逐条展示，ClusterSwitcher 走错误 toast，成功带警告弹提示。MCP 的
+  `import_kubeconfig` 工具暂未接验证（后续候选）。
 - **ChartOps 合并后加固（P2 评审跟进）** — MCP `helm_render_preview` 的 values 增加
   服务端安全校验（与前端 `isSafeHelmValues` 同策略：拒绝 go-template `{{…}}` 与反引号
   命令替换，下沉到 k7s-core 渲染入口，desktop/web/MCP 三通道统一拦截）；`local_chart_*`
