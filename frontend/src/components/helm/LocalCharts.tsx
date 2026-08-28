@@ -128,10 +128,11 @@ export function LocalCharts() {
   const openUpgrade = () => {
     // Client-side gate: the wizard also validates, but release/namespace
     // arrive read-only there, so anything helm would reject must not even
-    // enter it.
+    // enter it. The gate covers empty (the submit button is disabled, this
+    // is the belt to its suspenders).
     if (!isValidHelmReleaseName(upRelease.trim())) return;
     if (!isValidNamespace(upNamespace.trim())) return;
-    setUpgradeCfg({ release: upRelease.trim(), namespace: upNamespace.trim() || 'default' });
+    setUpgradeCfg({ release: upRelease.trim(), namespace: upNamespace.trim() });
   };
 
   const openFile = async (f: LocalChartFile) => {

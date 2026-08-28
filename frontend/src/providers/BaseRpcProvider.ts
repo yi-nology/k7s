@@ -218,11 +218,13 @@ export abstract class BaseRpcProvider {
     return this.rpc<void>('local_chart_remove', { id });
   }
   helmRunOp(op: HelmOp): Promise<HelmOpResult> {
-    // The backend uses serde's `tag = "op"`, which on the wire means the
-    // discriminant (`op`) and the variant's fields (`args`) sit side by side
-    // at the top level. Flatten into a plain object so `rpc` gets a
-    // `Record<string, unknown>` without a type-bypassing cast.
-    return this.rpc<HelmOpResult>('helm_run_op', { op: op.op, ...op.args });
+    // Both transports take the whole enum object nested under `op`: the web
+    // registry deserializes `HelmRunOpArgs { op: HelmOp }`, and desktop's
+    // Tauri command extracts the `op` param the same way. Spreading the args
+    // flat (`{ op: op.op, ...op.args }`) handed both sides a bare string for
+    // the internally-tagged enum — "invalid type: string, expected
+    // internally tagged enum" — so no helm op could ever run.
+    return this.rpc<HelmOpResult>('helm_run_op', { op });
   }
   imageRegistryList(): Promise<ImageRegistry[]> {
     return this.rpc<ImageRegistry[]>('image_registry_list');

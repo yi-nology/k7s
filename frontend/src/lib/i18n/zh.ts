@@ -632,6 +632,8 @@ export const zh: Dictionary = {
       timeout: '超时（秒，留空使用默认值）',
       diffSection: '与当前 Release 对比',
       diffCaveat: '由 helm template 离线渲染，与 upgrade dry-run 的 manifest 存在元数据差异，属预期。',
+      flagOn: '开',
+      flagOff: '关',
     },
     diff: {
       selectRevA: '起始版本',

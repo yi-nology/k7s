@@ -24,6 +24,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { httpInvoke } from './transport';
 import { HttpProvider } from './HttpProvider';
 import type { ApplyResult } from './types';
+import type { HelmOp } from './types';
 
 const yaml = 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: nginx\n';
 
@@ -47,5 +48,38 @@ describe('HttpProvider.applyYamlBundle', () => {
     expect(r).toEqual(applyResults);
     expect(httpInvoke).toHaveBeenCalledTimes(1);
     expect(httpInvoke).toHaveBeenCalledWith('apply_yaml_bundle', { yaml });
+  });
+});
+
+describe('HttpProvider.helmRunOp', () => {
+  it('sends the whole HelmOp nested under op — both transports deserialize { op: HelmOp }', async () => {
+    vi.mocked(httpInvoke).mockReset();
+    vi.mocked(httpInvoke).mockImplementation(async <T,>() =>
+      ({ op: 'upgrade', release: 'r', namespace: 'ns', success: true, lines: 0, summary: 'ok' }) as T
+    );
+    const provider = new HttpProvider();
+    const op: HelmOp = {
+      op: 'upgrade',
+      args: {
+        release: 'r',
+        chart: '/p',
+        version: '',
+        namespace: 'ns',
+        values: '',
+        dryRun: false,
+        reuseValues: false,
+        rollbackOnFailure: false,
+        createNamespace: true,
+        atomic: true,
+        force: false,
+        timeoutSecs: 300,
+        set: null,
+      },
+    };
+    await provider.helmRunOp(op);
+    // The flat shape (`{ op: 'upgrade', ...args }`) handed the backend a bare
+    // string for its internally-tagged enum and no op could ever run; the
+    // enum object itself must ride under `op`.
+    expect(httpInvoke).toHaveBeenCalledWith('helm_run_op', { op });
   });
 });

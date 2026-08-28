@@ -705,6 +705,9 @@ export interface Dictionary {
       /** Caveat under the diff: helm template output vs upgrade dry-run
        * manifest differ in metadata fields — expected. */
       diffCaveat: string;
+      /** Review-step value for a flag that is enabled / disabled. */
+      flagOn: string;
+      flagOff: string;
     };
     diff: {
       selectRevA: string;

@@ -634,6 +634,8 @@ export const en: Dictionary = {
       diffSection: 'Compare with current release',
       diffCaveat:
         'Rendered offline via helm template; metadata differences vs the upgrade dry-run manifest are expected.',
+      flagOn: 'on',
+      flagOff: 'off',
     },
     diff: {
       selectRevA: 'From revision',

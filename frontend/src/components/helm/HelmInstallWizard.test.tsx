@@ -437,4 +437,39 @@ describe('HelmInstallWizard (upgrade mode)', () => {
     });
     expect(view.queryByText('Profile saved')).not.toBeNull();
   });
+
+  it('drops a diff response that resolves after leaving the review step', async () => {
+    // Hold the render preview in flight so the fetch outlives navigation.
+    let resolvePreview: (v: string) => void = () => {};
+    providerMocks.helmRenderPreview.mockReturnValue(
+      new Promise<string>((res) => {
+        resolvePreview = res;
+      })
+    );
+    providerMocks.helmReleaseHistory.mockResolvedValue([
+      {
+        revision: 2,
+        updated: '',
+        status: 'deployed',
+        chart: 'demo-1.0.0',
+        appVersion: '1.0.0',
+        description: '',
+      },
+    ]);
+    providerMocks.helmManifestRevision.mockResolvedValue('replicaCount: 1\n');
+    await renderToReview();
+    view.click(view.getByText('Preview diff vs current release'));
+    await settle(30);
+    // Leave review while the render fetch is still pending…
+    view.click(view.getByText('Back'));
+    await settle(30);
+    // …then let it resolve: the stale result must be dropped.
+    resolvePreview('replicaCount: 9\n');
+    await settle(30);
+    view.click(view.getByText('Next')); // back to review
+    await settle(30);
+    // No diff section content: the caveat only renders when a diff exists.
+    expect(view.queryByText(/helm template/)).toBeNull();
+    expect(view.queryByText('replicaCount: 9')).toBeNull();
+  });
 });

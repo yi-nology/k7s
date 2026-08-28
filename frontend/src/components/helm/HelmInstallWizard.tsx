@@ -92,6 +92,10 @@ export function HelmInstallWizard({
   const [diff, setDiff] = useState<DiffLine[] | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
   const [diffErr, setDiffErr] = useState('');
+  // Monotonic id per loadDiff call — only the latest response may populate
+  // diff state. Leaving review bumps it too (see goto), so a slow fetch
+  // that resolves after Back can never resurrect a stale diff.
+  const diffReqRef = useRef(0);
 
   // Chart reference for the op, render preview, and profile matching:
   // a library path, or `repo/name` for a repo chart.
@@ -100,10 +104,11 @@ export function HelmInstallWizard({
     : chart
       ? `${chart.repo}/${chart.name}`
       : '';
-  // Integer > 0 or null (empty / garbage input = helm default).
+  // Whole seconds >= 1, or null (= helm default). 0 and fractional input
+  // fall back to the default, matching the backend's `timeout_arg` clamp.
   const timeoutSecs = (() => {
     const n = Number(timeoutStr.trim());
-    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+    return Number.isInteger(n) && n >= 1 ? n : null;
   })();
 
   // Load versions for this chart on mount. A library entry skips this:
@@ -170,11 +175,14 @@ export function HelmInstallWizard({
 
   /** All step navigation funnels through here so a fetched diff never
    * outlives the review step — a stale diff (values edited after fetching)
-   * is worse than none, and the button re-fetches on the next visit. */
+   * is worse than none, and the button re-fetches on the next visit. The
+   * request-id bump also invalidates any in-flight loadDiff response. */
   const goto = (s: Step) => {
     if (s !== 'review') {
+      diffReqRef.current += 1;
       setDiff(null);
       setDiffErr('');
+      setDiffLoading(false);
     }
     setStep(s);
   };
@@ -227,6 +235,10 @@ export function HelmInstallWizard({
    * render of the edited values. Both sides fail independently → any error
    * surfaces in the section, never blocks the upgrade itself. */
   const loadDiff = async () => {
+    // Stale-response guard: a later click (or leaving review) bumps the id,
+    // so a late resolve from this fetch is dropped instead of overwriting
+    // fresher state.
+    const req = ++diffReqRef.current;
     setDiffLoading(true);
     setDiffErr('');
     try {
@@ -237,11 +249,13 @@ export function HelmInstallWizard({
           ? ''
           : await getProvider().helmManifestRevision(namespace, releaseName, rev);
       const rendered = await getProvider().helmRenderPreview(chartRef, '', values);
+      if (req !== diffReqRef.current) return;
       setDiff(diffLines(current, rendered));
     } catch (e) {
+      if (req !== diffReqRef.current) return;
       setDiffErr(formatError(e));
     } finally {
-      setDiffLoading(false);
+      if (req === diffReqRef.current) setDiffLoading(false);
     }
   };
 
@@ -410,11 +424,18 @@ export function HelmInstallWizard({
           </label>
           <label className={styles.field}>
             <span>{t('helm.wizard.timeout', 'Timeout (seconds; empty = helm default)')}</span>
+            {/* Whole seconds only: decimals / non-digits are refused
+                mid-typing (the input keeps its last valid text); 0 maps to
+                helm's default, matching the backend's clamp. */}
             <input
-              type="number"
-              min={0}
+              type="text"
+              inputMode="numeric"
               value={timeoutStr}
-              onChange={(e) => setTimeoutStr(e.target.value)}
+              placeholder="300"
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '' || /^\d+$/.test(v)) setTimeoutStr(v);
+              }}
             />
           </label>
           <label className={styles.field}>
@@ -504,8 +525,10 @@ export function HelmInstallWizard({
             {!localDetail && `@${selectedVersion}`}
           </div>
           <div className={styles.reviewRow}>
-            <strong>{t('helm.wizard.atomic', 'Roll back automatically on failure (--atomic)')}:</strong>{' '}
-            {atomic ? 'on' : 'off'}
+            <strong>
+              {t('helm.wizard.atomic', 'Roll back automatically on failure (--atomic)')}:
+            </strong>{' '}
+            {atomic ? t('helm.wizard.flagOn', 'on') : t('helm.wizard.flagOff', 'off')}
             {timeoutSecs !== null && ` · timeout ${timeoutSecs}s`}
           </div>
           {upgrade && (
