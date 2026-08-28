@@ -118,8 +118,13 @@ Helm 市场除浏览仓库 chart 外，提供「本地 Charts」tab——一个�
 - **目录型 chart**：无需打包，把含 `Chart.yaml` 的目录直接放到 `<data_dir>/charts/` 下即可被扫描识别。
 - **浏览与详情**：列表支持删除；详情面板可查看文件树、values 与 README。
 - **从本地 chart 安装/升级**：详情 →「安装此 chart」进入向导，chart 引用即本地包的绝对路径（helm 原生路径引用），命名空间、values 编辑等向导能力与仓库 chart 一致。
-- **安装/升级开关**：helm install/upgrade 支持 `--set` 覆盖、`--atomic`（失败自动回滚）、`--force`、自定义 `--timeout`；upgrade 另支持 `--create-namespace`。
+- **安装/升级开关**：helm install/upgrade 支持 `--set` 覆盖、`--atomic`（失败自动回滚）、`--force`、自定义 `--timeout`（以秒填写，留空或 0 使用默认 5m0s）；upgrade 另支持 `--create-namespace`。
 - **审计**：入库与删除分别写入 `local_chart_import` / `local_chart_remove` 审计事件。
+- **渲染预览**：详情面板的「渲染预览」——values 编辑器预填 chart 默认 values，点「渲染」即在本地执行 `helm template` 输出渲染后的清单（只读展示，附按 kind 的资源统计徽标）。全程离线，**无需连接集群**、不安装任何资源，适合上线前核对模板产物。
+- **版本对比**：「版本对比」视图可选库内任意两个版本做行级 diff——Chart.yaml（版本等元信息）与 values.yaml（默认值漂移）各一段，头部标明 `vA → vB`，选择器默认取最近两个版本；两版本内容一致时明确提示。
+- **升级已有 Release**：详情 →「升级已有 Release」，输入 Release 名与命名空间后进入向导升级模式：chart 固定为本地包绝对路径，release/命名空间只读预填。确认步提供「与当前 Release 对比」——把新版本离线渲染的清单与集群中该 Release 当前的清单做行级 diff。注意：`helm template` 的输出与集群内实际 manifest 存在元数据级差异，属预期；diff 仅作升级前参考，不阻塞升级本身。
+- **部署方案（Profiles）**：向导「配置」步可「保存为方案」/「加载方案」——把 values、`--set`、开关与超时等部署参数存为命名方案，下次部署一键回填；方案按 chart 过滤，只出现在保存它的 chart 的向导里。方案持久化在 `<data_dir>/helm-profiles.json`（同名保存为覆盖；名称限字母/数字/`-`/`_`，不超过 64 字符），保存与删除分别写入 `helm_profile_save` / `helm_profile_delete` 审计事件。
+- **Web 模式**：浏览器端 helm 操作（安装/升级/回滚/卸载、渲染预览、方案管理）现已可用——修复了操作参数在 web 通道大小写不匹配导致开关被静默丢弃的问题。
 
 ## 5. 网络诊断
 
