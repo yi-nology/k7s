@@ -222,24 +222,37 @@ describe('LocalCharts', () => {
   });
 
   it('deletes an entry after confirmation', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     view = render(<LocalCharts />);
     await settle();
     view.click(view.getByText('Delete'));
     await settle(50);
-    expect(confirmSpy).toHaveBeenCalled();
+    // The ConfirmDialog portals to document.body (outside the scoped
+    // container), so its buttons are looked up on the document.
+    expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(document.body.textContent).toContain('Delete chart "demo-1.0.0.tgz"');
+    const confirm = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Confirm',
+    ) as HTMLButtonElement;
+    act(() => {
+      confirm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await settle(50);
     expect(mocks.localChartRemove).toHaveBeenCalledWith('demo-1.0.0.tgz');
     expect(mocks.localChartsList).toHaveBeenCalledTimes(2);
-    confirmSpy.mockRestore();
   });
 
   it('keeps the entry when the delete is cancelled', async () => {
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
     view = render(<LocalCharts />);
     await settle();
     view.click(view.getByText('Delete'));
     await settle(50);
+    const cancel = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Cancel',
+    ) as HTMLButtonElement;
+    act(() => {
+      cancel.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await settle(50);
     expect(mocks.localChartRemove).not.toHaveBeenCalled();
-    confirmSpy.mockRestore();
   });
 });

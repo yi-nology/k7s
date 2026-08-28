@@ -12,6 +12,7 @@ import { useTranslation } from '../../hooks/useI18n';
 import { useProviderQuery } from '../../hooks/useProviderQuery';
 import type { LocalChartDetail, LocalChartEntry, LocalChartFile } from '../../providers/types';
 import { EditorCore } from '../editor/EditorCore';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { HelmInstallWizard } from './HelmInstallWizard';
 import styles from './HelmMarket.module.css';
 
@@ -50,6 +51,10 @@ export function LocalCharts() {
   const [fileView, setFileView] = useState<{ path: string; content: string } | null>(null);
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
+  // Delete goes through the shared ConfirmDialog (same as repo removal in
+  // HelmRepos) — native confirm() is a silent no-op in some Tauri webviews,
+  // which would leave Delete dead on desktop.
+  const [pendingRemove, setPendingRemove] = useState<LocalChartEntry | null>(null);
   // Long-lived hidden input: the click→pick chain stays a single
   // user-gesture stack frame (the importKubeconfigViaInput lesson — an
   // input created per click loses the gesture in Safari).
@@ -118,7 +123,6 @@ export function LocalCharts() {
   };
 
   const remove = async (entry: LocalChartEntry) => {
-    if (!window.confirm(t('helm.local.confirmDelete', entry.id))) return;
     try {
       await getProvider().localChartRemove(entry.id);
       if (selected?.entry.id === entry.id) {
@@ -133,6 +137,19 @@ export function LocalCharts() {
   };
 
   return (
+    <>
+    <ConfirmDialog
+      open={!!pendingRemove}
+      onClose={() => setPendingRemove(null)}
+      onConfirm={async () => {
+        if (!pendingRemove) return;
+        await remove(pendingRemove);
+        setPendingRemove(null);
+      }}
+      title={t('helm.local.deleteTitle', 'Delete chart')}
+      body={t('helm.local.confirmDelete', pendingRemove?.id ?? '')}
+      danger
+    />
     <div className={styles.split}>
       <div className={styles.list}>
         <div className={styles.localToolbar}>
@@ -174,7 +191,7 @@ export function LocalCharts() {
                     className={styles.btnDanger}
                     onClick={(ev) => {
                       ev.stopPropagation();
-                      void remove(e);
+                      setPendingRemove(e);
                     }}
                   >
                     {t('helm.local.delete', 'Delete')}
@@ -254,5 +271,6 @@ export function LocalCharts() {
         )}
       </div>
     </div>
+    </>
   );
 }

@@ -572,6 +572,7 @@ export const en: Dictionary = {
       uploading: 'Uploading…',
       empty: 'No local charts — upload a .tgz to get started',
       delete: 'Delete',
+      deleteTitle: 'Delete chart',
       confirmDelete: (name) => `Delete chart "${name}" from the library?`,
       kind: { tgz: 'package', dir: 'directory' },
       detail: {

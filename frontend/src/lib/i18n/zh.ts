@@ -571,6 +571,7 @@ export const zh: Dictionary = {
       uploading: '上传中…',
       empty: '本地库为空 — 上传一个 .tgz 开始',
       delete: '删除',
+      deleteTitle: '删除 chart',
       confirmDelete: (name) => `从库中删除 chart "${name}"?`,
       kind: { tgz: '包', dir: '目录' },
       detail: {

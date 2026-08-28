@@ -631,6 +631,7 @@ export interface Dictionary {
       uploading: string;
       empty: string;
       delete: string;
+      deleteTitle: string;
       confirmDelete: (name: string) => string;
       kind: { tgz: string; dir: string };
       detail: {
