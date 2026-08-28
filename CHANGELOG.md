@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **ChartOps 合并后加固（P2 评审跟进）** — MCP `helm_render_preview` 的 values 增加
+  服务端安全校验（与前端 `isSafeHelmValues` 同策略：拒绝 go-template `{{…}}` 与反引号
+  命令替换，下沉到 k7s-core 渲染入口，desktop/web/MCP 三通道统一拦截）；`local_chart_*`
+  写操作审计从命令层下移到 k7s-core（成功才记录），MCP 的 package/deps 写入自此同样
+  入审计；新增 `charts_dir` 共享 helper 去重两端 `<data_dir>/charts` 重复；审计日志
+  改单次写入，防并发调用撕裂行。
 - **本地 Chart 工具箱（ChartOps 整合 P2）** — 「本地 Charts」详情面板新增四个 helm CLI
   助手：Lint（`helm lint`，失败级问题走错误条、警告随输出展示）、Verify（`helm verify`
   校验的是签名 provenance——需 `.tgz` 旁有 `.prov` 文件，普通导入/打包的 chart 通常没有、
