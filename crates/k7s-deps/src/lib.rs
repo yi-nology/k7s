@@ -38,6 +38,7 @@ pub use base64;
 pub use dirs;
 pub use dunce;
 pub use flate2;
+pub use tar;
 pub use http;
 pub use keyring;
 pub use rand;

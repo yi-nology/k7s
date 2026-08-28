@@ -53,6 +53,7 @@ dunce = "1"
 http = "1"
 base64 = "0.23"
 flate2 = "1"
+tar = "0.4"
 rustls = { version = "0.23", features = ["ring"] }
 # TLS *serving* for the web shell (k7s-web --tls-cert/--tls-key). Versions
 # must track `rustls` above: tokio-rustls 0.26 wraps rustls 0.23, and its
