@@ -13,7 +13,9 @@
   返回值升级为 `{contexts, path, issues}`（wire 变更，前端已同步）。前端此前
   导入失败页面零反馈——现 OnboardingWizard inline 区分「文件解析失败/校验
   失败」逐条展示，ClusterSwitcher 走错误 toast，成功带警告弹提示。MCP 的
-  `import_kubeconfig` 工具暂未接验证（后续候选）。
+  `import_kubeconfig` 工具同步接入同一验证（Error 拒绝并返回逐条汇总，
+  Warning 随 `{contexts, path, issues}` 结果返回）——web / 桌面 / MCP 三条
+  导入通道行为至此一致。
 - **ChartOps 合并后加固（P2 评审跟进）** — MCP `helm_render_preview` 的 values 增加
   服务端安全校验（与前端 `isSafeHelmValues` 同策略：拒绝 go-template `{{…}}` 与反引号
   命令替换，下沉到 k7s-core 渲染入口，desktop/web/MCP 三通道统一拦截）；`local_chart_*`
