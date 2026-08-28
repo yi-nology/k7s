@@ -125,6 +125,32 @@ export const httpInvoke: Invoker = async <T>(cmd: string, args?: unknown): Promi
   return body.data as T;
 };
 
+/**
+ * POST JSON to a dedicated `/api/*` route (not the registry catch-all) and
+ * decode the same `{ ok, data | error }` envelope. Mirrors {@link httpInvoke}
+ * exactly — same bearer-token header, same uniform-200 body shape, same
+ * verbatim error surfacing — but takes the full path instead of building
+ * `/api/invoke/{cmd}`. Exists for routes whose body limit the registry's
+ * catch-all can't carry (e.g. the 90MB chart-upload route vs axum's 2MB
+ * default for `/api/invoke/*`).
+ */
+export async function httpPostJson<T>(path: string, body: unknown): Promise<T> {
+  const init: RequestInit = {
+    method: 'POST',
+    headers: await apiHeaders(),
+    body: JSON.stringify(body),
+  };
+  const res = await fetch(path, init);
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status} ${res.statusText} for ${path}`);
+  }
+  const wire = (await res.json()) as WireResponse<T>;
+  if (!wire.ok) {
+    throw new Error(wire.error ?? `${path} failed (no error message)`);
+  }
+  return wire.data as T;
+}
+
 export const httpSubscribe: SubscribeFn = <T>(
   event: string,
   cb: (payload: T) => void

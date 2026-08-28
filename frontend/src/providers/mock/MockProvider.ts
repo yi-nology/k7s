@@ -133,8 +133,11 @@ export class MockProvider extends MockConnectionMixin implements DataProvider {
   helmSearchCharts = this.helm.helmSearchCharts.bind(this.helm);
   helmChartVersions = this.helm.helmChartVersions.bind(this.helm);
   helmExportChart = this.helm.helmExportChart.bind(this.helm);
-  helmImportChart = this.helm.helmImportChart.bind(this.helm);
-  helmLocalCharts = this.helm.helmLocalCharts.bind(this.helm);
+  localChartsList = this.helm.localChartsList.bind(this.helm);
+  localChartDetail = this.helm.localChartDetail.bind(this.helm);
+  localChartFile = this.helm.localChartFile.bind(this.helm);
+  localChartUpload = this.helm.localChartUpload.bind(this.helm);
+  localChartRemove = this.helm.localChartRemove.bind(this.helm);
   helmRenderDefaultValues = this.helm.helmRenderDefaultValues.bind(this.helm);
   helmRunOp = this.helm.helmRunOp.bind(this.helm);
   helmReleaseHistory = this.helm.helmReleaseHistory.bind(this.helm);

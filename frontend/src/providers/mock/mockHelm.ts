@@ -10,8 +10,26 @@ import type {
   HelmRepo,
   HelmRepoUpsert,
   HelmRevisionEntry,
+  LocalChartDetail,
+  LocalChartEntry,
   Unsub,
 } from '../types';
+
+/** The demo local chart library (`<data_dir>/charts` in demo mode). */
+const localCharts: LocalChartEntry[] = [
+  {
+    id: 'demo-app-1.1.0.tgz',
+    kind: 'tgz',
+    name: 'demo-app',
+    version: '1.1.0',
+    appVersion: '1.1.0',
+    description: 'demo chart',
+    icon: '',
+    path: '/tmp/demo-app-1.1.0.tgz',
+    sizeBytes: 2048,
+    modifiedAt: '2026-08-28T00:00:00Z',
+  },
+];
 
 function demoMockRepos(): HelmRepo[] {
   return [
@@ -120,13 +138,36 @@ export class MockHelmMixin {
     return '/tmp/chart.tgz';
   }
 
-  async helmImportChart(_filePath: string, _repoName: string): Promise<string> {
-    return '/tmp/imported.tgz';
+  async localChartsList(): Promise<LocalChartEntry[]> {
+    return [...localCharts];
   }
 
-  async helmLocalCharts(_repoName: string): Promise<string[]> {
-    return [];
+  async localChartDetail(id: string): Promise<LocalChartDetail> {
+    const entry = localCharts.find((c) => c.id === id) ?? localCharts[0];
+    return {
+      entry,
+      files: [
+        { path: `${entry.name}/Chart.yaml`, sizeBytes: 128, isDir: false },
+        { path: `${entry.name}/values.yaml`, sizeBytes: 64, isDir: false },
+      ],
+      valuesYaml: 'replicaCount: 1\n',
+      readme: '# demo\n',
+    };
   }
+
+  async localChartFile(_id: string, path: string): Promise<string> {
+    return `# ${path}\n`;
+  }
+
+  async localChartUpload(filename: string, _b64: string): Promise<LocalChartEntry> {
+    return {
+      ...localCharts[0],
+      id: filename,
+      name: filename.replace(/-[\d.]+\.tgz$/, ''),
+    };
+  }
+
+  async localChartRemove(_id: string): Promise<void> {}
 
   async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
     return '# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n';

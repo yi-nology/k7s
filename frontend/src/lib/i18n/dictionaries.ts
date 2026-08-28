@@ -598,7 +598,7 @@ export interface Dictionary {
   helm: {
     title: string;
     close: string;
-    tabs: { charts: string; repos: string };
+    tabs: { charts: string; repos: string; local: string };
     search: { placeholder: string };
     repos: {
       refreshAll: string;
@@ -623,6 +623,23 @@ export interface Dictionary {
          *  tooltip on focus, so the user can see why their input is invalid
          *  before they hit submit. */
         nameTitle: string;
+      };
+    };
+    /** Local chart library tab (`<data_dir>/charts`). */
+    local: {
+      tab: string;
+      upload: string;
+      uploading: string;
+      empty: string;
+      delete: string;
+      confirmDelete: (name: string) => string;
+      kind: { tgz: string; dir: string };
+      detail: {
+        files: string;
+        values: string;
+        readme: string;
+        install: string;
+        invalidFile: string;
       };
     };
     empty: { noMatch: string; noRepos: string };

@@ -544,7 +544,7 @@ export const zh: Dictionary = {
   helm: {
     title: 'Helm 市场',
     close: '关闭',
-    tabs: { charts: 'Charts', repos: '仓库' },
+    tabs: { charts: 'Charts', repos: '仓库', local: '本地 Charts' },
     search: { placeholder: '搜索 Charts…' },
     repos: {
       refreshAll: '全部刷新',
@@ -564,6 +564,22 @@ export const zh: Dictionary = {
         cancel: '取消',
         adding: '正在添加…',
         nameTitle: "小写字母、数字与 '-'",
+      },
+    },
+    local: {
+      tab: '本地 Charts',
+      upload: '上传 .tgz',
+      uploading: '上传中…',
+      empty: '本地库为空 — 上传一个 .tgz 开始',
+      delete: '删除',
+      confirmDelete: (name) => `从库中删除 chart "${name}"?`,
+      kind: { tgz: '包', dir: '目录' },
+      detail: {
+        files: '文件',
+        values: 'Values',
+        readme: 'README',
+        install: '安装此 chart',
+        invalidFile: '仅接受 .tgz 文件',
       },
     },
     empty: {

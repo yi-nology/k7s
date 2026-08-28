@@ -100,3 +100,31 @@ export interface HelmRevisionEntry {
   appVersion: string;
   description: string;
 }
+
+/** Entry in the local chart library (`<data_dir>/charts`). */
+export type LocalChartKind = 'tgz' | 'dir';
+export interface LocalChartEntry {
+  id: string;
+  kind: LocalChartKind;
+  name: string;
+  version: string;
+  appVersion: string;
+  description: string;
+  icon: string;
+  /** Absolute path on the backend host — the value passed to helm as the
+   * chart reference when installing from the library. */
+  path: string;
+  sizeBytes: number;
+  modifiedAt: string;
+}
+export interface LocalChartFile {
+  path: string;
+  sizeBytes: number;
+  isDir: boolean;
+}
+export interface LocalChartDetail {
+  entry: LocalChartEntry;
+  files: LocalChartFile[];
+  valuesYaml: string;
+  readme: string;
+}

@@ -545,7 +545,7 @@ export const en: Dictionary = {
   helm: {
     title: 'Helm Market',
     close: 'Close',
-    tabs: { charts: 'Charts', repos: 'Repositories' },
+    tabs: { charts: 'Charts', repos: 'Repositories', local: 'Local Charts' },
     search: { placeholder: 'Search charts…' },
     repos: {
       refreshAll: 'Refresh all',
@@ -565,6 +565,22 @@ export const en: Dictionary = {
         cancel: 'Cancel',
         adding: 'Adding…',
         nameTitle: "lowercase letters, digits, and '-'",
+      },
+    },
+    local: {
+      tab: 'Local Charts',
+      upload: 'Upload .tgz',
+      uploading: 'Uploading…',
+      empty: 'No local charts — upload a .tgz to get started',
+      delete: 'Delete',
+      confirmDelete: (name) => `Delete chart "${name}" from the library?`,
+      kind: { tgz: 'package', dir: 'directory' },
+      detail: {
+        files: 'Files',
+        values: 'Values',
+        readme: 'README',
+        install: 'Install this chart',
+        invalidFile: 'Only .tgz files are accepted',
       },
     },
     empty: {

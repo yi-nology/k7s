@@ -33,7 +33,7 @@
  *   on it).
  */
 
-import { IS_TAURI, httpInvoke, httpSubscribe } from './transport';
+import { IS_TAURI, httpInvoke, httpPostJson, httpSubscribe } from './transport';
 import { BaseRpcProvider } from './BaseRpcProvider';
 import type {
   Alert,
@@ -54,6 +54,7 @@ import type {
   HelmOpResult,
   HelmRepo,
   HelmRepoUpsert,
+  LocalChartEntry,
   ImageRegistry,
   ImageRegistryUpsert,
   ImageRepo,
@@ -546,11 +547,10 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   ): Promise<string> {
     return notImplemented('helm_export_chart');
   }
-  async helmImportChart(_filePath: string, _repoName: string): Promise<string> {
-    return notImplemented('helm_import_chart');
-  }
-  async helmLocalCharts(_repoName: string): Promise<string[]> {
-    return [];
+  // The registry catch-all caps at axum's 2MB default; chart packages go to
+  // the dedicated route with the raised limit instead.
+  async localChartUpload(filename: string, contentBase64: string): Promise<LocalChartEntry> {
+    return httpPostJson<LocalChartEntry>('/api/charts/upload', { filename, contentBase64 });
   }
   // helmRenderDefaultValues, helmReleaseHistory are inherited from
   // BaseRpcProvider (empty defaults).

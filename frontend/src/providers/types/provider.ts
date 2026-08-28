@@ -42,6 +42,8 @@ import type {
   HelmRepo,
   HelmRepoUpsert,
   HelmRevisionEntry,
+  LocalChartDetail,
+  LocalChartEntry,
 } from './helm';
 import type {
   Alert,
@@ -315,10 +317,13 @@ export interface DataProvider {
   helmChartVersions(repo: string, chart: string): Promise<HelmChartVersionEntry[]>;
   /** Export a chart .tgz to a local directory (air-gap / offline). */
   helmExportChart(repo: string, chart: string, version: string, outputDir: string): Promise<string>;
-  /** Import a local chart .tgz into the chart cache. */
-  helmImportChart(filePath: string, repoName: string): Promise<string>;
-  /** List locally imported chart archives for a repo. */
-  helmLocalCharts(repoName: string): Promise<string[]>;
+  /** Charts in the local library (`<data_dir>/charts`), newest first. */
+  localChartsList(): Promise<LocalChartEntry[]>;
+  localChartDetail(id: string): Promise<LocalChartDetail>;
+  localChartFile(id: string, path: string): Promise<string>;
+  /** Web: dedicated 90MB route; Tauri: the registry command. Same shape. */
+  localChartUpload(filename: string, contentBase64: string): Promise<LocalChartEntry>;
+  localChartRemove(id: string): Promise<void>;
   /** Default values.yaml from the chart itself (via `helm show values`). */
   helmRenderDefaultValues(chart: string, version: string, kubeconfig?: string): Promise<string>;
   /** Run install/upgrade/uninstall/rollback to completion. Live logs and the

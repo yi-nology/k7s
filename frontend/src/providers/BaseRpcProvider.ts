@@ -40,6 +40,8 @@ import type {
   HelmRepo,
   HelmRepoUpsert,
   HelmRevisionEntry,
+  LocalChartDetail,
+  LocalChartEntry,
   ImageRegistry,
   ImageRegistryUpsert,
   ImageRepo,
@@ -199,11 +201,20 @@ export abstract class BaseRpcProvider {
   ): Promise<string> {
     return this.rpc<string>('helm_export_chart', { repo, chart, version, outputDir });
   }
-  helmImportChart(filePath: string, repoName: string): Promise<string> {
-    return this.rpc<string>('helm_import_chart', { filePath, repoName });
+  localChartsList(): Promise<LocalChartEntry[]> {
+    return this.rpc<LocalChartEntry[]>('local_charts_list');
   }
-  helmLocalCharts(repoName: string): Promise<string[]> {
-    return this.rpc<string[]>('helm_local_charts', { repoName });
+  localChartDetail(id: string): Promise<LocalChartDetail> {
+    return this.rpc<LocalChartDetail>('local_chart_detail', { id });
+  }
+  localChartFile(id: string, path: string): Promise<string> {
+    return this.rpc<string>('local_chart_file', { id, path });
+  }
+  localChartUpload(filename: string, contentBase64: string): Promise<LocalChartEntry> {
+    return this.rpc<LocalChartEntry>('local_chart_import_content', { filename, contentBase64 });
+  }
+  localChartRemove(id: string): Promise<void> {
+    return this.rpc<void>('local_chart_remove', { id });
   }
   helmRunOp(op: HelmOp): Promise<HelmOpResult> {
     // The backend uses serde's `tag = "op"`, which on the wire means the
