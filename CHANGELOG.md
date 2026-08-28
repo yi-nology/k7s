@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **本地 Chart 工具箱（ChartOps 整合 P2）** — 「本地 Charts」详情面板新增四个 helm CLI
+  助手：Lint（`helm lint`，失败级问题走错误条、警告随输出展示）、Verify（`helm verify`
+  校验打包产物，仅 `.tgz` 可用，目录型被拒）、Package（`helm package`，仅目录型 chart，
+  产物入库并刷新列表）、Dependencies（`dependency list` 离线查看；`build`/`update` 需
+  网络从依赖仓库拉取，写 Chart.lock 与 `charts/` 缓存）。新增命令
+  `local_chart_lint/verify/package/deps`——Package 与 Deps build/update 分别写
+  `local_chart_package` / `local_chart_deps` 审计事件，只读操作不审计。MCP 工具面补齐
+  `helm_local_charts` / `helm_render_preview` / `helm_lint_chart` / `helm_package_chart`
+  / `helm_chart_deps` 五件套（工具总数 96 → 101，沿用 `/mcp` 既有 token 鉴权）。
+- **评审跟进修复** — 回滚对话框默认选中上一 revision（`helm history` 最新在前，含
+  currentRevision 修正）；仓库 chart 的 values 预填补上 `repo/` 前缀（此前 `helm show
+  values` 按裸名解析必失败）；LocalCharts 详情/文件打开竞态守卫；Profiles 删除入口 UI；
+  渲染预览 values 载荷安全校验；移除死命令 `helm_import_chart`/`helm_local_charts`（含
+  market.rs 死函数）；Profile values 256KiB 上限；web auth flaky 测试以 ENV_LOCK 串行化。
 - **本地 Chart 库增强（ChartOps 整合 P1）** — 「渲染预览」：详情面板内 `helm template`
   离线渲染清单（无需集群，按 kind 资源统计徽标）；「版本对比」：库内两版本的
   Chart.yaml + values.yaml 行级 diff；「升级已有 Release」向导模式（release/命名空间
