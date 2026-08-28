@@ -663,6 +663,8 @@ export interface Dictionary {
       save: string;
       load: string;
       manage: string;
+      /** Delete button next to the load-profile select. */
+      delete: string;
       namePlaceholder: string;
       /** Toast after a successful save. */
       saved: string;

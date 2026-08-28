@@ -11,6 +11,7 @@
 import { useMemo, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
+import { isSafeHelmValues } from '../../lib/security';
 import type { LocalChartDetail } from '../../providers/types';
 import { EditorCore } from '../editor/EditorCore';
 import styles from './HelmMarket.module.css';
@@ -57,6 +58,18 @@ export function ChartRenderPreview({ detail }: { detail: LocalChartDetail }) {
   const stats = useMemo(() => (result === null ? [] : kindStats(result)), [result]);
 
   const onRender = async () => {
+    // Same gate as the install wizard's submit: template injection or
+    // command substitution in the edited values never reaches helm. The
+    // previous manifest (if any) stays visible alongside the banner.
+    if (!isSafeHelmValues(values)) {
+      setError(
+        t(
+          'helm.wizard.unsafeValues',
+          'Values contain potentially unsafe content (template injection or command substitution)'
+        )
+      );
+      return;
+    }
     setRendering(true);
     setError('');
     try {

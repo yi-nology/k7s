@@ -72,6 +72,11 @@ export function LocalCharts() {
   // user-gesture stack frame (the importKubeconfigViaInput lesson — an
   // input created per click loses the gesture in Safari).
   const inputRef = useRef<HTMLInputElement>(null);
+  // Monotonic id per detail/file fetch — only the latest response may
+  // populate the pane. Opening another entry (or file) bumps the id, so a
+  // slow fetch that resolves after the switch is dropped instead of
+  // mounting stale content (same pattern as the wizard's diffReqRef).
+  const viewReqRef = useRef(0);
 
   const listQuery = useProviderQuery<LocalChartEntry[]>({
     query: () => getProvider().localChartsList(),
@@ -111,6 +116,7 @@ export function LocalCharts() {
   };
 
   const openDetail = async (entry: LocalChartEntry) => {
+    const req = ++viewReqRef.current;
     setInstalling(false);
     setUpgradeFormOpen(false);
     setUpgradeCfg(null);
@@ -118,9 +124,11 @@ export function LocalCharts() {
     setFileView(null);
     try {
       const detail = await getProvider().localChartDetail(entry.id);
+      if (req !== viewReqRef.current) return; // a newer fetch superseded this one
       setSelected(detail);
       setError('');
     } catch (e) {
+      if (req !== viewReqRef.current) return;
       setError(formatError(e));
     }
   };
@@ -137,13 +145,16 @@ export function LocalCharts() {
 
   const openFile = async (f: LocalChartFile) => {
     if (!selected || f.isDir) return;
+    const req = ++viewReqRef.current;
     try {
       const content = isValuesFile(f.path)
         ? selected.valuesYaml
         : await getProvider().localChartFile(selected.entry.id, f.path);
+      if (req !== viewReqRef.current) return; // a newer open superseded this one
       setFileView({ path: f.path, content });
       setError('');
     } catch (e) {
+      if (req !== viewReqRef.current) return;
       setError(formatError(e));
     }
   };

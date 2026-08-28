@@ -37,6 +37,7 @@ import { useTranslation } from '../../hooks/useI18n';
 import { isValidHelmReleaseName, isValidNamespace, isSafeHelmValues } from '../../lib/security';
 import { diffLines, type DiffLine } from '../../lib/diff';
 import { EditorCore } from '../editor/EditorCore';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './HelmMarket.module.css';
 import diffStyles from './HelmDiff.module.css';
 
@@ -92,6 +93,9 @@ export function HelmInstallWizard({
   const [profileName, setProfileName] = useState('');
   const [profileNote, setProfileNote] = useState('');
   const [profileErr, setProfileErr] = useState('');
+  // Delete flows through the shared ConfirmDialog (native confirm() is a
+  // silent no-op in some Tauri webviews).
+  const [profileDeleteOpen, setProfileDeleteOpen] = useState(false);
 
   // Review-step diff (upgrade mode): null = not fetched yet.
   const [diff, setDiff] = useState<DiffLine[] | null>(null);
@@ -148,8 +152,10 @@ export function HelmInstallWizard({
     if (step !== 'values') return;
     if (values) return; // already loaded; preserve user edits
     if (!chart) return;
+    // `helm show values <chart>` only resolves repo/name — the summary's
+    // bare name would fail backend-side.
     getProvider()
-      .helmRenderDefaultValues(chart.name, selectedVersion)
+      .helmRenderDefaultValues(`${chart.repo}/${chart.name}`, selectedVersion)
       .then(setValues)
       .catch((e: unknown) => setValues(`# error loading defaults: ${String(e)}\n`));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,6 +266,22 @@ export function HelmInstallWizard({
       setProfiles(all.filter((p) => p.chartRef === chartRef));
       setProfileSel(name);
       setProfileNote(t('helm.profiles.saved', 'Profile saved'));
+    } catch (e) {
+      setProfileErr(formatError(e));
+    }
+  };
+
+  /** Delete the selected profile, then refresh the list from the backend's
+   * return value (the same refresh path as save). */
+  const deleteProfile = async () => {
+    if (!profileSel) return;
+    setProfileNote('');
+    setProfileErr('');
+    try {
+      const all = await getProvider().helmProfileDelete(profileSel);
+      setProfiles(all.filter((p) => p.chartRef === chartRef));
+      setProfileSel('');
+      setProfileNote(t('helm.profiles.deleted', 'Profile deleted'));
     } catch (e) {
       setProfileErr(formatError(e));
     }
@@ -519,6 +541,14 @@ export function HelmInstallWizard({
                 ))}
               </select>
             </label>
+            <button
+              className={styles.btn}
+              disabled={!profileSel}
+              style={{ alignSelf: 'flex-end' }}
+              onClick={() => setProfileDeleteOpen(true)}
+            >
+              {t('helm.profiles.delete', 'Delete')}
+            </button>
             <div className={styles.field}>
               <input
                 placeholder={t('helm.profiles.namePlaceholder', 'Profile name')}
@@ -643,6 +673,15 @@ export function HelmInstallWizard({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={profileDeleteOpen}
+        onClose={() => setProfileDeleteOpen(false)}
+        onConfirm={() => void deleteProfile()}
+        title={t('helm.profiles.manage', 'Manage profiles')}
+        body={t('helm.profiles.confirmDelete', profileSel)}
+        danger
+      />
     </div>
   );
 }

@@ -153,6 +153,19 @@ describe('ChartRenderPreview', () => {
     );
   });
 
+  it('refuses to render and shows an error for unsafe values', async () => {
+    view = render(<ChartRenderPreview detail={detail} />);
+    await settle();
+    const valuesEditor = view.container.querySelector('textarea') as HTMLTextAreaElement;
+    type(valuesEditor, 'injected: {{ .Values.secret }}\n');
+    view.click(view.getByText('Render'));
+    await settle();
+    // The render never reaches the provider…
+    expect(mocks.helmRenderPreview).not.toHaveBeenCalled();
+    // …and the same banner the install wizard shows explains why.
+    expect(view.queryByText(/potentially unsafe content/)).not.toBeNull();
+  });
+
   it('surfaces a provider error instead of a manifest', async () => {
     mocks.helmRenderPreview.mockRejectedValue(new Error('helm binary not found'));
     view = render(<ChartRenderPreview detail={detail} />);

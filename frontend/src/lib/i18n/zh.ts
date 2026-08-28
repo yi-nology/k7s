@@ -598,6 +598,7 @@ export const zh: Dictionary = {
       save: '保存为方案',
       load: '加载方案',
       manage: '管理方案',
+      delete: '删除',
       namePlaceholder: '方案名称',
       saved: '方案已保存',
       deleted: '方案已删除',

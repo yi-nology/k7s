@@ -154,11 +154,14 @@ function HelmRevisionPicker({
     historyQuery.loading || (historyQuery.data === undefined && !historyQuery.error);
   const error = historyQuery.error ?? null;
 
-  // Default to the second-to-last revision (the one before current).
+  // Default to the previous revision — the second entry of the history.
+  // `helm history` emits rows NEWEST-FIRST, so index 1 is the revision
+  // right before the current one (index 0); a length-based index from the
+  // end would pick the second-oldest instead.
   useEffect(() => {
     const revs = historyQuery.data;
     if (!revs) return;
-    if (revs.length >= 2) setSelected(revs[revs.length - 2].revision);
+    if (revs.length >= 2) setSelected(revs[1].revision);
     else if (revs.length === 1) setSelected(revs[0].revision);
   }, [historyQuery.data]);
 
@@ -178,8 +181,8 @@ function HelmRevisionPicker({
     }
   }, [selected, release, namespace, onError, onClose]);
 
-  // Current revision (the latest one).
-  const currentRevision = revisions.length > 0 ? revisions[revisions.length - 1].revision : null;
+  // Current revision — the first entry of the newest-first history.
+  const currentRevision = revisions.length > 0 ? revisions[0].revision : null;
 
   if (loading) {
     return (

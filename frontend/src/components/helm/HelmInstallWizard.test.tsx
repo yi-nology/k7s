@@ -10,12 +10,12 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import React from 'react';
+import React, { act } from 'react';
 import { useStore } from '../../store';
 import { HelmInstallWizard } from './HelmInstallWizard';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 import { createMockSettings } from '../../test/types';
-import type { LocalChartDetail } from '../../providers/types';
+import type { HelmProfile, LocalChartDetail } from '../../providers/types';
 
 // The values step renders the shared CodeMirror wrapper; mock it down to a
 // plain textarea so jsdom can assert on it without CodeMirror/lit.
@@ -47,6 +47,7 @@ const providerMocks = vi.hoisted(() => ({
   helmRenderPreview: vi.fn(),
   helmProfileList: vi.fn(),
   helmProfileSave: vi.fn(),
+  helmProfileDelete: vi.fn(),
 }));
 vi.mock('../../providers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../providers')>();
@@ -64,6 +65,7 @@ vi.mock('../../providers', async (importOriginal) => {
       helmRenderPreview: providerMocks.helmRenderPreview,
       helmProfileList: providerMocks.helmProfileList,
       helmProfileSave: providerMocks.helmProfileSave,
+      helmProfileDelete: providerMocks.helmProfileDelete,
     }),
   };
 });
@@ -110,6 +112,7 @@ beforeEach(() => {
   providerMocks.helmRenderPreview.mockReset().mockResolvedValue('');
   providerMocks.helmProfileList.mockReset().mockResolvedValue([]);
   providerMocks.helmProfileSave.mockReset().mockResolvedValue([]);
+  providerMocks.helmProfileDelete.mockReset().mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -223,6 +226,22 @@ describe('HelmInstallWizard', () => {
     if (backBtn) view.click(backBtn);
     await new Promise((r) => setTimeout(r, 50));
     expect(view.queryByText('Release name')).not.toBeNull();
+  });
+
+  it('prefills repo-chart defaults via the repo/name reference the backend requires', async () => {
+    view = render(<HelmInstallWizard chart={mockChart} onDone={vi.fn()} />);
+    await new Promise((r) => setTimeout(r, 50));
+    const nextBtn = view.queryByText('Next');
+    if (nextBtn) view.click(nextBtn); // → values
+    await new Promise((r) => setTimeout(r, 50));
+    // `helm show values <chart>` cannot resolve a bare chart name — the
+    // backend needs `repo/name`.
+    expect(providerMocks.helmRenderDefaultValues).toHaveBeenCalledWith(
+      'bitnami/nginx',
+      '1.0.0'
+    );
+    const textarea = view.container.querySelector('textarea') as HTMLTextAreaElement;
+    expect(textarea.value).toContain('replicaCount: 1');
   });
 });
 
@@ -526,5 +545,72 @@ describe('HelmInstallWizard (upgrade mode)', () => {
     // No diff section content: the caveat only renders when a diff exists.
     expect(view.queryByText(/helm template/)).toBeNull();
     expect(view.queryByText('replicaCount: 9')).toBeNull();
+  });
+
+  // ---- profile delete UI ----
+
+  const makeProfile = (name: string): HelmProfile => ({
+    name,
+    chartRef: '/data/charts/demo-1.0.0.tgz',
+    version: '',
+    namespace: 'web',
+    values: 'replicaCount: 7\n',
+    set: null,
+    atomic: false,
+    force: false,
+    createNamespace: false,
+    timeoutSecs: null,
+    createdAt: '2026-08-28T00:00:00Z',
+  });
+
+  /** Pick an <option> through React's controlled-select path. */
+  function selectOption(el: HTMLSelectElement, value: string) {
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        'value'
+      )?.set;
+      setter?.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  }
+
+  it('enables profile delete only while a profile is selected', async () => {
+    providerMocks.helmProfileList.mockResolvedValue([makeProfile('prod')]);
+    await renderToValues();
+    const deleteBtn = view.getByText('Delete') as HTMLButtonElement;
+    expect(deleteBtn.hasAttribute('disabled')).toBe(true);
+    const select = view.container.querySelector('select') as HTMLSelectElement;
+    selectOption(select, 'prod');
+    await settle(30);
+    expect((view.getByText('Delete') as HTMLButtonElement).hasAttribute('disabled')).toBe(false);
+  });
+
+  it('deletes the selected profile after confirmation and refreshes the list', async () => {
+    providerMocks.helmProfileList.mockResolvedValue([makeProfile('prod')]);
+    providerMocks.helmProfileDelete.mockResolvedValue([]);
+    await renderToValues();
+    const select = view.container.querySelector('select') as HTMLSelectElement;
+    selectOption(select, 'prod');
+    await settle(30);
+    view.click(view.getByText('Delete'));
+    await settle(30);
+    // The ConfirmDialog portals to document.body (outside the scoped
+    // container), so its buttons are looked up on the document.
+    expect(document.body.textContent).toContain('Delete profile "prod"?');
+    const confirm = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Confirm'
+    ) as HTMLButtonElement;
+    act(() => {
+      confirm.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await settle(30);
+    expect(providerMocks.helmProfileDelete).toHaveBeenCalledWith('prod');
+    // The refreshed list no longer offers the deleted profile, the select
+    // resets to "None", and the success note confirms the deletion.
+    const selectAfter = view.container.querySelector('select') as HTMLSelectElement;
+    expect(selectAfter.textContent).not.toContain('prod');
+    expect((selectAfter as HTMLSelectElement).value).toBe('');
+    expect(view.queryByText('Profile deleted')).not.toBeNull();
   });
 });

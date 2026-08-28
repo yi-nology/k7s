@@ -252,6 +252,74 @@ describe('LocalCharts', () => {
     expect(textarea?.value).toBe('apiVersion: v2\n');
   });
 
+  it('drops a slow file fetch that resolves after another file was opened', async () => {
+    // Hold the first file fetch in flight, open the values file (no fetch —
+    // instant), then release the stale response: it must not overwrite the
+    // newer file view.
+    let resolveChartYaml: (v: string) => void = () => {};
+    mocks.localChartFile.mockReturnValueOnce(
+      new Promise<string>((res) => {
+        resolveChartYaml = res;
+      })
+    );
+    view = render(<LocalCharts />);
+    await settle();
+    view.click(view.getByText('demo'));
+    await settle();
+    view.click(view.getByText(/demo\/Chart\.yaml/)); // fetch held in flight
+    await settle(30);
+    view.click(view.getByText(/demo\/values\.yaml/)); // resolves immediately
+    await settle(30);
+    const lastText = () => {
+      const textareas = view.querySelectorAll('textarea') as HTMLTextAreaElement[];
+      return textareas[textareas.length - 1]?.value;
+    };
+    expect(lastText()).toBe('replicaCount: 1\n');
+    // The stale Chart.yaml response lands after the switch…
+    resolveChartYaml('apiVersion: v2\nkind: Evil\n');
+    await settle(30);
+    // …but the user's latest pick (values.yaml) must stay mounted.
+    expect(lastText()).toBe('replicaCount: 1\n');
+  });
+
+  it('drops a slow detail fetch that resolves after another entry was opened', async () => {
+    const other: LocalChartEntry = {
+      ...entry,
+      id: 'other-2.0.0.tgz',
+      name: 'other',
+      description: 'other chart',
+    };
+    const otherDetail: LocalChartDetail = {
+      entry: other,
+      files: [{ path: 'other/Chart.yaml', sizeBytes: 5, isDir: false }],
+      chartYaml: 'apiVersion: v2\nname: other\nversion: 2.0.0\n',
+      valuesYaml: 'replicaCount: 9\n',
+      readme: '',
+    };
+    let resolveDemoDetail: (d: LocalChartDetail) => void = () => {};
+    mocks.localChartsList.mockResolvedValue([entry, other]);
+    mocks.localChartDetail
+      .mockReturnValueOnce(
+        new Promise<LocalChartDetail>((res) => {
+          resolveDemoDetail = res;
+        })
+      )
+      .mockResolvedValueOnce(otherDetail);
+    view = render(<LocalCharts />);
+    await settle();
+    view.click(view.getByText('demo')); // detail fetch held in flight
+    await settle(30);
+    view.click(view.getByText('other')); // resolves immediately
+    await settle(30);
+    expect(view.queryByText(/other\/Chart\.yaml/)).not.toBeNull();
+    // The stale "demo" detail lands after the switch…
+    resolveDemoDetail(detail);
+    await settle(30);
+    // …but "other" must stay mounted — demo's files must never appear.
+    expect(view.queryByText(/other\/Chart\.yaml/)).not.toBeNull();
+    expect(view.queryByText(/demo\/Chart\.yaml/)).toBeNull();
+  });
+
   it('hands off to the install wizard for the selected chart', async () => {
     view = render(<LocalCharts />);
     await settle();

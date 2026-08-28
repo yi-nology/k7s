@@ -599,6 +599,7 @@ export const en: Dictionary = {
       save: 'Save as profile',
       load: 'Load profile',
       manage: 'Manage profiles',
+      delete: 'Delete',
       namePlaceholder: 'Profile name',
       saved: 'Profile saved',
       deleted: 'Profile deleted',
