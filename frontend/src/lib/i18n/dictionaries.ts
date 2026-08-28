@@ -44,6 +44,8 @@ export interface Dictionary {
       noKinds: string;
       filterKinds: string;
       importKubeconfig: string;
+      /** Toast title when the kubeconfig import fails. */
+      importFailed: string;
       noContexts: string;
       /** Tooltip on the lock icon shown when a kind's watch returns 403. */
       forbidden: string;

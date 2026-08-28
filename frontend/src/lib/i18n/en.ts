@@ -33,6 +33,7 @@ export const en: Dictionary = {
       noKinds: 'no kinds match',
       filterKinds: 'filter kinds…',
       importKubeconfig: 'Import kubeconfig…',
+      importFailed: 'Import kubeconfig failed',
       noContexts: 'no contexts',
       forbidden: 'RBAC: no permission',
       toolsSection: 'Tools',

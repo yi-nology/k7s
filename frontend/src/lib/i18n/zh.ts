@@ -33,6 +33,7 @@ export const zh: Dictionary = {
       noKinds: '无匹配类型',
       filterKinds: '过滤类型…',
       importKubeconfig: '导入 kubeconfig…',
+      importFailed: '导入 kubeconfig 失败',
       noContexts: '无 context',
       forbidden: 'RBAC: 无权限',
       toolsSection: '工具',

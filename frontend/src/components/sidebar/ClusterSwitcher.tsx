@@ -11,7 +11,8 @@ import { useClickOutside } from '../../hooks/useClickOutside';
 import { useTranslation } from '../../hooks/useI18n';
 import { connectTo } from '../../lib/connect';
 import { cx } from '../../lib/cx';
-import { importKubeconfigViaInput } from '../../providers';
+import { importKubeconfigViaInput, KubeconfigImportError } from '../../providers';
+import { getErrorReporter, getSuccessReporter } from '../../providers/errorHandler';
 import type { ImportResult } from '../../providers/types';
 import { useConnection } from '../../hooks/useStoreHooks';
 
@@ -61,14 +62,32 @@ export function ClusterSwitcher() {
       setContexts(result.contexts);
       // Remember the file so its contexts come back on the next launch (B17).
       addImportedFile(result.path);
+      // Advisory warnings — the import succeeded, but the user should know
+      // what the validator flagged (e.g. https without a CA bundle).
+      if (result.issues?.length) {
+        getSuccessReporter()(
+          t('chrome.sidebar.importKubeconfig'),
+          t('onboarding.import.importedWithWarnings', 'Imported, with warnings') +
+            ' — ' +
+            result.issues.map((i) => i.message).join(' · ')
+        );
+      }
     });
     // The click() that opens the OS picker is part of the same user
     // gesture as the button click — no `await` before it.
     input.click();
-    // Swallow rejections from the picker (e.g. user dismissed) — those
-    // resolve as `null`, not as a rejected promise; rejections are real
-    // API errors and worth a console note.
-    void promise.catch((e: unknown) => console.error('[import] failed:', e));
+    // Rejections are real API failures. The toast reporter is the visible
+    // channel (the menu just closed); console stays for diagnosis.
+    void promise.catch((e: unknown) => {
+      console.error('[import] failed:', e);
+      const detail =
+        e instanceof KubeconfigImportError && e.issues?.length
+          ? e.issues.map((i) => i.message).join(' · ')
+          : e instanceof Error
+            ? e.message
+            : String(e);
+      getErrorReporter()(t('chrome.sidebar.importFailed', 'Import kubeconfig failed'), detail);
+    });
   };
 
   // Display name: the connected cluster, else the selected context, else a stub.

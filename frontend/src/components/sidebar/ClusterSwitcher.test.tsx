@@ -6,10 +6,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act } from 'react';
 import { useStore, type OpenMenu } from '../../store';
 import { ClusterSwitcher } from './ClusterSwitcher';
 import { render, cleanup, type RenderResult } from '../../test/componentUtils';
 import type { ContextInfo } from '../../providers/types';
+import { KubeconfigImportError } from '../../providers/transport';
+import { setErrorReporter, setSuccessReporter } from '../../providers/errorHandler';
 
 // Mock connectTo.
 vi.mock('../../lib/connect', () => ({
@@ -21,12 +24,13 @@ vi.mock('../../hooks/useClickOutside', () => ({
   useClickOutside: vi.fn(),
 }));
 
-// Mock importKubeconfigViaInput.
+// Mock importKubeconfigViaInput — hoisted so tests can script outcomes.
+const importViaInput = vi.hoisted(() => vi.fn());
 vi.mock('../../providers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../providers')>();
   return {
     ...actual,
-    importKubeconfigViaInput: vi.fn().mockResolvedValue(null),
+    importKubeconfigViaInput: importViaInput,
   };
 });
 
@@ -47,10 +51,16 @@ function resetStore() {
 
 beforeEach(() => {
   resetStore();
+  importViaInput.mockReset();
+  importViaInput.mockResolvedValue(null);
 });
 
 afterEach(() => {
   cleanup();
+  // Detach the toast reporters this file installs — the default (unset)
+  // reporters fall back to console, keeping other test files unpolluted.
+  setErrorReporter(() => {});
+  setSuccessReporter(() => {});
 });
 
 describe('ClusterSwitcher', () => {
@@ -122,6 +132,69 @@ describe('ClusterSwitcher', () => {
       const badge = view.container.querySelector('[class*="badge"]');
       expect(badge).not.toBeNull();
       expect(badge?.textContent).toBeTruthy();
+    });
+  });
+
+  describe('import errors', () => {
+    /** Open the switcher menu and click the import entry. */
+    async function clickImport() {
+      view = render(<ClusterSwitcher />);
+      // The toggle button's label span ("No cluster" under the reset store);
+      // the click bubbles up to the button.
+      view.click(view.getByText(/No cluster/i));
+      view.click(view.getByText(/Import kubeconfig/i));
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+
+    it('reports structured validation issues through the error reporter', async () => {
+      const reported: Array<[string, string]> = [];
+      setErrorReporter((title, message) => reported.push([title, message]));
+      importViaInput.mockRejectedValue(
+        new KubeconfigImportError('kubeconfig validation failed (1 issue(s)):', [
+          {
+            severity: 'error',
+            code: 'missingClusterRef',
+            message: "cluster 'nope' not found",
+            context: 'c1',
+          },
+        ])
+      );
+
+      await clickImport();
+
+      expect(reported).toHaveLength(1);
+      expect(reported[0][0]).toBe('Import kubeconfig failed');
+      expect(reported[0][1]).toContain("cluster 'nope' not found");
+    });
+
+    it('reports plain failures via their message', async () => {
+      const reported: Array<[string, string]> = [];
+      setErrorReporter((title, message) => reported.push([title, message]));
+      importViaInput.mockRejectedValue(new Error("couldn't parse bad.yaml: boom"));
+
+      await clickImport();
+
+      expect(reported).toHaveLength(1);
+      expect(reported[0][1]).toContain("couldn't parse bad.yaml: boom");
+    });
+
+    it('reports success warnings through the success reporter', async () => {
+      const successes: Array<[string, string]> = [];
+      setSuccessReporter((title, message) => successes.push([title, message]));
+      importViaInput.mockResolvedValue({
+        contexts: [{ name: 'c1', cluster: 'cl', current: false }],
+        path: 'kubeconfig',
+        issues: [
+          { severity: 'warning', code: 'noCaBundle', message: 'https without a CA bundle', context: 'c1' },
+        ],
+      });
+
+      await clickImport();
+
+      expect(successes).toHaveLength(1);
+      expect(successes[0][1]).toContain('https without a CA bundle');
     });
   });
 
