@@ -21,10 +21,11 @@ import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type { HelmChartSummary, HelmRepo } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { HelmInstallWizard } from './HelmInstallWizard';
+import { LocalCharts } from './LocalCharts';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import styles from './HelmMarket.module.css';
 
-type Tab = 'charts' | 'repos';
+type Tab = 'charts' | 'repos' | 'local';
 
 export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
   const { t } = useTranslation();
@@ -90,6 +91,14 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
           {t('helm.tabs.repos', 'Repositories')}
           <span className={styles.count}>({repos.length})</span>
         </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'local'}
+          className={tab === 'local' ? styles.tabActive : styles.tab}
+          onClick={() => setTab('local')}
+        >
+          {t('helm.tabs.local', 'Local Charts')}
+        </button>
         <div className={styles.spacer} />
         {tab === 'charts' && (
           <input
@@ -118,7 +127,9 @@ export function HelmMarket({ onClose }: { onClose?: () => void } = {}) {
 
       {error && <div className={styles.error}>{error}</div>}
 
-      {tab === 'charts' ? (
+      {tab === 'local' ? (
+        <LocalCharts />
+      ) : tab === 'charts' ? (
         <div className={styles.split}>
           <div className={styles.list}>
             {loadingCharts && charts.length === 0 ? (

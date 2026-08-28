@@ -48,6 +48,30 @@ vi.mock('../../providers', async (importOriginal) => {
       helmRunOp: vi.fn().mockResolvedValue({ success: true }),
       onHelmOpLog: vi.fn().mockReturnValue(() => {}),
       onHelmOpDone: vi.fn().mockReturnValue(() => {}),
+      // Local chart library (the Local Charts tab mounts these on demand).
+      localChartsList: vi.fn().mockResolvedValue([
+        {
+          id: 'demo-1.0.0.tgz',
+          kind: 'tgz',
+          name: 'demo',
+          version: '1.0.0',
+          appVersion: '1.0.0',
+          description: 'demo chart',
+          icon: '',
+          path: '/data/charts/demo-1.0.0.tgz',
+          sizeBytes: 1024,
+          modifiedAt: '2026-08-28T00:00:00Z',
+        },
+      ]),
+      localChartDetail: vi.fn().mockResolvedValue({
+        entry: {},
+        files: [],
+        valuesYaml: '',
+        readme: '',
+      }),
+      localChartFile: vi.fn().mockResolvedValue(''),
+      localChartUpload: vi.fn(),
+      localChartRemove: vi.fn().mockResolvedValue(undefined),
     }),
   };
 });
@@ -120,6 +144,20 @@ describe('HelmMarket', () => {
     if (reposTab) view.click(reposTab);
     await new Promise((r) => setTimeout(r, 50));
     expect(view.queryByText('bitnami')).not.toBeNull();
+  });
+
+  it('renders the Local Charts tab button', () => {
+    view = render(<HelmMarket />);
+    expect(view.queryByText(/Local Charts/)).not.toBeNull();
+  });
+
+  it('switches to the local charts tab', async () => {
+    view = render(<HelmMarket />);
+    const localTab = view.queryByText(/Local Charts/);
+    if (localTab) view.click(localTab);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(view.queryByText('Upload .tgz')).not.toBeNull();
+    expect(view.queryByText('demo')).not.toBeNull();
   });
 
   it('renders close button when onClose is provided', () => {

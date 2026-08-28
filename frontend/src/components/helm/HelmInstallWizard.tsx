@@ -10,11 +10,22 @@
  * (the wizard is opened from a chart row). Version + values is where
  * the user actually spends time, and the review step is the dry-run
  * gate that catches 90% of "whoops wrong namespace" mistakes.
+ *
+ * Two sources, exactly one per instance: `chart` (a repo search result)
+ * resolves its version list and default values via helm; `localChart`
+ * (a library entry) is one package on disk — a single read-only version
+ * row, values seeded from the detail payload, and the absolute path as
+ * the install reference.
  */
 import { useEffect, useRef, useState } from 'react';
 import { getProvider } from '../../providers';
 import { useAsyncEffect } from '../../hooks/useAsyncEffect';
-import type { HelmChartSummary, HelmChartVersionEntry, HelmOpResult } from '../../providers/types';
+import type {
+  HelmChartSummary,
+  HelmChartVersionEntry,
+  HelmOpResult,
+  LocalChartDetail,
+} from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { isValidHelmReleaseName, isValidNamespace, isSafeHelmValues } from '../../lib/security';
 import { EditorCore } from '../editor/EditorCore';
@@ -24,28 +35,38 @@ type Step = 'version' | 'values' | 'review';
 
 export function HelmInstallWizard({
   chart,
+  localChart,
   onDone,
 }: {
-  chart: HelmChartSummary;
+  chart?: HelmChartSummary;
+  localChart?: LocalChartDetail;
   onDone: () => void;
 }) {
   const { t } = useTranslation();
   const [step, setStep] = useState<Step>('version');
   const [versions, setVersions] = useState<HelmChartVersionEntry[]>([]);
-  const [selectedVersion, setSelectedVersion] = useState(chart.version);
+  const [selectedVersion, setSelectedVersion] = useState(
+    chart?.version ?? localChart?.entry.version ?? ''
+  );
   const [releaseName, setReleaseName] = useState(
-    chart.name.replace(/[^a-z0-9-]/gi, '-').toLowerCase()
+    (chart?.name ?? localChart?.entry.name ?? 'chart')
+      .replace(/[^a-z0-9-]/gi, '-')
+      .toLowerCase()
   );
   const [namespace, setNamespace] = useState('default');
-  const [values, setValues] = useState('');
+  // A library chart ships its values.yaml with the detail payload, so it
+  // seeds the editor directly; repo charts load theirs on the values step.
+  const [values, setValues] = useState(localChart?.valuesYaml ?? '');
   const [createNs, setCreateNs] = useState(false);
   const [logs, setLogs] = useState<{ stream: string; line: string }[]>([]);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<HelmOpResult | null>(null);
   const logsRef = useRef<HTMLDivElement>(null);
 
-  // Load versions for this chart on mount.
+  // Load versions for this chart on mount. A library entry skips this:
+  // it is exactly one package, so the version step shows the entry as-is.
   useAsyncEffect(async (isMounted) => {
+    if (localChart || !chart) return;
     try {
       const vs = await getProvider().helmChartVersions(chart.repo, chart.name);
       if (!isMounted()) return;
@@ -65,12 +86,15 @@ export function HelmInstallWizard({
         },
       ]);
     }
-  }, [chart.repo, chart.name]);
+  }, [chart?.repo, chart?.name]);
 
   // When the user advances to "values", prefill with the chart's defaults.
+  // (A library chart's values were seeded in the initial state above; the
+  // non-empty guard keeps them — and any user edits — untouched.)
   useEffect(() => {
     if (step !== 'values') return;
     if (values) return; // already loaded; preserve user edits
+    if (!chart) return;
     getProvider()
       .helmRenderDefaultValues(chart.name, selectedVersion)
       .then(setValues)
@@ -135,12 +159,20 @@ export function HelmInstallWizard({
     const unsub = getProvider().onHelmOpLog((l) => setLogs((cur) => [...cur, l]));
     const unsubDone = getProvider().onHelmOpDone((r) => setResult(r));
     try {
+      // A library entry installs by absolute path; a repo chart by
+      // repo/name. `--version` is meaningless for a local path, so it
+      // goes over the wire empty.
+      const chartArg = localChart
+        ? localChart.entry.path
+        : chart
+          ? `${chart.repo}/${chart.name}`
+          : '';
       const res = await getProvider().helmRunOp({
         op: 'install',
         args: {
           release: releaseName,
-          chart: `${chart.repo}/${chart.name}`,
-          version: selectedVersion,
+          chart: chartArg,
+          version: localChart ? '' : selectedVersion,
           namespace,
           values,
           dryRun: false,
@@ -167,8 +199,10 @@ export function HelmInstallWizard({
   return (
     <div className={styles.wizard}>
       <header className={styles.wizardHeader}>
-        <h2>{chart.name}</h2>
-        <p className={styles.chartDesc}>{chart.description}</p>
+        <h2>{chart?.name ?? localChart?.entry.name ?? ''}</h2>
+        <p className={styles.chartDesc}>
+          {chart?.description ?? localChart?.entry.description ?? ''}
+        </p>
       </header>
 
       <ol className={styles.steps}>
@@ -205,13 +239,20 @@ export function HelmInstallWizard({
           </label>
           <label className={styles.field}>
             <span>{t('helm.wizard.version', 'Version')}</span>
-            <select value={selectedVersion} onChange={(e) => setSelectedVersion(e.target.value)}>
-              {versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.version} (app {v.appVersion})
-                </option>
-              ))}
-            </select>
+            {localChart ? (
+              // One package on disk — no list to choose from.
+              <div className={styles.reviewRow}>
+                {localChart.entry.version} (app {localChart.entry.appVersion})
+              </div>
+            ) : (
+              <select value={selectedVersion} onChange={(e) => setSelectedVersion(e.target.value)}>
+                {versions.map((v) => (
+                  <option key={v.version} value={v.version}>
+                    {v.version} (app {v.appVersion})
+                  </option>
+                ))}
+              </select>
+            )}
           </label>
           <div className={styles.wizardActions}>
             <button className={styles.primary} onClick={() => setStep('values')}>
@@ -250,8 +291,10 @@ export function HelmInstallWizard({
             {createNs && ' (create)'}
           </div>
           <div className={styles.reviewRow}>
-            <strong>{t('helm.wizard.chart', 'Chart')}:</strong> {chart.repo}/{chart.name}@
-            {selectedVersion}
+            <strong>{t('helm.wizard.chart', 'Chart')}:</strong>{' '}
+            {localChart
+              ? localChart.entry.path
+              : `${chart?.repo ?? ''}/${chart?.name ?? ''}@${selectedVersion}`}
           </div>
           <div className={styles.wizardActions}>
             <button onClick={() => setStep('values')} disabled={running}>

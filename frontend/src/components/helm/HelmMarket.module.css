@@ -414,3 +414,88 @@
   gap: var(--space-2);
   padding: var(--space-2);
 }
+
+/* ---- Local chart library ---- */
+
+.localToolbar {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  padding: var(--space-2) var(--space-3);
+}
+
+.localRowActions {
+  margin-top: var(--space-1);
+}
+
+.localDetail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.localDetail h3 {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin: 0 0 var(--space-1) 0;
+  text-transform: uppercase;
+}
+
+.localPath {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  margin: 0 0 var(--space-2) 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.localFiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.localFile,
+.localFileActive {
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: flex;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  gap: var(--space-2);
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-2);
+}
+
+.localFile:hover,
+.localFileActive {
+  background: var(--bg-control);
+}
+
+.localFilePath {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.localFileView {
+  display: flex;
+  flex-direction: column;
+  min-height: 160px;
+}
+
+.localReadme {
+  background: var(--bg-control);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: 0;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--space-2);
+  white-space: pre-wrap;
+}
