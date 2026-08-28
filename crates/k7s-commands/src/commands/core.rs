@@ -9,6 +9,9 @@ use k7s_core::core::shell_common;
 use k7s_core::core::CoreState;
 use k7s_core::error::{AppError, AppResult};
 use k7s_core::kube::client::{self, ClusterInfo, ContextInfo};
+use k7s_core::kube::kubeconfig_check::{
+    has_errors, summarize_issues, validate_kubeconfig, ImportKubeconfigResult,
+};
 use k7s_core::kube::manager::{ClientManager, ImportedContext};
 // Ingress debugging shells out to desktop-only tooling in k7s-core.
 #[cfg(not(any(target_os = "ios", target_os = "android")))]
@@ -138,11 +141,21 @@ pub(crate) struct ImportKubeconfigArgs {
 pub async fn import_kubeconfig_impl(
     mgr: std::sync::Arc<CoreState>,
     path: String,
-) -> AppResult<Vec<ContextInfo>> {
+) -> AppResult<ImportKubeconfigResult> {
     let manager: Arc<ClientManager> = mgr.manager.clone();
 
-    // Parse the file and remember where each of its contexts came from.
-    let imported = client::contexts_from_file(&path)?;
+    // Phase 1: parse — `KubeconfigError` already names the file and problem.
+    let kubeconfig = client::read_kubeconfig(&path)?;
+
+    // Phase 2: validate — error-level issues reject the import with a
+    // per-context summary (Tauri errors are plain strings, so the structure
+    // lives in the message text); warnings ride along on success.
+    let issues = validate_kubeconfig(&kubeconfig);
+    if has_errors(&issues) {
+        return Err(AppError::Kubeconfig(summarize_issues(&issues)));
+    }
+
+    let imported = client::contexts_from_kubeconfig(&kubeconfig);
     for ctx in &imported {
         manager
             .add_import(
@@ -156,7 +169,12 @@ pub async fn import_kubeconfig_impl(
             .await;
     }
 
-    Ok(shell_common::merged_contexts(&manager).await)
+    let contexts = shell_common::merged_contexts(&manager).await;
+    Ok(ImportKubeconfigResult {
+        contexts,
+        path,
+        issues,
+    })
 }
 
 #[cfg(feature = "ipc")]
@@ -164,7 +182,7 @@ pub async fn import_kubeconfig_impl(
 pub async fn import_kubeconfig(
     path: String,
     mgr: State<'_, Arc<CoreState>>,
-) -> AppResult<Vec<ContextInfo>> {
+) -> AppResult<ImportKubeconfigResult> {
     import_kubeconfig_impl(mgr.inner().clone(), path).await
 }
 

@@ -12,7 +12,6 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { exportFilename } from '../../lib/logview';
 import { BaseRpcProvider } from '../BaseRpcProvider';
 import type {
-  ContextInfo,
   DataProvider,
   HelmOpResult,
   SavedQuery,
@@ -101,10 +100,10 @@ export class TauriProvider extends BaseRpcProvider implements DataProvider {
     });
     // User cancelled, or (defensively) a multi-selection came back.
     if (!selected || Array.isArray(selected)) return null;
-    const contexts = await invoke<ContextInfo[]>('import_kubeconfig', { path: selected });
-    // The path goes back to the caller so it can be persisted (B17); only the
-    // provider knows it, since the picker lives here.
-    return { contexts, path: selected };
+    // The command returns the merged switcher list plus the file path and
+    // (optional) validation warnings — the same shape the web upload gets.
+    const result = await invoke<ImportResult>('import_kubeconfig', { path: selected });
+    return result;
   }
 
   // getYaml, applyYaml, dryRunYaml, getProperties, deleteResource,
