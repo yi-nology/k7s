@@ -38,6 +38,11 @@ const providerMocks = vi.hoisted(() => ({
   helmRunOp: vi.fn(),
   onHelmOpLog: vi.fn(),
   onHelmOpDone: vi.fn(),
+  helmReleaseHistory: vi.fn(),
+  helmManifestRevision: vi.fn(),
+  helmRenderPreview: vi.fn(),
+  helmProfileList: vi.fn(),
+  helmProfileSave: vi.fn(),
 }));
 vi.mock('../../providers', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../providers')>();
@@ -49,6 +54,11 @@ vi.mock('../../providers', async (importOriginal) => {
       helmRunOp: providerMocks.helmRunOp,
       onHelmOpLog: providerMocks.onHelmOpLog,
       onHelmOpDone: providerMocks.onHelmOpDone,
+      helmReleaseHistory: providerMocks.helmReleaseHistory,
+      helmManifestRevision: providerMocks.helmManifestRevision,
+      helmRenderPreview: providerMocks.helmRenderPreview,
+      helmProfileList: providerMocks.helmProfileList,
+      helmProfileSave: providerMocks.helmProfileSave,
     }),
   };
 });
@@ -86,6 +96,11 @@ beforeEach(() => {
     .mockResolvedValue({ success: true, summary: 'Install complete' });
   providerMocks.onHelmOpLog.mockReset().mockReturnValue(() => {});
   providerMocks.onHelmOpDone.mockReset().mockReturnValue(() => {});
+  providerMocks.helmReleaseHistory.mockReset().mockResolvedValue([]);
+  providerMocks.helmManifestRevision.mockReset().mockResolvedValue('');
+  providerMocks.helmRenderPreview.mockReset().mockResolvedValue('');
+  providerMocks.helmProfileList.mockReset().mockResolvedValue([]);
+  providerMocks.helmProfileSave.mockReset().mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -276,5 +291,150 @@ describe('HelmInstallWizard (local chart source)', () => {
         createNamespace: false,
       },
     });
+  });
+});
+
+describe('HelmInstallWizard (upgrade mode)', () => {
+  const localDetail = {
+    entry: {
+      id: 'demo-1.0.0.tgz',
+      kind: 'tgz',
+      name: 'demo',
+      version: '1.0.0',
+      appVersion: '1.0.0',
+      description: 'demo chart',
+      icon: '',
+      path: '/data/charts/demo-1.0.0.tgz',
+      sizeBytes: 1024,
+      modifiedAt: '2026-08-28T00:00:00Z',
+    },
+    files: [{ path: 'demo/values.yaml', sizeBytes: 10, isDir: false }],
+    chartYaml: 'apiVersion: v2\nname: demo\nversion: 1.0.0\n',
+    valuesYaml: 'replicaCount: 2\n',
+    readme: '',
+  } satisfies LocalChartDetail;
+
+  const settle = (ms = 50) => new Promise((r) => setTimeout(r, ms));
+
+  /** Render in upgrade mode and walk to the review step. */
+  async function renderToReview() {
+    view = render(
+      <HelmInstallWizard
+        localUpgrade={{ detail: localDetail, release: 'demo', namespace: 'web' }}
+        onDone={vi.fn()}
+      />
+    );
+    await settle();
+    view.click(view.getByText('Next')); // → values
+    await settle();
+    view.click(view.getByText('Next')); // → review
+    await settle();
+  }
+
+  /** Render in upgrade mode and stop on the values step. */
+  async function renderToValues() {
+    view = render(
+      <HelmInstallWizard
+        localUpgrade={{ detail: localDetail, release: 'demo', namespace: 'web' }}
+        onDone={vi.fn()}
+      />
+    );
+    await settle();
+    view.click(view.getByText('Next')); // → values
+    await settle();
+  }
+
+  it('prefills release + namespace read-only from the handoff', async () => {
+    view = render(
+      <HelmInstallWizard
+        localUpgrade={{ detail: localDetail, release: 'demo', namespace: 'web' }}
+        onDone={vi.fn()}
+      />
+    );
+    await settle();
+    const inputs = view.container.querySelectorAll('input');
+    const release = inputs[0] as HTMLInputElement;
+    const ns = inputs[1] as HTMLInputElement;
+    expect(release.value).toBe('demo');
+    expect(release.readOnly).toBe(true);
+    expect(ns.value).toBe('web');
+    expect(ns.readOnly).toBe(true);
+  });
+
+  it('submits op upgrade with chart=path and an empty version', async () => {
+    await renderToReview();
+    view.click(view.getByText('Upgrade'));
+    await settle();
+    expect(providerMocks.helmRunOp).toHaveBeenCalledWith({
+      op: 'upgrade',
+      args: {
+        release: 'demo',
+        chart: '/data/charts/demo-1.0.0.tgz',
+        version: '',
+        namespace: 'web',
+        values: 'replicaCount: 2\n',
+        dryRun: false,
+        reuseValues: false,
+        rollbackOnFailure: false,
+        createNamespace: false,
+        atomic: false,
+        force: false,
+        timeoutSecs: null,
+        set: null,
+      },
+    });
+  });
+
+  it('renders diff lines vs the current release after fetching both sides', async () => {
+    providerMocks.helmReleaseHistory.mockResolvedValue([
+      {
+        revision: 2,
+        updated: '2026-08-28T00:00:00Z',
+        status: 'deployed',
+        chart: 'demo-1.0.0',
+        appVersion: '1.0.0',
+        description: 'Install complete',
+      },
+    ]);
+    providerMocks.helmManifestRevision.mockResolvedValue('replicaCount: 1\n');
+    providerMocks.helmRenderPreview.mockResolvedValue('replicaCount: 3\n');
+    await renderToReview();
+    view.click(view.getByText('Preview diff vs current release'));
+    await settle();
+    expect(providerMocks.helmReleaseHistory).toHaveBeenCalledWith('demo', 'web');
+    expect(providerMocks.helmManifestRevision).toHaveBeenCalledWith('web', 'demo', 2);
+    expect(providerMocks.helmRenderPreview).toHaveBeenCalledWith(
+      '/data/charts/demo-1.0.0.tgz',
+      '',
+      'replicaCount: 2\n'
+    );
+    // One removed line (current) and one added line (rendered) — the -/+ rows.
+    expect(view.queryByText('replicaCount: 1')).not.toBeNull();
+    expect(view.queryByText('replicaCount: 3')).not.toBeNull();
+    // The caveat note explains template vs dry-run metadata drift.
+    expect(view.queryByText(/helm template/)).not.toBeNull();
+  });
+
+  it('saves a profile with a camelCase payload assembled from the form', async () => {
+    await renderToValues();
+    const nameInput = view.queryByPlaceholderText('Profile name');
+    expect(nameInput).not.toBeNull();
+    view.change(nameInput as HTMLElement, 'prod');
+    view.click(view.getByText('Save as profile'));
+    await settle();
+    expect(providerMocks.helmProfileSave).toHaveBeenCalledWith({
+      name: 'prod',
+      chartRef: '/data/charts/demo-1.0.0.tgz',
+      version: '',
+      namespace: 'web',
+      values: 'replicaCount: 2\n',
+      set: null,
+      atomic: false,
+      force: false,
+      createNamespace: false,
+      timeoutSecs: null,
+      createdAt: '',
+    });
+    expect(view.queryByText('Profile saved')).not.toBeNull();
   });
 });

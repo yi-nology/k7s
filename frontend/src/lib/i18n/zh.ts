@@ -606,6 +606,7 @@ export const zh: Dictionary = {
       upgradeRelease: 'Release 名',
       upgradeNamespace: '命名空间',
       previewDiff: '与当前 Release 对比预览',
+      none: '无',
     },
     empty: {
       noMatch: '无匹配的 Charts',
@@ -625,6 +626,12 @@ export const zh: Dictionary = {
       install: '安装',
       done: '完成',
       invalidNamespace: '无效的命名空间名称',
+      upgrade: '升级',
+      upgrading: '升级中…',
+      atomic: '失败时自动回滚（--atomic）',
+      timeout: '超时（秒，留空使用默认值）',
+      diffSection: '与当前 Release 对比',
+      diffCaveat: '由 helm template 离线渲染，与 upgrade dry-run 的 manifest 存在元数据差异，属预期。',
     },
     diff: {
       selectRevA: '起始版本',

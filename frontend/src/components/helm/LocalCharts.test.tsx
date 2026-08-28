@@ -54,6 +54,17 @@ const mocks = vi.hoisted(() => ({
   localChartFile: vi.fn(),
   localChartUpload: vi.fn(),
   localChartRemove: vi.fn(),
+  // The install/upgrade wizard consumes these once handed off.
+  helmChartVersions: vi.fn(),
+  helmRenderDefaultValues: vi.fn(),
+  helmRunOp: vi.fn(),
+  onHelmOpLog: vi.fn(),
+  onHelmOpDone: vi.fn(),
+  helmReleaseHistory: vi.fn(),
+  helmManifestRevision: vi.fn(),
+  helmRenderPreview: vi.fn(),
+  helmProfileList: vi.fn(),
+  helmProfileSave: vi.fn(),
 }));
 
 vi.mock('../../providers', async (importOriginal) => {
@@ -66,6 +77,16 @@ vi.mock('../../providers', async (importOriginal) => {
       localChartFile: mocks.localChartFile,
       localChartUpload: mocks.localChartUpload,
       localChartRemove: mocks.localChartRemove,
+      helmChartVersions: mocks.helmChartVersions,
+      helmRenderDefaultValues: mocks.helmRenderDefaultValues,
+      helmRunOp: mocks.helmRunOp,
+      onHelmOpLog: mocks.onHelmOpLog,
+      onHelmOpDone: mocks.onHelmOpDone,
+      helmReleaseHistory: mocks.helmReleaseHistory,
+      helmManifestRevision: mocks.helmManifestRevision,
+      helmRenderPreview: mocks.helmRenderPreview,
+      helmProfileList: mocks.helmProfileList,
+      helmProfileSave: mocks.helmProfileSave,
     }),
   };
 });
@@ -105,6 +126,18 @@ beforeEach(() => {
   mocks.localChartFile.mockReset().mockResolvedValue('apiVersion: v2\n');
   mocks.localChartUpload.mockReset().mockResolvedValue(entry);
   mocks.localChartRemove.mockReset().mockResolvedValue(undefined);
+  mocks.helmChartVersions.mockReset().mockResolvedValue([]);
+  mocks.helmRenderDefaultValues.mockReset().mockResolvedValue('');
+  mocks.helmRunOp
+    .mockReset()
+    .mockResolvedValue({ success: true, summary: 'done' });
+  mocks.onHelmOpLog.mockReset().mockReturnValue(() => {});
+  mocks.onHelmOpDone.mockReset().mockReturnValue(() => {});
+  mocks.helmReleaseHistory.mockReset().mockResolvedValue([]);
+  mocks.helmManifestRevision.mockReset().mockResolvedValue('');
+  mocks.helmRenderPreview.mockReset().mockResolvedValue('');
+  mocks.helmProfileList.mockReset().mockResolvedValue([]);
+  mocks.helmProfileSave.mockReset().mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -226,6 +259,40 @@ describe('LocalCharts', () => {
     // The wizard's version step proves the handoff rendered.
     expect(view.queryByText('Release name')).not.toBeNull();
     expect(view.queryByText('Namespace')).not.toBeNull();
+  });
+
+  it('opens the wizard in upgrade mode from the upgrade form handoff', async () => {
+    view = render(<LocalCharts />);
+    await settle();
+    view.click(view.getByText('demo'));
+    await settle();
+    view.click(view.getByText('Upgrade existing release'));
+    await settle();
+    const rel = view.queryByLabelText('Release name') as HTMLInputElement | null;
+    const ns = view.queryByLabelText('Namespace') as HTMLInputElement | null;
+    expect(rel).not.toBeNull();
+    expect(ns).not.toBeNull();
+    // The upgrade entry is gated on a valid release name.
+    expect(
+      (view.getByText('Upgrade') as HTMLButtonElement).hasAttribute('disabled')
+    ).toBe(true);
+    view.change(rel as HTMLElement, 'demo-app');
+    view.change(ns as HTMLElement, 'web');
+    expect(
+      (view.getByText('Upgrade') as HTMLButtonElement).hasAttribute('disabled')
+    ).toBe(false);
+    view.click(view.getByText('Upgrade'));
+    await settle(50);
+    // The wizard replaced the detail pane, release/namespace prefilled
+    // (read-only) from the form.
+    expect(view.queryByText('Version')).not.toBeNull();
+    const textInputs = view.querySelectorAll('input').filter(
+      (i) => (i as HTMLInputElement).type !== 'file'
+    ) as HTMLInputElement[];
+    expect(textInputs[0].value).toBe('demo-app');
+    expect(textInputs[0].readOnly).toBe(true);
+    expect(textInputs[1].value).toBe('web');
+    expect(textInputs[1].readOnly).toBe(true);
   });
 
   it('deletes an entry after confirmation', async () => {

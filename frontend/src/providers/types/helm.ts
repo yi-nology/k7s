@@ -55,6 +55,12 @@ export interface HelmInstallArgs {
   values: string;
   dryRun: boolean;
   createNamespace: boolean;
+  /** Extra `--set k=v` overrides. Omitted/null = none. */
+  set?: Record<string, unknown> | null;
+  /** `--atomic`: wait + roll back automatically on failure. */
+  atomic?: boolean;
+  /** Overrides helm's default 5m0s timeout; null/omitted = helm default. */
+  timeoutSecs?: number | null;
 }
 
 export interface HelmUpgradeArgs {
@@ -67,6 +73,16 @@ export interface HelmUpgradeArgs {
   dryRun: boolean;
   reuseValues: boolean;
   rollbackOnFailure: boolean;
+  /** `--create-namespace`: create the target namespace if missing. */
+  createNamespace?: boolean;
+  /** Extra `--set k=v` overrides. Omitted/null = none. */
+  set?: Record<string, unknown> | null;
+  /** `--atomic`: wait + roll back automatically on failure. */
+  atomic?: boolean;
+  /** `--force`: resource updates go through the replacement strategy. */
+  force?: boolean;
+  /** Overrides helm's default 5m0s timeout; null/omitted = helm default. */
+  timeoutSecs?: number | null;
 }
 
 export interface HelmUninstallArgs {

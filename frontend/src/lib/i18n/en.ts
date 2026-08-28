@@ -607,6 +607,7 @@ export const en: Dictionary = {
       upgradeRelease: 'Release name',
       upgradeNamespace: 'Namespace',
       previewDiff: 'Preview diff vs current release',
+      none: 'None',
     },
     empty: {
       noMatch: 'No charts match this search',
@@ -626,6 +627,13 @@ export const en: Dictionary = {
       install: 'Install',
       done: 'Done',
       invalidNamespace: 'Invalid namespace name',
+      upgrade: 'Upgrade',
+      upgrading: 'Upgrading…',
+      atomic: 'Roll back automatically on failure (--atomic)',
+      timeout: 'Timeout (seconds; empty = helm default)',
+      diffSection: 'Compare with current release',
+      diffCaveat:
+        'Rendered offline via helm template; metadata differences vs the upgrade dry-run manifest are expected.',
     },
     diff: {
       selectRevA: 'From revision',

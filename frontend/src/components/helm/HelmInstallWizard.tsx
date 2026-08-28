@@ -11,62 +11,105 @@
  * the user actually spends time, and the review step is the dry-run
  * gate that catches 90% of "whoops wrong namespace" mistakes.
  *
- * Two sources, exactly one per instance: `chart` (a repo search result)
+ * Three sources, exactly one per instance: `chart` (a repo search result)
  * resolves its version list and default values via helm; `localChart`
  * (a library entry) is one package on disk — a single read-only version
  * row, values seeded from the detail payload, and the absolute path as
- * the install reference.
+ * the install reference; `localUpgrade` points at an existing release to
+ * upgrade with the library package — release/namespace arrive prefilled
+ * read-only, and the review step can diff the offline render against the
+ * live release's current manifest.
  */
 import { useEffect, useRef, useState } from 'react';
-import { getProvider } from '../../providers';
+import { formatError, getProvider } from '../../providers';
 import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type {
   HelmChartSummary,
   HelmChartVersionEntry,
   HelmOpResult,
+  HelmProfile,
   LocalChartDetail,
 } from '../../providers/types';
 import { useTranslation } from '../../hooks/useI18n';
 import { isValidHelmReleaseName, isValidNamespace, isSafeHelmValues } from '../../lib/security';
+import { diffLines, type DiffLine } from '../../lib/diff';
 import { EditorCore } from '../editor/EditorCore';
 import styles from './HelmMarket.module.css';
+import diffStyles from './HelmDiff.module.css';
 
 type Step = 'version' | 'values' | 'review';
 
 export function HelmInstallWizard({
   chart,
   localChart,
+  localUpgrade,
   onDone,
 }: {
   chart?: HelmChartSummary;
   localChart?: LocalChartDetail;
+  /** Upgrade an existing release with this library package. */
+  localUpgrade?: { detail: LocalChartDetail; release: string; namespace: string };
   onDone: () => void;
 }) {
   const { t } = useTranslation();
+  const upgrade = !!localUpgrade;
+  // The library-chart half of the source union: an install handoff passes
+  // `localChart`, an upgrade handoff passes `localUpgrade.detail`. Both are
+  // local paths, so both share the read-only version row and the path ref.
+  const localDetail = localChart ?? localUpgrade?.detail;
   const [step, setStep] = useState<Step>('version');
   const [versions, setVersions] = useState<HelmChartVersionEntry[]>([]);
   const [selectedVersion, setSelectedVersion] = useState(
-    chart?.version ?? localChart?.entry.version ?? ''
+    chart?.version ?? localDetail?.entry.version ?? ''
   );
   const [releaseName, setReleaseName] = useState(
-    (chart?.name ?? localChart?.entry.name ?? 'chart')
+    (localUpgrade?.release ?? chart?.name ?? localDetail?.entry.name ?? 'chart')
       .replace(/[^a-z0-9-]/gi, '-')
       .toLowerCase()
   );
-  const [namespace, setNamespace] = useState('default');
+  const [namespace, setNamespace] = useState(localUpgrade?.namespace ?? 'default');
   // A library chart ships its values.yaml with the detail payload, so it
   // seeds the editor directly; repo charts load theirs on the values step.
-  const [values, setValues] = useState(localChart?.valuesYaml ?? '');
+  const [values, setValues] = useState(localDetail?.valuesYaml ?? '');
   const [createNs, setCreateNs] = useState(false);
+  const [atomic, setAtomic] = useState(false);
+  // Text until submit/save — '' means "helm default" (no --timeout).
+  const [timeoutStr, setTimeoutStr] = useState('');
   const [logs, setLogs] = useState<{ stream: string; line: string }[]>([]);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<HelmOpResult | null>(null);
   const logsRef = useRef<HTMLDivElement>(null);
 
+  // Profiles (values step): the list is filtered to this chart's ref, so a
+  // profile saved for chart A never leaks into chart B's wizard.
+  const [profiles, setProfiles] = useState<HelmProfile[]>([]);
+  const [profileSel, setProfileSel] = useState('');
+  const [profileName, setProfileName] = useState('');
+  const [profileNote, setProfileNote] = useState('');
+  const [profileErr, setProfileErr] = useState('');
+
+  // Review-step diff (upgrade mode): null = not fetched yet.
+  const [diff, setDiff] = useState<DiffLine[] | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffErr, setDiffErr] = useState('');
+
+  // Chart reference for the op, render preview, and profile matching:
+  // a library path, or `repo/name` for a repo chart.
+  const chartRef = localDetail
+    ? localDetail.entry.path
+    : chart
+      ? `${chart.repo}/${chart.name}`
+      : '';
+  // Integer > 0 or null (empty / garbage input = helm default).
+  const timeoutSecs = (() => {
+    const n = Number(timeoutStr.trim());
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+  })();
+
   // Load versions for this chart on mount. A library entry skips this:
   // it is exactly one package, so the version step shows the entry as-is.
   useAsyncEffect(async (isMounted) => {
-    if (localChart || !chart) return;
+    if (localDetail || !chart) return;
     try {
       const vs = await getProvider().helmChartVersions(chart.repo, chart.name);
       if (!isMounted()) return;
@@ -102,6 +145,21 @@ export function HelmInstallWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, selectedVersion]);
 
+  // Load the saved profiles for this chart when the values step opens. A
+  // provider without profile support (or a failed fetch) just empties the
+  // select — profiles are an accelerator, never a gate.
+  useAsyncEffect(async (isMounted) => {
+    if (step !== 'values' || !chartRef) return;
+    try {
+      const all = await getProvider().helmProfileList();
+      if (!isMounted()) return;
+      setProfiles(all.filter((p) => p.chartRef === chartRef));
+    } catch {
+      if (!isMounted()) return;
+      setProfiles([]);
+    }
+  }, [step, chartRef]);
+
   // Live log tail: append and auto-scroll.
   useEffect(() => {
     if (logs.length === 0) return;
@@ -110,11 +168,89 @@ export function HelmInstallWizard({
     }
   }, [logs]);
 
-  const doInstall = async () => {
+  /** All step navigation funnels through here so a fetched diff never
+   * outlives the review step — a stale diff (values edited after fetching)
+   * is worse than none, and the button re-fetches on the next visit. */
+  const goto = (s: Step) => {
+    if (s !== 'review') {
+      setDiff(null);
+      setDiffErr('');
+    }
+    setStep(s);
+  };
+
+  /** Copy a saved profile's values + flags into the form. */
+  const applyProfile = (p: HelmProfile) => {
+    setValues(p.values);
+    setAtomic(p.atomic);
+    setCreateNs(p.createNamespace);
+    setTimeoutStr(p.timeoutSecs != null ? String(p.timeoutSecs) : '');
+    if (!localDetail && p.version) setSelectedVersion(p.version);
+  };
+
+  const onPickProfile = (name: string) => {
+    setProfileSel(name);
+    setProfileNote('');
+    setProfileErr('');
+    const p = profiles.find((x) => x.name === name);
+    if (p) applyProfile(p);
+  };
+
+  const saveProfile = async () => {
+    const name = profileName.trim();
+    if (!name || !chartRef) return;
+    setProfileNote('');
+    setProfileErr('');
+    try {
+      const all = await getProvider().helmProfileSave({
+        name,
+        chartRef,
+        version: localDetail ? '' : selectedVersion,
+        namespace,
+        values,
+        set: null,
+        atomic,
+        force: false,
+        createNamespace: createNs,
+        timeoutSecs,
+        createdAt: '', // stamped by the backend for new profiles
+      });
+      setProfiles(all.filter((p) => p.chartRef === chartRef));
+      setProfileSel(name);
+      setProfileNote(t('helm.profiles.saved', 'Profile saved'));
+    } catch (e) {
+      setProfileErr(formatError(e));
+    }
+  };
+
+  /** Review-step diff (upgrade mode): current live manifest vs the offline
+   * render of the edited values. Both sides fail independently → any error
+   * surfaces in the section, never blocks the upgrade itself. */
+  const loadDiff = async () => {
+    setDiffLoading(true);
+    setDiffErr('');
+    try {
+      const hist = await getProvider().helmReleaseHistory(releaseName, namespace);
+      const rev = hist[0]?.revision;
+      const current =
+        rev === undefined
+          ? ''
+          : await getProvider().helmManifestRevision(namespace, releaseName, rev);
+      const rendered = await getProvider().helmRenderPreview(chartRef, '', values);
+      setDiff(diffLines(current, rendered));
+    } catch (e) {
+      setDiffErr(formatError(e));
+    } finally {
+      setDiffLoading(false);
+    }
+  };
+
+  const doSubmit = async () => {
     // Validate inputs before proceeding
+    const resultOp = upgrade ? 'upgrade' : 'install';
     if (!isValidHelmReleaseName(releaseName)) {
       setResult({
-        op: 'install',
+        op: resultOp,
         release: releaseName,
         namespace,
         success: false,
@@ -128,7 +264,7 @@ export function HelmInstallWizard({
     }
     if (!isValidNamespace(namespace)) {
       setResult({
-        op: 'install',
+        op: resultOp,
         release: releaseName,
         namespace,
         success: false,
@@ -139,7 +275,7 @@ export function HelmInstallWizard({
     }
     if (!isSafeHelmValues(values)) {
       setResult({
-        op: 'install',
+        op: resultOp,
         release: releaseName,
         namespace,
         success: false,
@@ -161,28 +297,45 @@ export function HelmInstallWizard({
     try {
       // A library entry installs by absolute path; a repo chart by
       // repo/name. `--version` is meaningless for a local path, so it
-      // goes over the wire empty.
-      const chartArg = localChart
-        ? localChart.entry.path
-        : chart
-          ? `${chart.repo}/${chart.name}`
-          : '';
-      const res = await getProvider().helmRunOp({
-        op: 'install',
-        args: {
-          release: releaseName,
-          chart: chartArg,
-          version: localChart ? '' : selectedVersion,
-          namespace,
-          values,
-          dryRun: false,
-          createNamespace: createNs,
-        },
-      });
+      // goes over the wire empty. Install keeps its args minimal: the
+      // extra flags ride along only when the user actually set them.
+      const res = upgrade
+        ? await getProvider().helmRunOp({
+            op: 'upgrade',
+            args: {
+              release: releaseName,
+              chart: chartRef,
+              version: localDetail ? '' : selectedVersion,
+              namespace,
+              values,
+              dryRun: false,
+              reuseValues: false,
+              rollbackOnFailure: false,
+              createNamespace: createNs,
+              atomic,
+              force: false,
+              timeoutSecs,
+              set: null,
+            },
+          })
+        : await getProvider().helmRunOp({
+            op: 'install',
+            args: {
+              release: releaseName,
+              chart: chartRef,
+              version: localDetail ? '' : selectedVersion,
+              namespace,
+              values,
+              dryRun: false,
+              createNamespace: createNs,
+              ...(atomic ? { atomic: true } : {}),
+              ...(timeoutSecs !== null ? { timeoutSecs } : {}),
+            },
+          });
       setResult(res);
     } catch (e) {
       setResult({
-        op: 'install',
+        op: resultOp,
         release: releaseName,
         namespace,
         success: false,
@@ -199,9 +352,9 @@ export function HelmInstallWizard({
   return (
     <div className={styles.wizard}>
       <header className={styles.wizardHeader}>
-        <h2>{chart?.name ?? localChart?.entry.name ?? ''}</h2>
+        <h2>{chart?.name ?? localDetail?.entry.name ?? ''}</h2>
         <p className={styles.chartDesc}>
-          {chart?.description ?? localChart?.entry.description ?? ''}
+          {chart?.description ?? localDetail?.entry.description ?? ''}
         </p>
       </header>
 
@@ -210,7 +363,7 @@ export function HelmInstallWizard({
           <li
             key={s}
             className={s === step ? styles.stepActive : styles.step}
-            onClick={() => setStep(s)}
+            onClick={() => goto(s)}
           >
             {s === 'version' && t('helm.wizard.step.version', 'Version')}
             {s === 'values' && t('helm.wizard.step.values', 'Values')}
@@ -223,11 +376,21 @@ export function HelmInstallWizard({
         <div className={styles.wizardBody}>
           <label className={styles.field}>
             <span>{t('helm.wizard.releaseName', 'Release name')}</span>
-            <input value={releaseName} onChange={(e) => setReleaseName(e.target.value)} />
+            {/* Upgrade mode: the target release is chosen in the library
+                pane, so the prefilled name is read-only here. */}
+            <input
+              value={releaseName}
+              readOnly={upgrade}
+              onChange={(e) => setReleaseName(e.target.value)}
+            />
           </label>
           <label className={styles.field}>
             <span>{t('helm.wizard.namespace', 'Namespace')}</span>
-            <input value={namespace} onChange={(e) => setNamespace(e.target.value)} />
+            <input
+              value={namespace}
+              readOnly={upgrade}
+              onChange={(e) => setNamespace(e.target.value)}
+            />
           </label>
           <label className={styles.checkboxRow}>
             <input
@@ -237,12 +400,29 @@ export function HelmInstallWizard({
             />
             {t('helm.wizard.createNs', 'Create namespace if missing')}
           </label>
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={atomic}
+              onChange={(e) => setAtomic(e.target.checked)}
+            />
+            {t('helm.wizard.atomic', 'Roll back automatically on failure (--atomic)')}
+          </label>
+          <label className={styles.field}>
+            <span>{t('helm.wizard.timeout', 'Timeout (seconds; empty = helm default)')}</span>
+            <input
+              type="number"
+              min={0}
+              value={timeoutStr}
+              onChange={(e) => setTimeoutStr(e.target.value)}
+            />
+          </label>
           <label className={styles.field}>
             <span>{t('helm.wizard.version', 'Version')}</span>
-            {localChart ? (
+            {localDetail ? (
               // One package on disk — no list to choose from.
               <div className={styles.reviewRow}>
-                {localChart.entry.version} (app {localChart.entry.appVersion})
+                {localDetail.entry.version} (app {localDetail.entry.appVersion})
               </div>
             ) : (
               <select value={selectedVersion} onChange={(e) => setSelectedVersion(e.target.value)}>
@@ -255,7 +435,7 @@ export function HelmInstallWizard({
             )}
           </label>
           <div className={styles.wizardActions}>
-            <button className={styles.primary} onClick={() => setStep('values')}>
+            <button className={styles.primary} onClick={() => goto('values')}>
               {t('helm.wizard.next', 'Next')}
             </button>
           </div>
@@ -272,9 +452,38 @@ export function HelmInstallWizard({
               onChange={setValues}
             />
           </div>
+          <div className={styles.wizardActions} style={{ justifyContent: 'flex-start' }}>
+            <label className={styles.field}>
+              <span>{t('helm.profiles.load', 'Load profile')}</span>
+              <select value={profileSel} onChange={(e) => onPickProfile(e.target.value)}>
+                <option value="">{t('helm.profiles.none', 'None')}</option>
+                {profiles.map((p) => (
+                  <option key={p.name} value={p.name}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className={styles.field}>
+              <input
+                placeholder={t('helm.profiles.namePlaceholder', 'Profile name')}
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+              />
+            </div>
+            <button
+              className={styles.btn}
+              disabled={!profileName.trim()}
+              onClick={() => void saveProfile()}
+            >
+              {t('helm.profiles.save', 'Save as profile')}
+            </button>
+            {profileNote && <span className={styles.reviewRow}>{profileNote}</span>}
+            {profileErr && <span className={styles.error}>{profileErr}</span>}
+          </div>
           <div className={styles.wizardActions}>
-            <button onClick={() => setStep('version')}>{t('helm.wizard.back', 'Back')}</button>
-            <button className={styles.primary} onClick={() => setStep('review')}>
+            <button onClick={() => goto('version')}>{t('helm.wizard.back', 'Back')}</button>
+            <button className={styles.primary} onClick={() => goto('review')}>
               {t('helm.wizard.next', 'Next')}
             </button>
           </div>
@@ -291,23 +500,71 @@ export function HelmInstallWizard({
             {createNs && ' (create)'}
           </div>
           <div className={styles.reviewRow}>
-            <strong>{t('helm.wizard.chart', 'Chart')}:</strong>{' '}
-            {localChart
-              ? localChart.entry.path
-              : `${chart?.repo ?? ''}/${chart?.name ?? ''}@${selectedVersion}`}
+            <strong>{t('helm.wizard.chart', 'Chart')}:</strong> {chartRef || ''}
+            {!localDetail && `@${selectedVersion}`}
           </div>
+          <div className={styles.reviewRow}>
+            <strong>{t('helm.wizard.atomic', 'Roll back automatically on failure (--atomic)')}:</strong>{' '}
+            {atomic ? 'on' : 'off'}
+            {timeoutSecs !== null && ` · timeout ${timeoutSecs}s`}
+          </div>
+          {upgrade && (
+            <section>
+              <div className={styles.reviewRow}>
+                <strong>{t('helm.wizard.diffSection', 'Compare with current release')}</strong>
+                <button
+                  className={styles.btn}
+                  disabled={diffLoading || running}
+                  onClick={() => void loadDiff()}
+                >
+                  {t('helm.profiles.previewDiff', 'Preview diff vs current release')}
+                </button>
+              </div>
+              {diffErr && <div className={styles.error}>{diffErr}</div>}
+              {diffLoading && (
+                <div className={styles.reviewRow}>
+                  {t('helm.diff.loading', 'Fetching manifests...')}
+                </div>
+              )}
+              {diff !== null && (
+                <>
+                  {diff.length === 0 ? (
+                    <div className={styles.reviewRow}>
+                      {t('helm.diff.identical', 'Manifests are identical')}
+                    </div>
+                  ) : (
+                    <div className={diffStyles.diffView}>
+                      {diff.map((line, i) => (
+                        <DiffLineRow key={i} line={line} />
+                      ))}
+                    </div>
+                  )}
+                  <div className={styles.reviewRow}>
+                    {t(
+                      'helm.wizard.diffCaveat',
+                      'Rendered offline via helm template; metadata differences vs the upgrade dry-run manifest are expected.'
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+          )}
           <div className={styles.wizardActions}>
-            <button onClick={() => setStep('values')} disabled={running}>
+            <button onClick={() => goto('values')} disabled={running}>
               {t('helm.wizard.back', 'Back')}
             </button>
             <button
               className={styles.primary}
               disabled={running || !releaseName || !namespace}
-              onClick={doInstall}
+              onClick={doSubmit}
             >
               {running
-                ? t('helm.wizard.installing', 'Installing…')
-                : t('helm.wizard.install', 'Install')}
+                ? upgrade
+                  ? t('helm.wizard.upgrading', 'Upgrading…')
+                  : t('helm.wizard.installing', 'Installing…')
+                : upgrade
+                  ? t('helm.wizard.upgrade', 'Upgrade')
+                  : t('helm.wizard.install', 'Install')}
             </button>
           </div>
           <div className={styles.logs} ref={logsRef}>
@@ -329,6 +586,27 @@ export function HelmInstallWizard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** A single diff line with line numbers and +/- prefix — mirrors the row
+ * layout in HelmDiff.tsx / ChartVersionDiff.tsx so all diff surfaces read
+ * identically. */
+function DiffLineRow({ line }: { line: DiffLine }) {
+  const cls =
+    line.op === 'add'
+      ? diffStyles.lineAdd
+      : line.op === 'del'
+        ? diffStyles.lineDel
+        : diffStyles.lineSame;
+  const prefix = line.op === 'add' ? '+' : line.op === 'del' ? '-' : ' ';
+  return (
+    <div className={`${diffStyles.diffLine} ${cls}`}>
+      <span className={diffStyles.lineNumLeft}>{line.before ?? ''}</span>
+      <span className={diffStyles.lineNumRight}>{line.after ?? ''}</span>
+      <span className={diffStyles.linePrefix}>{prefix}</span>
+      <span className={diffStyles.lineText}>{line.text}</span>
     </div>
   );
 }

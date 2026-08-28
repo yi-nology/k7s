@@ -675,6 +675,8 @@ export interface Dictionary {
       upgradeNamespace: string;
       /** Review-step button: diff the render against the live release. */
       previewDiff: string;
+      /** Empty option of the load-profile select. */
+      none: string;
     };
     empty: { noMatch: string; noRepos: string };
     detail: { pickChart: string };
@@ -691,6 +693,18 @@ export interface Dictionary {
       install: string;
       done: string;
       invalidNamespace: string;
+      /** Submit button + in-flight label in upgrade mode. */
+      upgrade: string;
+      upgrading: string;
+      /** `--atomic` checkbox label. */
+      atomic: string;
+      /** Timeout input label (seconds; empty = helm default). */
+      timeout: string;
+      /** Review-step section header for the dry-run diff (upgrade mode). */
+      diffSection: string;
+      /** Caveat under the diff: helm template output vs upgrade dry-run
+       * manifest differ in metadata fields — expected. */
+      diffCaveat: string;
     };
     diff: {
       selectRevA: string;

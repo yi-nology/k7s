@@ -10,6 +10,7 @@ import { useRef, useState } from 'react';
 import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useProviderQuery } from '../../hooks/useProviderQuery';
+import { isValidHelmReleaseName, isValidNamespace } from '../../lib/security';
 import type { LocalChartDetail, LocalChartEntry, LocalChartFile } from '../../providers/types';
 import { EditorCore } from '../editor/EditorCore';
 import { ConfirmDialog } from '../common/ConfirmDialog';
@@ -50,6 +51,12 @@ export function LocalCharts() {
   const { t } = useTranslation();
   const [selected, setSelected] = useState<LocalChartDetail | null>(null);
   const [installing, setInstalling] = useState(false);
+  // Upgrade handoff: the small release/namespace form, then the wizard in
+  // upgrade mode once a valid release name is entered.
+  const [upgradeFormOpen, setUpgradeFormOpen] = useState(false);
+  const [upRelease, setUpRelease] = useState('');
+  const [upNamespace, setUpNamespace] = useState('default');
+  const [upgradeCfg, setUpgradeCfg] = useState<{ release: string; namespace: string } | null>(null);
   // Two-version diff swaps the whole detail pane (same pattern as the
   // install wizard handoff) — it compares any two library charts, so it
   // opens independently of the current selection.
@@ -105,6 +112,8 @@ export function LocalCharts() {
 
   const openDetail = async (entry: LocalChartEntry) => {
     setInstalling(false);
+    setUpgradeFormOpen(false);
+    setUpgradeCfg(null);
     setDiffOpen(false);
     setFileView(null);
     try {
@@ -114,6 +123,15 @@ export function LocalCharts() {
     } catch (e) {
       setError(formatError(e));
     }
+  };
+
+  const openUpgrade = () => {
+    // Client-side gate: the wizard also validates, but release/namespace
+    // arrive read-only there, so anything helm would reject must not even
+    // enter it.
+    if (!isValidHelmReleaseName(upRelease.trim())) return;
+    if (!isValidNamespace(upNamespace.trim())) return;
+    setUpgradeCfg({ release: upRelease.trim(), namespace: upNamespace.trim() || 'default' });
   };
 
   const openFile = async (f: LocalChartFile) => {
@@ -135,6 +153,8 @@ export function LocalCharts() {
       if (selected?.entry.id === entry.id) {
         setSelected(null);
         setInstalling(false);
+        setUpgradeFormOpen(false);
+        setUpgradeCfg(null);
         setDiffOpen(false);
         setFileView(null);
       }
@@ -222,6 +242,15 @@ export function LocalCharts() {
         {banner && <div className={styles.error}>{banner}</div>}
         {diffOpen ? (
           <ChartVersionDiff charts={charts} onClose={() => setDiffOpen(false)} />
+        ) : selected && upgradeCfg ? (
+          <HelmInstallWizard
+            localUpgrade={{
+              detail: selected,
+              release: upgradeCfg.release,
+              namespace: upgradeCfg.namespace,
+            }}
+            onDone={() => setUpgradeCfg(null)}
+          />
         ) : selected && installing ? (
           <HelmInstallWizard localChart={selected} onDone={() => setInstalling(false)} />
         ) : selected ? (
@@ -243,9 +272,46 @@ export function LocalCharts() {
               <p className={styles.localPath} title={selected.entry.path}>
                 {selected.entry.path}
               </p>
-              <button className={styles.primary} onClick={() => setInstalling(true)}>
-                {t('helm.local.detail.install', 'Install this chart')}
-              </button>
+              <div className={styles.wizardActions} style={{ justifyContent: 'flex-start' }}>
+                <button className={styles.primary} onClick={() => setInstalling(true)}>
+                  {t('helm.local.detail.install', 'Install this chart')}
+                </button>
+                <button
+                  className={styles.btn}
+                  onClick={() => setUpgradeFormOpen((v) => !v)}
+                >
+                  {t('helm.profiles.upgradeTitle', 'Upgrade existing release')}
+                </button>
+              </div>
+              {upgradeFormOpen && (
+                <div className={styles.wizardActions} style={{ justifyContent: 'flex-start' }}>
+                  <label className={styles.field}>
+                    <span>{t('helm.profiles.upgradeRelease', 'Release name')}</span>
+                    <input
+                      value={upRelease}
+                      placeholder="my-release"
+                      onChange={(e) => setUpRelease(e.target.value)}
+                    />
+                  </label>
+                  <label className={styles.field}>
+                    <span>{t('helm.profiles.upgradeNamespace', 'Namespace')}</span>
+                    <input
+                      value={upNamespace}
+                      onChange={(e) => setUpNamespace(e.target.value)}
+                    />
+                  </label>
+                  <button
+                    className={styles.primary}
+                    disabled={
+                      !isValidHelmReleaseName(upRelease.trim()) ||
+                      !isValidNamespace(upNamespace.trim())
+                    }
+                    onClick={openUpgrade}
+                  >
+                    {t('helm.wizard.upgrade', 'Upgrade')}
+                  </button>
+                </div>
+              )}
             </header>
             {/* Keyed by entry id: the values editor seeds from this chart's
                 defaults, so a different chart must remount the component. */}
