@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **本地 Chart 库（ChartOps 整合 P0）** — Helm 页新增「本地 Charts」：上传/浏览/删除
+  `.tgz` 与目录型 chart，查看文件树与 values，从本地包安装（helm 原生路径引用）；
+  web 上传走 `/api/charts/upload`（认证 + 90MB 路由上限 + 50MB 业务上限）；
+  helm install/upgrade 补 `--set`/`--atomic`/`--force`/自定义 `--timeout`/upgrade
+  `--create-namespace`。
+
 ## v0.6.0 (2026-08-28)
 
 以 2026-08-27 全库评审为依据的完整加固版本（P0 安全止血 → P3 MCP 工具面质量，详见 [docs/ROADMAP.md](docs/ROADMAP.md)）。

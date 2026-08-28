@@ -74,7 +74,7 @@ export function LocalCharts() {
       return;
     }
     if (!file.name.endsWith('.tgz') && !file.name.endsWith('.tar.gz')) {
-      setError(t('helm.local.detail.invalidFile', 'Only .tgz files are accepted'));
+      setError(t('helm.local.detail.invalidFile', 'Only .tgz / .tar.gz files are accepted'));
       reset();
       return;
     }

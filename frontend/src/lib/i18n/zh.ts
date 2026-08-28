@@ -567,7 +567,6 @@ export const zh: Dictionary = {
       },
     },
     local: {
-      tab: '本地 Charts',
       upload: '上传 .tgz',
       uploading: '上传中…',
       empty: '本地库为空 — 上传一个 .tgz 开始',
@@ -579,7 +578,7 @@ export const zh: Dictionary = {
         values: 'Values',
         readme: 'README',
         install: '安装此 chart',
-        invalidFile: '仅接受 .tgz 文件',
+        invalidFile: '仅接受 .tgz / .tar.gz 文件',
       },
     },
     empty: {

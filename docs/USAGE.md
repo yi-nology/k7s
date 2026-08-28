@@ -110,6 +110,17 @@ docker run -d --name k7s \
 | 排空节点 | 节点行菜单 → Drain（遵守 PDB） |
 | 模板部署 | 「新建」→ 多文档 YAML 模板 / Helm 市场 |
 
+### Helm 市场与本地 Charts 库
+
+Helm 市场除浏览仓库 chart 外，提供「本地 Charts」tab——一个落在 `<data_dir>/charts/` 的本地 chart 库：
+
+- **上传**：选择 `.tgz` / `.tar.gz` 包（≤50MB，且需为合法 gzip），入库时自动解析 Chart.yaml；web 模式走认证路由 `POST /api/charts/upload`（90MB 路由上限 + 50MB 业务上限）。
+- **目录型 chart**：无需打包，把含 `Chart.yaml` 的目录直接放到 `<data_dir>/charts/` 下即可被扫描识别。
+- **浏览与详情**：列表支持删除；详情面板可查看文件树、values 与 README。
+- **从本地 chart 安装/升级**：详情 →「安装此 chart」进入向导，chart 引用即本地包的绝对路径（helm 原生路径引用），命名空间、values 编辑等向导能力与仓库 chart 一致。
+- **安装/升级开关**：helm install/upgrade 支持 `--set` 覆盖、`--atomic`（失败自动回滚）、`--force`、自定义 `--timeout`；upgrade 另支持 `--create-namespace`。
+- **审计**：入库与删除分别写入 `local_chart_import` / `local_chart_remove` 审计事件。
+
 ## 5. 网络诊断
 
 「运维工具 → 网络诊断」：

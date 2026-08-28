@@ -148,7 +148,7 @@ describe('LocalCharts', () => {
     pickFile(new TextEncoder().encode('x'), 'notes.txt');
     await settle(50);
     expect(mocks.localChartUpload).not.toHaveBeenCalled();
-    expect(view.queryByText('Only .tgz files are accepted')).not.toBeNull();
+    expect(view.queryByText('Only .tgz / .tar.gz files are accepted')).not.toBeNull();
   });
 
   it('uploads a picked tgz as base64 and refreshes the list', async () => {

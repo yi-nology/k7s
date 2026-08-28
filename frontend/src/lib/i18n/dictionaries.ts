@@ -627,7 +627,6 @@ export interface Dictionary {
     };
     /** Local chart library tab (`<data_dir>/charts`). */
     local: {
-      tab: string;
       upload: string;
       uploading: string;
       empty: string;

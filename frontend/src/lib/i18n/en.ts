@@ -568,7 +568,6 @@ export const en: Dictionary = {
       },
     },
     local: {
-      tab: 'Local Charts',
       upload: 'Upload .tgz',
       uploading: 'Uploading…',
       empty: 'No local charts — upload a .tgz to get started',
@@ -580,7 +579,7 @@ export const en: Dictionary = {
         values: 'Values',
         readme: 'README',
         install: 'Install this chart',
-        invalidFile: 'Only .tgz files are accepted',
+        invalidFile: 'Only .tgz / .tar.gz files are accepted',
       },
     },
     empty: {
