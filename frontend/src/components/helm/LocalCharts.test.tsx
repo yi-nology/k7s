@@ -62,6 +62,7 @@ const mocks = vi.hoisted(() => ({
   onHelmOpDone: vi.fn(),
   helmReleaseHistory: vi.fn(),
   helmManifestRevision: vi.fn(),
+  helmValuesRevision: vi.fn(),
   helmRenderPreview: vi.fn(),
   helmProfileList: vi.fn(),
   helmProfileSave: vi.fn(),
@@ -84,6 +85,7 @@ vi.mock('../../providers', async (importOriginal) => {
       onHelmOpDone: mocks.onHelmOpDone,
       helmReleaseHistory: mocks.helmReleaseHistory,
       helmManifestRevision: mocks.helmManifestRevision,
+      helmValuesRevision: mocks.helmValuesRevision,
       helmRenderPreview: mocks.helmRenderPreview,
       helmProfileList: mocks.helmProfileList,
       helmProfileSave: mocks.helmProfileSave,
@@ -135,6 +137,7 @@ beforeEach(() => {
   mocks.onHelmOpDone.mockReset().mockReturnValue(() => {});
   mocks.helmReleaseHistory.mockReset().mockResolvedValue([]);
   mocks.helmManifestRevision.mockReset().mockResolvedValue('');
+  mocks.helmValuesRevision.mockReset().mockResolvedValue({});
   mocks.helmRenderPreview.mockReset().mockResolvedValue('');
   mocks.helmProfileList.mockReset().mockResolvedValue([]);
   mocks.helmProfileSave.mockReset().mockResolvedValue([]);

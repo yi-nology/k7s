@@ -4,6 +4,9 @@
  * Covers: rendering, step navigation, version selection, namespace input,
  * install button, review step. A second suite covers the local-chart
  * source (library entry): no version fetch, seeded values, path install.
+ * A third covers upgrade mode: prefilled release/namespace, values
+ * prefilled from the release's current user-supplied values (with a
+ * values.yaml fallback), path upgrade, and the review-step diff.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -40,6 +43,7 @@ const providerMocks = vi.hoisted(() => ({
   onHelmOpDone: vi.fn(),
   helmReleaseHistory: vi.fn(),
   helmManifestRevision: vi.fn(),
+  helmValuesRevision: vi.fn(),
   helmRenderPreview: vi.fn(),
   helmProfileList: vi.fn(),
   helmProfileSave: vi.fn(),
@@ -56,6 +60,7 @@ vi.mock('../../providers', async (importOriginal) => {
       onHelmOpDone: providerMocks.onHelmOpDone,
       helmReleaseHistory: providerMocks.helmReleaseHistory,
       helmManifestRevision: providerMocks.helmManifestRevision,
+      helmValuesRevision: providerMocks.helmValuesRevision,
       helmRenderPreview: providerMocks.helmRenderPreview,
       helmProfileList: providerMocks.helmProfileList,
       helmProfileSave: providerMocks.helmProfileSave,
@@ -98,6 +103,10 @@ beforeEach(() => {
   providerMocks.onHelmOpDone.mockReset().mockReturnValue(() => {});
   providerMocks.helmReleaseHistory.mockReset().mockResolvedValue([]);
   providerMocks.helmManifestRevision.mockReset().mockResolvedValue('');
+  // Upgrade-mode prefill: resolves to the release's user-supplied values.
+  // `{ replicaCount: 2 }` serialises to exactly the YAML the upgrade-suite
+  // expectations below were written against.
+  providerMocks.helmValuesRevision.mockReset().mockResolvedValue({ replicaCount: 2 });
   providerMocks.helmRenderPreview.mockReset().mockResolvedValue('');
   providerMocks.helmProfileList.mockReset().mockResolvedValue([]);
   providerMocks.helmProfileSave.mockReset().mockResolvedValue([]);
@@ -359,6 +368,52 @@ describe('HelmInstallWizard (upgrade mode)', () => {
     expect(release.readOnly).toBe(true);
     expect(ns.value).toBe('web');
     expect(ns.readOnly).toBe(true);
+  });
+
+  it('prefills the values editor with the release current values, not the chart defaults', async () => {
+    providerMocks.helmReleaseHistory.mockResolvedValue([
+      {
+        revision: 3,
+        updated: '2026-08-27T00:00:00Z',
+        status: 'deployed',
+        chart: 'demo-0.9.0',
+        appVersion: '0.9.0',
+        description: 'Install complete',
+      },
+    ]);
+    // Deliberately different from the new package's valuesYaml
+    // (`replicaCount: 2`) — the release's own overrides must win.
+    providerMocks.helmValuesRevision.mockResolvedValue({
+      replicaCount: 5,
+      image: { tag: 'v9' },
+    });
+    await renderToValues();
+    // The revision to read comes from the newest history entry.
+    expect(providerMocks.helmReleaseHistory).toHaveBeenCalledWith('demo', 'web');
+    expect(providerMocks.helmValuesRevision).toHaveBeenCalledWith('web', 'demo', 3);
+    const textarea = view.container.querySelector('textarea');
+    expect(textarea).not.toBeNull();
+    expect((textarea as HTMLTextAreaElement).value).toBe(
+      'replicaCount: 5\nimage:\n  tag: v9\n'
+    );
+  });
+
+  it('falls back to the new package values.yaml when the release fetch fails', async () => {
+    providerMocks.helmReleaseHistory.mockResolvedValue([
+      {
+        revision: 3,
+        updated: '',
+        status: 'deployed',
+        chart: 'demo-0.9.0',
+        appVersion: '0.9.0',
+        description: '',
+      },
+    ]);
+    providerMocks.helmValuesRevision.mockRejectedValue(new Error('revision gone'));
+    await renderToValues();
+    const textarea = view.container.querySelector('textarea');
+    expect(textarea).not.toBeNull();
+    expect((textarea as HTMLTextAreaElement).value).toBe('replicaCount: 2\n');
   });
 
   it('submits op upgrade with chart=path and an empty version', async () => {

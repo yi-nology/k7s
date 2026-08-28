@@ -50,8 +50,9 @@ export interface HelmInstallArgs {
   version: string;
   namespace: string;
   kubeconfig?: string;
-  /** Rendered values.yaml. Sent over the wire as a file path the backend
-   * already wrote; the helpers in helm/runOp handle that translation. */
+  /** Values YAML text ('' = chart defaults). The backend writes it to a
+   * temp file and passes the path to helm; the TS side never materializes
+   * a file. */
   values: string;
   dryRun: boolean;
   createNamespace: boolean;

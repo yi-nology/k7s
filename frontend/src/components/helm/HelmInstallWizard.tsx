@@ -17,10 +17,13 @@
  * row, values seeded from the detail payload, and the absolute path as
  * the install reference; `localUpgrade` points at an existing release to
  * upgrade with the library package — release/namespace arrive prefilled
- * read-only, and the review step can diff the offline render against the
+ * read-only, the values step prefills the release's current user-supplied
+ * values (falling back to the new package's values.yaml on fetch error),
+ * and the review step can diff the offline render against the
  * live release's current manifest.
  */
 import { useEffect, useRef, useState } from 'react';
+import { stringify } from 'yaml';
 import { formatError, getProvider } from '../../providers';
 import { useAsyncEffect } from '../../hooks/useAsyncEffect';
 import type {
@@ -70,7 +73,9 @@ export function HelmInstallWizard({
   const [namespace, setNamespace] = useState(localUpgrade?.namespace ?? 'default');
   // A library chart ships its values.yaml with the detail payload, so it
   // seeds the editor directly; repo charts load theirs on the values step.
-  const [values, setValues] = useState(localDetail?.valuesYaml ?? '');
+  // Upgrade mode starts empty instead — the values step there prefills
+  // the release's current user-supplied values, not the new package's.
+  const [values, setValues] = useState(localChart?.valuesYaml ?? '');
   const [createNs, setCreateNs] = useState(false);
   const [atomic, setAtomic] = useState(false);
   // Text until submit/save — '' means "helm default" (no --timeout).
@@ -148,6 +153,35 @@ export function HelmInstallWizard({
       .then(setValues)
       .catch((e: unknown) => setValues(`# error loading defaults: ${String(e)}\n`));
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, selectedVersion]);
+
+  // Upgrade mode: the values step prefills the release's current
+  // user-supplied values (spec §4.6), not the new package's defaults —
+  // reuseValues stays false, so this prefill is what carries the release's
+  // prior customizations into the upgrade instead of reverting them on the
+  // first run. Entering with values already loaded (user edits included)
+  // is a no-op; a failed fetch falls back to the new package's values.yaml.
+  useAsyncEffect(async (isMounted) => {
+    if (step !== 'values' || !localUpgrade || values) return;
+    try {
+      const hist = await getProvider().helmReleaseHistory(
+        localUpgrade.release,
+        localUpgrade.namespace
+      );
+      const rev = hist[0]?.revision;
+      if (rev === undefined) throw new Error('release has no revisions');
+      const raw = await getProvider().helmValuesRevision(
+        localUpgrade.namespace,
+        localUpgrade.release,
+        rev
+      );
+      if (!isMounted()) return;
+      // The backend hands back the release config as a JSON value; the
+      // editor and the op args both want values.yaml text.
+      setValues(typeof raw === 'string' ? raw : stringify(raw ?? {}));
+    } catch {
+      if (isMounted()) setValues(localUpgrade.detail.valuesYaml);
+    }
   }, [step, selectedVersion]);
 
   // Load the saved profiles for this chart when the values step opens. A
