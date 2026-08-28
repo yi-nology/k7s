@@ -11,7 +11,12 @@ import { formatError, getProvider } from '../../providers';
 import { useTranslation } from '../../hooks/useI18n';
 import { useProviderQuery } from '../../hooks/useProviderQuery';
 import { isValidHelmReleaseName, isValidNamespace } from '../../lib/security';
-import type { LocalChartDetail, LocalChartEntry, LocalChartFile } from '../../providers/types';
+import type {
+  ChartDepsAction,
+  LocalChartDetail,
+  LocalChartEntry,
+  LocalChartFile,
+} from '../../providers/types';
 import { EditorCore } from '../editor/EditorCore';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ChartRenderPreview } from './ChartRenderPreview';
@@ -78,6 +83,16 @@ export function LocalCharts() {
   // mounting stale content (same pattern as the wizard's diffReqRef).
   const viewReqRef = useRef(0);
 
+  // ---- toolbox (lint / verify / package / deps) ----
+  // One busy flag for the whole row: every action shells out to a helm CLI
+  // invocation on the backend, and only one should run at a time. Output is
+  // plain text shown read-only; package instead reports via a notice (there
+  // is no report to read — the archive simply lands in the library).
+  const [toolBusy, setToolBusy] = useState(false);
+  const [toolOutput, setToolOutput] = useState<string | null>(null);
+  const [toolNotice, setToolNotice] = useState('');
+  const [depsAction, setDepsAction] = useState<ChartDepsAction>('list');
+
   const listQuery = useProviderQuery<LocalChartEntry[]>({
     query: () => getProvider().localChartsList(),
     deps: [],
@@ -122,6 +137,10 @@ export function LocalCharts() {
     setUpgradeCfg(null);
     setDiffOpen(false);
     setFileView(null);
+    setToolBusy(false);
+    setToolOutput(null);
+    setToolNotice('');
+    setDepsAction('list');
     try {
       const detail = await getProvider().localChartDetail(entry.id);
       if (req !== viewReqRef.current) return; // a newer fetch superseded this one
@@ -175,6 +194,50 @@ export function LocalCharts() {
       setError(formatError(e));
     }
   };
+
+  /**
+   * Run one toolbox action against the selected chart. The shared viewReqRef
+   * guard covers tools too: picking another chart (or file, or firing another
+   * action) bumps the id, so a slow run that resolves afterwards drops its
+   * result instead of polluting the newer view. Lint failures (and any helm
+   * error) reject — they land in the shared error banner; warnings arrive in
+   * the resolved report text and simply show as output.
+   */
+  const runTool = async (run: (id: string) => Promise<{ output?: string; notice?: string }>) => {
+    if (!selected || toolBusy) return;
+    const req = ++viewReqRef.current;
+    setToolBusy(true);
+    setError('');
+    setToolNotice('');
+    setToolOutput(null);
+    try {
+      const outcome = await run(selected.entry.id);
+      if (req !== viewReqRef.current) return; // a newer action/selection superseded this run
+      if (outcome.output !== undefined) setToolOutput(outcome.output);
+      if (outcome.notice) setToolNotice(outcome.notice);
+    } catch (e) {
+      if (req !== viewReqRef.current) return;
+      setError(formatError(e));
+    } finally {
+      if (req === viewReqRef.current) setToolBusy(false);
+    }
+  };
+
+  const runLint = () =>
+    runTool(async (id) => ({ output: await getProvider().localChartLint(id) }));
+  const runVerify = () =>
+    runTool(async (id) => ({ output: await getProvider().localChartVerify(id) }));
+  const runDeps = () =>
+    runTool(async (id) => ({ output: await getProvider().localChartDeps(id, depsAction) }));
+  const runPackage = () =>
+    runTool(async (id) => {
+      const fresh = await getProvider().localChartPackage(id);
+      // The library grew by one archive — refetch so it appears in the list.
+      listQuery.reload();
+      return {
+        notice: `${t('helm.local.tools.packaged', 'Packaged to library')}: ${fresh.id}`,
+      };
+    });
 
   return (
     <>
@@ -325,6 +388,65 @@ export function LocalCharts() {
                 </div>
               )}
             </header>
+            {/* Toolbox: one row of helm CLI helpers over this chart. Verify
+                only works on packages (a directory has no provenance file);
+                Package only on directories (a .tgz is already packaged). */}
+            <section>
+              <h3>{t('helm.local.tools.title', 'Toolbox')}</h3>
+              <div className={styles.wizardActions} style={{ justifyContent: 'flex-start' }}>
+                <button
+                  className={styles.btn}
+                  disabled={toolBusy}
+                  onClick={() => void runLint()}
+                >
+                  {t('helm.local.tools.lint', 'Lint')}
+                </button>
+                <button
+                  className={styles.btn}
+                  disabled={toolBusy || selected.entry.kind === 'dir'}
+                  title={
+                    selected.entry.kind === 'dir'
+                      ? t('helm.local.tools.onlyTgz', 'Packaged charts only')
+                      : undefined
+                  }
+                  onClick={() => void runVerify()}
+                >
+                  {t('helm.local.tools.verify', 'Verify')}
+                </button>
+                <button
+                  className={styles.btn}
+                  disabled={toolBusy || selected.entry.kind === 'tgz'}
+                  title={
+                    selected.entry.kind === 'tgz'
+                      ? t('helm.local.tools.onlyDir', 'Directory charts only')
+                      : undefined
+                  }
+                  onClick={() => void runPackage()}
+                >
+                  {t('helm.local.tools.package', 'Package')}
+                </button>
+                <label className={styles.field}>
+                  <span>{t('helm.local.tools.deps', 'Dependencies')}</span>
+                  <select
+                    value={depsAction}
+                    onChange={(e) => setDepsAction(e.target.value as ChartDepsAction)}
+                  >
+                    <option value="list">{t('helm.local.tools.depsList', 'List')}</option>
+                    <option value="build">{t('helm.local.tools.depsBuild', 'Build')}</option>
+                    <option value="update">{t('helm.local.tools.depsUpdate', 'Update')}</option>
+                  </select>
+                </label>
+                <button
+                  className={styles.btn}
+                  disabled={toolBusy}
+                  onClick={() => void runDeps()}
+                >
+                  {t('helm.local.tools.run', 'Run')}
+                </button>
+              </div>
+              {toolNotice && <p className={styles.localPath}>{toolNotice}</p>}
+              {toolOutput !== null && <pre className={styles.localReadme}>{toolOutput}</pre>}
+            </section>
             {/* Keyed by entry id: the values editor seeds from this chart's
                 defaults, so a different chart must remount the component. */}
             <section>

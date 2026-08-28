@@ -47,6 +47,33 @@ const detail: LocalChartDetail = {
   readme: '# demo chart readme\n',
 };
 
+/** An unpacked directory chart — the only kind `helm package` accepts, and
+ * the kind `helm verify` refuses. */
+const dirEntry: LocalChartEntry = {
+  ...entry,
+  id: 'demo-src',
+  kind: 'dir',
+  name: 'demo-src',
+  version: '0.9.0',
+  path: '/data/charts/demo-src',
+};
+
+const dirDetail: LocalChartDetail = {
+  entry: dirEntry,
+  files: [{ path: 'demo-src/Chart.yaml', sizeBytes: 200, isDir: false }],
+  chartYaml: 'apiVersion: v2\nname: demo-src\nversion: 0.9.0\n',
+  valuesYaml: 'replicaCount: 1\n',
+  readme: '',
+};
+
+/** What `localChartPackage` returns for the directory chart. */
+const packagedEntry: LocalChartEntry = {
+  ...dirEntry,
+  id: 'demo-src-0.9.0.tgz',
+  kind: 'tgz',
+  path: '/data/charts/demo-src-0.9.0.tgz',
+};
+
 // vi.hoisted so the (hoisted) vi.mock factory can reference the fns.
 const mocks = vi.hoisted(() => ({
   localChartsList: vi.fn(),
@@ -54,6 +81,11 @@ const mocks = vi.hoisted(() => ({
   localChartFile: vi.fn(),
   localChartUpload: vi.fn(),
   localChartRemove: vi.fn(),
+  // Toolbox actions (lint / verify / package / deps).
+  localChartLint: vi.fn(),
+  localChartVerify: vi.fn(),
+  localChartPackage: vi.fn(),
+  localChartDeps: vi.fn(),
   // The install/upgrade wizard consumes these once handed off.
   helmChartVersions: vi.fn(),
   helmRenderDefaultValues: vi.fn(),
@@ -78,6 +110,10 @@ vi.mock('../../providers', async (importOriginal) => {
       localChartFile: mocks.localChartFile,
       localChartUpload: mocks.localChartUpload,
       localChartRemove: mocks.localChartRemove,
+      localChartLint: mocks.localChartLint,
+      localChartVerify: mocks.localChartVerify,
+      localChartPackage: mocks.localChartPackage,
+      localChartDeps: mocks.localChartDeps,
       helmChartVersions: mocks.helmChartVersions,
       helmRenderDefaultValues: mocks.helmRenderDefaultValues,
       helmRunOp: mocks.helmRunOp,
@@ -104,6 +140,14 @@ function resetStore() {
 /** Async settle helper — the harness has no waitFor. */
 const settle = (ms = 100) => new Promise((r) => setTimeout(r, ms));
 
+/** Pick an option in a <select> (the shared `change` helper targets inputs). */
+function choose(select: HTMLSelectElement, value: string) {
+  act(() => {
+    select.value = value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
 /** Simulate the user picking a file in the hidden upload input. jsdom's
  * File does not implement Blob.arrayBuffer(), so it is stubbed with the
  * source bytes (browsers have it natively). */
@@ -128,6 +172,10 @@ beforeEach(() => {
   mocks.localChartFile.mockReset().mockResolvedValue('apiVersion: v2\n');
   mocks.localChartUpload.mockReset().mockResolvedValue(entry);
   mocks.localChartRemove.mockReset().mockResolvedValue(undefined);
+  mocks.localChartLint.mockReset().mockResolvedValue('1 chart(s) linted, 0 chart(s) with failures');
+  mocks.localChartVerify.mockReset().mockResolvedValue('Signature is valid');
+  mocks.localChartPackage.mockReset().mockResolvedValue(packagedEntry);
+  mocks.localChartDeps.mockReset().mockResolvedValue('No dependencies found');
   mocks.helmChartVersions.mockReset().mockResolvedValue([]);
   mocks.helmRenderDefaultValues.mockReset().mockResolvedValue('');
   mocks.helmRunOp
@@ -399,5 +447,95 @@ describe('LocalCharts', () => {
     });
     await settle(50);
     expect(mocks.localChartRemove).not.toHaveBeenCalled();
+  });
+
+  // ---- toolbox: lint / verify / package / deps ----
+
+  it('runs Lint from the toolbox and shows the report', async () => {
+    mocks.localChartLint.mockResolvedValue(
+      '==> Linting chart demo\n\n1 chart(s) linted, 0 chart(s) with failures'
+    );
+    view = render(<LocalCharts />);
+    await settle();
+    view.click(view.getByText('demo'));
+    await settle();
+    view.click(view.getByText('Lint'));
+    await settle(50);
+    expect(mocks.localChartLint).toHaveBeenCalledWith('demo-1.0.0.tgz');
+    expect(
+      view.queryByText('==> Linting chart demo\n\n1 chart(s) linted, 0 chart(s) with failures')
+    ).not.toBeNull();
+  });
+
+  it('shows a lint failure as the error banner, not as output', async () => {
+    mocks.localChartLint.mockRejectedValue(new Error('[ERROR] values.yaml: missing image'));
+    view = render(<LocalCharts />);
+    await settle();
+    view.click(view.getByText('demo'));
+    await settle();
+    view.click(view.getByText('Lint'));
+    await settle(50);
+    expect(view.queryByText(/missing image/)).not.toBeNull();
+    expect(view.queryByText('1 chart(s) linted, 0 chart(s) with failures')).toBeNull();
+  });
+
+  it('disables Verify for directory charts and Package for packaged ones', async () => {
+    mocks.localChartsList.mockResolvedValue([entry, dirEntry]);
+    mocks.localChartDetail.mockImplementation(async (id: string) =>
+      id === 'demo-src' ? dirDetail : detail
+    );
+    view = render(<LocalCharts />);
+    await settle();
+    // tgz chart: Verify enabled, Package disabled (already packaged).
+    view.click(view.getByText('demo'));
+    await settle();
+    expect(
+      (view.getByText('Verify') as HTMLButtonElement).hasAttribute('disabled')
+    ).toBe(false);
+    expect(
+      (view.getByText('Package') as HTMLButtonElement).hasAttribute('disabled')
+    ).toBe(true);
+    // dir chart: the reverse — Verify refuses a directory, Package is the point.
+    view.click(view.getByText('demo-src'));
+    await settle();
+    expect(
+      (view.getByText('Verify') as HTMLButtonElement).hasAttribute('disabled')
+    ).toBe(true);
+    expect(
+      (view.getByText('Package') as HTMLButtonElement).hasAttribute('disabled')
+    ).toBe(false);
+    view.click(view.getByText('Verify'));
+    await settle(50);
+    expect(mocks.localChartVerify).not.toHaveBeenCalled();
+  });
+
+  it('packages a directory chart, refreshes the list and names the new archive', async () => {
+    mocks.localChartsList.mockResolvedValue([dirEntry]);
+    mocks.localChartDetail.mockResolvedValue(dirDetail);
+    view = render(<LocalCharts />);
+    await settle();
+    view.click(view.getByText('demo-src'));
+    await settle();
+    view.click(view.getByText('Package'));
+    await settle(50);
+    expect(mocks.localChartPackage).toHaveBeenCalledWith('demo-src');
+    // Mount fetch + post-package refetch.
+    expect(mocks.localChartsList).toHaveBeenCalledTimes(2);
+    expect(view.queryByText('Packaged to library: demo-src-0.9.0.tgz')).not.toBeNull();
+  });
+
+  it('runs the selected dependency action', async () => {
+    mocks.localChartDeps.mockResolvedValue('No dependencies to build');
+    view = render(<LocalCharts />);
+    await settle();
+    view.click(view.getByText('demo'));
+    await settle();
+    const select = view.querySelector('select') as HTMLSelectElement;
+    expect(select.value).toBe('list');
+    choose(select, 'build');
+    view.click(view.getByText('Run'));
+    await settle(50);
+    expect(mocks.localChartDeps).toHaveBeenCalledWith('demo-1.0.0.tgz', 'build');
+    expect(view.queryByText('No dependencies to build')).not.toBeNull();
   });
 });

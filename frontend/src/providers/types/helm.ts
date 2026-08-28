@@ -134,6 +134,12 @@ export interface LocalChartEntry {
   sizeBytes: number;
   modifiedAt: string;
 }
+
+/** The `helm dependency` verb for the local-chart toolbox. Lowercase — this
+ * is the wire shape the backend's `local::DepsAction` deserializes; an
+ * unknown verb is a wire error. */
+export type ChartDepsAction = 'list' | 'build' | 'update';
+
 export interface LocalChartFile {
   path: string;
   sizeBytes: number;

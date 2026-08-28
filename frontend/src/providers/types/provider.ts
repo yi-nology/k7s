@@ -35,6 +35,7 @@ import type {
   YamlDiff,
 } from './kubernetes';
 import type {
+  ChartDepsAction,
   HelmChartSummary,
   HelmChartVersionEntry,
   HelmOp,
@@ -325,6 +326,28 @@ export interface DataProvider {
   /** Web: dedicated 90MB route; Tauri: the registry command. Same shape. */
   localChartUpload(filename: string, contentBase64: string): Promise<LocalChartEntry>;
   localChartRemove(id: string): Promise<void>;
+  /**
+   * `helm lint` a library chart; resolves with the report text. WARNING-level
+   * findings arrive in the resolved output; FAILURE-level ones reject with
+   * helm's stderr in the message.
+   */
+  localChartLint(id: string): Promise<string>;
+  /**
+   * `helm verify` a library chart's provenance. Packaged (.tgz) charts only —
+   * the backend rejects directory charts.
+   */
+  localChartVerify(id: string): Promise<string>;
+  /**
+   * `helm package` an unpacked directory chart into the library; resolves
+   * with the fresh archive's entry. Rejects for .tgz entries ("already
+   * packaged") and refreshes nothing — the caller refetches the list.
+   */
+  localChartPackage(id: string): Promise<LocalChartEntry>;
+  /**
+   * `helm dependency list|build|update` on a library chart; resolves with
+   * the command output text.
+   */
+  localChartDeps(id: string, action: ChartDepsAction): Promise<string>;
   /** Default values.yaml from the chart itself (via `helm show values`). */
   helmRenderDefaultValues(chart: string, version: string, kubeconfig?: string): Promise<string>;
   /** Run install/upgrade/uninstall/rollback to completion. Live logs and the

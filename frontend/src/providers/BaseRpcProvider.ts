@@ -28,6 +28,7 @@ import type {
   ArchiveInfo,
   ContextInfo,
   DashboardPreset,
+  ChartDepsAction,
   EndpointAddress,
   EndpointRow,
   GrafanaConfig,
@@ -216,6 +217,19 @@ export abstract class BaseRpcProvider {
   }
   localChartRemove(id: string): Promise<void> {
     return this.rpc<void>('local_chart_remove', { id });
+  }
+  /** Chart toolbox — plain helm CLI invocations against one library entry. */
+  localChartLint(id: string): Promise<string> {
+    return this.rpc<string>('local_chart_lint', { id });
+  }
+  localChartVerify(id: string): Promise<string> {
+    return this.rpc<string>('local_chart_verify', { id });
+  }
+  localChartPackage(id: string): Promise<LocalChartEntry> {
+    return this.rpc<LocalChartEntry>('local_chart_package', { id });
+  }
+  localChartDeps(id: string, action: ChartDepsAction): Promise<string> {
+    return this.rpc<string>('local_chart_deps', { id, action });
   }
   helmRunOp(op: HelmOp): Promise<HelmOpResult> {
     // Both transports take the whole enum object nested under `op`: the web

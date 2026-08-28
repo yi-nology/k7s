@@ -3,6 +3,7 @@
  */
 
 import type {
+  ChartDepsAction,
   HelmChartSummary,
   HelmChartVersionEntry,
   HelmOp,
@@ -16,7 +17,9 @@ import type {
   Unsub,
 } from '../types';
 
-/** The demo local chart library (`<data_dir>/charts` in demo mode). */
+/** The demo local chart library (`<data_dir>/charts` in demo mode). One
+ * packaged chart and one unpacked directory, so both toolbox halves (verify
+ * vs package) have something to act on. */
 const localCharts: LocalChartEntry[] = [
   {
     id: 'demo-app-1.1.0.tgz',
@@ -28,6 +31,18 @@ const localCharts: LocalChartEntry[] = [
     icon: '',
     path: '/tmp/demo-app-1.1.0.tgz',
     sizeBytes: 2048,
+    modifiedAt: '2026-08-28T00:00:00Z',
+  },
+  {
+    id: 'demo-src',
+    kind: 'dir',
+    name: 'demo-src',
+    version: '0.9.0',
+    appVersion: '0.9.0',
+    description: 'unpacked demo chart source',
+    icon: '',
+    path: '/tmp/demo-src',
+    sizeBytes: 4096,
     modifiedAt: '2026-08-28T00:00:00Z',
   },
 ];
@@ -215,6 +230,46 @@ export class MockHelmMixin {
   }
 
   async localChartRemove(_id: string): Promise<void> {}
+
+  // ---- chart toolbox (canned helm CLI output) ----
+
+  async localChartLint(id: string): Promise<string> {
+    const entry = localCharts.find((c) => c.id === id) ?? localCharts[0];
+    return `==> Linting chart ${entry.name}\n\n1 chart(s) linted, 0 chart(s) with failures`;
+  }
+
+  async localChartVerify(_id: string): Promise<string> {
+    return 'Signature is valid';
+  }
+
+  async localChartPackage(id: string): Promise<LocalChartEntry> {
+    const entry = localCharts.find((c) => c.id === id);
+    if (!entry) throw new Error(`chart ${id} not found`);
+    // Mirror the backend: an already-packaged chart has nothing to package.
+    if (entry.kind === 'tgz') throw new Error('already packaged');
+    const fresh: LocalChartEntry = {
+      ...entry,
+      id: `${entry.name}-${entry.version}.tgz`,
+      kind: 'tgz',
+      path: `/tmp/${entry.name}-${entry.version}.tgz`,
+      sizeBytes: 2048,
+      modifiedAt: new Date().toISOString(),
+    };
+    localCharts.push(fresh);
+    return fresh;
+  }
+
+  async localChartDeps(_id: string, action: ChartDepsAction): Promise<string> {
+    // The demo charts declare no dependencies, so every verb is a no-op.
+    switch (action) {
+      case 'list':
+        return 'No dependencies found';
+      case 'build':
+        return 'No dependencies to build — the chart declares none';
+      case 'update':
+        return 'No dependencies to update — the chart declares none';
+    }
+  }
 
   async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
     return '# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n';

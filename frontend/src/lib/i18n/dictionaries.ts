@@ -656,6 +656,29 @@ export interface Dictionary {
         pickB: string;
         identical: string;
       };
+      /** Chart toolbox — one-row helm CLI helpers (lint / verify / package /
+       * dependency actions) with a read-only output area. */
+      tools: {
+        title: string;
+        lint: string;
+        verify: string;
+        package: string;
+        /** Label above the action picker for `helm dependency <verb>`. */
+        deps: string;
+        depsList: string;
+        depsBuild: string;
+        depsUpdate: string;
+        /** Button that runs the picked dependency action. */
+        run: string;
+        /** `title=` on the disabled Verify button (directory charts cannot be
+         * provenance-verified — only .tgz packages carry a provenance file). */
+        onlyTgz: string;
+        /** `title=` on the disabled Package button (a .tgz entry is already
+         * packaged; the backend rejects it with "already packaged"). */
+        onlyDir: string;
+        /** Success notice after packaging, followed by the new archive id. */
+        packaged: string;
+      };
     };
     /** Saved deployment profiles (ChartOps parity): reusable helm
      * install/upgrade parameter sets, keyed by name. */
