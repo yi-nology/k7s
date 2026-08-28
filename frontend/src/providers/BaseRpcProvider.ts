@@ -37,6 +37,7 @@ import type {
   HelmChartVersionEntry,
   HelmOp,
   HelmOpResult,
+  HelmProfile,
   HelmRepo,
   HelmRepoUpsert,
   HelmRevisionEntry,
@@ -516,6 +517,32 @@ export abstract class BaseRpcProvider {
   }
   helmValuesRevision(namespace: string, name: string, revision: number): Promise<unknown> {
     return this.rpc<unknown>('helm_values_revision', { namespace, name, revision });
+  }
+  /** Offline `helm template` render — nothing applied, no cluster contact. */
+  helmRenderPreview(
+    chart: string,
+    version: string,
+    values: string,
+    kubeconfig?: string
+  ): Promise<string> {
+    return this.rpc<string>('helm_render_preview', {
+      chart,
+      version,
+      values,
+      kubeconfig: kubeconfig ?? null,
+    });
+  }
+  /** Saved deployment profiles, sorted by name. */
+  helmProfileList(): Promise<HelmProfile[]> {
+    return this.rpc<HelmProfile[]>('helm_profile_list', {});
+  }
+  /** Upsert a profile by name; the backend returns the full sorted list. */
+  helmProfileSave(profile: HelmProfile): Promise<HelmProfile[]> {
+    return this.rpc<HelmProfile[]>('helm_profile_save', { profile });
+  }
+  /** Delete a profile by name; the backend returns the remaining sorted list. */
+  helmProfileDelete(name: string): Promise<HelmProfile[]> {
+    return this.rpc<HelmProfile[]>('helm_profile_delete', { name });
   }
 
   // ---- Pod file management defaults ----

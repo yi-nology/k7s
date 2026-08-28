@@ -128,3 +128,29 @@ export interface LocalChartDetail {
   valuesYaml: string;
   readme: string;
 }
+
+/**
+ * A saved deployment profile (ChartOps parity): one helm install/upgrade
+ * parameter set, persisted in `<data_dir>/helm-profiles.json` and upserted by
+ * name. Field names match the Rust struct's serde camelCase wire shape.
+ */
+export interface HelmProfile {
+  /** Unique key; `[a-zA-Z0-9-_]`, ≤64 chars. */
+  name: string;
+  /** Chart reference: `repo/name`, an OCI URL, or a local absolute path. */
+  chartRef: string;
+  /** Chart version; '' = latest. */
+  version: string;
+  namespace: string;
+  /** values.yaml text ('' = chart defaults). */
+  values: string;
+  /** `--set` pairs keyed by literal Helm path (`image.tag`). */
+  set?: Record<string, unknown> | null;
+  atomic: boolean;
+  force: boolean;
+  createNamespace: boolean;
+  /** Operation timeout in seconds; null = helm's default. */
+  timeoutSecs?: number | null;
+  /** RFC3339 creation time (stamped by the backend for new profiles). */
+  createdAt: string;
+}

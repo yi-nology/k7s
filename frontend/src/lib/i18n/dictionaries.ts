@@ -641,6 +641,40 @@ export interface Dictionary {
         install: string;
         invalidFile: string;
       };
+      /** Offline render preview (`helm template`, nothing applied). */
+      render: {
+        title: string;
+        button: string;
+        empty: string;
+        /** Heading above the per-`kind` count badges (parsed from the YAML). */
+        stats: string;
+      };
+      /** Two-version diff of local charts (Chart.yaml / values.yaml). */
+      diff: {
+        title: string;
+        pickA: string;
+        pickB: string;
+        identical: string;
+      };
+    };
+    /** Saved deployment profiles (ChartOps parity): reusable helm
+     * install/upgrade parameter sets, keyed by name. */
+    profiles: {
+      save: string;
+      load: string;
+      manage: string;
+      namePlaceholder: string;
+      /** Toast after a successful save. */
+      saved: string;
+      /** Toast after a successful delete. */
+      deleted: string;
+      confirmDelete: (name: string) => string;
+      /** Title of the "upgrade existing release" entry form. */
+      upgradeTitle: string;
+      upgradeRelease: string;
+      upgradeNamespace: string;
+      /** Review-step button: diff the render against the live release. */
+      previewDiff: string;
     };
     empty: { noMatch: string; noRepos: string };
     detail: { pickChart: string };

@@ -39,6 +39,7 @@ import type {
   HelmChartVersionEntry,
   HelmOp,
   HelmOpResult,
+  HelmProfile,
   HelmRepo,
   HelmRepoUpsert,
   HelmRevisionEntry,
@@ -338,6 +339,24 @@ export interface DataProvider {
   helmManifestRevision(namespace: string, name: string, revision: number): Promise<string>;
   /** User-supplied values for a specific revision of a Helm release. */
   helmValuesRevision(namespace: string, name: string, revision: number): Promise<unknown>;
+  /**
+   * Render a chart's templates offline (`helm template`) and return the
+   * manifest YAML. Nothing is applied and no cluster is contacted; `version`
+   * '' = latest, `values` '' = chart defaults. Rejects with helm's stderr on
+   * failure (e.g. helm missing on the backend host).
+   */
+  helmRenderPreview(
+    chart: string,
+    version: string,
+    values: string,
+    kubeconfig?: string
+  ): Promise<string>;
+  /** Saved deployment profiles (`<data_dir>/helm-profiles.json`), sorted by name. */
+  helmProfileList(): Promise<HelmProfile[]>;
+  /** Upsert a profile by name; returns the full sorted list. */
+  helmProfileSave(profile: HelmProfile): Promise<HelmProfile[]>;
+  /** Delete a profile by name; returns the remaining sorted list. */
+  helmProfileDelete(name: string): Promise<HelmProfile[]>;
   onHelmOpLog(cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub;
   onHelmOpDone(cb: (result: HelmOpResult) => void): Unsub;
 

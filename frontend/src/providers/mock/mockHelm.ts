@@ -7,6 +7,7 @@ import type {
   HelmChartVersionEntry,
   HelmOp,
   HelmOpResult,
+  HelmProfile,
   HelmRepo,
   HelmRepoUpsert,
   HelmRevisionEntry,
@@ -30,6 +31,51 @@ const localCharts: LocalChartEntry[] = [
     modifiedAt: '2026-08-28T00:00:00Z',
   },
 ];
+
+/** Saved deployment profiles (in-memory — demo mode has no data dir). */
+const demoProfiles: HelmProfile[] = [
+  {
+    name: 'demo-web-prod',
+    chartRef: '/tmp/demo-app-1.1.0.tgz',
+    version: '1.1.0',
+    namespace: 'web',
+    values: 'replicaCount: 2\nservice:\n  type: ClusterIP\n',
+    set: null,
+    atomic: true,
+    force: false,
+    createNamespace: true,
+    timeoutSecs: 300,
+    createdAt: '2026-08-28T00:00:00Z',
+  },
+];
+
+/** Canned `helm template` output for the render preview in demo mode. */
+const DEMO_RENDER_YAML = `---
+# Source: demo-app/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-app
+  labels:
+    app.kubernetes.io/name: demo-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: demo-app
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: demo-app
+    spec:
+      containers:
+        - name: demo-app
+          image: "nginx:1.25.3"
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+`;
 
 function demoMockRepos(): HelmRepo[] {
   return [
@@ -171,6 +217,34 @@ export class MockHelmMixin {
 
   async helmRenderDefaultValues(_chart: string, _version: string, _kc?: string): Promise<string> {
     return '# demo values\nreplicaCount: 1\nimage:\n  repository: nginx\n  tag: latest\n';
+  }
+
+  /** Canned offline render — stable text containing `kind: Deployment` so
+   * preview UIs (and their tests) have something deterministic to assert on. */
+  async helmRenderPreview(
+    _chart: string,
+    _version: string,
+    _values: string,
+    _kc?: string
+  ): Promise<string> {
+    return DEMO_RENDER_YAML;
+  }
+
+  async helmProfileList(): Promise<HelmProfile[]> {
+    return [...demoProfiles].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async helmProfileSave(profile: HelmProfile): Promise<HelmProfile[]> {
+    const i = demoProfiles.findIndex((p) => p.name === profile.name);
+    if (i >= 0) demoProfiles[i] = profile;
+    else demoProfiles.push(profile);
+    return this.helmProfileList();
+  }
+
+  async helmProfileDelete(name: string): Promise<HelmProfile[]> {
+    const i = demoProfiles.findIndex((p) => p.name === name);
+    if (i >= 0) demoProfiles.splice(i, 1);
+    return this.helmProfileList();
   }
 
   async helmRunOp(_op: HelmOp): Promise<HelmOpResult> {

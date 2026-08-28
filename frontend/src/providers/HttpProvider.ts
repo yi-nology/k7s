@@ -50,7 +50,6 @@ import type {
   GrafanaDashboardSearchResult,
   HelmChartSummary,
   HelmChartVersionEntry,
-  HelmOp,
   HelmOpResult,
   HelmRepo,
   HelmRepoUpsert,
@@ -552,11 +551,9 @@ export class HttpProvider extends BaseRpcProvider implements DataProvider {
   async localChartUpload(filename: string, contentBase64: string): Promise<LocalChartEntry> {
     return httpPostJson<LocalChartEntry>('/api/charts/upload', { filename, contentBase64 });
   }
-  // helmRenderDefaultValues, helmReleaseHistory are inherited from
-  // BaseRpcProvider (empty defaults).
-  async helmRunOp(_op: HelmOp): Promise<HelmOpResult> {
-    return notImplemented('helm_run_op');
-  }
+  // helmRenderDefaultValues / helmReleaseHistory (empty defaults), helmRunOp,
+  // helmRenderPreview and the helmProfile* family (faithful rpc bridges over
+  // the web catch-all) are inherited from BaseRpcProvider.
   onHelmOpLog(_cb: (line: { stream: 'stdout' | 'stderr'; line: string }) => void): Unsub {
     return noopUnsub;
   }
