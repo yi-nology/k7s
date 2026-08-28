@@ -101,6 +101,16 @@ macro_rules! register_commands {
             $crate::commands::helm_manifest_revision,
             #[cfg(not(any(target_os = "ios", target_os = "android")))]
             $crate::commands::helm_values_revision,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_charts_list,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_chart_detail,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_chart_file,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_chart_import_content,
+            #[cfg(not(any(target_os = "ios", target_os = "android")))]
+            $crate::commands::local_chart_remove,
             #[cfg(not(target_os = "ios"))]
             $crate::commands::pod_files_list,
             #[cfg(not(target_os = "ios"))]
@@ -402,6 +412,11 @@ pub const COMMAND_NAMES: &[&str] = &[
     "list_port_forwards",
     "list_revisions",
     "load_prefs",
+    "local_chart_detail",
+    "local_chart_file",
+    "local_chart_import_content",
+    "local_chart_remove",
+    "local_charts_list",
     "loki_list",
     "loki_remove",
     "loki_test",

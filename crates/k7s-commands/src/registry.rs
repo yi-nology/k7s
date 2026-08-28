@@ -434,6 +434,39 @@ pub fn build_registry() -> CommandRegistry {
             commands::helm::helm_values_revision_impl(mgr, a.namespace, a.name, a.revision).await
         },
     );
+    // Local chart library (ChartOps parity) — same gate as the helm module.
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register("local_charts_list", |mgr, _a: NoArgs| async move {
+        commands::helm::local_charts_list_impl(mgr)
+    });
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "local_chart_detail",
+        |mgr, a: commands::helm::LocalChartDetailArgs| async move {
+            commands::helm::local_chart_detail_impl(mgr, a.id)
+        },
+    );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "local_chart_file",
+        |mgr, a: commands::helm::LocalChartFileArgs| async move {
+            commands::helm::local_chart_file_impl(mgr, a.id, a.path)
+        },
+    );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "local_chart_import_content",
+        |mgr, a: commands::helm::LocalChartImportContentArgs| async move {
+            commands::helm::local_chart_import_content_impl(mgr, a.filename, a.content_base64)
+        },
+    );
+    #[cfg(not(any(target_os = "ios", target_os = "android")))]
+    r.register(
+        "local_chart_remove",
+        |mgr, a: commands::helm::LocalChartRemoveArgs| async move {
+            commands::helm::local_chart_remove_impl(mgr, a.id)
+        },
+    );
     r.register(
         "start_shell",
         |mgr, a: commands::shell::StartShellArgs| async move {

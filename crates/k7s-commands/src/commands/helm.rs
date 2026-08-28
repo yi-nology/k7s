@@ -2,8 +2,8 @@
 //! upgrade/uninstall/rollback, and release history.
 
 use k7s_core::core::CoreState;
-use k7s_core::error::AppResult;
-use k7s_core::kube::{helm::market, helm::ops};
+use k7s_core::error::{AppError, AppResult};
+use k7s_core::kube::{helm::local, helm::market, helm::ops};
 #[cfg(feature = "ipc")]
 use std::sync::Arc;
 #[cfg(feature = "ipc")]
@@ -331,4 +331,146 @@ pub(crate) struct HelmRemoveRepoArgs {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct HelmSearchChartsArgs {
     pub query: String,
+}
+
+// ---------------------------------------------------------------------------
+// Local chart library (ChartOps parity) — desktop/web only, same gate as
+// the rest of this module (see commands/mod.rs). Thin wrappers over the
+// pure-filesystem functions in `k7s_core::kube::helm::local`; the library
+// root is always `<data_dir>/charts`.
+// ---------------------------------------------------------------------------
+
+/// The on-disk root of the local chart library for this CoreState.
+fn local_chart_root(mgr: &CoreState) -> std::path::PathBuf {
+    mgr.data_dir.join("charts")
+}
+
+/// Wire arguments for [`local_chart_detail`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalChartDetailArgs {
+    pub id: String,
+}
+
+/// Wire arguments for [`local_chart_file`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalChartFileArgs {
+    pub id: String,
+    pub path: String,
+}
+
+/// Wire arguments for [`local_chart_import_content`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalChartImportContentArgs {
+    pub filename: String,
+    pub content_base64: String,
+}
+
+/// Wire arguments for [`local_chart_remove`] (camelCase on the wire).
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct LocalChartRemoveArgs {
+    pub id: String,
+}
+
+/// Scan the local chart library. Pure delegation — `local.rs` does the
+/// sorting (newest first) and metadata parsing.
+pub fn local_charts_list_impl(
+    mgr: std::sync::Arc<CoreState>,
+) -> AppResult<Vec<local::LocalChartEntry>> {
+    local::scan_local_charts(&local_chart_root(&mgr))
+}
+
+/// One chart's detail view: entry + file tree + rendered README/values.
+pub fn local_chart_detail_impl(
+    mgr: std::sync::Arc<CoreState>,
+    id: String,
+) -> AppResult<local::LocalChartDetail> {
+    local::local_chart_detail(&local_chart_root(&mgr), &id)
+}
+
+/// Read one file out of a chart (tgz member or dir-chart file) as UTF-8.
+pub fn local_chart_file_impl(
+    mgr: std::sync::Arc<CoreState>,
+    id: String,
+    path: String,
+) -> AppResult<String> {
+    local::local_chart_file(&local_chart_root(&mgr), &id, &path)
+}
+
+/// Import a chart package from base64 content. Audited: chart imports add
+/// bytes to the user's disk, so they land in the audit trail like every
+/// other mutating helm operation.
+pub fn local_chart_import_content_impl(
+    mgr: std::sync::Arc<CoreState>,
+    filename: String,
+    content_base64: String,
+) -> AppResult<local::LocalChartEntry> {
+    use k7s_deps::base64::Engine;
+    let bytes = k7s_deps::base64::engine::general_purpose::STANDARD
+        .decode(&content_base64)
+        .map_err(|e| AppError::Other(format!("bad base64: {e}")))?;
+    let entry = local::import_chart_bytes(&local_chart_root(&mgr), &filename, &bytes)?;
+    k7s_core::core::audit::record(
+        "local_chart_import",
+        k7s_deps::serde_json::json!({
+            "name": entry.name,
+            "version": entry.version,
+            "bytes": bytes.len(),
+        }),
+    );
+    Ok(entry)
+}
+
+/// Delete a chart from the library. Audited — same reason as import.
+pub fn local_chart_remove_impl(mgr: std::sync::Arc<CoreState>, id: String) -> AppResult<()> {
+    local::remove_chart(&local_chart_root(&mgr), &id)?;
+    k7s_core::core::audit::record(
+        "local_chart_remove",
+        k7s_deps::serde_json::json!({ "id": id }),
+    );
+    Ok(())
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub fn local_charts_list(mgr: State<'_, Arc<CoreState>>) -> AppResult<Vec<local::LocalChartEntry>> {
+    local_charts_list_impl(mgr.inner().clone())
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub fn local_chart_detail(
+    id: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<local::LocalChartDetail> {
+    local_chart_detail_impl(mgr.inner().clone(), id)
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub fn local_chart_file(
+    id: String,
+    path: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<String> {
+    local_chart_file_impl(mgr.inner().clone(), id, path)
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub fn local_chart_import_content(
+    filename: String,
+    content_base64: String,
+    mgr: State<'_, Arc<CoreState>>,
+) -> AppResult<local::LocalChartEntry> {
+    local_chart_import_content_impl(mgr.inner().clone(), filename, content_base64)
+}
+
+#[cfg(feature = "ipc")]
+#[tauri::command]
+pub fn local_chart_remove(id: String, mgr: State<'_, Arc<CoreState>>) -> AppResult<()> {
+    local_chart_remove_impl(mgr.inner().clone(), id)
 }
