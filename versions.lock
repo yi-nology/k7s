@@ -14,11 +14,11 @@
 # so a stale lock degrades to the old behavior instead of failing the build.
 # The release workflows intentionally do NOT pin — a release should build
 # from each repo's current main.
-deps ab758c8c3b6f33a869c736c6501ecb52416d5fb6
-core 81c7f1e39763c90220d9c66907ff1bc2c07af915
-commands a0e43e63522c168ce50da72754029110ed267a48
-server d304efa13c654e607203a3ae3eb8d0e4536bf8b7
-desktop 7f3a01656ccf1227c857bffc43ccce42b1014a2d
-ios 9bd66eb9775c3025be1f936ea411e1bcb8950d7a
-android c8ea7de4e952757557526f520f86670511a4a1d5
-frontend 3a56543c33185b9a130b360d0ab22ec75b978362
+deps 985a0a79ee91f5ac65263495632abcdad5406f2c
+core 14b0b361ca13f89be6ef0c615874cf892c4b49f7
+commands 758506beda90449da0a7bdf7ce2f0ee4e354a74f
+server c11d57a87252adba9d80f3d8bcc7c7a80f9aaf71
+desktop f87964718151180fd577077b1f08eefee50cbf01
+ios ce65e3ca9e78cf19e6f468bbd51d64023321e07c
+android d4928710ab4e0b961628e8fc1b8ece119c6d7605
+frontend 35da4cf205c85fc8fc2259842e3c21dad603a5db

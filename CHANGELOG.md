@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.7.1 (2026-08-29)
+
+- **CI/工程基建版本,无产品功能变更。** 修复 k7s-commands 的 CI(其 wrapper 链接
+  tauri,需要与各 shell 相同的 GTK/WebKit 系统库,gdk-3.0 缺失导致自 08-27 连红);
+  k7s-frontend 首次拥有独立 CI(typecheck/lint/test);全部工作流加 concurrency
+  组(连推时取消过时运行);hub 恢复 dependabot(仅 github_actions 生态,已合并
+  checkout/upload-artifact/setup-node/pnpm-action-setup 四项升级);本地聚合开发根
+  新增 `make toolchain` 工具链检查与 `make tidy`/`make build` 编译后现场清理
+  (dev profile 依赖不再嵌入 DWARF,target/ 曾积到 38G 的根因治理);子仓被推时
+  `sync-repos --trigger-hub` 可立即触发装配验证。
+- 前端/桌面/MCP 行为与 v0.7.0 完全一致。
+
 ## v0.7.0 (2026-08-28)
 
 - **kubeconfig 导入解析/验证两阶段** — 导入不再止步于 YAML 解析：新增结构验证
