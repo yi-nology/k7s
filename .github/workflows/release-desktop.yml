@@ -275,7 +275,7 @@ jobs:
           done
 
       - name: upload k7s-web
-        if: runner.os != 'Linux'
+        if: startsWith(github.ref, 'refs/tags/') && runner.os != 'Linux'
         uses: softprops/action-gh-release@v3
         with:
           files: |
@@ -308,7 +308,7 @@ jobs:
         working-directory: k7s-server
 
       - name: upload k7s-web (musl static)
-        if: runner.os == 'Linux'
+        if: startsWith(github.ref, 'refs/tags/') && runner.os == 'Linux'
         uses: softprops/action-gh-release@v3
         with:
           files: |
