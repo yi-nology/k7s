@@ -1,0 +1,13 @@
+# Dependency updates for the hub's OWN workflows (assembly CI + releases).
+#
+# Deliberately github_actions ONLY: the code dependencies live in the
+# sub-repos, and there is no real Dockerfile here to bump (deploy/Dockerfile
+# is a placeholder — the release pipeline builds k7s-server/Dockerfile).
+# A config entry whose manifest doesn't exist goes zombie: registered updates
+# keep failing on schedule after the entry is removed (2026-08 npm incident).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: "weekly"
