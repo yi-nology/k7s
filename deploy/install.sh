@@ -62,26 +62,21 @@ fetch_latest_version() {
 
 artifact_name() {
   local ver="$1" os="$2" arch="$3" pkg="$4"
-  # Map uname arch to Tauri bundle naming convention
-  local linux_arch
-  case "$arch" in
-    aarch64) linux_arch="arm64" ;;
-    x86_64)  linux_arch="amd64" ;;
-    *)       linux_arch="$arch" ;;
-  esac
+  # Unified release naming: k7s[-web]-<ver>-<os>-<arch>[-variant].<ext>
+  # (v0.7.2+; installers keep their native internal arch metadata).
   case "$os" in
     macos)
-      echo "k7s_${ver}_${arch}.dmg"
+      echo "k7s-${ver}-macos-${arch}.dmg"
       ;;
     linux)
       case "$pkg" in
-        rpm)      echo "k7s_${ver}_${linux_arch}.rpm" ;;
-        appimage) echo "k7s_${ver}_${linux_arch}.AppImage" ;;
-        *)        echo "k7s_${ver}_${linux_arch}.deb" ;;
+        rpm)      echo "k7s-${ver}-linux-${arch}.rpm" ;;
+        appimage) echo "k7s-${ver}-linux-${arch}.AppImage" ;;
+        *)        echo "k7s-${ver}-linux-${arch}.deb" ;;
       esac
       ;;
     windows)
-      echo "k7s_${ver}_x64-setup.exe"
+      echo "k7s-${ver}-windows-x86_64.msi"
       ;;
   esac
 }
