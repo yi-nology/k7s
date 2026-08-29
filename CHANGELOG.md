@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.7.2 (2026-08-30)
+
+- **发布产物统一命名** — 此前一个 Release 里混着三套命名（tauri 默认的
+  `k7s_<ver>_<arch>`、手工步骤的 `k7s-web-*-static`、rpm 自带的
+  `k7s-<ver>-1.<arch>`）。现全部归一为 `k7s[-web]-<版本>-<系统>-<架构>[-变体].<扩展名>`，
+  架构统一 x86_64/aarch64。示例：`k7s-0.7.2-macos-aarch64.dmg`、
+  `k7s-0.7.2-linux-x86_64.AppImage`（麒麟兼容版带 `-glibc231` 变体后缀）、
+  `k7s-web-0.7.2-linux-x86_64-musl`。install.sh 同步新命名——其旧模板本就和
+  实际产物错位（rpm、windows 均无法命中，windows 实际发布的是 msi 而非 NSIS
+  setup.exe），此次一并修复。桌面/web 产物本身与 v0.7.1 无差异（仅版本串）。
+- CI：发布流水线改为 tauri 纯构建 + 工作流统一改名后上传；校验和覆盖到全部
+  产物（此前 AppImage/deb 部分缺 .sha256）。
+
 ## v0.7.1 (2026-08-29)
 
 - **CI/工程基建版本,无产品功能变更。** 修复 k7s-commands 的 CI(其 wrapper 链接
