@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: checkout k7s-frontend
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: yi-nology/k7s-frontend
           path: k7s-frontend
@@ -61,31 +61,31 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: checkout k7s-desktop
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: yi-nology/k7s-desktop
           path: k7s-desktop
 
       - name: checkout k7s-server
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: yi-nology/k7s-server
           path: k7s-server
 
       - name: checkout k7s-core
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: yi-nology/k7s-core
           path: k7s-core
 
       - name: checkout k7s-deps
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: yi-nology/k7s-deps
           path: k7s-deps
 
       - name: checkout k7s-commands
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: yi-nology/k7s-commands
           path: k7s-commands
