@@ -124,12 +124,42 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Build only — no tagName: the release is created by our own upload
+        # step below so every asset can be renamed to the unified scheme first.
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'k7s ${{ github.ref_name }}'
-          releaseDraft: false
-          prerelease: false
           projectPath: k7s-desktop
+
+      # ── 统一命名: k7s-<ver>-<os>-<arch>[-variant].<ext> ──
+      # tauri 默认产出 product_version_arch（rpm 还带 -1 release 号）；上传前
+      # 统一改名，install.sh 与用户只面对一种命名。
+      - name: normalize bundle names
+        if: always() && steps.tauri.conclusion == 'success'
+        shell: bash
+        working-directory: k7s-desktop
+        run: |
+          VER=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' tauri.conf.json | head -1)
+          case "$(uname -m)" in
+            arm64|aarch64) ARCH=aarch64 ;;
+            *)             ARCH=x86_64 ;;
+          esac
+          B=target/release/bundle
+          mv_glob() { local src="$1" dst="$2"; for f in $src; do [ -e "$f" ] || continue; mv "$f" "$dst"; echo "  $(basename "$f") -> $(basename "$dst")"; done; }
+          case "${{ runner.os }}" in
+            macOS)
+              mv_glob "$B"/dmg/k7s_*.dmg          "$B/dmg/k7s-$VER-macos-$ARCH.dmg"
+              mv_glob "$B"/macos/*.app.tar.gz     "$B/macos/k7s-$VER-macos-$ARCH.app.tar.gz"
+              ;;
+            Linux)
+              mv_glob "$B"/appimage/k7s_*.AppImage "$B/appimage/k7s-$VER-linux-$ARCH.AppImage"
+              mv_glob "$B"/deb/k7s_*_amd64.deb     "$B/deb/k7s-$VER-linux-x86_64.deb"
+              mv_glob "$B"/deb/k7s_*_arm64.deb     "$B/deb/k7s-$VER-linux-aarch64.deb"
+              mv_glob "$B"/rpm/k7s-*x86_64.rpm     "$B/rpm/k7s-$VER-linux-x86_64.rpm"
+              mv_glob "$B"/rpm/k7s-*aarch64.rpm    "$B/rpm/k7s-$VER-linux-aarch64.rpm"
+              ;;
+            Windows)
+              mv_glob "$B"/msi/*.msi              "$B/msi/k7s-$VER-windows-x86_64.msi"
+              ;;
+          esac
 
       # ── 注入 glibc 2.35 到 AppImage, 兼容麒麟桌面 (glibc 2.31) ──
       - name: bundle glibc into AppImage (Kylin compatibility)
@@ -137,6 +167,7 @@ jobs:
         env:
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: |
+          VER=$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' k7s-desktop/tauri.conf.json | head -1)
           # 安装 appimagetool (本身也是 AppImage, 需要 APPIMAGE_EXTRACT_AND_RUN)
           wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage" \
             -O /tmp/appimagetool
@@ -180,23 +211,9 @@ jobs:
 
           # 重新打包
           /tmp/appimagetool squashfs-root \
-            "$GITHUB_WORKSPACE/k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage"
+            "$GITHUB_WORKSPACE/k7s-desktop/target/release/bundle/appimage/k7s-$VER-linux-x86_64-glibc231.AppImage"
 
           echo "✓ AppImage with bundled glibc 2.35 created"
-
-      - name: checksum Kylin AppImage
-        if: runner.os == 'Linux' && runner.arch == 'X64'
-        run: shasum -a 256 k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage > k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage.sha256
-
-      - name: upload Kylin-compatible AppImage
-        if: runner.os == 'Linux' && runner.arch == 'X64'
-        uses: softprops/action-gh-release@v3
-        with:
-          files: |
-            k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage
-            k7s-desktop/target/release/bundle/appimage/k7s-linux-x86_64-glibc231.AppImage.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ── 校验和: 每个桌面产物配一个 .sha256, install.sh 下载后核对 ──
       - name: generate desktop bundle checksums
@@ -204,16 +221,29 @@ jobs:
         shell: bash
         run: |
           cd k7s-desktop/target/release/bundle 2>/dev/null || exit 0
-          find . -type f \( -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*-setup.exe" -o -name "*.msi" \) | while read -r f; do
+          find . -type f \( -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.AppImage" -o -name "*.app.tar.gz" \) | while read -r f; do
             (cd "$(dirname "$f")" && shasum -a 256 "$(basename "$f")" > "$(basename "$f").sha256") || sha256sum "$f" > "$f.sha256"
             echo "checksum written: $f.sha256"
           done
 
-      - name: upload desktop bundle checksums
-        if: always() && steps.tauri.conclusion == 'success'
+      - name: upload desktop bundles + checksums
+        if: startsWith(github.ref, 'refs/tags/') && always() && steps.tauri.conclusion == 'success'
         uses: softprops/action-gh-release@v3
         with:
-          files: k7s-desktop/target/release/bundle/**/*.sha256
+          tag_name: ${{ github.ref_name }}
+          files: |
+            k7s-desktop/target/release/bundle/dmg/*.dmg
+            k7s-desktop/target/release/bundle/dmg/*.dmg.sha256
+            k7s-desktop/target/release/bundle/macos/*.app.tar.gz
+            k7s-desktop/target/release/bundle/macos/*.app.tar.gz.sha256
+            k7s-desktop/target/release/bundle/appimage/*.AppImage
+            k7s-desktop/target/release/bundle/appimage/*.AppImage.sha256
+            k7s-desktop/target/release/bundle/deb/*.deb
+            k7s-desktop/target/release/bundle/deb/*.deb.sha256
+            k7s-desktop/target/release/bundle/rpm/*.rpm
+            k7s-desktop/target/release/bundle/rpm/*.rpm.sha256
+            k7s-desktop/target/release/bundle/msi/*.msi
+            k7s-desktop/target/release/bundle/msi/*.msi.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -233,10 +263,12 @@ jobs:
         shell: bash
         run: |
           cd k7s-server/target/release
+          VER=$(sed -n 's/^version = "\(.*\)"/\1/p' "$GITHUB_WORKSPACE/k7s-server/Cargo.toml" | head -1)
+          ARCH=$(uname -m | sed 's/arm64/aarch64/')
           if [ "${{ runner.os }}" = "Windows" ]; then
-            cp k7s-web.exe k7s-web-windows-x64.exe
+            cp k7s-web.exe "k7s-web-$VER-windows-x86_64.exe"
           elif [ "${{ runner.os }}" = "macOS" ]; then
-            cp k7s-web k7s-web-macos-$(uname -m)
+            cp k7s-web "k7s-web-$VER-macos-$ARCH"
           fi
           for f in k7s-web-*; do
             [ -f "$f" ] && (shasum -a 256 "$f" > "$f.sha256" || sha256sum "$f" > "$f.sha256")
@@ -267,11 +299,12 @@ jobs:
           cargo build --release --features web --bin k7s-web \
             --target "$TARGET"
           # Note: do NOT strip musl binaries — strip can corrupt them.
+          VER=$(sed -n 's/^version = "\(.*\)"/\1/p' "$GITHUB_WORKSPACE/k7s-server/Cargo.toml" | head -1)
           cp "target/${TARGET}/release/k7s-web" \
-             "../k7s-web-linux-${SUFFIX}-static"
+             "../k7s-web-${VER}-linux-${SUFFIX}-musl"
           cd ..
-          (shasum -a 256 "k7s-web-linux-${SUFFIX}-static" > "k7s-web-linux-${SUFFIX}-static.sha256" \
-            || sha256sum "k7s-web-linux-${SUFFIX}-static" > "k7s-web-linux-${SUFFIX}-static.sha256")
+          (shasum -a 256 "k7s-web-${VER}-linux-${SUFFIX}-musl" > "k7s-web-${VER}-linux-${SUFFIX}-musl.sha256" \
+            || sha256sum "k7s-web-${VER}-linux-${SUFFIX}-musl" > "k7s-web-${VER}-linux-${SUFFIX}-musl.sha256")
         working-directory: k7s-server
 
       - name: upload k7s-web (musl static)
@@ -279,7 +312,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            k7s-server/../k7s-web-linux-*-static
-            k7s-server/../k7s-web-linux-*-static.sha256
+            k7s-server/../k7s-web-*-linux-*-musl
+            k7s-server/../k7s-web-*-linux-*-musl.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
