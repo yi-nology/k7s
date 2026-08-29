@@ -109,7 +109,7 @@ jobs:
             librsvg2-dev libssl-dev build-essential file
       - uses: pnpm/action-setup@v6
         with: { version: 10 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "26"
           cache: pnpm
@@ -160,7 +160,7 @@ jobs:
         with: { repository: yi-nology/k7s-frontend, path: frontend, ref: "${{ steps.pins.outputs.frontend }}" }
       - uses: pnpm/action-setup@v6
         with: { version: 10 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "26"
           cache: pnpm
@@ -289,7 +289,7 @@ jobs:
           fi
       - uses: pnpm/action-setup@v6
         with: { version: 10 }
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "26"
           cache: pnpm
