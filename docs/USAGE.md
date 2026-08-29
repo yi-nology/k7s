@@ -1,6 +1,6 @@
 # k7s 使用说明
 
-> 本文档基于 v0.5.1，截图均为连接真实集群（K3s v1.36）的 Web 模式实拍。
+> 本文档基于 v0.7.2，截图均为连接真实集群（K3s v1.36）的 Web 模式实拍。
 
 ## 目录
 
@@ -27,12 +27,13 @@
 
 | 平台 | 文件 |
 |---|---|
-| macOS (Apple Silicon) | `k7s_0.5.1_aarch64.dmg` |
-| macOS (Intel) | `k7s_0.5.1_amd64.dmg` |
-| Windows | `k7s_0.5.1_x64-setup.exe` |
-| Linux x64 | `k7s_0.5.1_amd64.AppImage` / `.deb` / `.rpm` |
-| Linux ARM64 | `k7s_0.5.1_aarch64.AppImage` / `.deb` / `.rpm` |
-| 麒麟/旧 glibc 系统 | `k7s-linux-x86_64-glibc231.AppImage`（内嵌 glibc 2.35，兼容 glibc ≥ 2.31） |
+| macOS (Apple Silicon) | `k7s-0.7.2-macos-aarch64.dmg` |
+| Windows | `k7s-0.7.2-windows-x86_64.msi` |
+| Linux x64 | `k7s-0.7.2-linux-x86_64.AppImage` / `.deb` / `.rpm` |
+| Linux ARM64 | `k7s-0.7.2-linux-aarch64.AppImage` / `.deb` / `.rpm` |
+| 麒麟/旧 glibc 系统 | `k7s-0.7.2-linux-x86_64-glibc231.AppImage`（内嵌 glibc 2.35，兼容 glibc ≥ 2.31） |
+
+（macOS Intel 包自 v0.7.2 起不再提供，Intel Mac 可用 Web 服务器版或 Docker。）
 
 桌面版自动读取 `~/.kube/config`，启动即连。
 
@@ -42,9 +43,9 @@
 
 ```bash
 # 下载静态二进制（musl 编译，无任何系统依赖，Linux 通吃）
-curl -LO https://github.com/yi-nology/k7s/releases/download/v0.5.1/k7s-web-linux-x86_64-static
-chmod +x k7s-web-linux-x86_64-static
-./k7s-web-linux-x86_64-static --port 7180
+curl -LO https://github.com/yi-nology/k7s/releases/download/v0.7.2/k7s-web-0.7.2-linux-x86_64-musl
+chmod +x k7s-web-0.7.2-linux-x86_64-musl
+./k7s-web-0.7.2-linux-x86_64-musl --port 7180
 ```
 
 启动后终端打印访问地址；**无浏览器的服务器会自动跳过打开浏览器**并提示，`--no-open` 可显式关闭。
@@ -55,7 +56,7 @@ chmod +x k7s-web-linux-x86_64-static
 docker run -d --name k7s \
   -p 7180:8080 \
   -v ~/.kube/config:/home/k7s/.kube/config:ro \
-  ghcr.io/yi-nology/k7s:0.5.1
+  ghcr.io/yi-nology/k7s:latest
 ```
 
 ## 2. 连接集群
@@ -225,4 +226,4 @@ k7s 内置 MCP 服务器（101 个工具），可接入 Claude Desktop、Cursor 
 设置 → AI → 「测试连接」验证 API 可达；本地模型确认 Ollama 等服务已启动。
 
 **Q：Linux 桌面版报 glibc 版本错误？**
-改用 `k7s-linux-x86_64-glibc231.AppImage`（自带 glibc）或 `k7s-web-*-static`。
+改用 `k7s-*-linux-x86_64-glibc231.AppImage`（自带 glibc）或 `k7s-web-*-musl`。
