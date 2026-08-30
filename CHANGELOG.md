@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.7.3 (2026-08-30)
+
+- **纯文档版本，无产品功能变更。** USAGE.md 全面对齐 v0.7.2 统一产物命名：安装包
+  表格换成实际资产名（`k7s-0.7.2-macos-aarch64.dmg`、`k7s-0.7.2-windows-x86_64.msi` 等），
+  标注 macOS Intel 包自 v0.7.2 起不再提供；web 单二进制示例从 `k7s-web-*-static` 修正为
+  `k7s-web-*-musl`；Docker 示例改用 `latest` 标签。
+- 发布工程：历史 Release / git tag / GHCR 旧版本镜像已清理，远端仅保留 v0.7.2 起的
+  版本线；子仓 versions.lock 8 pin 随 v0.7.3 同步刷新。
 ## v0.7.2 (2026-08-30)
 
 - **发布产物统一命名** — 此前一个 Release 里混着三套命名（tauri 默认的
