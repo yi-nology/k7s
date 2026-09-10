@@ -9,6 +9,16 @@
   TLS，或反向代理携带 `X-Forwarded-Proto: https` 时才加；明文 HTTP 部署
   （局域网直连 `http://<ip>:7180`、http 反代）恢复可用。https 部署行为不变。
   涉及 `k7s-server` 的 login/setup/logout 三处会话 cookie，含路由级测试。
+- **修复：web 导入的 kubeconfig 无法连接。** `connect` 对导入上下文按文件
+  路径读取，而浏览器粘贴/上传的配置根本没有磁盘文件，连接必然报
+  "No such file or directory"。现在连接会使用导入时缓存在管理器里的解析
+  结果（与 MCP 工具路径一致）。
+- **新增：kubeconfig 在线粘贴导入 + 校验预览 + 导入删除。** 新增
+  `validate_kubeconfig_content`（解析+校验但不入库）：粘贴 YAML 后先预览
+  解析出的集群（含 server 地址）、用户（含认证方式）、上下文清单，错误逐条
+  提示（如 context 引用了未定义的 user），校验通过才允许导入；导入的上下文
+  带删除入口（误导可撤销，连接中的上下文删除时自动断开）。前端向导与集群
+  切换器同步落地，中英文案齐全。
 - CI：k7s-server 新增 `web-binary.yml`（workflow_dispatch 构建 aarch64 musl
   静态二进制并上传 artifact，复用 release 流水线的 arm64 runner + musl-tools
   配方），便于运维不发版重建部署镜像。
