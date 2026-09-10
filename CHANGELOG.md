@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.7.4 (2026-09-10)
+
+- **修复：web 模式远程密码登录在明文 HTTP 下失效。** 非 loopback 绑定的会话
+  cookie 原先硬编码 `Secure` 标志，而浏览器拒绝在明文 HTTP 页面上存取 Secure
+  cookie——表现为密码正确、登录接口 200，但会话永远无法建立，界面无限弹回
+  登录页。现在 `Secure` 改为跟随真实协议：本机以 `--tls-cert/--tls-key` 终结
+  TLS，或反向代理携带 `X-Forwarded-Proto: https` 时才加；明文 HTTP 部署
+  （局域网直连 `http://<ip>:7180`、http 反代）恢复可用。https 部署行为不变。
+  涉及 `k7s-server` 的 login/setup/logout 三处会话 cookie，含路由级测试。
+- CI：k7s-server 新增 `web-binary.yml`（workflow_dispatch 构建 aarch64 musl
+  静态二进制并上传 artifact，复用 release 流水线的 arm64 runner + musl-tools
+  配方），便于运维不发版重建部署镜像。
+- 版本线：8 子仓同步 v0.7.4 并逐仓打 tag；versions.lock 全量刷新。
+
 ## v0.7.3 (2026-08-30)
 
 - **纯文档版本，无产品功能变更。** USAGE.md 全面对齐 v0.7.2 统一产物命名：安装包
