@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.7.6 (2026-10-30)
+
+- **修复：web 模式跨集群误写（在 rd1 页面改镜像，rd2 也被替换成同一版本）。**
+  `k7s-web` 全进程共用一个活动集群连接，页面写操作（修改镜像 / YAML 应用 /
+  删除 / 扩缩容）只携带资源名，实际落在当时的全局集群上；两个环境存在同名
+  资源（如 `deployments/server`）时写入必然成功且无任何提示。现在每个连接
+  带单调 epoch：connect 返回该 epoch，写命令回传，与当前连接不一致时返回
+  “集群已切换（当前 X #n，请求 #m），请刷新重试”；`cluster-status` 同时携带
+  context/epoch，其他会话把后端切到别的集群时，前端会提示并清空失效视图
+  （旧集群的迟到事件仍按原逻辑丢弃）。桌面端单用户，不发送 epoch，行为不变。
+- 版本线：`core / commands / server / frontend` 四仓与 hub 打 v0.7.6 tag；
+  `deps / desktop / ios / android` 本次无改动、未另打 tag；versions.lock 已刷新。
+
 ## v0.7.5 (2026-09-14)
 
 - **修复：web 导入的 kubeconfig 重启后丢失。** 浏览器导入（上传/粘贴）的

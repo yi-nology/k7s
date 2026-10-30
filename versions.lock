@@ -15,10 +15,10 @@
 # The release workflows intentionally do NOT pin — a release should build
 # from each repo's current main.
 deps 78d9d444d2791deae9017f4ccd4e10ac0de1bd2e
-core 27ee8941003645bd1845563e1de34b4e5b677f4e
-commands 13d93adda6d53cb5afb3f5463f4d88824524bafa
-server 4cd8e7d5213ab2eb4ebaf8383c0e920255b70005
+core 109df41b907f5f599169504cfbc31e11e6b8f25c
+commands 0efa5be84031c4dd414b5e8c8582d1560f8026a9
+server 30173a28ed3a8bd0be67315fe07666ae186a3860
 desktop 1b34d33dd9f9f925e77896201cf610e974d5df60
 ios 9a8d1b018bb64a6726915c7fa404c1a89682b726
 android daa5f86acbe3b7072dcaa8f35593b10e609d627b
-frontend 15b788ec55ea68d575e5517f05923689914f81eb
+frontend b00c1080362395e013659ac527b41fcd324e9665
