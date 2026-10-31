@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.7.7 (2026-10-31)
+
+- **新增：web 模式按登录隔离集群连接。** 此前 `k7s-web` 全进程共用一个连接，任何
+  会话切集群都会带走所有人的资源视图和写入目标。现在每次密码登录有独立的
+  `ClientManager` 和事件流：各自的当前集群、watcher、端口转发、终端、日志流互不
+  影响，SSE 事件按会话扇出；登出或会话过期即销毁该连接。无 cookie 的入口
+  （Bearer API、cron）仍走共享的 service 连接；AI 配置/记忆、SBOM、本地 chart 库、
+  prefs、审计日志仍全局共享。同浏览器多标签页属同一会话、共用一个连接。
+- 版本线：`core / commands / server / frontend` 与 hub 打 v0.7.7 tag；versions.lock 已刷新。
+
 ## v0.7.6 (2026-10-30)
 
 - **修复：web 模式跨集群误写（在 rd1 页面改镜像，rd2 也被替换成同一版本）。**
